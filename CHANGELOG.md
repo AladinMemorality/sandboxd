@@ -6,6 +6,13 @@ All notable changes to sandboxd are documented here. The format is based on
 patch** — each lands the meaningful changes merged since the last one — and a
 **minor bump marks a milestone** release).
 
+## [0.3.4] — 2026-07-30
+
+* feat(brain): spoke notes (brain/*.md) + shared-concept radar by @tastyeffectco in https://github.com/tastyeffectco/sandboxd/pull/96
+
+
+**Full Changelog**: https://github.com/tastyeffectco/sandboxd/compare/v0.3.3...v0.3.4
+
 ## [0.3.3] — 2026-07-30
 
 * feat(brain): [[wikilinks]] between brains + knowledge graph view by @tastyeffectco in https://github.com/tastyeffectco/sandboxd/pull/95
