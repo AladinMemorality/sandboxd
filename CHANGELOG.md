@@ -6,6 +6,13 @@ All notable changes to sandboxd are documented here. The format is based on
 patch** — each lands the meaningful changes merged since the last one — and a
 **minor bump marks a milestone** release).
 
+## [0.3.3] — 2026-07-30
+
+* feat(brain): [[wikilinks]] between brains + knowledge graph view by @tastyeffectco in https://github.com/tastyeffectco/sandboxd/pull/95
+
+
+**Full Changelog**: https://github.com/tastyeffectco/sandboxd/compare/v0.3.2...v0.3.3
+
 ## [0.3.2] — 2026-07-30
 
 * feat: Project Brain — persistent per-app memory (BRAIN.md) by @tastyeffectco in https://github.com/tastyeffectco/sandboxd/pull/94
