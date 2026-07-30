@@ -6,6 +6,14 @@ All notable changes to sandboxd are documented here. The format is based on
 patch** — each lands the meaningful changes merged since the last one — and a
 **minor bump marks a milestone** release).
 
+## [0.3.5] — 2026-07-30
+
+* fix: self-healing start — recreate sandboxes whose container is stale or missing by @tastyeffectco in https://github.com/tastyeffectco/sandboxd/pull/97
+* fix(authproxy): fail fast with the provider's real message instead of a timeout by @tastyeffectco in https://github.com/tastyeffectco/sandboxd/pull/98
+
+
+**Full Changelog**: https://github.com/tastyeffectco/sandboxd/compare/v0.3.4...v0.3.5
+
 ## [0.3.4] — 2026-07-30
 
 * feat(brain): spoke notes (brain/*.md) + shared-concept radar by @tastyeffectco in https://github.com/tastyeffectco/sandboxd/pull/96
