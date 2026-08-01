@@ -6,6 +6,14 @@ All notable changes to sandboxd are documented here. The format is based on
 patch** — each lands the meaningful changes merged since the last one — and a
 **minor bump marks a milestone** release).
 
+## [0.3.6] — 2026-08-01
+
+* fix(console): stop double-prefixing write paths (console saves went to a phantom dir) by @tastyeffectco in https://github.com/tastyeffectco/sandboxd/pull/99
+* feat(detect): detect the project's package manager (yarn/npm/bun), not just pnpm by @tastyeffectco in https://github.com/tastyeffectco/sandboxd/pull/100
+
+
+**Full Changelog**: https://github.com/tastyeffectco/sandboxd/compare/v0.3.5...v0.3.6
+
 ## [0.3.5] — 2026-07-30
 
 * fix: self-healing start — recreate sandboxes whose container is stale or missing by @tastyeffectco in https://github.com/tastyeffectco/sandboxd/pull/97
