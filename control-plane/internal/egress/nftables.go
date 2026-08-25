@@ -207,7 +207,7 @@ func (n *Nft) ReadDropCounters(ctx context.Context) ([]DropCounter, error) {
 }
 
 // reasonFromComment maps a rule comment to a Prometheus label value.
-// Keep this table in sync with host/nftables/sandboxed.nft.
+// Keep this table in sync with host/nftables/sandboxd.nft.
 func reasonFromComment(c string) string {
 	switch c {
 	case "block cloud metadata":

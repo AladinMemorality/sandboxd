@@ -1,6 +1,6 @@
 // Package nginx provides a polling filesystem watcher that
 // safe-reloads nginx (running as a Docker container) on changes to
-// operator-managed config under /etc/sandboxed/nginx/.
+// operator-managed config under /etc/sandboxd/nginx/.
 //
 // Design notes
 //

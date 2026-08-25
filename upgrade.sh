@@ -56,7 +56,17 @@ for _a in "$@"; do case "$_a" in --*) ;; *) REF="$_a"; break ;; esac; done
 # ── load .env + detect docker/compose (mirrors install.sh) ───────────
 # shellcheck disable=SC1091
 set -a; . ./.env 2>/dev/null || true; set +a
-DATA_DIR="${SANDBOXD_DATA_DIR:-/var/lib/sandboxed}"
+
+# Pre-rename installs keep their data at /var/lib/sandboxed. If .env does not pin
+# SANDBOXD_DATA_DIR and the old directory exists, pin it now — never move data.
+if [ -z "${SANDBOXD_DATA_DIR:-}" ] && [ -d /var/lib/sandboxed ] && [ ! -d /var/lib/sandboxd ]; then
+  SANDBOXD_DATA_DIR=/var/lib/sandboxed; export SANDBOXD_DATA_DIR
+  if [ -f .env ] && ! grep -q '^SANDBOXD_DATA_DIR=' .env; then
+    printf 'SANDBOXD_DATA_DIR=/var/lib/sandboxed\nSANDBOXD_LOG_DIR=/var/lib/sandboxed/log\n' >> .env
+  fi
+  echo "  › data stays at /var/lib/sandboxed (pre-rename install); new installs use /var/lib/sandboxd"
+fi
+DATA_DIR="${SANDBOXD_DATA_DIR:-/var/lib/sandboxd}"
 API_BIND="${SANDBOXD_API_BIND:-127.0.0.1:9090}"
 
 DOCKER="docker"; docker info >/dev/null 2>&1 || DOCKER="sudo docker"

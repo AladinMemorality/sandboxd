@@ -29,7 +29,7 @@ import (
 //     the file at offset 0.
 //   - Survive truncation: detect via current-size < last-read-offset;
 //     reopen at 0.
-//   - Checkpoint the byte offset to /var/lib/sandboxed/state/
+//   - Checkpoint the byte offset to /var/lib/sandboxd/state/
 //     so a daemon restart doesn't replay the entire log. A stale
 //     checkpoint is fine — we only ever move last_active_at forward.
 //
@@ -37,8 +37,8 @@ import (
 // can write partial trailing bytes during rotation). A line that
 // doesn't parse as JSON is logged at debug-level and skipped.
 type Tailer struct {
-	LogPath        string // /var/log/sandboxed/traefik-access.log
-	CheckpointPath string // /var/lib/sandboxed/state/traefik-tail.offset
+	LogPath        string // /var/log/sandboxd/traefik-access.log
+	CheckpointPath string // /var/lib/sandboxd/state/traefik-tail.offset
 	PreviewDomain  string // example.com
 	Store          *store.Store
 	Log            *slog.Logger

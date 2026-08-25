@@ -38,7 +38,7 @@ func TestDeleteAppCascade(t *testing.T) {
 	if err := st.CreateSnapshot(ctx, &Snapshot{
 		ID: "01SNP0000000000000000000N1", Name: "snap", OwnerToken: "tenant-1",
 		BaseImage: "img", Visibility: "private", Format: "raw", Status: "ready",
-		ImagePath:   "/var/lib/sandboxed/library/01SNP0000000000000000000N1.img",
+		ImagePath:   "/var/lib/sandboxd/library/01SNP0000000000000000000N1.img",
 		SourceAppID: sql.NullString{String: app.ID, Valid: true},
 	}); err != nil {
 		t.Fatal(err)

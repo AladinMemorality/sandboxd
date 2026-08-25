@@ -72,8 +72,14 @@ const (
 	// bind-mounts this path host:container symmetric, so it is a valid
 	// host path for the sibling `docker run -v`. Override with
 	// SANDBOXD_DATA_DIR / SANDBOXD_LOG_DIR (paths derived in main()).
-	defaultDataDir = "/var/lib/sandboxed"
-	defaultLogDir  = "/var/log/sandboxed"
+	defaultDataDir = "/var/lib/sandboxd"
+	defaultLogDir  = "/var/log/sandboxd"
+
+	// The project used to be called "sandboxed"; installs from before the
+	// rename keep their data where it is. Never move data silently.
+	legacyDataDir = "/var/lib/sandboxed"
+	legacyLogDir  = "/var/log/sandboxed"
+	legacyEtcDir  = "/etc/sandboxed"
 
 	// Idle / pressure / wake defaults. Each overridable via env; see
 	// .env.example and README "Configuration".
@@ -127,8 +133,8 @@ func main() {
 	// dataDir; the compose file bind-mounts dataDir host:container
 	// symmetric so the path sandboxd writes is also a valid host path
 	// for the sibling `docker run -v <workspace>:/home/sandbox`.
-	dataDir := envDefault("SANDBOXD_DATA_DIR", defaultDataDir)
-	logDir := envDefault("SANDBOXD_LOG_DIR", defaultLogDir)
+	dataDir := envDefault("SANDBOXD_DATA_DIR", legacyAware(defaultDataDir, legacyDataDir))
+	logDir := envDefault("SANDBOXD_LOG_DIR", legacyAware(defaultLogDir, legacyLogDir))
 	stateDir := filepath.Join(dataDir, "state")
 	dbPath := filepath.Join(stateDir, "sandboxd.db")
 	workspacesRoot := filepath.Join(dataDir, "workspaces")
@@ -197,7 +203,7 @@ func main() {
 	// already loaded the EnvironmentFile); SIGHUP re-reads the file.
 	auditLog := audit.New(st, log.With("component", "audit"))
 	eventRec := events.New(st, log.With("component", "events"))
-	envFile := envDefault("SANDBOXD_ENV_FILE", "/etc/sandboxed/sandboxd.env")
+	envFile := envDefault("SANDBOXD_ENV_FILE", legacyAware("/etc/sandboxd/sandboxd.env", legacyEtcDir+"/sandboxd.env"))
 	authCfg := auth.ParseConfig(os.Getenv)
 	// The credential resolver validates DB-backed console sessions and API keys;
 	// env-configured SANDBOXD_API_TOKENS remain a fallback for the bootstrap key.
@@ -539,7 +545,7 @@ func main() {
 		ForwardAuthDenyMode: denyMode,
 		TemplatesDir:        envDefault("SANDBOXD_TEMPLATES_DIR", templatesRoot),
 		LibraryRoot:         envDefault("SANDBOXD_LIBRARY_DIR", libraryRoot),
-		LLMTxtPath:          envDefault("SANDBOXD_LLM_TXT_PATH", "/etc/sandboxed/llm.txt"),
+		LLMTxtPath:          envDefault("SANDBOXD_LLM_TXT_PATH", legacyAware("/etc/sandboxd/llm.txt", legacyEtcDir+"/llm.txt")),
 		Instance: api.InstanceInfo{
 			Version:              version,
 			GitCommit:            gitCommit,
@@ -1037,4 +1043,18 @@ func runtimePresetForSandbox(ctx context.Context, st *store.Store, sb *store.San
 		return ""
 	}
 	return app.RuntimePreset.String
+}
+
+
+// legacyAware returns preferred unless it does not exist and the pre-rename
+// path does — the "sandboxed" → "sandboxd" rename must never strand an
+// existing install's files.
+func legacyAware(preferred, legacy string) string {
+	if _, err := os.Stat(preferred); err == nil {
+		return preferred
+	}
+	if _, err := os.Stat(legacy); err == nil {
+		return legacy
+	}
+	return preferred
 }

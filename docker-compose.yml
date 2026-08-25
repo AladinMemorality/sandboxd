@@ -43,7 +43,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./traefik/dynamic:/etc/traefik/dynamic:ro
-      - ${SANDBOXD_LOG_DIR:-/var/lib/sandboxed/log}:${SANDBOXD_LOG_DIR:-/var/lib/sandboxed/log}
+      - ${SANDBOXD_LOG_DIR:-/var/lib/sandboxd/log}:${SANDBOXD_LOG_DIR:-/var/lib/sandboxd/log}
     networks:
       - sandboxd_net
 
@@ -68,8 +68,8 @@ services:
       # Symmetric data-dir mount: the path sandboxd writes is ALSO a valid
       # host path, so the sibling `docker run -v <workspace>:/home/sandbox`
       # resolves on the host daemon. Do not change one side without the other.
-      - ${SANDBOXD_DATA_DIR:-/var/lib/sandboxed}:${SANDBOXD_DATA_DIR:-/var/lib/sandboxed}
-      - ${SANDBOXD_LOG_DIR:-/var/lib/sandboxed/log}:${SANDBOXD_LOG_DIR:-/var/lib/sandboxed/log}
+      - ${SANDBOXD_DATA_DIR:-/var/lib/sandboxd}:${SANDBOXD_DATA_DIR:-/var/lib/sandboxd}
+      - ${SANDBOXD_LOG_DIR:-/var/lib/sandboxd/log}:${SANDBOXD_LOG_DIR:-/var/lib/sandboxd/log}
     environment:
       # --- core ---
       PREVIEW_DOMAIN: ${PREVIEW_DOMAIN:-localhost}
@@ -87,9 +87,9 @@ services:
       # for gVisor sandboxes (netstack can't reach Docker's embedded DNS).
       SANDBOXD_RUNTIME: ${SANDBOXD_RUNTIME:-}
       SANDBOXD_DNS: ${SANDBOXD_DNS:-}
-      SANDBOXD_DATA_DIR: ${SANDBOXD_DATA_DIR:-/var/lib/sandboxed}
-      SANDBOXD_LOG_DIR: ${SANDBOXD_LOG_DIR:-/var/lib/sandboxed/log}
-      SANDBOXD_ACCESS_LOG: ${SANDBOXD_LOG_DIR:-/var/lib/sandboxed/log}/traefik-access.log
+      SANDBOXD_DATA_DIR: ${SANDBOXD_DATA_DIR:-/var/lib/sandboxd}
+      SANDBOXD_LOG_DIR: ${SANDBOXD_LOG_DIR:-/var/lib/sandboxd/log}
+      SANDBOXD_ACCESS_LOG: ${SANDBOXD_LOG_DIR:-/var/lib/sandboxd/log}/traefik-access.log
       # --- routing (HTTP by default) ---
       PREVIEW_ENTRYPOINT: ${PREVIEW_ENTRYPOINT:-web}
       PREVIEW_TLS: ${PREVIEW_TLS:-false}

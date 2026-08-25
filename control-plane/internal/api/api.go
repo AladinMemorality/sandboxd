@@ -93,7 +93,7 @@ type Server struct {
 
 	// LibraryRoot is the host directory holding user-created snapshot
 	// images —
-	// /var/lib/sandboxed/library/<snapshot_id>.img. Independent of
+	// /var/lib/sandboxd/library/<snapshot_id>.img. Independent of
 	// _snapshots/ (the Phase 7 auto-snapshot tree) so the retention
 	// pruner and per-sandbox purge never touch templates. Empty disables
 	// the /v1/snapshots endpoints (503).

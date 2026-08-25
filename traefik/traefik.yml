@@ -45,7 +45,7 @@ accessLog:
   # Written to a path bind-mounted into BOTH traefik and sandboxd so the
   # control plane's tailer can read RequestHost lines and keep sandboxes
   # marked active. Must match SANDBOXD_LOG_DIR / SANDBOXD_ACCESS_LOG.
-  filePath: /var/lib/sandboxed/log/traefik-access.log
+  filePath: /var/lib/sandboxd/log/traefik-access.log
   format: json
   bufferingSize: 0
   fields:

@@ -31,7 +31,7 @@ import (
 // caps the damage.
 type Collector struct {
 	Manager *Manager
-	LogDir  string // /var/log/sandboxed/egress
+	LogDir  string // /var/log/sandboxd/egress
 	Log     *slog.Logger
 
 	// JournalctlArgs lets tests inject a fake binary; production
@@ -69,7 +69,7 @@ func (c *Collector) Run(ctx context.Context) error {
 		}
 	}
 	if c.LogDir == "" {
-		c.LogDir = "/var/log/sandboxed/egress"
+		c.LogDir = "/var/log/sandboxd/egress"
 	}
 	if err := os.MkdirAll(c.LogDir, 0o750); err != nil {
 		c.Log.Warn("egress: mkdir log dir failed", "err", err.Error())

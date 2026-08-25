@@ -63,11 +63,11 @@ jobs:
         run: cd control-plane && go build -o /tmp/sandboxd ./cmd/sandboxd
 
       - name: build base image
-        run: docker build -f image/Dockerfile -t sandboxed-base:ci .
+        run: docker build -f image/Dockerfile -t sandboxd-base:ci .
 
       - name: e2e
         env:
-          SANDBOXD_IMAGE: sandboxed-base:ci
+          SANDBOXD_IMAGE: sandboxd-base:ci
           SANDBOXD_BIN: /tmp/sandboxd
         run: bash scripts/e2e.sh
 

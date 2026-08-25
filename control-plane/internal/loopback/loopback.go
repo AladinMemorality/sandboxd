@@ -52,7 +52,7 @@ var lchownFn = os.Lchown
 
 // Manager owns the workspace data root and the seeding image.
 type Manager struct {
-	Root      string // data root, e.g. /var/lib/sandboxed/workspaces
+	Root      string // data root, e.g. /var/lib/sandboxd/workspaces
 	SeedImage string // base image used for the one-shot seed container
 	DockerBin string // "docker"; injectable for tests
 	Userns    string // --userns for the seed container ("host" by default)
@@ -64,7 +64,7 @@ type Manager struct {
 // overridden from the environment by the caller (sandboxd main).
 func New() *Manager {
 	return &Manager{
-		Root:      "/var/lib/sandboxed/workspaces",
+		Root:      "/var/lib/sandboxd/workspaces",
 		SeedImage: "sandboxd-base:1.0.0",
 		DockerBin: "docker",
 		Userns:    "host",

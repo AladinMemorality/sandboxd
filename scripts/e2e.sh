@@ -4,10 +4,10 @@
 # NO model credentials required, so it is deterministic in CI.
 #
 # Inputs (env):
-#   SANDBOXD_IMAGE  built base image tag (e.g. sandboxed-base:ci)
+#   SANDBOXD_IMAGE  built base image tag (e.g. sandboxd-base:ci)
 #   SANDBOXD_BIN    path to a built sandboxd binary
 #
-# Run locally:  SANDBOXD_IMAGE=sandboxed-base:starter SANDBOXD_BIN=/tmp/sandboxd sudo -E bash scripts/e2e.sh
+# Run locally:  SANDBOXD_IMAGE=sandboxd-base:starter SANDBOXD_BIN=/tmp/sandboxd sudo -E bash scripts/e2e.sh
 set -uo pipefail
 
 IMG="${SANDBOXD_IMAGE:?set SANDBOXD_IMAGE}"

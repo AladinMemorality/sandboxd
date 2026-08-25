@@ -44,7 +44,7 @@ rm -f "$ROOT/.env"   # force a fresh .env so the platform branch runs
 data="$(grep '^SANDBOXD_DATA_DIR=' "$ROOT/.env" | cut -d= -f2-)"
 case "$(uname -s)" in
   Darwin) expect="$HOME/.sandboxd/data" ;;
-  *)      expect="/var/lib/sandboxed" ;;
+  *)      expect="/var/lib/sandboxd" ;;
 esac
 if [ "$data" != "$expect" ]; then
   echo "FAIL: SANDBOXD_DATA_DIR=$data (expected $expect on $(uname -s))" >&2

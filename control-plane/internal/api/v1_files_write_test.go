@@ -6,7 +6,7 @@ import (
 )
 
 func TestResolveWritePath(t *testing.T) {
-	const mnt = "/var/lib/sandboxed/workspaces/01XYZ.mnt"
+	const mnt = "/var/lib/sandboxd/workspaces/01XYZ.mnt"
 
 	cases := []struct {
 		name     string
@@ -74,7 +74,7 @@ func TestResolveWritePath(t *testing.T) {
 // Property check: no string passed as `raw` can resolve to a path that
 // escapes the mount, no matter how mean.
 func TestResolveWritePath_NeverEscapes(t *testing.T) {
-	const mnt = "/var/lib/sandboxed/workspaces/01XYZ.mnt"
+	const mnt = "/var/lib/sandboxd/workspaces/01XYZ.mnt"
 	probes := []string{
 		"..", "../", "../..", "../../../etc/passwd",
 		"workspace/../..",

@@ -46,7 +46,7 @@ from `../.env`. The ones the OSS build adds or changes:
 | `PREVIEW_TLS` | `false` | emit `tls=true` on preview routers |
 | `SANDBOXD_NETWORK` | `sandboxd_net` | docker network sandboxes join |
 | `SANDBOXD_USERNS` | `host` | `--userns` for sandboxes + the seed container |
-| `SANDBOXD_DATA_DIR` | `/var/lib/sandboxed` | workspaces + SQLite + logs |
+| `SANDBOXD_DATA_DIR` | `/var/lib/sandboxd` | workspaces + SQLite + logs |
 | `SANDBOXD_SET_MEMORY_HIGH` | `false` | write cgroup `memory.high` (needs host cgroup access) |
 | `SANDBOXD_IMAGE` | `sandboxd-base:0.3.0` | per-sandbox base image |
 | `SANDBOXD_API_AUTH_DISABLED` | `true` | open API for local use |

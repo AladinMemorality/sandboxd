@@ -8,7 +8,7 @@ import (
 // handleLLMTxt serves the public API contract (llm.txt) over the
 // external path WITHOUT a bearer token — it is intentionally public
 // documentation for third-party integrators and coding agents. Served
-// from LLMTxtPath on the host (default /etc/sandboxed/llm.txt);
+// from LLMTxtPath on the host (default /etc/sandboxd/llm.txt);
 // read per request (the file is tiny) so an edit is reflected without a
 // redeploy. 404 when unconfigured or absent. The /llm.txt path is
 // listed in the auth middleware's exemptPaths so the external router

@@ -95,7 +95,17 @@ fi
 
 # Load .env so we know the data dir / image tag to use below.
 set -a; . ./.env; set +a
-DATA_DIR="${SANDBOXD_DATA_DIR:-/var/lib/sandboxed}"
+
+# Pre-rename installs keep their data at /var/lib/sandboxed. If .env does not pin
+# SANDBOXD_DATA_DIR and the old directory exists, pin it now — never move data.
+if [ -z "${SANDBOXD_DATA_DIR:-}" ] && [ -d /var/lib/sandboxed ] && [ ! -d /var/lib/sandboxd ]; then
+  SANDBOXD_DATA_DIR=/var/lib/sandboxed; export SANDBOXD_DATA_DIR
+  if [ -f .env ] && ! grep -q '^SANDBOXD_DATA_DIR=' .env; then
+    printf 'SANDBOXD_DATA_DIR=/var/lib/sandboxed\nSANDBOXD_LOG_DIR=/var/lib/sandboxed/log\n' >> .env
+  fi
+  echo "  › data stays at /var/lib/sandboxed (pre-rename install); new installs use /var/lib/sandboxd"
+fi
+DATA_DIR="${SANDBOXD_DATA_DIR:-/var/lib/sandboxd}"
 LOG_DIR="${SANDBOXD_LOG_DIR:-$DATA_DIR/log}"
 BASE_IMAGE="${SANDBOXD_IMAGE:-sandboxd-base:0.3.0}"
 

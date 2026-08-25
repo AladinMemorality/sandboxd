@@ -76,7 +76,7 @@ func Once(ctx context.Context, d Deps) (Result, error) {
 		// reboot; the .img on disk does. For every row whose .img is
 		// still on disk, re-establish the loopback mount BEFORE the
 		// row-level reconcile decides about container state. The wake
-		// handler bind-mounts /var/lib/sandboxed/workspaces/
+		// handler bind-mounts /var/lib/sandboxd/workspaces/
 		// <id>.mnt into the container, and `docker start` fails with
 		// `mkdir /home/sandbox/workspace: permission denied` if the
 		// host-side mount is missing (empty .mnt dir). Provision() is

@@ -13,7 +13,7 @@ func row() *store.Sandbox {
 		ID:           "01TEST",
 		Status:       "stopped",
 		Image:        "sandboxd-base:0.3.0", // what it was CREATED from
-		WorkspaceMnt: "/var/lib/sandboxed/workspaces/01TEST",
+		WorkspaceMnt: "/var/lib/sandboxd/workspaces/01TEST",
 		Ports:        []int{3000},
 		WebPort:      sql.NullInt64{Int64: 3000, Valid: true},
 		Visibility:   "private",
@@ -79,7 +79,7 @@ func TestBuildPortlessSandboxGetsNoPreviewRouters(t *testing.T) {
 }
 
 func TestBuildPassesRuntimeAndDNSForGvisor(t *testing.T) {
-	s := Build(row(), Env{Image: "img", Runtime: "runsc", DNSResolvConf: "/var/lib/sandboxed/gvisor-resolv.conf"})
+	s := Build(row(), Env{Image: "img", Runtime: "runsc", DNSResolvConf: "/var/lib/sandboxd/gvisor-resolv.conf"})
 	if s.Runtime != "runsc" {
 		t.Errorf("Runtime = %q", s.Runtime)
 	}
