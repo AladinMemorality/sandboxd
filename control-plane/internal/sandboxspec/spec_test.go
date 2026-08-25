@@ -122,11 +122,10 @@ func TestNeedsRecreate(t *testing.T) {
 	}
 }
 
-
 func TestPreviewLabelsStale(t *testing.T) {
 	rule := func(host string) map[string]string {
 		return map[string]string{
-			"sandboxd.managed": "true",
+			"sandboxd.managed":                            "true",
 			"traefik.http.routers.s-01A-3000.rule":        "Host(`s-01A-3000.preview." + host + "`)",
 			"traefik.http.routers.s-01A-3000.entrypoints": "web",
 		}

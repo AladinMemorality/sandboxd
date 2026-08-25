@@ -11,10 +11,10 @@
 package sandboxspec
 
 import (
-	"strings"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/traefik"
+	"strings"
 )
 
 // Env carries the instance-level settings a sandbox container needs. These
@@ -115,7 +115,6 @@ func Build(sb *store.Sandbox, e Env) docker.RunSpec {
 func NeedsRecreate(containerImage, currentImage string) bool {
 	return containerImage != "" && currentImage != "" && containerImage != currentImage
 }
-
 
 // PreviewLabelsStale reports whether a container's Traefik preview routers
 // were generated for a different PREVIEW_DOMAIN than the instance uses now.

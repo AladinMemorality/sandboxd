@@ -1045,7 +1045,6 @@ func runtimePresetForSandbox(ctx context.Context, st *store.Store, sb *store.San
 	return app.RuntimePreset.String
 }
 
-
 // legacyAware returns preferred unless it does not exist and the pre-rename
 // path does — the "sandboxed" → "sandboxd" rename must never strand an
 // existing install's files.
