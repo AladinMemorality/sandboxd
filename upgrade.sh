@@ -158,6 +158,9 @@ else
   warn "the new version did not become healthy — rolling back."
   [ -f "$BK/sandboxd.db" ] && { cp "$BK/sandboxd.db" "$DB" 2>/dev/null || sudo cp "$BK/sandboxd.db" "$DB"; }
   git reset --hard -q "$PREV_SHA"
+  # Re-stamp so the rebuilt image reports the version we actually rolled back to.
+  export SANDBOXD_VERSION="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
+  export SANDBOXD_GIT_COMMIT="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
   $COMPOSE $PROFILE build >/dev/null 2>&1 || true
   $COMPOSE $PROFILE up -d || true
   die "rolled back to $PREV_SHA (database restored from $BK). Inspect logs: $COMPOSE logs sandboxd"

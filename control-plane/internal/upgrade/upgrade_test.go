@@ -57,6 +57,9 @@ func TestStart_LaunchesDetachedUpgraderWithSamePathMounts(t *testing.T) {
 		t.Fatalf("runs %d", len(fd.runs))
 	}
 	spec := fd.runs[0]
+	if spec.Network != "host" {
+		t.Fatalf("upgrader must use host networking so the health check reaches the host, got %q", spec.Network)
+	}
 	if spec.Name != ContainerName || spec.Image != "sandboxd-upgrader:v0.3.10" {
 		t.Fatalf("spec %+v", spec)
 	}

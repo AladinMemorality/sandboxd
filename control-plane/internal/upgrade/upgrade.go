@@ -170,7 +170,10 @@ fi`,
 	if m.Docker != nil {
 		_, err := m.Docker.Run(ctx, docker.RunSpec{
 			Name: ContainerName,
-			Env:  []string{"SANDBOXD_DATA_DIR=" + m.DataDir},
+			// Host networking: upgrade.sh health-checks http://$SANDBOXD_API_BIND/healthz
+			// (127.0.0.1 by default), which must resolve to the host, not this container.
+			Network: "host",
+			Env:     []string{"SANDBOXD_DATA_DIR=" + m.DataDir},
 			Volumes: []string{
 				"/var/run/docker.sock:/var/run/docker.sock",
 				m.SrcDir + ":" + m.SrcDir,   // same path: compose resolves ./traefik etc.
