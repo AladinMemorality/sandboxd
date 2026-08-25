@@ -93,6 +93,9 @@ ok "backup at $BK (database + .env + current commit $PREV_SHA)"
 bold "2/4 · Fetching $REF"
 git fetch --depth 1 -q origin "$REF"
 git reset --hard -q FETCH_HEAD
+# Bring tags into the shallow checkout: without them `git describe` stamps
+# the build with a bare sha, and the update check (semver-only) goes silent.
+git fetch --tags --depth 1 -q origin 2>/dev/null || true
 NEW_SHA="$(git rev-parse HEAD)"
 if [ "$NEW_SHA" = "$PREV_SHA" ]; then ok "already up to date — nothing to do."; exit 0; fi
 ok "updated source to $(git describe --tags --always 2>/dev/null || echo "$NEW_SHA")"
