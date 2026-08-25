@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { api, setOnUnauthorized, App as TApp, Preset, GitCredential, Agent } from './api'
+import { api, setOnUnauthorized, App as TApp, Preset, GitCredential, Agent, UpgradeState } from './api'
 import { c, font, mono, Card, Btn, StatusPill, Input, navItem } from './design/kit'
 import { PRESET_ICONS } from './design/presetIcons'
 import { STARTERS, STARTER_ICONS } from './design/starters'
@@ -22,6 +22,11 @@ export default function App() {
   // and reports update_available in /v1/settings. Dismissal is remembered per
   // version, so each new release notifies exactly once.
   const [upd, setUpd] = useState<{ latest: string; url?: string } | null>(null)
+  // In-place upgrade driven from the banner: confirm -> POST /v1/upgrade ->
+  // poll GET /v1/upgrade. The control plane restarts mid-way, so polling
+  // tolerates fetch errors and keeps going until a terminal phase.
+  const [upg, setUpg] = useState<UpgradeState | null>(null)
+  const [upgConfirm, setUpgConfirm] = useState(false)
 
   const toast = useCallback((msg: string) => {
     const id = Date.now() + Math.floor(performance.now())
@@ -53,6 +58,21 @@ export default function App() {
       }
     }).catch(() => {})
   }, [auth])
+
+  const startUpgrade = useCallback((target: string) => {
+    setUpgConfirm(false)
+    api.startUpgrade(target).then(setUpg).catch((e: Error) => { toast(e.message || 'could not start upgrade'); setUpg(null) })
+  }, [toast])
+  useEffect(() => {
+    if (!upg || upg.phase !== 'running') return
+    const id = setInterval(() => {
+      api.getUpgrade().then((s) => {
+        setUpg(s)
+        if (s.phase === 'succeeded') { setUpd(null); refreshAuth().then(loadApps) }
+      }).catch(() => { /* control plane restarting — keep polling */ })
+    }, 3000)
+    return () => clearInterval(id)
+  }, [upg, refreshAuth, loadApps])
 
   const onAuthed = useCallback(() => { refreshAuth().then(loadApps) }, [refreshAuth, loadApps])
   const logout = useCallback(() => { api.logout().finally(() => setAuth((a) => (a ? { ...a, authenticated: false } : a))) }, [])
@@ -94,9 +114,23 @@ export default function App() {
       {upd && (
         <div data-testid="update-banner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexShrink: 0, padding: '6px 40px 6px 16px', fontSize: 12.5, background: c.panel2, borderBottom: `1px solid ${c.border}`, position: 'relative' }}>
           <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.good, flexShrink: 0 }} />
-          <span>
-            <b>Update available: {upd.latest}</b> — run <span style={{ ...mono, fontSize: 11.5, background: c.bg, border: `1px solid ${c.border}`, borderRadius: 4, padding: '1px 6px' }}>./upgrade.sh</span> on your server.
-          </span>
+          {upg && upg.phase === 'running' ? (
+            <span data-testid="upgrade-progress"><b>Upgrading to {upg.target}…</b> backing up, rebuilding and restarting — this page reconnects by itself (2–5 min).</span>
+          ) : upg && (upg.phase === 'failed' || upg.phase === 'rolled_back') ? (
+            <span data-testid="upgrade-result" style={{ color: c.bad }}><b>Upgrade {upg.phase === 'rolled_back' ? 'rolled back' : 'failed'}:</b> {upg.message} <span className="dc-hoverink" style={{ marginLeft: 8, color: c.link, cursor: 'pointer' }} onClick={() => setUpg(null)}>ok</span></span>
+          ) : upgConfirm ? (
+            <span data-testid="upgrade-confirm">
+              Upgrade to <b>{upd.latest}</b>? It backs up first, rebuilds, restarts and rolls back on failure (2–5 min). Sandboxes keep running.
+              <button data-testid="upgrade-go" onClick={() => startUpgrade(upd.latest)} style={{ marginLeft: 10, font: 'inherit', fontSize: 12, padding: '2px 10px', borderRadius: 4, border: `1px solid ${c.border}`, background: c.good, color: c.bg, cursor: 'pointer' }}>Upgrade now</button>
+              <span className="dc-hoverink" style={{ marginLeft: 8, color: c.muted, cursor: 'pointer' }} onClick={() => setUpgConfirm(false)}>cancel</span>
+            </span>
+          ) : (
+            <span>
+              <b>Update available: {upd.latest}</b> —
+              <button data-testid="upgrade-open" onClick={() => setUpgConfirm(true)} style={{ marginLeft: 8, font: 'inherit', fontSize: 12, padding: '2px 10px', borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.fg, cursor: 'pointer' }}>Upgrade now</button>
+              <span style={{ marginLeft: 8, color: c.muted }}>or run <span style={{ ...mono, fontSize: 11.5, background: c.bg, border: `1px solid ${c.border}`, borderRadius: 4, padding: '1px 6px' }}>./upgrade.sh</span> on your server.</span>
+            </span>
+          )}
           {upd.url && <a href={upd.url} target="_blank" rel="noreferrer" style={{ color: c.link, textDecoration: 'none' }}>Release notes ↗</a>}
           <span
             data-testid="update-dismiss"

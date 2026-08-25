@@ -56,6 +56,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/snapshot"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/telemetry"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/upgrade"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/wake"
 )
 
@@ -508,27 +509,33 @@ func main() {
 	}
 
 	server := &api.Server{
-		Store:               st,
-		Secrets:             secretsCipher,
-		Update:              updateChecker,
-		AgentAuth:           agentAuth,
-		AgentOAuth:          agentOAuth,
-		OpencodeModel:       envDefault("SANDBOXD_OPENCODE_MODEL", ""),
-		OpencodeZenPath:     envDefault("SANDBOXD_OPENCODE_ZEN_PATH", ""),
-		DefaultAgent:        defaultAgent,
-		AgentProxyURL:       agentProxyURL,
-		Docker:              dockerClient,
-		Loopback:            loopMgr,
-		Log:                 log.With("component", "api"),
-		PreviewDomain:       domain,
-		Image:               image,
-		Network:             network,
-		Userns:              userns,
-		Runtime:             sbxRuntime,
-		DNSResolvConf:       dnsResolvConf,
-		PreviewEntrypoint:   previewEntrypoint,
-		PreviewTLS:          previewTLS,
-		PreviewURLScheme:    previewURLScheme,
+		Store:             st,
+		Secrets:           secretsCipher,
+		Update:            updateChecker,
+		AgentAuth:         agentAuth,
+		AgentOAuth:        agentOAuth,
+		OpencodeModel:     envDefault("SANDBOXD_OPENCODE_MODEL", ""),
+		OpencodeZenPath:   envDefault("SANDBOXD_OPENCODE_ZEN_PATH", ""),
+		DefaultAgent:      defaultAgent,
+		AgentProxyURL:     agentProxyURL,
+		Docker:            dockerClient,
+		Loopback:          loopMgr,
+		Log:               log.With("component", "api"),
+		PreviewDomain:     domain,
+		Image:             image,
+		Network:           network,
+		Userns:            userns,
+		Runtime:           sbxRuntime,
+		DNSResolvConf:     dnsResolvConf,
+		PreviewEntrypoint: previewEntrypoint,
+		PreviewTLS:        previewTLS,
+		PreviewURLScheme:  previewURLScheme,
+		Upgrade: &upgrade.Manager{
+			Docker: dockerClient, DataDir: dataDir, Version: version,
+			SrcDir:        os.Getenv("SANDBOXD_SRC_DIR"),
+			UpgraderImage: envDefault("SANDBOXD_UPGRADER_IMAGE", "sandboxd-upgrader:"+version),
+			ReleaseExists: releaseExists,
+		},
 		PublicHTTPPort:      publicHTTPPort,
 		SetMemoryHigh:       setMemoryHigh,
 		Inflight:            inflight,
@@ -1056,4 +1063,20 @@ func legacyAware(preferred, legacy string) string {
 		return legacy
 	}
 	return preferred
+}
+
+// releaseExists reports whether tag is a published GitHub release — the only
+// targets the console may upgrade to. Best-effort: network failure = false.
+func releaseExists(ctx context.Context, tag string) bool {
+	req, err := http.NewRequestWithContext(ctx,
+		"GET", "https://api.github.com/repos/tastyeffectco/sandboxd/releases/tags/"+tag, nil)
+	if err != nil {
+		return false
+	}
+	resp, err := (&http.Client{Timeout: 8 * time.Second}).Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	return resp.StatusCode == http.StatusOK
 }

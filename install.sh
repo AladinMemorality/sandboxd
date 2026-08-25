@@ -177,6 +177,15 @@ PROFILE_ARGS=""
 unset SANDBOXD_API_TOKENS
 # Stamp the build (sandboxd version / telemetry / settings) from git when present.
 export SANDBOXD_VERSION="$(git -C "$REPO_ROOT" describe --tags --always --dirty 2>/dev/null || echo dev)"
+# Record the checkout path for console-driven upgrades (POST /v1/upgrade), and
+# build the tiny upgrader image (docker CLI + compose + git) that runs them.
+if ! grep -q '^SANDBOXD_SRC_DIR=.' .env 2>/dev/null; then
+  tmp="$(mktemp "${TMPDIR:-/tmp}/sandboxd-env.XXXXXX")"; grep -vE '^SANDBOXD_SRC_DIR=' .env > "$tmp" 2>/dev/null || true
+  printf 'SANDBOXD_SRC_DIR=%s\n' "$REPO_ROOT" >> "$tmp"; mv "$tmp" .env
+fi
+$DOCKER build -q -t "sandboxd-upgrader:${SANDBOXD_VERSION}" image/upgrader >/dev/null && {
+  tmp="$(mktemp "${TMPDIR:-/tmp}/sandboxd-env.XXXXXX")"; grep -vE '^SANDBOXD_UPGRADER_IMAGE=' .env > "$tmp" 2>/dev/null || true
+  printf 'SANDBOXD_UPGRADER_IMAGE=sandboxd-upgrader:%s\n' "$SANDBOXD_VERSION" >> "$tmp"; mv "$tmp" .env; } && ok "upgrader image: sandboxd-upgrader:${SANDBOXD_VERSION}"
 export SANDBOXD_GIT_COMMIT="$(git -C "$REPO_ROOT" rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
 bold "Building the control plane${CONSOLE:+ + console} and starting the stack…"
 $COMPOSE $PROFILE_ARGS build

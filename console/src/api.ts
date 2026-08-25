@@ -309,7 +309,19 @@ async function req<T>(method: string, path: string, body?: unknown): Promise<T> 
   return (ct.includes('application/json') ? res.json() : (res.text() as unknown)) as Promise<T>
 }
 
+export type UpgradeState = {
+  phase: 'idle' | 'running' | 'succeeded' | 'failed' | 'rolled_back' | 'unavailable'
+  target?: string
+  from?: string
+  started_at?: string
+  ended_at?: string
+  message?: string
+  log_tail?: string
+}
+
 export const api = {
+  getUpgrade: () => req<UpgradeState>('GET', '/v1/upgrade'),
+  startUpgrade: (target: string) => req<UpgradeState>('POST', '/v1/upgrade', { target }),
   listApps: () => req<{ apps: App[] }>('GET', '/v1/apps').then((r) => r.apps || []),
   listPresets: () => req<{ presets: Preset[] }>('GET', '/v1/presets').then((r) => r.presets || []),
   getSettings: () => req<Settings>('GET', '/v1/settings'),

@@ -132,6 +132,10 @@ fi
 
 # Stamp the build (sandboxd version / telemetry / settings) from git.
 export SANDBOXD_VERSION="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
+grep -q '^SANDBOXD_SRC_DIR=.' .env 2>/dev/null || printf 'SANDBOXD_SRC_DIR=%s\n' "$(pwd)" >> .env
+$DOCKER build -q -t "sandboxd-upgrader:${SANDBOXD_VERSION}" image/upgrader >/dev/null && {
+  tmp="$(mktemp "${TMPDIR:-/tmp}/sandboxd-env.XXXXXX")"; grep -vE '^SANDBOXD_UPGRADER_IMAGE=' .env > "$tmp" 2>/dev/null || true
+  printf 'SANDBOXD_UPGRADER_IMAGE=sandboxd-upgrader:%s\n' "$SANDBOXD_VERSION" >> "$tmp"; mv "$tmp" .env; } || true
 export SANDBOXD_GIT_COMMIT="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
 info "building $SANDBOXD_VERSION ($SANDBOXD_GIT_COMMIT)"
 $COMPOSE $PROFILE build

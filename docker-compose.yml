@@ -88,6 +88,10 @@ services:
       SANDBOXD_RUNTIME: ${SANDBOXD_RUNTIME:-}
       SANDBOXD_DNS: ${SANDBOXD_DNS:-}
       SANDBOXD_DATA_DIR: ${SANDBOXD_DATA_DIR:-/var/lib/sandboxd}
+      # In-place upgrades from the console: host path of this checkout (set by
+      # install.sh) and the upgrader image built alongside the control plane.
+      SANDBOXD_SRC_DIR: ${SANDBOXD_SRC_DIR:-}
+      SANDBOXD_UPGRADER_IMAGE: ${SANDBOXD_UPGRADER_IMAGE:-sandboxd-upgrader:${SANDBOXD_VERSION:-dev}}
       SANDBOXD_LOG_DIR: ${SANDBOXD_LOG_DIR:-/var/lib/sandboxd/log}
       SANDBOXD_ACCESS_LOG: ${SANDBOXD_LOG_DIR:-/var/lib/sandboxd/log}/traefik-access.log
       # --- routing (HTTP by default) ---

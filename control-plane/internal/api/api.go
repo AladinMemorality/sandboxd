@@ -28,13 +28,17 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/snapshot"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/telemetry"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/upgrade"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/wake"
 )
 
 // Server bundles the collaborators the handlers need.
 type Server struct {
-	Store         *store.Store
-	Docker        *docker.Client
+	Store  *store.Store
+	Docker *docker.Client
+	// Upgrade runs in-place upgrades via a detached upgrader container
+	// (POST /v1/upgrade). nil = feature unavailable (returns 409 with CLI hint).
+	Upgrade       *upgrade.Manager
 	Loopback      *loopback.Manager
 	Log           *slog.Logger
 	PreviewDomain string
@@ -273,6 +277,8 @@ func (s *Server) Handler() http.Handler {
 
 	// Console auth — the control plane is the login authority. status/login/setup
 	// are exempt from the auth middleware (see internal/auth/middleware.go).
+	mux.HandleFunc("GET /v1/upgrade", s.observe("GET /v1/upgrade", s.v1UpgradeStatus))
+	mux.HandleFunc("POST /v1/upgrade", s.observe("POST /v1/upgrade", s.v1UpgradeStart))
 	mux.HandleFunc("GET /v1/auth/status", s.observe("GET /v1/auth/status", s.v1AuthStatus))
 	mux.HandleFunc("POST /v1/auth/setup", s.observe("POST /v1/auth/setup", s.v1AuthSetup))
 	mux.HandleFunc("POST /v1/auth/login", s.observe("POST /v1/auth/login", s.v1AuthLogin))

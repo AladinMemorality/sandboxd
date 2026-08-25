@@ -134,6 +134,42 @@ paths:
         "204": { description: Deleted }
         "404": { description: No such credential }
 
+  /v1/upgrade:
+    get:
+      summary: In-place upgrade status
+      description: State of the last/current in-place upgrade (survives the control-plane restart). `phase` is one of idle, running, succeeded, failed, rolled_back, unavailable.
+      responses:
+        "200":
+          description: Upgrade state
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  phase: { type: string }
+                  target: { type: string }
+                  from: { type: string }
+                  started_at: { type: string }
+                  ended_at: { type: string }
+                  message: { type: string }
+                  log_tail: { type: string }
+    post:
+      summary: Start an in-place upgrade
+      description: Launches a detached upgrader container that runs `./upgrade.sh <target>` (backup, rebuild, restart, health check, auto-rollback). The console reconnects when the control plane restarts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [target]
+              properties:
+                target: { type: string, description: "A published release tag, e.g. v0.3.11" }
+      responses:
+        "202": { description: Upgrade started; body is the upgrade state }
+        "400": { description: Target is not a published release }
+        "409": { description: An upgrade is already running, or this install is not configured for in-place upgrades }
+        "507": { description: Less than 2 GB free in the data dir }
   /v1/auth/status:
     get:
       operationId: authStatus
