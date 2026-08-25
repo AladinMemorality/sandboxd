@@ -115,15 +115,31 @@ func (s *Server) delegate(r *http.Request, h http.HandlerFunc, method, path stri
 	return rec.Code, rec.Body.Bytes()
 }
 
-func (s *Server) previewURL(id string, webPort int) string {
-	// Reflect the actual scheme: previews are served over plain HTTP
-	// unless PreviewTLS is configured (so a local/default deploy returns
-	// a reachable http:// URL the console can iframe).
-	scheme := "http"
-	defaultPort := "80"
+// previewScheme is the scheme (and its default port) generated preview URLs
+// use: PreviewURLScheme when set, else derived from PreviewTLS.
+func (s *Server) previewScheme() (scheme, defaultPort string) {
+	switch s.PreviewURLScheme {
+	case "https":
+		return "https", "443"
+	case "http":
+		return "http", "80"
+	}
 	if s.PreviewTLS {
-		scheme = "https"
-		defaultPort = "443"
+		return "https", "443"
+	}
+	return "http", "80"
+}
+
+func (s *Server) previewURL(id string, webPort int) string {
+	// Reflect the scheme the browser must use: plain HTTP by default (so a
+	// local deploy returns a reachable http:// URL the console can iframe),
+	// https when we terminate TLS OR when something in front of us does.
+	scheme, defaultPort := s.previewScheme()
+	// An explicit PREVIEW_URL_SCHEME means something in front of us owns the
+	// public port (a TLS terminator on 443, a tunnel gateway): our own host
+	// port is not what the browser dials, so it must not appear in the URL.
+	if s.PreviewURLScheme != "" {
+		defaultPort = s.PublicHTTPPort
 	}
 	if webPort <= 0 {
 		webPort = 3000 // backward-compatible default

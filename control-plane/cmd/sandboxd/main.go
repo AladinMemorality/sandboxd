@@ -143,6 +143,11 @@ func main() {
 	userns := envDefault("SANDBOXD_USERNS", "host") // sandbox + seed --userns; "host" is deterministic on any daemon
 	previewEntrypoint := envDefault("PREVIEW_ENTRYPOINT", "web")
 	previewTLS := boolFromEnv("PREVIEW_TLS", false)
+	previewURLScheme := strings.ToLower(strings.TrimSpace(os.Getenv("PREVIEW_URL_SCHEME")))
+	if previewURLScheme != "" && previewURLScheme != "http" && previewURLScheme != "https" {
+		fmt.Fprintf(os.Stderr, "PREVIEW_URL_SCHEME must be http, https, or empty (got %q)\n", previewURLScheme)
+		os.Exit(2)
+	}
 	// Host-facing port the preview/console URLs are reached on (compose passes
 	// the published HTTP_PORT here). Default "80": bare URLs on a dedicated host.
 	publicHTTPPort := envDefault("SANDBOXD_PUBLIC_HTTP_PORT", "80")
@@ -517,6 +522,7 @@ func main() {
 		DNSResolvConf:       dnsResolvConf,
 		PreviewEntrypoint:   previewEntrypoint,
 		PreviewTLS:          previewTLS,
+		PreviewURLScheme:    previewURLScheme,
 		PublicHTTPPort:      publicHTTPPort,
 		SetMemoryHigh:       setMemoryHigh,
 		Inflight:            inflight,

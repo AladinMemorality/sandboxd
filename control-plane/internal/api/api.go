@@ -56,6 +56,13 @@ type Server struct {
 	DNSResolvConf     string
 	PreviewEntrypoint string
 	PreviewTLS        bool
+	// PreviewURLScheme forces the scheme of generated preview URLs ("http" or
+	// "https") independently of PreviewTLS — for sandboxd behind something
+	// else that terminates TLS (Cloudflare Tunnel, Caddy, a reverse tunnel):
+	// Traefik keeps serving plain HTTP, but the console must hand out https://
+	// URLs or it cannot iframe previews (mixed content). Empty = derive from
+	// PreviewTLS, exactly the previous behaviour.
+	PreviewURLScheme string
 	// PublicHTTPPort is the HOST-facing port that preview/console URLs are
 	// reached on (the host side of Traefik's published port). previewURL
 	// appends it unless it's the default for the scheme (80 for http, 443

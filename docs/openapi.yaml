@@ -1465,6 +1465,7 @@ components:
             public_http_port: { type: string }
             preview_base: { type: string }
             preview_tls: { type: boolean }
+            preview_url_scheme: { type: string, description: "Effective scheme of generated preview URLs: http or https (PREVIEW_URL_SCHEME, else derived from preview_tls)." }
             preview_entrypoint: { type: string }
         auth:
           type: object

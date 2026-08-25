@@ -11,6 +11,7 @@
 package sandboxspec
 
 import (
+	"strings"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/traefik"
@@ -113,4 +114,30 @@ func Build(sb *store.Sandbox, e Env) docker.RunSpec {
 // After an upgrade this is what carries a new runtimed into old sandboxes.
 func NeedsRecreate(containerImage, currentImage string) bool {
 	return containerImage != "" && currentImage != "" && containerImage != currentImage
+}
+
+
+// PreviewLabelsStale reports whether a container's Traefik preview routers
+// were generated for a different PREVIEW_DOMAIN than the instance uses now.
+// Labels are baked in at create time; without this check, changing the
+// domain (new domain, new IP, moved behind a proxy) leaves every existing
+// sandbox answering only to the OLD host, and its new preview URL falls
+// through to the wake page forever. Containers with no preview routers at
+// all (e.g. a worker) are never stale.
+func PreviewLabelsStale(labels map[string]string, previewDomain string) bool {
+	if previewDomain == "" {
+		return false
+	}
+	want := ".preview." + previewDomain
+	sawRouter := false
+	for k, v := range labels {
+		if !strings.HasPrefix(k, "traefik.http.routers.") || !strings.HasSuffix(k, ".rule") {
+			continue
+		}
+		sawRouter = true
+		if strings.Contains(v, want+"`") || strings.Contains(v, want+":") {
+			return false // at least one router already targets the current domain
+		}
+	}
+	return sawRouter
 }

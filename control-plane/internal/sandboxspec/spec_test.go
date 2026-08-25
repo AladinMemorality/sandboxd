@@ -121,3 +121,32 @@ func TestNeedsRecreate(t *testing.T) {
 		}
 	}
 }
+
+
+func TestPreviewLabelsStale(t *testing.T) {
+	rule := func(host string) map[string]string {
+		return map[string]string{
+			"sandboxd.managed": "true",
+			"traefik.http.routers.s-01A-3000.rule":        "Host(`s-01A-3000.preview." + host + "`)",
+			"traefik.http.routers.s-01A-3000.entrypoints": "web",
+		}
+	}
+	cases := []struct {
+		name   string
+		labels map[string]string
+		domain string
+		want   bool
+	}{
+		{"same domain", rule("old.example"), "old.example", false},
+		{"domain changed", rule("old.example"), "new.example", true},
+		{"changed to org subdomain", rule("1.2.3.4.sslip.io"), "san.sandboxd.io", true},
+		{"no routers (worker)", map[string]string{"sandboxd.managed": "true"}, "new.example", false},
+		{"no domain configured", rule("old.example"), "", false},
+		{"nil labels", nil, "x.example", false},
+	}
+	for _, c := range cases {
+		if got := PreviewLabelsStale(c.labels, c.domain); got != c.want {
+			t.Errorf("%s: PreviewLabelsStale = %v; want %v", c.name, got, c.want)
+		}
+	}
+}

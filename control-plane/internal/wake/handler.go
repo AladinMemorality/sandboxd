@@ -303,6 +303,8 @@ func (h *Handler) serve(r *http.Request, w http.ResponseWriter, id, port string,
 	//     upgrade rebuilt the image and its runtimed. Starting it as-is would
 	//     silently keep the OLD in-sandbox supervisor and miss new agent/model
 	//     support ("Model X is not supported" on an up-to-date install).
+	//   - PREVIEW_DOMAIN changed since it was created: its Traefik routers
+	//     still answer to the old host, so the new preview URL never resolves.
 	if h.Recreate != nil {
 		stale := false
 		cur, ierr := h.Docker.Inspect(ctx, "s-"+id)
@@ -316,6 +318,13 @@ func (h *Handler) serve(r *http.Request, w http.ResponseWriter, id, port string,
 			stale = true
 			log.Info("wake: container built from an older image — recreating",
 				"container_image", cur.Config.Image, "current_image", h.Image)
+		case sandboxspec.PreviewLabelsStale(cur.Config.Labels, h.PreviewDomain):
+			// PREVIEW_DOMAIN changed since this container was created: its
+			// Traefik routers still point at the old host, so its new preview
+			// URL would fall through to this wake page forever.
+			stale = true
+			log.Info("wake: preview routers target an old PREVIEW_DOMAIN — recreating",
+				"current_domain", h.PreviewDomain)
 		}
 		if stale {
 			if err := h.Recreate(ctx, sb); err != nil {

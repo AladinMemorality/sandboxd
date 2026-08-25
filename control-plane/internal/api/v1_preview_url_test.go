@@ -44,3 +44,34 @@ func TestPreviewURLResolvedPort(t *testing.T) {
 		t.Errorf("8080: got %q", got)
 	}
 }
+
+// PREVIEW_URL_SCHEME decouples the URL scheme from PreviewTLS: behind an
+// external TLS terminator Traefik stays plain HTTP (no tls=true routers) but
+// the console must hand out https:// URLs it can iframe.
+func TestPreviewURLSchemeOverride(t *testing.T) {
+	cases := []struct {
+		name   string
+		scheme string
+		tls    bool
+		port   string
+		want   string
+	}{
+		{"https forced, tls off, default port", "https", false, "80", "https://s-01ABC-3000.preview.ex.sslip.io"},
+		// With an explicit scheme the public port belongs to the terminator in
+		// front of us; our host port never appears.
+		{"https forced, tls off, custom host port omitted", "https", false, "18080", "https://s-01ABC-3000.preview.ex.sslip.io"},
+		{"http forced, tls on", "http", true, "", "http://s-01ABC-3000.preview.ex.sslip.io"},
+		{"unset derives from tls=true", "", true, "", "https://s-01ABC-3000.preview.ex.sslip.io"},
+		{"unset derives from tls=false", "", false, "", "http://s-01ABC-3000.preview.ex.sslip.io"},
+	}
+	for _, c := range cases {
+		s := &Server{PreviewDomain: "ex.sslip.io", PreviewTLS: c.tls, PublicHTTPPort: c.port, PreviewURLScheme: c.scheme}
+		if got := s.previewURL("01ABC", 3000); got != c.want {
+			t.Errorf("%s: previewURL = %q; want %q", c.name, got, c.want)
+		}
+	}
+	s := &Server{PreviewDomain: "ex.sslip.io", PreviewURLScheme: "https"}
+	if got := s.previewBase(); got != "https://*.preview.ex.sslip.io" {
+		t.Errorf("previewBase with forced https = %q", got)
+	}
+}

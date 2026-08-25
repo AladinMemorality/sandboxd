@@ -59,6 +59,7 @@ type v1SettingsNet struct {
 	PublicHTTPPort    string `json:"public_http_port,omitempty"`
 	PreviewBase       string `json:"preview_base"`
 	PreviewTLS        bool   `json:"preview_tls"`
+	PreviewURLScheme  string `json:"preview_url_scheme"`
 	PreviewEntrypoint string `json:"preview_entrypoint,omitempty"`
 }
 type v1SettingsAuth struct {
@@ -113,6 +114,7 @@ func (s *Server) v1GetSettings(w http.ResponseWriter, _ *http.Request) {
 			PublicHTTPPort:    s.PublicHTTPPort,
 			PreviewBase:       s.previewBase(),
 			PreviewTLS:        s.PreviewTLS,
+			PreviewURLScheme:  func() string { sc, _ := s.previewScheme(); return sc }(),
 			PreviewEntrypoint: s.PreviewEntrypoint,
 		},
 		Auth:      v1SettingsAuth{Enabled: s.Instance.AuthEnabled},
@@ -297,9 +299,9 @@ func (s *Server) agentDefaultModels() map[string]string {
 // previewBase is the scheme://host[:port] previews are reached under, with the
 // host-facing port appended unless it's the scheme default (mirrors previewURL).
 func (s *Server) previewBase() string {
-	scheme, defaultPort := "http", "80"
-	if s.PreviewTLS {
-		scheme, defaultPort = "https", "443"
+	scheme, defaultPort := s.previewScheme()
+	if s.PreviewURLScheme != "" {
+		defaultPort = s.PublicHTTPPort // the terminator in front owns the public port
 	}
 	host := "*.preview." + s.PreviewDomain
 	if p := s.PublicHTTPPort; p != "" && p != defaultPort {
