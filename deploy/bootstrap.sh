@@ -5,7 +5,7 @@
 #
 # Optional environment variables:
 #   PREVIEW_DOMAIN=sandboxd.example.com   # serve previews at *.preview.<domain> (default: localhost/IP)
-#   SANDBOXD_BRANCH=main                  # branch or tag to install
+#   SANDBOXD_BRANCH=v0.3.7                # tag or branch to install (default: latest release)
 #
 # It installs Docker (if missing), clones sandboxd to /opt/sandboxd, and runs the
 # in-repo installer. install.sh is the source of truth — this only provisions the
@@ -13,7 +13,15 @@
 # the checkout and preserves your .env).
 set -euo pipefail
 
-SANDBOXD_BRANCH="${SANDBOXD_BRANCH:-main}"
+# Default to the latest RELEASE, not main. A shallow clone of main carries no
+# tags, so the build is stamped with a bare commit sha and the update check
+# (which only compares semver-like versions) stays silent forever — installs
+# never learn a newer release exists. Falls back to main if GitHub is down.
+if [ -z "${SANDBOXD_BRANCH:-}" ]; then
+  SANDBOXD_BRANCH="$(curl -fsSL -m 10 https://api.github.com/repos/tastyeffectco/sandboxd/releases/latest 2>/dev/null \
+    | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -1)"
+  SANDBOXD_BRANCH="${SANDBOXD_BRANCH:-main}"
+fi
 SRC="/opt/sandboxd"
 REPO="https://github.com/tastyeffectco/sandboxd.git"
 
@@ -60,6 +68,9 @@ else
   git clone --depth 1 --branch "$SANDBOXD_BRANCH" -q "$REPO" "$SRC"
 fi
 cd "$SRC"
+# Bring tags into the shallow checkout so `git describe` yields vX.Y.Z (or
+# vX.Y.Z-N-g<sha> on a branch): that is what the update check compares.
+git fetch --tags --depth 1 -q origin 2>/dev/null || true
 
 # Seed .env with overrides BEFORE install.sh (which leaves an existing .env
 # untouched). .env is gitignored, so the reset above never clobbers it.

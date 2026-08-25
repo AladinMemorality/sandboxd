@@ -16,5 +16,5 @@ packages:
 runcmd:
   - |
     export PREVIEW_DOMAIN=""
-    export SANDBOXD_BRANCH="main"
+    export SANDBOXD_BRANCH=""   # empty = latest release (set a tag or branch to override)
     curl -fsSL https://raw.githubusercontent.com/tastyeffectco/sandboxd/main/deploy/bootstrap.sh | bash
