@@ -670,7 +670,7 @@ func main() {
 					if h, err := st.GetPasswordHash(gctx); err == nil && h != "" {
 						s.ConsoleEnabled = true
 					}
-					if v, err := dockerClient.Info(gctx); err == nil {
+					if v, err := dockerClient.ServerVersion(gctx); err == nil {
 						s.DockerVersion = v
 					}
 					return s

@@ -339,6 +339,17 @@ func (c *Client) ListByNamePrefix(ctx context.Context, prefix string) ([]string,
 	return names, nil
 }
 
+// ServerVersion returns the daemon version via `docker version`, which keeps
+// working on daemons where `docker info` fails to render (seen on 28.5:
+// "netip.ParsePrefix: no '/'"). Used by telemetry; readyz keeps using Info.
+func (c *Client) ServerVersion(ctx context.Context) (string, error) {
+	out, err := c.run(ctx, "version", "--format", "{{.Server.Version}}")
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
+}
+
 // Info runs `docker info -f {{.ServerVersion}}` for the readyz probe.
 func (c *Client) Info(ctx context.Context) (string, error) {
 	out, err := c.run(ctx, "info", "--format", "{{.ServerVersion}}")
