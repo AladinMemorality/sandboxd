@@ -81,6 +81,7 @@ if [ -n "${PREVIEW_DOMAIN:-}" ]; then
 fi
 
 log "running installer…"
+export SANDBOXD_INSTALL_METHOD="${SANDBOXD_INSTALL_METHOD:-bootstrap}"
 ./install.sh
 
 echo

@@ -1,11 +1,11 @@
 // Package telemetry implements sandboxd's anonymous, opt-out usage
 // heartbeat and its GitHub-backed update check.
 //
-// What it sends is deliberately minimal and non-identifying: a random
-// instance UUID (generated locally, never derived from any host detail),
-// the build version, GOOS/GOARCH, a coarse sandbox-count bucket, and two
-// feature booleans. It never sends hostnames, IP addresses, file paths,
-// tokens, or any user content. See docs/telemetry.md for the exact list.
+// What it sends is deliberately non-identifying: a random instance UUID
+// (generated locally, never derived from any host detail), the build
+// version, GOOS/GOARCH, and a handful of bucketed counts and enumerated
+// settings (see Props). It never sends hostnames, IP addresses, file paths,
+// names, tokens, or any user content. docs/telemetry.md lists every field.
 //
 // Telemetry is ON by default and can be disabled with SANDBOXD_TELEMETRY=off
 // (or the cross-tool DO_NOT_TRACK=1). Every network send is best-effort with
@@ -24,6 +24,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -95,21 +96,125 @@ func newUUIDv4() (string, error) {
 	return fmt.Sprintf("%x-%x-%x-%x-%x", b[0:4], b[4:6], b[6:8], b[8:10], b[10:16]), nil
 }
 
-// heartbeatProps builds the event properties. sandbox count is bucketed (never
-// sent as an exact number) and "$ip" is forced to "" so PostHog neither stores
-// nor geolocates the caller's IP. No hostnames, paths, or user content ever
-// appear here.
-func heartbeatProps(version, arch, osName string, sandboxCount int, authEnabled, consoleEnabled bool) map[string]any {
+// Snapshot is the live, instance-level state the heartbeat is built from. Every
+// numeric field is bucketed and every string is an enumerated label before it
+// leaves the host; nothing here is free text from the user.
+type Snapshot struct {
+	SandboxCount   int
+	AppCount       int
+	Tasks7d        int
+	AuthEnabled    bool
+	ConsoleEnabled bool
+	PreviewDomain  string // classified by PreviewKind; the domain itself is never sent
+	PreviewTLS     bool
+	AgentDefault   string // provider name only (e.g. "opencode")
+	Runtime        string // "runc" | "gvisor" | "other"
+	EgressMode     string
+	StorageMode    string
+	InstallMethod  string // "install.sh" | "bootstrap" | "cloud-init" | "unknown"
+	DockerVersion  string // reduced to its major by DockerMajor
+	CPUs           int
+	MemBytes       uint64
+}
+
+// Props builds the heartbeat properties from a Snapshot. Counts are bucketed
+// (never exact), the preview domain is reduced to a kind, and "$ip" is forced
+// to "" so PostHog neither stores nor geolocates the caller's IP.
+func Props(version, arch, osName string, s Snapshot) map[string]any {
 	return map[string]any{
 		"version":         version,
 		"arch":            arch,
 		"os":              osName,
-		"sandbox_bucket":  bucketCount(sandboxCount),
-		"auth_enabled":    authEnabled,
-		"console_enabled": consoleEnabled,
+		"sandbox_bucket":  bucketCount(s.SandboxCount),
+		"apps_bucket":     bucketCount(s.AppCount),
+		"tasks_7d_bucket": bucketCount(s.Tasks7d),
+		"auth_enabled":    s.AuthEnabled,
+		"console_enabled": s.ConsoleEnabled,
+		"preview_kind":    PreviewKind(s.PreviewDomain),
+		"preview_tls":     s.PreviewTLS,
+		"agent_default":   label(s.AgentDefault, "unknown"),
+		"runtime":         label(s.Runtime, "runc"),
+		"egress_mode":     label(s.EgressMode, "disabled"),
+		"storage_mode":    label(s.StorageMode, "directory"),
+		"install_method":  label(s.InstallMethod, "unknown"),
+		"docker_major":    DockerMajor(s.DockerVersion),
+		"cpu_bucket":      bucketCPUs(s.CPUs),
+		"mem_bucket":      bucketMem(s.MemBytes),
 		// Empty $ip tells PostHog to drop the request IP (no geo, no storage).
 		"$ip": "",
 	}
+}
+
+// UpgradeProps describes one finished upgrade attempt. Versions are release
+// tags (public information); result is the terminal phase.
+func UpgradeProps(from, to, result, source string) map[string]any {
+	return map[string]any{
+		"from":   label(from, "unknown"),
+		"to":     label(to, "unknown"),
+		"result": label(result, "unknown"),
+		"source": label(source, "unknown"),
+		"$ip":    "",
+	}
+}
+
+func label(v, def string) string {
+	v = strings.ToLower(strings.TrimSpace(v))
+	if v == "" {
+		return def
+	}
+	if len(v) > 32 {
+		v = v[:32]
+	}
+	return v
+}
+
+var (
+	privateIP = regexp.MustCompile(`^(10\.|127\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.|169\.254\.)`)
+	bareIP    = regexp.MustCompile(`^\d{1,3}(\.\d{1,3}){3}$`)
+	magicDNS  = regexp.MustCompile(`^(\d{1,3})[.-](\d{1,3})[.-](\d{1,3})[.-](\d{1,3})\.(sslip\.io|nip\.io)$`)
+)
+
+// PreviewKind reduces the preview domain to one of four labels so the domain
+// itself never leaves the host:
+//
+//	lan     localhost, *.local/*.lan/*.internal, private IPs (bare or via sslip/nip)
+//	ip      a public IP, bare or via sslip.io/nip.io
+//	tunnel  a *.sandboxd.io hosted URL
+//	domain  anything else (a real domain the operator configured)
+func PreviewKind(domain string) string {
+	d := strings.ToLower(strings.TrimSpace(domain))
+	switch {
+	case d == "" || d == "localhost" || strings.HasSuffix(d, ".localhost"):
+		return "lan"
+	case strings.HasSuffix(d, ".local") || strings.HasSuffix(d, ".lan") || strings.HasSuffix(d, ".internal") || strings.HasSuffix(d, ".home.arpa"):
+		return "lan"
+	case strings.HasSuffix(d, ".sandboxd.io"):
+		return "tunnel"
+	case bareIP.MatchString(d):
+		if privateIP.MatchString(d) {
+			return "lan"
+		}
+		return "ip"
+	}
+	if m := magicDNS.FindStringSubmatch(d); m != nil {
+		if privateIP.MatchString(m[1] + "." + m[2] + "." + m[3] + "." + m[4]) {
+			return "lan"
+		}
+		return "ip"
+	}
+	return "domain"
+}
+
+// DockerMajor keeps only the major version ("27.3.1" → "27"); "" → "unknown".
+func DockerMajor(v string) string {
+	v = strings.TrimSpace(v)
+	if i := strings.IndexByte(v, '.'); i > 0 {
+		v = v[:i]
+	}
+	if v == "" {
+		return "unknown"
+	}
+	return v
 }
 
 func bucketCount(n int) string {
@@ -123,6 +228,57 @@ func bucketCount(n int) string {
 	default:
 		return "10+"
 	}
+}
+
+func bucketCPUs(n int) string {
+	switch {
+	case n <= 0:
+		return "unknown"
+	case n <= 2:
+		return "1-2"
+	case n <= 4:
+		return "3-4"
+	case n <= 8:
+		return "5-8"
+	default:
+		return "9+"
+	}
+}
+
+func bucketMem(b uint64) string {
+	const gb = 1 << 30
+	switch {
+	case b == 0:
+		return "unknown"
+	case b < 4*gb:
+		return "<4g"
+	case b < 8*gb:
+		return "4-8g"
+	case b < 16*gb:
+		return "8-16g"
+	default:
+		return "16g+"
+	}
+}
+
+// HostMemBytes reads MemTotal from /proc/meminfo (0 when unavailable). Inside
+// a container this is the host's total, which is what sizing guidance needs.
+func HostMemBytes() uint64 {
+	b, err := os.ReadFile("/proc/meminfo")
+	if err != nil {
+		return 0
+	}
+	for _, line := range strings.Split(string(b), "\n") {
+		if strings.HasPrefix(line, "MemTotal:") {
+			f := strings.Fields(line)
+			if len(f) >= 2 {
+				var kb uint64
+				fmt.Sscanf(f[1], "%d", &kb)
+				return kb * 1024
+			}
+		}
+	}
+	return 0
 }
 
 // SendFunc delivers one event. It is injectable so tests never touch the
@@ -144,8 +300,8 @@ type Reporter struct {
 	Interval time.Duration
 	// Send delivers each event (best-effort). nil disables sending.
 	Send SendFunc
-	// Snapshot supplies the live counters at send time. nil → zero/false.
-	Snapshot func() (sandboxCount int, authEnabled, consoleEnabled bool)
+	// Snapshot supplies the live state at send time. nil → an empty Snapshot.
+	Snapshot func() Snapshot
 	Log      *slog.Logger
 }
 
@@ -175,14 +331,22 @@ func (r *Reporter) Run(ctx context.Context) {
 }
 
 func (r *Reporter) emit(ctx context.Context, event string) {
+	var s Snapshot
+	if r.Snapshot != nil {
+		s = r.Snapshot()
+	}
+	r.Emit(ctx, event, Props(r.Version, r.Arch, r.OS, s))
+}
+
+// Emit sends one event with the given properties (plus the instance id).
+// Best-effort like everything else here; used for the one-time "upgrade" event.
+func (r *Reporter) Emit(ctx context.Context, event string, props map[string]any) {
 	if r.Send == nil {
 		return
 	}
-	count, authEnabled, consoleEnabled := 0, false, false
-	if r.Snapshot != nil {
-		count, authEnabled, consoleEnabled = r.Snapshot()
+	if props == nil {
+		props = map[string]any{}
 	}
-	props := heartbeatProps(r.Version, r.Arch, r.OS, count, authEnabled, consoleEnabled)
 	// The sender lifts distinct_id to the top level of the PostHog payload.
 	props["distinct_id"] = r.InstanceID
 

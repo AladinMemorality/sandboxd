@@ -627,9 +627,8 @@ func main() {
 	}()
 
 	// Anonymous usage heartbeat. ON by default; disabled via SANDBOXD_TELEMETRY=off
-	// or DO_NOT_TRACK=1. The reporter only ever sends a random instance UUID, the
-	// version, GOOS/GOARCH, a coarse sandbox-count bucket, and two feature flags —
-	// no hostnames, IPs, paths, or user content (see docs/telemetry.md).
+	// or DO_NOT_TRACK=1. Everything sent is bucketed or enumerated — no hostnames,
+	// IPs, paths, names, or user content. docs/telemetry.md lists every field.
 	if telemetry.EnabledFromEnv(os.Getenv) {
 		instanceID, isNew, idErr := telemetry.InstanceID(filepath.Join(stateDir, "instance-id"))
 		if idErr != nil {
@@ -646,20 +645,51 @@ func main() {
 					envDefault("SANDBOXD_POSTHOG_HOST", telemetry.DefaultPostHogHost),
 					envDefault("SANDBOXD_POSTHOG_KEY", telemetry.DefaultPostHogKey),
 				),
-				Snapshot: func() (int, bool, bool) {
-					count := 0
+				Snapshot: func() telemetry.Snapshot {
+					s := telemetry.Snapshot{
+						AuthEnabled:   !authCfg.Disabled,
+						PreviewDomain: domain,
+						PreviewTLS:    previewTLS,
+						AgentDefault:  envDefault("SANDBOXD_DEFAULT_AGENT", "opencode"),
+						Runtime:       runtimeLabel(sbxRuntime),
+						EgressMode:    egressModeLabel(egressMgr),
+						StorageMode:   "directory",
+						InstallMethod: envDefault("SANDBOXD_INSTALL_METHOD", "unknown"),
+						CPUs:          runtime.NumCPU(),
+						MemBytes:      telemetry.HostMemBytes(),
+					}
 					if list, err := st.List(gctx); err == nil {
-						count = len(list)
+						s.SandboxCount = len(list)
 					}
-					consoleEnabled := false
+					if n, err := st.CountApps(gctx); err == nil {
+						s.AppCount = n
+					}
+					if n, err := st.CountTasksSince(gctx, time.Now().Add(-7*24*time.Hour).Unix()); err == nil {
+						s.Tasks7d = n
+					}
 					if h, err := st.GetPasswordHash(gctx); err == nil && h != "" {
-						consoleEnabled = true
+						s.ConsoleEnabled = true
 					}
-					return count, !authCfg.Disabled, consoleEnabled
+					if v, err := dockerClient.Info(gctx); err == nil {
+						s.DockerVersion = v
+					}
+					return s
 				},
 				Log: log.With("component", "telemetry"),
 			}
 			go reporter.Run(gctx)
+			// A finished console-driven upgrade (recorded in <data>/state/upgrade.json
+			// by the upgrader) is reported once: from → to → result. CLI upgrades
+			// leave no state file and are therefore not reported.
+			if server.Upgrade != nil {
+				if ust := server.Upgrade.Status(gctx); !ust.Reported &&
+					(ust.Phase == "succeeded" || ust.Phase == "failed" || ust.Phase == "rolled_back") {
+					go reporter.Emit(gctx, "upgrade", telemetry.UpgradeProps(ust.From, ust.Target, ust.Phase, "console"))
+					if err := server.Upgrade.MarkReported(); err != nil {
+						log.Debug("telemetry: could not mark upgrade reported", "err", err.Error())
+					}
+				}
+			}
 		}
 	}
 
@@ -985,6 +1015,18 @@ func pollerModeLabel(re *regexp.Regexp) string {
 		return "fallback"
 	}
 	return "active"
+}
+
+// runtimeLabel reduces SANDBOXD_RUNTIME to the enumerated label telemetry sends.
+func runtimeLabel(r string) string {
+	switch {
+	case r == "":
+		return "runc"
+	case strings.Contains(r, "runsc") || strings.Contains(r, "gvisor"):
+		return "gvisor"
+	default:
+		return "other"
+	}
 }
 
 // egressModeLabel is the safe egress mode string for GET /v1/settings. A nil

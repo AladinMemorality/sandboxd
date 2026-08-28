@@ -56,6 +56,9 @@ type State struct {
 	EndedAt   string `json:"ended_at,omitempty"`
 	Message   string `json:"message,omitempty"`
 	LogTail   string `json:"log_tail,omitempty"`
+	// Reported is set once the terminal result has been passed to telemetry,
+	// so a finished upgrade is counted exactly once across restarts.
+	Reported bool `json:"reported,omitempty"`
 }
 
 type Manager struct {
@@ -191,6 +194,16 @@ fi`,
 		}
 	}
 	return st, nil
+}
+
+// MarkReported flags the current terminal state as reported to telemetry.
+func (m *Manager) MarkReported() error {
+	st := m.read()
+	if st.Reported {
+		return nil
+	}
+	st.Reported = true
+	return m.write(st)
 }
 
 func (m *Manager) read() State {

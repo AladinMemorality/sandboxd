@@ -93,7 +93,7 @@ func TestHeartbeatPropsBucketing(t *testing.T) {
 		{500, "10+"},
 	}
 	for _, tc := range cases {
-		props := heartbeatProps("v0.3.0", "arm64", "linux", tc.count, true, false)
+		props := Props("v0.3.0", "arm64", "linux", Snapshot{SandboxCount: tc.count, AuthEnabled: true})
 		if got := props["sandbox_bucket"]; got != tc.want {
 			t.Errorf("count=%d bucket=%v want %v", tc.count, got, tc.want)
 		}
@@ -101,7 +101,7 @@ func TestHeartbeatPropsBucketing(t *testing.T) {
 }
 
 func TestHeartbeatPropsNoIPAndFields(t *testing.T) {
-	props := heartbeatProps("v0.3.0", "amd64", "darwin", 2, true, true)
+	props := Props("v0.3.0", "amd64", "darwin", Snapshot{SandboxCount: 2, AuthEnabled: true, ConsoleEnabled: true})
 
 	// $ip must be present and EMPTY so PostHog does not geolocate/store IP.
 	ip, ok := props["$ip"]
@@ -159,7 +159,7 @@ func TestReporterRunSendsInstallAndHeartbeat(t *testing.T) {
 		NewInstall: true,
 		Interval:   5 * time.Millisecond, // fast tick for the test
 		Send:       send,
-		Snapshot:   func() (int, bool, bool) { return 2, true, false },
+		Snapshot:   func() Snapshot { return Snapshot{SandboxCount: 2, AuthEnabled: true} },
 	}
 
 	go r.Run(ctx)
@@ -202,7 +202,7 @@ func TestReporterRunSurvivesSendError(t *testing.T) {
 		NewInstall: false, // no install event: first send is a heartbeat
 		Interval:   3 * time.Millisecond,
 		Send:       send,
-		Snapshot:   func() (int, bool, bool) { return 0, false, false },
+		Snapshot:   func() Snapshot { return Snapshot{} },
 	}
 	go r.Run(ctx) // must not panic even though every send errors
 

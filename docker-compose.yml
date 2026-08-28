@@ -79,6 +79,13 @@ services:
       # Default coding agent for tasks that don't specify one. Explicit
       # agent:"claude-code" tasks work regardless (creds are mounted per provider).
       SANDBOXD_DEFAULT_AGENT: ${SANDBOXD_DEFAULT_AGENT:-opencode}
+      # Anonymous telemetry (docs/telemetry.md). Opt out with SANDBOXD_TELEMETRY=off
+      # or DO_NOT_TRACK=1 in .env; point at your own collector with the two below.
+      SANDBOXD_TELEMETRY: ${SANDBOXD_TELEMETRY:-}
+      DO_NOT_TRACK: ${DO_NOT_TRACK:-}
+      SANDBOXD_POSTHOG_HOST: ${SANDBOXD_POSTHOG_HOST:-}
+      SANDBOXD_POSTHOG_KEY: ${SANDBOXD_POSTHOG_KEY:-}
+      SANDBOXD_INSTALL_METHOD: ${SANDBOXD_INSTALL_METHOD:-unknown}
       # Which OpenCode Zen endpoint opencode routes through the auth proxy:
       # "zen" (pay-as-you-go, full catalog) or "zengo" (Zen "go" subscription).
       SANDBOXD_OPENCODE_ZEN_PATH: ${SANDBOXD_OPENCODE_ZEN_PATH:-zen}
