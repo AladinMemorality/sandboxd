@@ -30,6 +30,9 @@ case "$url" in
 esac
 STUB
 chmod +x "$T/bin/curl"
+# Docker stub: the notes path must be testable where no daemon exists (macOS CI).
+# `docker info` / `docker compose version` succeed; anything else is a no-op.
+printf '#!/usr/bin/env bash\nexit 0\n' > "$T/bin/docker"; chmod +x "$T/bin/docker"
 export PATH="$T/bin:$PATH" STUB_DIR="$T/stubs" SANDBOXD_DATA_DIR="$T/data"
 mkdir -p "$STUB_DIR"
 
