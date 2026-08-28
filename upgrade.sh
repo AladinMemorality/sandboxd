@@ -121,7 +121,8 @@ fi
 
 # ── load .env + detect docker/compose (mirrors install.sh) ───────────
 # shellcheck disable=SC1091
-set -a; . ./.env 2>/dev/null || true; set +a
+# (bash 3.2 exits on sourcing a missing file even with `|| true`, so check first)
+if [ -f ./.env ]; then set -a; . ./.env; set +a; fi
 
 # Pre-rename installs keep their data at /var/lib/sandboxed. If .env does not pin
 # SANDBOXD_DATA_DIR and the old directory exists, pin it now — never move data.
