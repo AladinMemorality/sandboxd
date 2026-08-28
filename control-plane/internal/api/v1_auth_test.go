@@ -127,3 +127,37 @@ func TestNoCredentialIsUnauthorized(t *testing.T) {
 		t.Fatalf("no credential: want 401 got %d", w.Code)
 	}
 }
+
+func TestPasswordResetRequiresAPIKey(t *testing.T) {
+	h, s := authTestServer(t)
+	s.Auth = auth.NewMiddleware(&auth.Config{APITokens: []auth.NamedToken{{Name: "default", Token: "operator-key"}}}, NewStoreResolver(s.Store), nil, nil)
+	h = s.Auth.Wrap(s.Handler())
+
+	w := doAuth(t, h, "POST", "/v1/auth/setup", `{"password":"correcthorse"}`, "", "")
+	if w.Code != 204 {
+		t.Fatalf("setup: want 204 got %d %s", w.Code, w.Body.String())
+	}
+	cookie := sessionFrom(t, w)
+
+	// no credential → 401 (middleware)
+	if w := doAuth(t, h, "DELETE", "/v1/auth/password", "", "", ""); w.Code != 401 {
+		t.Fatalf("reset without credential: want 401 got %d", w.Code)
+	}
+	// console session → 403 (an API key is required)
+	if w := doAuth(t, h, "DELETE", "/v1/auth/password", "", cookie, ""); w.Code != 403 {
+		t.Fatalf("reset with session: want 403 got %d", w.Code)
+	}
+	// API key → 204
+	if w := doAuth(t, h, "DELETE", "/v1/auth/password", "", "", "operator-key"); w.Code != 204 {
+		t.Fatalf("reset with api key: want 204 got %d %s", w.Code, w.Body.String())
+	}
+	// the password is gone and every session was revoked
+	w = doAuth(t, h, "GET", "/v1/auth/status", "", cookie, "")
+	if w.Code != 200 || !strings.Contains(w.Body.String(), `"password_set":false`) || !strings.Contains(w.Body.String(), `"authenticated":false`) {
+		t.Fatalf("status after reset: %d %s", w.Code, w.Body.String())
+	}
+	// first-run setup works again
+	if w := doAuth(t, h, "POST", "/v1/auth/setup", `{"password":"anothersecret"}`, "", ""); w.Code != 204 {
+		t.Fatalf("setup after reset: want 204 got %d %s", w.Code, w.Body.String())
+	}
+}

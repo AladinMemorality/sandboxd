@@ -267,6 +267,14 @@ paths:
         "400": { description: New password too short / invalid body }
         "401": { description: Current password incorrect }
         "403": { description: Not logged in as a console user }
+    delete:
+      operationId: authResetPassword
+      tags: [apps]
+      summary: Reset (forget) the console password so the next visit creates a new one; revokes every session. API-key callers only — a console session is refused.
+      responses:
+        "204": { description: Password cleared and all sessions revoked }
+        "401": { description: No credential }
+        "403": { description: Caller is a console session, not an API key }
   /v1/api-keys:
     post:
       operationId: createApiKey

@@ -270,6 +270,7 @@ if [ -n "$API_KEY" ]; then
   printf '  Send it as:  Authorization: Bearer <key>   (rotate in .env or the console)\n'
 fi
 printf '\n  Lost these later?  run:  ./console-login.sh\n'
+printf '  Forgot the console password later?  ./console-login.sh --reset-password\n'
 printf '  Update later:      run:  ./upgrade.sh   (backs up first, auto-rollback)\n'
 printf '  Public URL:        previews on %s only work from this network / plain HTTP.\n' "$PREVIEW_DOMAIN"
 printf '                     https://you.sandboxd.io in one command: https://sandboxd.io/cloud  ·  or your own domain: https://sandboxd.io/guides/production-tls\n'

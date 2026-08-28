@@ -23,6 +23,7 @@ export function Login({ onDone }: { onDone: () => void }) {
   const [pw, setPw] = useState('')
   const [err, setErr] = useState('')
   const [busy, setBusy] = useState(false)
+  const [forgot, setForgot] = useState(false)
   const submit = () => {
     if (busy) return
     setErr('')
@@ -45,6 +46,17 @@ export function Login({ onDone }: { onDone: () => void }) {
       />
       {err && <div style={{ color: c.bad, fontSize: 12, marginBottom: 12 }} data-testid="login-error">{err}</div>}
       <Btn variant="primary" disabled={busy} onClick={submit} style={{ width: '100%', padding: '9px 14px' }} data-testid="login-submit">Sign in</Btn>
+      <div style={{ marginTop: 14, textAlign: 'center' }}>
+        <a href="#" onClick={(e) => { e.preventDefault(); setForgot((v) => !v) }} style={{ color: c.muted, fontSize: 12, textDecoration: 'underline' }} data-testid="login-forgot">Forgot your password?</a>
+      </div>
+      {forgot && (
+        <div style={{ marginTop: 12, padding: 12, background: c.panel2, border: `1px solid ${c.border}`, borderRadius: 8, fontSize: 12, color: c.fg2 }} data-testid="login-forgot-panel">
+          <div style={{ marginBottom: 8 }}>Reset it from the server that runs sandboxd:</div>
+          <pre style={{ margin: 0, padding: '8px 10px', background: c.ink, color: c.bg, borderRadius: 6, fontFamily: font.mono, fontSize: 11.5, overflowX: 'auto' }}>cd /opt/sandboxd && ./console-login.sh --reset-password</pre>
+          <div style={{ color: c.muted2, fontSize: 11, marginTop: 4 }}>use your checkout directory if it differs</div>
+          <div style={{ marginTop: 8 }}>Then reload this page and create a new password.</div>
+        </div>
+      )}
     </Shell>
   )
 }

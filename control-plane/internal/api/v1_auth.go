@@ -1,5 +1,6 @@
 // v1_auth.go — the console's login authority. First-run password setup,
-// password login → HttpOnly session cookie, logout, and change-password. The
+// password login → HttpOnly session cookie, logout, change-password, and the
+// API-key-only password reset. The
 // password is bcrypt-hashed; sessions are opaque random tokens stored as their
 // sha256. All resolve to the single shared tenant (store.DefaultTenant).
 package api
@@ -9,6 +10,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/audit"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/console"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
@@ -156,6 +158,28 @@ func (s *Server) v1AuthPassword(w http.ResponseWriter, r *http.Request) {
 	if !s.issueSession(w, r) {                 // re-issue for this browser
 		return
 	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// DELETE /v1/auth/password — reset a forgotten console password. Only an
+// API-key (bearer) actor may call it: the operator proves control of the
+// server by holding its key, and the console goes back to first-run
+// "create your password". Every session is revoked.
+func (s *Server) v1AuthPasswordReset(w http.ResponseWriter, r *http.Request) {
+	if s.Store == nil {
+		writeV1Err(w, http.StatusServiceUnavailable, "unavailable", "auth store not configured")
+		return
+	}
+	if auth.ActorFrom(r.Context()).Kind != "service" {
+		writeV1Err(w, http.StatusForbidden, "forbidden", "password reset requires an API key (run ./console-login.sh --reset-password on the server)")
+		return
+	}
+	if err := s.Store.ClearPasswordHash(r.Context()); err != nil {
+		writeV1Err(w, http.StatusInternalServerError, "internal", "could not clear password")
+		return
+	}
+	_ = s.Store.DeleteAllSessions(r.Context())
+	s.auditAction(r, audit.Entry{Action: "auth.password_reset"})
 	w.WriteHeader(http.StatusNoContent)
 }
 

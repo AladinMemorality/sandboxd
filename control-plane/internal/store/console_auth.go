@@ -41,6 +41,15 @@ func (s *Store) SetPasswordHash(ctx context.Context, hash string) error {
 	})
 }
 
+// ClearPasswordHash removes the console password so the next visit is a
+// first-run "create your password" again (operator-driven recovery).
+func (s *Store) ClearPasswordHash(ctx context.Context) error {
+	return s.submit(ctx, func(db *sql.DB) error {
+		_, err := db.ExecContext(ctx, `DELETE FROM console_auth WHERE id = 1`)
+		return err
+	})
+}
+
 // ── sessions ─────────────────────────────────────────────────────────
 
 // CreateSession inserts a session keyed by the sha256 hex of the cookie value.
