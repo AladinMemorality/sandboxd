@@ -239,6 +239,16 @@ environments, or team multi-app hosting.
 script or `docker run` is simpler.
 ([Why not just a script?](https://sandboxd.io/what-is-sandboxd))
 
+## Get a public URL — sandboxd Cloud
+
+Out of the box, previews live on `<ip>.sslip.io` or `localhost`: fine on your
+network, useless for sharing. **[sandboxd Cloud](https://sandboxd.io/cloud)**
+gives the server you already run `https://you.sandboxd.io` (console, API and
+`*.preview.you.sandboxd.io`) in one command — no domain, DNS, open ports or
+certificates, and it works behind NAT, on a laptop, or on a $5 VPS. Your
+compute and data stay on your machine. $9.99/server/month, 50% off at launch.
+Prefer your own domain? [Production / TLS](https://sandboxd.io/guides/production-tls).
+
 ## Managed — we run it for you
 
 Don't want to run the server yourself? We'll **install, configure, and manage

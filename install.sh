@@ -236,6 +236,8 @@ if [ -n "$API_KEY" ]; then
 fi
 printf '\n  Lost these later?  run:  ./console-login.sh\n'
 printf '  Update later:      run:  ./upgrade.sh   (backs up first, auto-rollback)\n'
+printf '  Public URL:        previews on %s only work from this network / plain HTTP.\n' "$PREVIEW_DOMAIN"
+printf '                     https://you.sandboxd.io in one command: https://sandboxd.io/cloud  ·  or your own domain: https://sandboxd.io/guides/production-tls\n'
 chmod +x upgrade.sh 2>/dev/null || true
 
 # A single, plain (no-color) nudge — suppress with SANDBOXD_NO_SPONSOR=1.

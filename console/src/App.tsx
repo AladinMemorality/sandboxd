@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api, setOnUnauthorized, App as TApp, Preset, GitCredential, Agent, UpgradeState } from './api'
+import { previewReach, type PreviewReach } from './publicurl'
 import { c, font, mono, Card, Btn, StatusPill, Input, navItem } from './design/kit'
 import { PRESET_ICONS } from './design/presetIcons'
 import { STARTERS, STARTER_ICONS } from './design/starters'
@@ -27,6 +28,10 @@ export default function App() {
   // tolerates fetch errors and keeps going until a terminal phase.
   const [upg, setUpg] = useState<UpgradeState | null>(null)
   const [upgConfirm, setUpgConfirm] = useState(false)
+  // Reachability hint: previews on a LAN-only or bare-IP domain can't be shared
+  // with anyone outside this network. One strip, dismissed once, never shown
+  // again once a real domain (or a tunnel) is configured.
+  const [reach, setReach] = useState<PreviewReach | null>(null)
 
   const toast = useCallback((msg: string) => {
     const id = Date.now() + Math.floor(performance.now())
@@ -56,6 +61,8 @@ export default function App() {
       if (s.update_available && s.latest_version && localStorage.getItem('sandboxd-update-dismissed') !== s.latest_version) {
         setUpd({ latest: s.latest_version, url: s.changelog_url })
       }
+      const r = previewReach(s.networking?.preview_domain || '', !!s.networking?.preview_tls)
+      if (r !== 'ok' && localStorage.getItem('sandboxd-public-url-hint') !== 'dismissed') setReach(r)
     }).catch(() => {})
   }, [auth])
 
@@ -139,6 +146,19 @@ export default function App() {
             style={{ position: 'absolute', right: 14, color: c.muted, cursor: 'pointer', fontSize: 13 }}>
             ✕
           </span>
+        </div>
+      )}
+      {/* REACHABILITY HINT — previews can't be opened from outside this network. */}
+      {reach && (
+        <div data-testid="public-url-hint" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexShrink: 0, padding: '5px 40px 5px 16px', fontSize: 12.5, background: c.panel2, borderBottom: `1px solid ${c.border}`, position: 'relative' }}>
+          <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.muted, flexShrink: 0 }} />
+          <span>
+            {reach === 'lan' ? <b>Previews only work on this network.</b> : <b>Previews are plain HTTP on an IP address.</b>}
+            <span style={{ marginLeft: 6, color: c.muted }}>Get <span style={{ ...mono, fontSize: 11.5 }}>https://you.sandboxd.io</span> in one command — no DNS, ports or certs — or set your own domain.</span>
+          </span>
+          <a href="https://sandboxd.io/cloud?ref=console" target="_blank" rel="noreferrer" style={{ color: c.link, textDecoration: 'none' }}>Public URL ↗</a>
+          <a href="https://sandboxd.io/guides/production-tls" target="_blank" rel="noreferrer" style={{ color: c.muted, textDecoration: 'none' }}>Own domain ↗</a>
+          <span data-testid="public-url-hint-dismiss" className="dc-hoverink" onClick={() => { localStorage.setItem('sandboxd-public-url-hint', 'dismissed'); setReach(null) }} style={{ position: 'absolute', right: 14, color: c.muted, cursor: 'pointer', fontSize: 13 }}>✕</span>
         </div>
       )}
       {/* TOP BAR */}
