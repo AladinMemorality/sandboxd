@@ -6,6 +6,9 @@ All notable changes to sandboxd are documented here. The format is based on
 patch** — each lands the meaningful changes merged since the last one — and a
 **minor bump marks a milestone** release).
 
+## [0.3.19] — 2026-08-28
+**Full Changelog**: https://github.com/tastyeffectco/sandboxd/compare/v0.3.18...v0.3.19
+
 ## [0.3.18] — 2026-08-28
 **Full Changelog**: https://github.com/tastyeffectco/sandboxd/compare/v0.3.17...v0.3.18
 
