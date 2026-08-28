@@ -54,15 +54,45 @@ func parseSemver(v string) [3]int {
 	return out
 }
 
+// maxNotesBytes caps the release body kept in memory and served to clients.
+const maxNotesBytes = 16 << 10
+
+// Release is one published GitHub release, as much of it as the update surfaces
+// need: the tag, its page, the markdown notes, and the breaking-changes section
+// extracted from those notes ("" when the release has none).
+type Release struct {
+	Tag         string
+	URL         string
+	Body        string
+	PublishedAt string
+	Breaking    string
+}
+
+// Update is the answer to "should this build see an update?", ready to be
+// written into /v1/settings.
+type Update struct {
+	// Available is true when Latest is newer than the running build, or when
+	// the running build is not a clean release tag at all (see Kind).
+	Available bool
+	// Kind qualifies Available: "release" when the build is an older tag,
+	// "untagged" when it carries no comparable version ("dev", a bare commit
+	// hash, a describe form like v0.3.6-2-gabc). Empty when no update is reported.
+	Kind         string
+	Latest       string
+	ChangelogURL string
+	Notes        string
+	Breaking     string
+	PublishedAt  string
+}
+
 // Checker fetches the latest published release (cached ~6h) and answers whether
 // a newer version than the running build exists. It is best-effort: on any fetch
 // error UpdateAvailable simply reports false. It is safe for concurrent use.
 type Checker struct {
 	// URL overrides the GitHub releases endpoint (tests point this elsewhere).
 	URL string
-	// Fetch overrides the network fetch entirely (used by tests). It returns the
-	// release tag and its html_url.
-	Fetch func(ctx context.Context) (tag, url string, err error)
+	// Fetch overrides the network fetch entirely (used by tests).
+	Fetch func(ctx context.Context) (Release, error)
 	// TTL overrides the cache lifetime; zero means the 6h default.
 	TTL time.Duration
 	// Now overrides the clock (tests); zero-value means time.Now.
@@ -70,8 +100,7 @@ type Checker struct {
 
 	mu        sync.Mutex
 	haveData  bool
-	tag       string
-	url       string
+	rel       Release
 	lastFetch time.Time
 }
 
@@ -95,9 +124,9 @@ func (c *Checker) ttl() time.Duration {
 func (c *Checker) Latest(ctx context.Context) (version, url string, err error) {
 	c.mu.Lock()
 	if c.haveData && c.now().Sub(c.lastFetch) < c.ttl() {
-		v, u := c.tag, c.url
+		r := c.rel
 		c.mu.Unlock()
-		return v, u, nil
+		return r.Tag, r.URL, nil
 	}
 	c.mu.Unlock()
 
@@ -105,77 +134,165 @@ func (c *Checker) Latest(ctx context.Context) (version, url string, err error) {
 	if fetch == nil {
 		fetch = c.githubFetch
 	}
-	tag, u, ferr := fetch(ctx)
+	rel, ferr := fetch(ctx)
 	if ferr != nil {
 		return "", "", ferr
 	}
+	rel.Body = capNotes(rel.Body)
+	if rel.Breaking == "" {
+		rel.Breaking = BreakingSection(rel.Body)
+	}
 
 	c.mu.Lock()
-	c.tag, c.url, c.haveData, c.lastFetch = tag, u, true, c.now()
+	c.rel, c.haveData, c.lastFetch = rel, true, c.now()
 	c.mu.Unlock()
-	return tag, u, nil
+	return rel.Tag, rel.URL, nil
 }
 
 // UpdateAvailable reports, from the cached result only (never the network),
-// whether the latest release is newer than current. It is best-effort: with no
-// cached result yet it returns (false, "", ""). When a result is cached it always
-// returns the latest version + changelog URL so callers can surface them.
-//
-// A current version that is not semver-like — a bare commit hash ("e2ca6f6") or
-// "dev", i.e. a build tracking main — would parse as 0.0.0 and make EVERY
-// release look newer, so those never report an update (the latest release info
-// is still returned for display). Tag-anchored describe forms ("v0.3.0-54-g…")
-// compare by their tag, so a build ahead of the latest release reports false.
+// whether the latest release is newer than current. See Status for the rules.
 func (c *Checker) UpdateAvailable(current string) (available bool, latest, changelogURL string) {
-	c.mu.Lock()
-	have, tag, url := c.haveData, c.tag, c.url
-	c.mu.Unlock()
-	if !have || tag == "" {
-		return false, "", ""
-	}
-	if !semverLike(current) {
-		return false, tag, url
-	}
-	return CompareSemver(tag, current) > 0, tag, url
+	u := c.Status(current)
+	return u.Available, u.Latest, u.ChangelogURL
 }
 
-// semverLike reports whether v starts with a numeric (optionally "v"-prefixed)
-// version component — "v0.3.0", "0.4.1", "v0.3.0-54-g83f2f7" — as opposed to a
-// bare commit hash or "dev", which carry no comparable version at all.
-func semverLike(v string) bool {
+// Status answers, from the cached result only (never the network), whether
+// current should see an update and with which notes. It is best-effort: with no
+// cached result yet everything is zero. When a result is cached it always
+// carries the latest version, URL and notes so callers can surface them.
+//
+// A clean release tag ("v0.3.0") compares by semver. Anything else — "dev", a
+// bare commit hash, a describe form "v0.3.0-54-g…" — is a build that was never
+// pinned to a release, so it cannot be compared; it reports Available with
+// Kind "untagged" whenever a release exists, unless it names the latest tag.
+func (c *Checker) Status(current string) Update {
+	c.mu.Lock()
+	have, rel := c.haveData, c.rel
+	c.mu.Unlock()
+	if !have || rel.Tag == "" {
+		return Update{}
+	}
+	u := Update{Latest: rel.Tag, ChangelogURL: rel.URL, Notes: rel.Body, Breaking: rel.Breaking, PublishedAt: rel.PublishedAt}
+	switch {
+	case strings.TrimSpace(current) == rel.Tag:
+	case !cleanSemver(current):
+		u.Available, u.Kind = true, "untagged"
+	case CompareSemver(rel.Tag, current) > 0:
+		u.Available, u.Kind = true, "release"
+	}
+	return u
+}
+
+// cleanSemver reports whether v is exactly a release tag — an optional "v"
+// followed by three numeric components and nothing else.
+func cleanSemver(v string) bool {
 	v = strings.TrimSpace(v)
 	v = strings.TrimPrefix(v, "v")
 	v = strings.TrimPrefix(v, "V")
-	if i := strings.IndexAny(v, "-+"); i >= 0 {
-		v = v[:i]
+	parts := strings.Split(v, ".")
+	if len(parts) != 3 {
+		return false
 	}
-	first := strings.SplitN(v, ".", 2)[0]
-	_, err := strconv.Atoi(strings.TrimSpace(first))
-	return err == nil
+	for _, p := range parts {
+		if p == "" {
+			return false
+		}
+		for _, r := range p {
+			if r < '0' || r > '9' {
+				return false
+			}
+		}
+	}
+	return true
 }
 
-func (c *Checker) githubFetch(ctx context.Context) (tag, url string, err error) {
+func capNotes(body string) string {
+	if len(body) <= maxNotesBytes {
+		return body
+	}
+	cut := body[:maxNotesBytes]
+	if i := strings.LastIndexByte(cut, '\n'); i > 0 {
+		cut = cut[:i]
+	}
+	return cut + "\n…"
+}
+
+// BreakingSection returns the body of the first section of md whose heading
+// mentions "breaking", up to the next heading of the same or higher level; ""
+// when there is none. A heading is a "#"-line of any level or a line that is
+// entirely bold ("**Breaking changes**"); bold headings rank below every "#"
+// heading, so a bold section ends at the next bold line or any "#" heading.
+func BreakingSection(md string) string {
+	lines := strings.Split(strings.ReplaceAll(md, "\r\n", "\n"), "\n")
+	start, level := -1, 0
+	for i, ln := range lines {
+		lvl, text, ok := headingLine(ln)
+		if !ok {
+			continue
+		}
+		if start < 0 {
+			if strings.Contains(strings.ToLower(text), "breaking") {
+				start, level = i+1, lvl
+			}
+			continue
+		}
+		if lvl <= level {
+			return strings.TrimSpace(strings.Join(lines[start:i], "\n"))
+		}
+	}
+	if start < 0 {
+		return ""
+	}
+	return strings.TrimSpace(strings.Join(lines[start:], "\n"))
+}
+
+// headingLine parses a markdown heading: "## Text" → (2, "Text"), a bold-only
+// line "**Text**" → (7, "Text"). ok is false for anything else.
+func headingLine(ln string) (level int, text string, ok bool) {
+	t := strings.TrimSpace(ln)
+	if strings.HasPrefix(t, "#") {
+		n := 0
+		for n < len(t) && t[n] == '#' {
+			n++
+		}
+		if n > 6 || n == len(t) || (t[n] != ' ' && t[n] != '\t') {
+			return 0, "", false
+		}
+		return n, strings.TrimSpace(strings.TrimRight(t[n:], "#")), true
+	}
+	if len(t) > 4 && strings.HasPrefix(t, "**") && strings.HasSuffix(strings.TrimSuffix(t, ":"), "**") {
+		inner := strings.TrimSuffix(strings.TrimSuffix(t, ":"), "**")[2:]
+		if !strings.Contains(inner, "**") {
+			return 7, strings.TrimSpace(inner), true
+		}
+	}
+	return 0, "", false
+}
+
+func (c *Checker) githubFetch(ctx context.Context) (Release, error) {
 	endpoint := c.URL
 	if endpoint == "" {
 		endpoint = defaultReleasesURL
 	}
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
 	if err != nil {
-		return "", "", err
+		return Release{}, err
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 	client := &http.Client{Timeout: 10 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", "", err
+		return Release{}, err
 	}
 	defer resp.Body.Close()
 	var body struct {
-		TagName string `json:"tag_name"`
-		HTMLURL string `json:"html_url"`
+		TagName     string `json:"tag_name"`
+		HTMLURL     string `json:"html_url"`
+		Body        string `json:"body"`
+		PublishedAt string `json:"published_at"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&body); err != nil {
-		return "", "", err
+		return Release{}, err
 	}
-	return body.TagName, body.HTMLURL, nil
+	return Release{Tag: body.TagName, URL: body.HTMLURL, Body: body.Body, PublishedAt: body.PublishedAt}, nil
 }

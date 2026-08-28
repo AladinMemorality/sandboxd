@@ -10,7 +10,11 @@
 # What it does, in order:
 #   1. sanity: on main, clean tree, up to date with origin
 #   2. compute the next version from the latest v* tag
-#   3. generate release notes from merged PR titles (GitHub generate-notes API)
+#   3. generate release notes from merged PR titles (GitHub generate-notes API);
+#      if BREAKING.md exists at the repo root, its content becomes a
+#      "## Breaking changes" section at the top of the notes (the console and
+#      upgrade.sh show that section before anyone upgrades) and the file is
+#      removed in the release commit
 #   4. prepend a matching section to CHANGELOG.md and commit it
 #   5. annotated tag vX.Y.Z on that commit; push commit + tag
 #   6. create the GitHub release with those notes
@@ -69,6 +73,13 @@ NOTES="$(gh api "repos/$REPO/releases/generate-notes" \
           --jq .body)"
 [ -n "$NOTES" ] || die "could not generate release notes"
 info "generated notes ($(printf '%s' "$NOTES" | grep -c '^\*') PRs since $LAST)"
+BREAKING=""
+if [ -f BREAKING.md ]; then
+  BREAKING="$(sed -e '/^#.*[Bb]reaking/d' -e '/./,$!d' BREAKING.md | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')"
+  [ -n "$(printf '%s' "$BREAKING" | tr -d '[:space:]')" ] || die "BREAKING.md is empty — delete it or describe the breaking changes"
+  NOTES="$(printf '## Breaking changes\n\n%s\n\n%s\n' "$BREAKING" "$NOTES")"
+  info "BREAKING.md found — its content leads the notes as \"## Breaking changes\""
+fi
 
 if [ "$DRY" = 1 ]; then
   bold "--dry-run — would tag $VERSION with:"
@@ -87,8 +98,9 @@ awk -v ver="${VERSION#v}" -v date="$DATE" -v body="$BODY" '
   END { if (!inserted) print "## [" ver "] — " date "\n" body }
 ' CHANGELOG.md > "$tmp" && mv "$tmp" CHANGELOG.md
 git add CHANGELOG.md
+if [ -n "$BREAKING" ]; then git rm -q BREAKING.md; fi
 git commit -q -m "release: $VERSION"
-ok "CHANGELOG.md updated + committed"
+ok "CHANGELOG.md updated + committed${BREAKING:+ (BREAKING.md folded into the notes and removed)}"
 
 # ── 5. tag + push ────────────────────────────────────────────────────
 git tag -a "$VERSION" -m "$TITLE"

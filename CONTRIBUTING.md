@@ -46,6 +46,18 @@ slow part; it's cached after the first run.
 - Match the surrounding code's style and comment density.
 - Include a test for behaviour changes where practical.
 
+## Releases and breaking changes
+
+Releases are cut with `./release.sh`, which generates the notes from merged PR
+titles. If a release changes behaviour operators must act on (a renamed env
+var, a changed default, a removed endpoint), describe it in a `BREAKING.md`
+file at the repo root (committed — `release.sh` needs a clean tree) before
+running `release.sh`: its content becomes a
+"## Breaking changes" section at the top of the release notes and the file is
+removed in the release commit. That section is what the console shows in the
+version panel, and what `./upgrade.sh` prints and asks about, before anyone
+upgrades — so write it for the operator, with the exact steps they need.
+
 ## Reporting issues
 
 Please include your Docker version, OS, the relevant `docker compose logs

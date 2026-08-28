@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { api, setOnUnauthorized, App as TApp, Preset, GitCredential, Agent, UpgradeState } from './api'
+import { api, setOnUnauthorized, App as TApp, Preset, GitCredential, Agent, Settings, UpgradeState } from './api'
 import { previewReach, type PreviewReach } from './publicurl'
 import { c, font, mono, Card, Btn, StatusPill, Input, navItem } from './design/kit'
 import { PRESET_ICONS } from './design/presetIcons'
@@ -9,6 +9,7 @@ import { AppBrain, brainExcerpt, buildBrainGraph } from './brain'
 import { BrainGraph } from './BrainGraph'
 import { StoreView } from './StoreView'
 import { SettingsView } from './SettingsView'
+import { VersionPill } from './VersionPill'
 import { Login, CreatePassword } from './AuthGate'
 
 type Route = { name: 'apps' } | { name: 'brain' } | { name: 'store' } | { name: 'settings' } | { name: 'app'; id: string; tab?: string; task?: string }
@@ -19,15 +20,15 @@ export default function App() {
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [apps, setApps] = useState<TApp[]>([])
   const [auth, setAuth] = useState<{ enabled: boolean; authenticated: boolean; password_set: boolean } | null>(null)
-  // Update notification: the control plane checks GitHub releases (cached ~6h)
-  // and reports update_available in /v1/settings. Dismissal is remembered per
-  // version, so each new release notifies exactly once.
-  const [upd, setUpd] = useState<{ latest: string; url?: string } | null>(null)
-  // In-place upgrade driven from the banner: confirm -> POST /v1/upgrade ->
+  // Version pill (bottom left): the control plane checks GitHub releases
+  // (cached ~6h) and reports update_available + notes in /v1/settings.
+  // Dismissal is remembered per version, so each new release nudges once.
+  const [settings, setSettings] = useState<Settings | null>(null)
+  const [updDismissed, setUpdDismissed] = useState(false)
+  // In-place upgrade driven from the pill: confirm -> POST /v1/upgrade ->
   // poll GET /v1/upgrade. The control plane restarts mid-way, so polling
   // tolerates fetch errors and keeps going until a terminal phase.
   const [upg, setUpg] = useState<UpgradeState | null>(null)
-  const [upgConfirm, setUpgConfirm] = useState(false)
   // Reachability hint: previews on a LAN-only or bare-IP domain can't be shared
   // with anyone outside this network. One strip, dismissed once, never shown
   // again once a real domain (or a tunnel) is configured.
@@ -55,19 +56,24 @@ export default function App() {
   useEffect(() => {
     if (auth && (auth.authenticated || auth.enabled === false)) loadApps()
   }, [auth, loadApps])
+  const loadSettings = useCallback(() => api.getSettings().then((s) => {
+    setSettings(s)
+    setUpdDismissed(!!s.latest_version && localStorage.getItem('sandboxd-update-dismissed') === s.latest_version)
+    return s
+  }), [])
   useEffect(() => {
     if (!(auth && (auth.authenticated || auth.enabled === false))) return
-    api.getSettings().then((s) => {
-      if (s.update_available && s.latest_version && localStorage.getItem('sandboxd-update-dismissed') !== s.latest_version) {
-        setUpd({ latest: s.latest_version, url: s.changelog_url })
-      }
+    loadSettings().then((s) => {
       const r = previewReach(s.networking?.preview_domain || '', !!s.networking?.preview_tls)
       if (r !== 'ok' && localStorage.getItem('sandboxd-public-url-hint') !== 'dismissed') setReach(r)
     }).catch(() => {})
-  }, [auth])
+  }, [auth, loadSettings])
+  const dismissUpdate = useCallback(() => {
+    if (settings?.latest_version) localStorage.setItem('sandboxd-update-dismissed', settings.latest_version)
+    setUpdDismissed(true)
+  }, [settings])
 
   const startUpgrade = useCallback((target: string) => {
-    setUpgConfirm(false)
     api.startUpgrade(target).then(setUpg).catch((e: Error) => { toast(e.message || 'could not start upgrade'); setUpg(null) })
   }, [toast])
   useEffect(() => {
@@ -75,11 +81,11 @@ export default function App() {
     const id = setInterval(() => {
       api.getUpgrade().then((s) => {
         setUpg(s)
-        if (s.phase === 'succeeded') { setUpd(null); refreshAuth().then(loadApps) }
+        if (s.phase === 'succeeded') { refreshAuth().then(loadApps); loadSettings().catch(() => {}) }
       }).catch(() => { /* control plane restarting — keep polling */ })
     }, 3000)
     return () => clearInterval(id)
-  }, [upg, refreshAuth, loadApps])
+  }, [upg, refreshAuth, loadApps, loadSettings])
 
   const onAuthed = useCallback(() => { refreshAuth().then(loadApps) }, [refreshAuth, loadApps])
   const logout = useCallback(() => { api.logout().finally(() => setAuth((a) => (a ? { ...a, authenticated: false } : a))) }, [])
@@ -117,37 +123,6 @@ export default function App() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: c.bg, color: c.fg, fontFamily: font.sans, overflow: 'hidden' }}>
-      {/* UPDATE NOTIFICATION — one slim, dismissible strip per new release. */}
-      {upd && (
-        <div data-testid="update-banner" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexShrink: 0, padding: '6px 40px 6px 16px', fontSize: 12.5, background: c.panel2, borderBottom: `1px solid ${c.border}`, position: 'relative' }}>
-          <span style={{ width: 7, height: 7, borderRadius: '50%', background: c.good, flexShrink: 0 }} />
-          {upg && upg.phase === 'running' ? (
-            <span data-testid="upgrade-progress"><b>Upgrading to {upg.target}…</b> backing up, rebuilding and restarting — this page reconnects by itself (2–5 min).</span>
-          ) : upg && (upg.phase === 'failed' || upg.phase === 'rolled_back') ? (
-            <span data-testid="upgrade-result" style={{ color: c.bad }}><b>Upgrade {upg.phase === 'rolled_back' ? 'rolled back' : 'failed'}:</b> {upg.message} <span className="dc-hoverink" style={{ marginLeft: 8, color: c.link, cursor: 'pointer' }} onClick={() => setUpg(null)}>ok</span></span>
-          ) : upgConfirm ? (
-            <span data-testid="upgrade-confirm">
-              Upgrade to <b>{upd.latest}</b>? It backs up first, rebuilds, restarts and rolls back on failure (2–5 min). Sandboxes keep running.
-              <button data-testid="upgrade-go" onClick={() => startUpgrade(upd.latest)} style={{ marginLeft: 10, font: 'inherit', fontSize: 12, padding: '2px 10px', borderRadius: 4, border: `1px solid ${c.border}`, background: c.good, color: c.bg, cursor: 'pointer' }}>Upgrade now</button>
-              <span className="dc-hoverink" style={{ marginLeft: 8, color: c.muted, cursor: 'pointer' }} onClick={() => setUpgConfirm(false)}>cancel</span>
-            </span>
-          ) : (
-            <span>
-              <b>Update available: {upd.latest}</b> —
-              <button data-testid="upgrade-open" onClick={() => setUpgConfirm(true)} style={{ marginLeft: 8, font: 'inherit', fontSize: 12, padding: '2px 10px', borderRadius: 4, border: `1px solid ${c.border}`, background: c.bg, color: c.fg, cursor: 'pointer' }}>Upgrade now</button>
-              <span style={{ marginLeft: 8, color: c.muted }}>or run <span style={{ ...mono, fontSize: 11.5, background: c.bg, border: `1px solid ${c.border}`, borderRadius: 4, padding: '1px 6px' }}>./upgrade.sh</span> on your server.</span>
-            </span>
-          )}
-          {upd.url && <a href={upd.url} target="_blank" rel="noreferrer" style={{ color: c.link, textDecoration: 'none' }}>Release notes ↗</a>}
-          <span
-            data-testid="update-dismiss"
-            className="dc-hoverink"
-            onClick={() => { localStorage.setItem('sandboxd-update-dismissed', upd.latest); setUpd(null) }}
-            style={{ position: 'absolute', right: 14, color: c.muted, cursor: 'pointer', fontSize: 13 }}>
-            ✕
-          </span>
-        </div>
-      )}
       {/* REACHABILITY HINT — previews can't be opened from outside this network. */}
       {reach && (
         <div data-testid="public-url-hint" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, flexShrink: 0, padding: '5px 40px 5px 16px', fontSize: 12.5, background: c.panel2, borderBottom: `1px solid ${c.border}`, position: 'relative' }}>
@@ -217,6 +192,7 @@ export default function App() {
 
       {paletteOpen && <Palette apps={apps} close={() => setPaletteOpen(false)} onGo={(r) => { setRoute(r); setPaletteOpen(false) }} />}
       <Helper />
+      {settings && <VersionPill settings={settings} dismissed={updDismissed} onDismiss={dismissUpdate} upg={upg} startUpgrade={startUpgrade} clearUpgrade={() => setUpg(null)} />}
 
       {/* TOASTS */}
       {toasts.length > 0 && (

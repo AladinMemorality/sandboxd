@@ -114,3 +114,7 @@ jobs:
         run: bash -n install.sh
       - name: install.sh platform logic (docker stubbed)
         run: bash scripts/test-install.sh
+      - name: parse upgrade.sh + release.sh
+        run: bash -n upgrade.sh release.sh
+      - name: upgrade.sh release notes + breaking-changes prompt (curl stubbed)
+        run: bash scripts/test-upgrade-notes.sh

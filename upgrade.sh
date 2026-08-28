@@ -7,8 +7,11 @@
 #   ./upgrade.sh <ref>           upgrade to a specific tag or branch (e.g. v0.4.0)
 #   ./upgrade.sh --rebuild-base  also force-rebuild the sandbox base image
 #                                (runtimed); normally auto-detected from the diff
+#   ./upgrade.sh --yes           don't ask before applying a release that lists
+#                                breaking changes (the notes are still printed)
 #
-# It ALWAYS backs up the database + .env before touching anything, applies new
+# Before applying, it prints the release notes of the target ("What's new"),
+# with any breaking changes first. It ALWAYS backs up the database + .env before touching anything, applies new
 # migrations (additive by design), health-checks the new stack, and rolls back
 # automatically if it does not come up. Safe to run on a production instance.
 
@@ -35,6 +38,50 @@ bold "sandboxd upgrade"
 info "current release checkout : $CUR"
 info "latest release          : $LATEST"
 
+# ── release notes (best effort: silent when offline or without a JSON tool) ──
+# NOTES holds the release body of <tag>; BREAKING its "breaking changes"
+# section (a heading of any level, or a bold line, mentioning "breaking", up
+# to the next heading of the same or higher level). NOTES_KNOWN=1 once fetched.
+NOTES="" BREAKING="" NOTES_KNOWN=0
+fetch_notes() {
+  local json
+  json="$(curl -fsSL --max-time 10 -H 'Accept: application/vnd.github+json' \
+          "https://api.github.com/repos/tastyeffectco/sandboxd/releases/tags/$1" 2>/dev/null)" || return 0
+  [ -n "$json" ] || return 0
+  if command -v python3 >/dev/null 2>&1; then
+    NOTES="$(printf '%s' "$json" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("body") or "")' 2>/dev/null)" || return 0
+  elif command -v jq >/dev/null 2>&1; then
+    NOTES="$(printf '%s' "$json" | jq -r '.body // ""' 2>/dev/null)" || return 0
+  else
+    return 0
+  fi
+  NOTES_KNOWN=1
+  BREAKING="$(printf '%s\n' "$NOTES" | awk '
+    function level(l,  n) {
+      if (l ~ /^#+[ \t]/) { n = 0; while (substr(l, n + 1, 1) == "#") n++; return n <= 6 ? n : 0 }
+      if (l ~ /^\*\*[^*]+\*\*:?$/) return 7
+      return 0
+    }
+    { sub(/\r$/, ""); l = $0; sub(/^[ \t]+/, "", l); sub(/[ \t]+$/, "", l); n = level(l) }
+    start == 0 && n > 0 && tolower(l) ~ /breaking/ { start = n; next }
+    start > 0 && n > 0 && n <= start { exit }
+    start > 0 { print }
+  ' | sed -e :a -e '/^\n*$/{$d;N;ba' -e '}')"
+}
+# Print the notes for the target tag: breaking changes first, clearly marked.
+print_notes() {
+  [ "$NOTES_KNOWN" = 1 ] || return 0
+  echo
+  if [ -n "$BREAKING" ]; then
+    printf '  \033[31;1m!! BREAKING CHANGES in %s — read before continuing\033[0m\n' "$1"
+    printf '%s\n' "$BREAKING" | sed 's/^/     /'
+    echo
+  fi
+  bold "What's new in $1"
+  if [ -n "$NOTES" ]; then printf '%s\n' "$NOTES" | sed 's/^/     /'; else info "(no notes on this release)"; fi
+  echo
+}
+
 # ── --check: report and exit, changing nothing ───────────────────────
 if [ "${1:-}" = "--check" ]; then
   case "$LATEST" in
@@ -43,15 +90,32 @@ if [ "${1:-}" = "--check" ]; then
     *) case "$CUR" in
          "$LATEST"-*) info "you're on a development build ahead of the latest release ($LATEST) — tracking main." ;;
          *)           warn "an update may be available: $LATEST. Run ./upgrade.sh to install it." ;;
-       esac ;;
+       esac
+       fetch_notes "$LATEST"
+       if [ "$NOTES_KNOWN" = 1 ]; then
+         if [ -n "$BREAKING" ]; then info "breaking changes: yes"; else info "breaking changes: no"; fi
+       fi ;;
   esac
   exit 0
 fi
 
 # First non-flag argument is the ref; default: track main (where releases land
-# today). Flags (--rebuild-base) are handled where they apply.
-REF="main"
+# today). Flags (--rebuild-base, --yes) are handled where they apply.
+REF="main" YES=0
 for _a in "$@"; do case "$_a" in --*) ;; *) REF="$_a"; break ;; esac; done
+case " $* " in *" --yes "*) YES=1 ;; esac
+
+# Show what the target release brings; when it lists breaking changes, an
+# operator at a terminal must confirm (or pass --yes). Driven non-interactively
+# — the console's in-place upgrader — it only prints, never prompts.
+case "$REF" in v[0-9]*) NOTES_TAG="$REF" ;; *) NOTES_TAG="$LATEST" ;; esac
+case "$NOTES_TAG" in "(couldn't reach GitHub)") ;; *) fetch_notes "$NOTES_TAG" ;; esac
+print_notes "$NOTES_TAG"
+if [ -n "$BREAKING" ] && [ "$YES" != 1 ] && [ -t 0 ]; then
+  printf '  Continue with the upgrade? [y/N] '
+  read -r _ans || _ans=""
+  case "$_ans" in y|Y|yes|YES) ;; *) die "upgrade cancelled — rerun with --yes to skip this question." ;; esac
+fi
 
 # ── load .env + detect docker/compose (mirrors install.sh) ───────────
 # shellcheck disable=SC1091

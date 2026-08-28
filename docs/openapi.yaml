@@ -1513,6 +1513,13 @@ components:
       properties:
         version: { type: string }
         git_commit: { type: string }
+        update_available: { type: boolean, description: "True when a newer release exists (best-effort, cached ~6h). Also true for builds with no comparable version (see update_kind)." }
+        update_kind: { type: string, enum: [release, untagged], description: "Why an update is reported: release (an older tagged build) or untagged (dev / bare commit / describe-form build). Omitted when no update is reported." }
+        latest_version: { type: string, description: "Latest release tag, once fetched." }
+        changelog_url: { type: string, description: "Release page of latest_version." }
+        latest_notes: { type: string, description: "Release notes of latest_version (markdown, capped at 16 KB)." }
+        latest_breaking: { type: string, description: "The \"Breaking changes\" section of latest_notes (markdown); omitted when the release has none." }
+        latest_published_at: { type: string, format: date-time }
         networking:
           type: object
           properties:

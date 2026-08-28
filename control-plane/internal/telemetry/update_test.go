@@ -2,6 +2,7 @@ package telemetry
 
 import (
 	"context"
+	"strings"
 	"testing"
 )
 
@@ -33,8 +34,8 @@ func TestCompareSemver(t *testing.T) {
 
 func TestCheckerUpdateAvailable(t *testing.T) {
 	c := &Checker{
-		Fetch: func(context.Context) (string, string, error) {
-			return "v0.4.0", "https://github.com/tastyeffectco/sandboxd/releases/tag/v0.4.0", nil
+		Fetch: func(context.Context) (Release, error) {
+			return Release{Tag: "v0.4.0", URL: "https://github.com/tastyeffectco/sandboxd/releases/tag/v0.4.0"}, nil
 		},
 	}
 	if _, _, err := c.Latest(context.Background()); err != nil {
@@ -67,8 +68,8 @@ func TestCheckerUpdateAvailable(t *testing.T) {
 
 func TestCheckerUpdateAvailableEmptyCacheIsSafe(t *testing.T) {
 	c := &Checker{
-		Fetch: func(context.Context) (string, string, error) {
-			return "", "", context.DeadlineExceeded
+		Fetch: func(context.Context) (Release, error) {
+			return Release{}, context.DeadlineExceeded
 		},
 	}
 	// Latest returns the error; UpdateAvailable must be best-effort false.
@@ -83,33 +84,101 @@ func TestCheckerUpdateAvailableEmptyCacheIsSafe(t *testing.T) {
 
 func TestCheckerUpdateAvailableNonSemverCurrent(t *testing.T) {
 	c := &Checker{
-		Fetch: func(context.Context) (string, string, error) {
-			return "v0.3.0", "https://github.com/tastyeffectco/sandboxd/releases/tag/v0.3.0", nil
+		Fetch: func(context.Context) (Release, error) {
+			return Release{Tag: "v0.3.0", URL: "https://github.com/tastyeffectco/sandboxd/releases/tag/v0.3.0"}, nil
 		},
 	}
 	if _, _, err := c.Latest(context.Background()); err != nil {
 		t.Fatalf("Latest: %v", err)
 	}
 
-	// A bare commit hash or "dev" (a build tracking main) parses as 0.0.0 and
-	// must NOT make the latest release look like an update — but the latest
-	// release info is still surfaced for display.
-	for _, cur := range []string{"e2ca6f6", "dev", "unknown"} {
-		avail, latest, url := c.UpdateAvailable(cur)
-		if avail {
-			t.Errorf("current=%q: no update should be reported for a non-semver build", cur)
+	// A bare commit hash, "dev" or a describe form was never pinned to a
+	// release: it reports an update of kind "untagged" so the console can word
+	// it softly, and the latest release info is surfaced for display.
+	for _, cur := range []string{"e2ca6f6", "dev", "unknown", "v0.3.0-54-g83f2f7", "v0.2.9-3-gabc", "v0.3.0-dirty"} {
+		u := c.Status(cur)
+		if !u.Available || u.Kind != "untagged" {
+			t.Errorf("current=%q: want available/untagged, got %+v", cur, u)
 		}
-		if latest != "v0.3.0" || url == "" {
-			t.Errorf("current=%q: latest info should still be surfaced, got %q %q", cur, latest, url)
+		if u.Latest != "v0.3.0" || u.ChangelogURL == "" {
+			t.Errorf("current=%q: latest info should be surfaced, got %+v", cur, u)
 		}
 	}
+	// A genuinely older tagged build reports a normal release update…
+	if u := c.Status("v0.2.9"); !u.Available || u.Kind != "release" {
+		t.Errorf("v0.2.9 should report a release update vs v0.3.0, got %+v", u)
+	}
+	// …and the latest tag itself (or a newer one) reports nothing.
+	for _, cur := range []string{"v0.3.0", "0.3.0", "v0.3.1"} {
+		if u := c.Status(cur); u.Available || u.Kind != "" {
+			t.Errorf("current=%q: no update expected, got %+v", cur, u)
+		}
+	}
+}
 
-	// Tag-anchored describe (ahead of the release) compares by its tag: no update.
-	if avail, _, _ := c.UpdateAvailable("v0.3.0-54-g83f2f7"); avail {
-		t.Error("v0.3.0-54-g… (ahead of v0.3.0) should not report an update")
+func TestCheckerStatusCarriesNotes(t *testing.T) {
+	body := "## What's Changed\n* a thing\n\n## Breaking changes\n* the API moved\n\n## Bug fixes\n* x"
+	c := &Checker{
+		Fetch: func(context.Context) (Release, error) {
+			return Release{Tag: "v0.4.0", URL: "u", Body: body, PublishedAt: "2026-08-01T00:00:00Z"}, nil
+		},
 	}
-	// And a genuinely older tagged build still does.
-	if avail, _, _ := c.UpdateAvailable("v0.2.9"); !avail {
-		t.Error("v0.2.9 should report an update vs v0.3.0")
+	if _, _, err := c.Latest(context.Background()); err != nil {
+		t.Fatalf("Latest: %v", err)
+	}
+	u := c.Status("v0.3.0")
+	if u.Notes != body || u.PublishedAt != "2026-08-01T00:00:00Z" {
+		t.Errorf("notes/published_at not carried: %+v", u)
+	}
+	if u.Breaking != "* the API moved" {
+		t.Errorf("breaking = %q", u.Breaking)
+	}
+}
+
+func TestCheckerCapsNotes(t *testing.T) {
+	long := strings.Repeat("line of notes\n", 3000) // ~42 KB
+	c := &Checker{
+		Fetch: func(context.Context) (Release, error) { return Release{Tag: "v1.0.0", Body: long}, nil },
+	}
+	if _, _, err := c.Latest(context.Background()); err != nil {
+		t.Fatalf("Latest: %v", err)
+	}
+	if n := len(c.Status("v0.1.0").Notes); n > maxNotesBytes+8 {
+		t.Errorf("notes not capped: %d bytes", n)
+	}
+}
+
+func TestBreakingSection(t *testing.T) {
+	cases := []struct {
+		name, md, want string
+	}{
+		{"h2 heading",
+			"## What's Changed\n* a\n\n## Breaking changes\n* moved X\n* dropped Y\n\n## Other\n* b",
+			"* moved X\n* dropped Y"},
+		{"h3 with emoji, ends at same level",
+			"## Notes\n### ⚠️ Breaking\nThe port changed.\n### Fixes\n* z",
+			"The port changed."},
+		{"h3 ends at higher level",
+			"### ⚠️ Breaking\nOne\n\nTwo\n## Next\nno",
+			"One\n\nTwo"},
+		{"nested lower-level headings stay inside",
+			"## Breaking changes\n### API\n* a\n### Config\n* b\n## Fixes\n* c",
+			"### API\n* a\n### Config\n* b"},
+		{"bold line heading",
+			"**What's new**\n* a\n\n**Breaking changes**\n* b\n\n**Fixes**\n* c",
+			"* b"},
+		{"bold line heading with colon ends at # heading",
+			"**Breaking changes:**\n* b\n## Fixes\n* c",
+			"* b"},
+		{"none present", "## What's Changed\n* nothing breaking here", ""},
+		{"mention in body is not a heading", "## Notes\n* this is a breaking change\n", ""},
+		{"section at end of body", "## Fixes\n* a\n\n## Breaking changes\n* last one\n", "* last one"},
+		{"empty", "", ""},
+		{"crlf", "## Breaking\r\n* a\r\n## B\r\n* c", "* a"},
+	}
+	for _, tc := range cases {
+		if got := BreakingSection(tc.md); got != tc.want {
+			t.Errorf("%s: BreakingSection = %q, want %q", tc.name, got, tc.want)
+		}
 	}
 }

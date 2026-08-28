@@ -27,11 +27,18 @@ export interface Preset {
 export interface Settings {
   version: string
   git_commit?: string
-  // Release-checker result (best-effort; cached server-side). update_available
-  // is false for main-tracking dev builds even when latest_version is set.
+  // Release-checker result (best-effort; cached server-side). update_kind is
+  // "release" for an older tagged build and "untagged" for a build with no
+  // comparable version (dev / bare commit / describe form); both see updates.
+  // latest_notes is the release body (markdown); latest_breaking is its
+  // "Breaking changes" section, absent when the release has none.
   update_available: boolean
+  update_kind?: 'release' | 'untagged'
   latest_version?: string
   changelog_url?: string
+  latest_notes?: string
+  latest_breaking?: string
+  latest_published_at?: string
   networking: {
     preview_domain: string
     public_http_port?: string

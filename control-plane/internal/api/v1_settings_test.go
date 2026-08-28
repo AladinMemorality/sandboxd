@@ -97,8 +97,11 @@ func TestV1SettingsShapeAndNoSecretLeak(t *testing.T) {
 // surfaces update_available + latest_version + changelog_url.
 func TestV1SettingsUpdateAvailable(t *testing.T) {
 	chk := &telemetry.Checker{
-		Fetch: func(context.Context) (string, string, error) {
-			return "v0.5.0", "https://github.com/tastyeffectco/sandboxd/releases/tag/v0.5.0", nil
+		Fetch: func(context.Context) (telemetry.Release, error) {
+			return telemetry.Release{
+				Tag: "v0.5.0", URL: "https://github.com/tastyeffectco/sandboxd/releases/tag/v0.5.0",
+				Body: "## What's Changed\n* a\n\n## Breaking changes\n* the thing\n", PublishedAt: "2026-08-01T00:00:00Z",
+			}, nil
 		},
 	}
 	if _, _, err := chk.Latest(context.Background()); err != nil {
@@ -129,5 +132,26 @@ func TestV1SettingsUpdateAvailable(t *testing.T) {
 	}
 	if m["changelog_url"] == "" || m["changelog_url"] == nil {
 		t.Errorf("changelog_url should be populated, got %v", m["changelog_url"])
+	}
+	if m["update_kind"] != "release" {
+		t.Errorf("update_kind = %v", m["update_kind"])
+	}
+	if m["latest_breaking"] != "* the thing" || m["latest_published_at"] != "2026-08-01T00:00:00Z" {
+		t.Errorf("notes fields: breaking=%v published_at=%v", m["latest_breaking"], m["latest_published_at"])
+	}
+	if n, _ := m["latest_notes"].(string); !strings.Contains(n, "## What's Changed") {
+		t.Errorf("latest_notes = %v", m["latest_notes"])
+	}
+
+	// An untagged build (bare commit) sees the update too, worded as "untagged".
+	s.Instance.Version = "e2ca6f6"
+	w = httptest.NewRecorder()
+	s.v1GetSettings(w, httptest.NewRequest("GET", "/v1/settings", nil))
+	m = map[string]any{}
+	if err := json.Unmarshal(w.Body.Bytes(), &m); err != nil {
+		t.Fatalf("invalid json: %v", err)
+	}
+	if m["update_available"] != true || m["update_kind"] != "untagged" {
+		t.Errorf("untagged build: available=%v kind=%v", m["update_available"], m["update_kind"])
 	}
 }

@@ -36,19 +36,24 @@ type v1Settings struct {
 	Version   string `json:"version"`
 	GitCommit string `json:"git_commit,omitempty"`
 	// Update info from the release checker (best-effort). update_available is
-	// always present; latest_version/changelog_url are omitted until a release
-	// has been fetched.
-	UpdateAvailable bool              `json:"update_available"`
-	LatestVersion   string            `json:"latest_version,omitempty"`
-	ChangelogURL    string            `json:"changelog_url,omitempty"`
-	Networking      v1SettingsNet     `json:"networking"`
-	Auth            v1SettingsAuth    `json:"auth"`
-	Runtime         v1SettingsRuntime `json:"runtime"`
-	Lifecycle       v1SettingsLife    `json:"lifecycle"`
-	Egress          v1SettingsEgress  `json:"egress"`
-	Agents          v1SettingsAgents  `json:"agents"`
-	Presets         []v1Preset        `json:"presets"`
-	Capabilities    map[string]bool   `json:"capabilities"`
+	// always present; the latest_* fields are omitted until a release has been
+	// fetched. update_kind is "release" (an older tagged build) or "untagged"
+	// (a build with no comparable version) when an update is reported.
+	UpdateAvailable   bool              `json:"update_available"`
+	UpdateKind        string            `json:"update_kind,omitempty"`
+	LatestVersion     string            `json:"latest_version,omitempty"`
+	ChangelogURL      string            `json:"changelog_url,omitempty"`
+	LatestNotes       string            `json:"latest_notes,omitempty"`
+	LatestBreaking    string            `json:"latest_breaking,omitempty"`
+	LatestPublishedAt string            `json:"latest_published_at,omitempty"`
+	Networking        v1SettingsNet     `json:"networking"`
+	Auth              v1SettingsAuth    `json:"auth"`
+	Runtime           v1SettingsRuntime `json:"runtime"`
+	Lifecycle         v1SettingsLife    `json:"lifecycle"`
+	Egress            v1SettingsEgress  `json:"egress"`
+	Agents            v1SettingsAgents  `json:"agents"`
+	Presets           []v1Preset        `json:"presets"`
+	Capabilities      map[string]bool   `json:"capabilities"`
 	// Editable lists the field paths a client may change via PATCH /v1/settings.
 	// Everything else is read-only (env/file-managed or restart-required).
 	Editable []string `json:"editable"`
@@ -147,7 +152,10 @@ func (s *Server) v1GetSettings(w http.ResponseWriter, _ *http.Request) {
 		}
 	}
 	if s.Update != nil {
-		out.UpdateAvailable, out.LatestVersion, out.ChangelogURL = s.Update.UpdateAvailable(s.Instance.Version)
+		u := s.Update.Status(s.Instance.Version)
+		out.UpdateAvailable, out.UpdateKind = u.Available, u.Kind
+		out.LatestVersion, out.ChangelogURL = u.Latest, u.ChangelogURL
+		out.LatestNotes, out.LatestBreaking, out.LatestPublishedAt = u.Notes, u.Breaking, u.PublishedAt
 	}
 	writeJSON(w, http.StatusOK, out)
 }
