@@ -56,6 +56,7 @@ func TestMiddlewareUniformEnforcement(t *testing.T) {
 		{"valid bearer key", "/v1/apps", "", "good-key", "203.0.113.9:5000", 200, "service"},
 		{"bad session + bad key", "/v1/apps", "nope", "nope", "203.0.113.9:5000", 401, ""},
 		{"exempt path no credential", "/v1/auth/status", "", "", "203.0.113.9:5000", 200, "unknown"},
+		{"version exempt no credential", "/version", "", "", "203.0.113.9:5000", 200, "unknown"},
 		{"exempt path with session", "/v1/auth/status", "good-cookie", "", "203.0.113.9:5000", 200, "user"},
 	}
 	for _, tc := range cases {

@@ -68,10 +68,11 @@ func (m *Middleware) Snapshot() *Config { return m.cfg.Load() }
 
 // exemptPaths are reachable on the external path without a bearer
 // token. /preview-auth and /forward-auth validate their
-// own JWTs; /healthz and /readyz carry nothing sensitive.
+// own JWTs; /healthz, /readyz and /version carry nothing sensitive.
 var exemptPaths = map[string]bool{
 	"/healthz":        true,
 	"/readyz":         true,
+	"/version":        true,
 	"/preview-auth":   true,
 	"/forward-auth":   true,
 	"/llm.txt":        true, // public API contract for integrators (no token)

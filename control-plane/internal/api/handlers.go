@@ -1214,6 +1214,19 @@ func (s *Server) handleHealthz(w http.ResponseWriter, _ *http.Request) {
 	_, _ = w.Write([]byte("ok\n"))
 }
 
+// --- GET /version ---------------------------------------------------
+
+// handleVersion reports the build identity without auth so monitors and
+// upgrade checks can read it before they hold a token. Version and commit
+// are the only fields; nothing instance-specific leaks here.
+func (s *Server) handleVersion(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Cache-Control", "no-store")
+	writeJSON(w, http.StatusOK, map[string]string{
+		"version": s.Instance.Version,
+		"commit":  s.Instance.GitCommit,
+	})
+}
+
 // --- GET /readyz ----------------------------------------------------
 
 // readyz checks (a) SQLite is open and (b) `docker info` succeeded

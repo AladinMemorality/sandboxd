@@ -6,7 +6,7 @@
 #
 # sandboxd's own auth applies: when SANDBOXD_API_AUTH_DISABLED=false and
 # SANDBOXD_API_TOKENS is set, external calls require a bearer token;
-# /healthz, /readyz, /preview-auth and /forward-auth stay open.
+# /healthz, /readyz, /version, /preview-auth and /forward-auth stay open.
 #
 # Matches api.preview.<anything> so it follows PREVIEW_DOMAIN without
 # edits. Delete this file to make the API unreachable through Traefik.

@@ -61,6 +61,7 @@ Auth is **off by default** (local). If you set `SANDBOXD_API_AUTH_DISABLED=false
 | `GET /v1/sandboxes/{id}/files` / `.../files/content?path=` | — | list / read workspace files |
 | `POST /v1/sandboxes/{id}/tasks` | (agent task) | run a coding agent headlessly via `runtimed` |
 | `GET /healthz`, `GET /readyz` | — | liveness / readiness |
+| `GET /version` | — | build version + commit (JSON, no auth) |
 
 ## End-to-end example
 ```bash

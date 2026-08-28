@@ -66,4 +66,5 @@ POST   /v1/sandboxes/{id}/stop       stop (idle); wakes on next preview hit
 POST   /v1/sandboxes/{id}/tasks      submit a coding task to runtimed
 PUT    /v1/sandboxes/{id}/files      write files into the workspace
 GET    /healthz  GET /readyz         liveness / readiness
+GET    /version                      build version + commit (JSON, no auth)
 ```

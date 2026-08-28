@@ -230,6 +230,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /sandbox/{id}/restore", s.observe("POST /sandbox/{id}/restore", s.handleSnapshotRestore))
 	mux.HandleFunc("GET /llm.txt", s.observe("GET /llm.txt", s.handleLLMTxt))
 	mux.HandleFunc("GET /healthz", s.observe("GET /healthz", s.handleHealthz))
+	mux.HandleFunc("GET /version", s.observe("GET /version", s.handleVersion))
 	mux.HandleFunc("GET /readyz", s.observe("GET /readyz", s.handleReadyz))
 	mux.Handle("GET /metrics", promhttp.HandlerFor(metrics.Registry, promhttp.HandlerOpts{}))
 
