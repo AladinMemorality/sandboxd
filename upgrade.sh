@@ -141,7 +141,12 @@ if $DOCKER compose version >/dev/null 2>&1; then COMPOSE="$DOCKER compose"
 elif command -v docker-compose >/dev/null 2>&1; then COMPOSE="docker-compose"
 else die "Docker Compose not found."; fi
 # Keep the console running if it was running.
-PROFILE=""; $DOCKER ps --format '{{.Names}}' 2>/dev/null | grep -q 'sandboxd-console' && PROFILE="--profile console"
+# `up` keeps the console running only if it was running; `build` ALWAYS includes
+# it — otherwise an upgrade run while the console was stopped (or being
+# recreated) leaves an old console image behind the new control plane.
+PROFILE=""; $DOCKER ps -a --format '{{.Names}}' 2>/dev/null | grep -q 'sandboxd-console' && PROFILE="--profile console"
+[ "${SANDBOXD_CONSOLE:-1}" = "0" ] || PROFILE="--profile console"
+BUILD_PROFILE="--profile console"
 
 # ── 1. back up (always, before anything changes) ─────────────────────
 TS="$(date +%Y%m%d-%H%M%S 2>/dev/null || echo backup)"
@@ -205,7 +210,7 @@ $DOCKER build -q -t "sandboxd-upgrader:${SANDBOXD_VERSION}" image/upgrader >/dev
   printf 'SANDBOXD_UPGRADER_IMAGE=sandboxd-upgrader:%s\n' "$SANDBOXD_VERSION" >> "$tmp"; mv "$tmp" .env; } || true
 export SANDBOXD_GIT_COMMIT="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
 info "building $SANDBOXD_VERSION ($SANDBOXD_GIT_COMMIT)"
-$COMPOSE $PROFILE build
+$COMPOSE $BUILD_PROFILE build
 $COMPOSE $PROFILE up -d
 
 # ── 4. health-check; roll back automatically on failure ──────────────
@@ -228,7 +233,7 @@ else
   # Re-stamp so the rebuilt image reports the version we actually rolled back to.
   export SANDBOXD_VERSION="$(git describe --tags --always --dirty 2>/dev/null || echo dev)"
   export SANDBOXD_GIT_COMMIT="$(git rev-parse --short=12 HEAD 2>/dev/null || echo unknown)"
-  $COMPOSE $PROFILE build >/dev/null 2>&1 || true
+  $COMPOSE $BUILD_PROFILE build >/dev/null 2>&1 || true
   $COMPOSE $PROFILE up -d || true
   die "rolled back to $PREV_SHA (database restored from $BK). Inspect logs: $COMPOSE logs sandboxd"
 fi
