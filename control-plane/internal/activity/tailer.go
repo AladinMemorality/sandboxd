@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/metrics"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/previewhost"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
 
@@ -39,11 +40,11 @@ import (
 type Tailer struct {
 	LogPath        string // /var/log/sandboxd/traefik-access.log
 	CheckpointPath string // /var/lib/sandboxd/state/traefik-tail.offset
-	PreviewDomain  string // example.com
+	Hosts          previewhost.Scheme
 	Store          *store.Store
 	Log            *slog.Logger
 
-	hostRE     *regexp.Regexp // ^s-([0-9A-Za-z]+)-([0-9]+)\.preview\.<domain>(:.*)?$
+	hostRE     *regexp.Regexp // Hosts.HostRegexp()
 	mu         sync.Mutex
 	lastBumped time.Time
 }
@@ -70,15 +71,9 @@ func (t *Tailer) Run(ctx context.Context) error {
 }
 
 func (t *Tailer) compileHostRE() error {
-	// Match `s-<id>-<port>.preview.<domain>` with an optional `:port`
-	// suffix (some proxies include it in the Host header).
-	pat := `^s-([0-9A-Za-z]+)-([0-9]+)\.preview\.` +
-		regexp.QuoteMeta(t.PreviewDomain) + `(?::\d+)?$`
-	re, err := regexp.Compile(pat)
-	if err != nil {
-		return fmt.Errorf("compile preview-host regex: %w", err)
-	}
-	t.hostRE = re
+	// Matches the preview host shape with an optional `:port` suffix
+	// (some proxies include it in the Host header).
+	t.hostRE = t.Hosts.HostRegexp()
 	return nil
 }
 

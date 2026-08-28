@@ -75,6 +75,7 @@ export const settingsFixture: Settings = {
     preview_domain: 'localhost',
     public_http_port: '18080',
     preview_base: 'http://*.preview.localhost:18080',
+    preview_host_style: 'nested',
     preview_tls: false,
     preview_entrypoint: 'web',
   },

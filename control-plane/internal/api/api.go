@@ -74,6 +74,11 @@ type Server struct {
 	// a reachable ":18080" URL instead of a bare :80 one. Empty = default.
 	PublicHTTPPort string
 	SetMemoryHigh  bool
+	// PreviewHostStyle / PreviewHostTag lay out preview, console and API
+	// hostnames under PreviewDomain (PREVIEW_HOST_STYLE / PREVIEW_HOST_TAG,
+	// see package previewhost). Empty style = nested, today's layout.
+	PreviewHostStyle string
+	PreviewHostTag   string
 
 	// GitPush runs the host-side git read+push ops (B2). Nil in production →
 	// the handler uses the real gitimport.Runner; tests inject a fake.

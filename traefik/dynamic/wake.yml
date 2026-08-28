@@ -7,14 +7,15 @@
 # right after a wake) — it forwards them to sandboxd, which wakes the
 # sandbox (docker start) and then proxies the request.
 #
-# The HostRegexp matches the preview shape for ANY domain
-# (s-<id>-<port>.preview.<anything>) so you don't have to edit this file
-# when you change PREVIEW_DOMAIN — sandboxd validates the exact domain.
+# The HostRegexp matches the preview shape for ANY domain and both host
+# styles (s-<id>-<port>.preview.<anything>, or s-<id>-<port>[--tag].<anything>
+# with PREVIEW_HOST_STYLE=flat) so you don't have to edit this file when you
+# change PREVIEW_DOMAIN — sandboxd validates the exact domain, style and tag.
 
 http:
   routers:
     sandbox-wake:
-      rule: "HostRegexp(`^s-[0-9A-Za-z]+-[0-9]+\\.preview\\..+$`)"
+      rule: "HostRegexp(`^s-[0-9A-Za-z]+-[0-9]+(--[a-z0-9-]+)?\\.(preview\\.)?.+$`)"
       entryPoints: [web]
       service: sandbox-wake
       priority: 1

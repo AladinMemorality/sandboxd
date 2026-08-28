@@ -36,6 +36,8 @@ export interface Settings {
     preview_domain: string
     public_http_port?: string
     preview_base: string
+    preview_host_style: 'nested' | 'flat'
+    preview_host_tag?: string
     preview_tls: boolean
     preview_entrypoint?: string
   }

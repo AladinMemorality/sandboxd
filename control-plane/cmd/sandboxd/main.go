@@ -49,6 +49,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/loopback"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/metrics"
 	nginxwatch "github.com/tastyeffectco/sandboxd/control-plane/internal/nginx"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/previewhost"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/reaper"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/reconcile"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/sandboxspec"
@@ -155,6 +156,21 @@ func main() {
 		fmt.Fprintf(os.Stderr, "PREVIEW_URL_SCHEME must be http, https, or empty (got %q)\n", previewURLScheme)
 		os.Exit(2)
 	}
+	// Hostname layout under PREVIEW_DOMAIN: nested (s-<id>-<port>.preview.<D>,
+	// the default) or flat (s-<id>-<port>[--tag].<D>, so one *.<D> wildcard
+	// certificate covers every host and several instances can share a
+	// domain by tag).
+	previewHostStyle, err := previewhost.ParseStyle(os.Getenv("PREVIEW_HOST_STYLE"))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err.Error())
+		os.Exit(2)
+	}
+	previewHostTag := strings.TrimSpace(os.Getenv("PREVIEW_HOST_TAG"))
+	if !previewhost.ValidTag(previewHostTag) {
+		fmt.Fprintf(os.Stderr, "PREVIEW_HOST_TAG must match [a-z0-9][a-z0-9-]{0,30} (got %q)\n", previewHostTag)
+		os.Exit(2)
+	}
+	hosts, _ := previewhost.New(domain, previewHostStyle, previewHostTag)
 	// Host-facing port the preview/console URLs are reached on (compose passes
 	// the published HTTP_PORT here). Default "80": bare URLs on a dedicated host.
 	publicHTTPPort := envDefault("SANDBOXD_PUBLIC_HTTP_PORT", "80")
@@ -354,7 +370,7 @@ func main() {
 	}
 
 	wakeHandler, err := wake.New(
-		st, dockerClient, domain,
+		st, dockerClient, hosts,
 		wake.Config{
 			TCPReadyTimeout: wakeTCPReady,
 			RefreshSeconds:  2,
@@ -492,6 +508,8 @@ func main() {
 			Runtime:           sbxRuntime,
 			DNSResolvConf:     dnsResolvConf,
 			PreviewDomain:     domain,
+			PreviewHostStyle:  hosts.Style,
+			PreviewHostTag:    hosts.Tag,
 			PreviewEntrypoint: previewEntrypoint,
 			PreviewTLS:        previewTLS,
 			AgentProxyURL:     agentProxyURL,
@@ -522,6 +540,8 @@ func main() {
 		Loopback:          loopMgr,
 		Log:               log.With("component", "api"),
 		PreviewDomain:     domain,
+		PreviewHostStyle:  hosts.Style,
+		PreviewHostTag:    hosts.Tag,
 		Image:             image,
 		Network:           network,
 		Userns:            userns,
@@ -726,7 +746,7 @@ func main() {
 	tailer := &activity.Tailer{
 		LogPath:        envDefault("SANDBOXD_ACCESS_LOG", accessLogPath),
 		CheckpointPath: envDefault("SANDBOXD_TAILER_OFFSET", tailerOffsetFs),
-		PreviewDomain:  domain,
+		Hosts:          hosts,
 		Store:          st,
 		Log:            log.With("component", "access-log-tailer"),
 	}
@@ -821,6 +841,9 @@ func main() {
 		log.Info("startup: listening",
 			"addr", addr,
 			"preview_domain", domain,
+			"preview_host_style", hosts.Style,
+			"preview_host_tag", hosts.Tag,
+			"preview_host_example", hosts.Preview("<id>", 3000),
 			"image", image,
 			"idle_threshold", idleThreshold.String(),
 			"idle_interval", idleInterval.String(),
@@ -878,7 +901,7 @@ func main() {
 }
 
 // hostDispatch routes incoming requests to either the wake catch-all
-// (when Host header matches s-<id>-<port>.preview.<domain>) or the
+// (when Host header matches the preview host shape) or the
 // loopback API. Both share the same listener so the operator only
 // has to wire one entry into Traefik's file provider.
 func hostDispatch(w *wake.Handler, apiMux http.Handler, _ any) http.Handler {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"log/slog"
 	"net"
@@ -21,6 +20,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/egress"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/idlock"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/metrics"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/previewhost"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/sandboxspec"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
@@ -28,19 +28,19 @@ import (
 // Handler implements both HTML and JSON wake entry points.
 //
 //   - Traefik catch-all: arrives as any HTTP method/path with Host
-//     header `s-<id>-<port>.preview.<domain>`. ServeHTTP detects the
+//     header matching the preview host shape (see previewhost). ServeHTTP detects the
 //     shape via the Host regex and returns an HTML meta-refresh.
 //
 //   - Programmatic: arrives at POST /wake/{id} on the loopback API.
 //     The path-value provides the id; Accept: application/json (or
 //     no Host that matches preview shape) → JSON.
 type Handler struct {
-	Store         *store.Store
-	Docker        *docker.Client
-	PreviewDomain string
-	Cfg           Config
-	Admit         AdmitConfig
-	Log           *slog.Logger
+	Store  *store.Store
+	Docker *docker.Client
+	Hosts  previewhost.Scheme
+	Cfg    Config
+	Admit  AdmitConfig
+	Log    *slog.Logger
 
 	// Phase 6 — egress sources policy. nil-safe (the wake path still
 	// works without egress; the kernel just won't see the new bridge
@@ -112,30 +112,24 @@ type jsonErrResp struct {
 }
 
 // New returns a Handler. The host regex is compiled once.
-func New(s *store.Store, d *docker.Client, previewDomain string, cfg Config, admit AdmitConfig, eg *egress.Manager, locks *idlock.Registry, log *slog.Logger) (*Handler, error) {
+func New(s *store.Store, d *docker.Client, hosts previewhost.Scheme, cfg Config, admit AdmitConfig, eg *egress.Manager, locks *idlock.Registry, log *slog.Logger) (*Handler, error) {
 	if cfg.RefreshSeconds <= 0 {
 		cfg.RefreshSeconds = 2
 	}
 	if cfg.TCPReadyTimeout <= 0 {
 		cfg.TCPReadyTimeout = 8 * time.Second
 	}
-	pat := `^s-([0-9A-Za-z]+)-([0-9]+)\.preview\.` +
-		regexp.QuoteMeta(previewDomain) + `(?::\d+)?$`
-	re, err := regexp.Compile(pat)
-	if err != nil {
-		return nil, fmt.Errorf("compile preview-host regex: %w", err)
-	}
 	return &Handler{
-		Store:         s,
-		Docker:        d,
-		PreviewDomain: previewDomain,
-		Cfg:           cfg,
-		Admit:         admit,
-		Egress:        eg,
-		Locks:         locks,
-		Log:           log,
-		hostRE:        re,
-		inflight:      map[string]*inflightWake{},
+		Store:    s,
+		Docker:   d,
+		Hosts:    hosts,
+		Cfg:      cfg,
+		Admit:    admit,
+		Egress:   eg,
+		Locks:    locks,
+		Log:      log,
+		hostRE:   hosts.HostRegexp(),
+		inflight: map[string]*inflightWake{},
 	}, nil
 }
 
@@ -318,13 +312,13 @@ func (h *Handler) serve(r *http.Request, w http.ResponseWriter, id, port string,
 			stale = true
 			log.Info("wake: container built from an older image — recreating",
 				"container_image", cur.Config.Image, "current_image", h.Image)
-		case sandboxspec.PreviewLabelsStale(cur.Config.Labels, h.PreviewDomain):
+		case sandboxspec.PreviewLabelsStale(cur.Config.Labels, h.Hosts):
 			// PREVIEW_DOMAIN changed since this container was created: its
 			// Traefik routers still point at the old host, so its new preview
 			// URL would fall through to this wake page forever.
 			stale = true
 			log.Info("wake: preview routers target an old PREVIEW_DOMAIN — recreating",
-				"current_domain", h.PreviewDomain)
+				"current_domain", h.Hosts.Domain)
 		}
 		if stale {
 			if err := h.Recreate(ctx, sb); err != nil {

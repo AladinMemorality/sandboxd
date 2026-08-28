@@ -244,6 +244,10 @@ export function SettingsView({ onError, toast }: { onError: (m: string) => void;
         <Field label="Preview domain" value={s.networking.preview_domain} env="PREVIEW_DOMAIN" />
         <Field label="Public HTTP port" value={s.networking.public_http_port || '—'} env="HTTP_PORT" />
         <Field label="Preview base" value={s.networking.preview_base} kind="derived" />
+        <Field label="Host style" value={s.networking.preview_host_style || 'nested'} env="PREVIEW_HOST_STYLE" />
+        {s.networking.preview_host_style === 'flat' && (
+          <Field label="Host tag" value={s.networking.preview_host_tag || '—'} env="PREVIEW_HOST_TAG" />
+        )}
         <Field label="TLS" value={<Pill tone={s.networking.preview_tls ? 'good' : 'warn'}>{s.networking.preview_tls ? 'enabled' : 'plain HTTP'}</Pill>} env="PREVIEW_TLS" />
         <Field label="Entrypoint" value={s.networking.preview_entrypoint || 'web'} env="PREVIEW_ENTRYPOINT" />
 

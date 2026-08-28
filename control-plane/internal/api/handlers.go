@@ -729,7 +729,7 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	if len(previewPorts) > 0 {
 		previewPorts = ensurePort(previewPorts, webPort)
 	}
-	labels := traefik.Labels(req.ID, previewPorts, s.PreviewDomain, visibility, s.PreviewEntrypoint, s.PreviewTLS)
+	labels := traefik.LabelsFor(s.hosts(), req.ID, previewPorts, visibility, s.PreviewEntrypoint, s.PreviewTLS)
 	// Phase 10B — bind-mount EVERY connected provider's auth dir at
 	// /run/agent-auth/<provider> (outside the workspace). runtimed selects the
 	// right one per task by the requested agent, so an explicit agent:"claude-code"

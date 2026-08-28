@@ -1518,7 +1518,9 @@ components:
           properties:
             preview_domain: { type: string }
             public_http_port: { type: string }
-            preview_base: { type: string }
+            preview_base: { type: string, description: "scheme://<pattern>[:port] covering every preview host: *.preview.<domain> (nested) or s-*-*[--tag].<domain> (flat)." }
+            preview_host_style: { type: string, enum: [nested, flat], description: "Hostname layout under preview_domain (PREVIEW_HOST_STYLE). nested: s-<id>-<port>.preview.<domain>; flat: s-<id>-<port>[--tag].<domain>." }
+            preview_host_tag: { type: string, description: "Instance tag appended to flat-style hosts (PREVIEW_HOST_TAG); omitted when unset." }
             preview_tls: { type: boolean }
             preview_url_scheme: { type: string, description: "Effective scheme of generated preview URLs: http or https (PREVIEW_URL_SCHEME, else derived from preview_tls)." }
             preview_entrypoint: { type: string }

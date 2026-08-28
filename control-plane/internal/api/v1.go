@@ -10,7 +10,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -147,7 +146,7 @@ func (s *Server) previewURL(id string, webPort int) string {
 	// The preview hostname's port is the sandbox's RESOLVED web port (manifest /
 	// preset / 3000) — the same port the Traefik router serves — so a non-3000
 	// app (e.g. Astro on 4321) gets a reachable URL.
-	host := fmt.Sprintf("s-%s-%d.preview.%s", id, webPort, s.PreviewDomain)
+	host := s.hosts().Preview(id, webPort)
 	// Append the host-facing port unless it's the scheme default. On a
 	// shared host published on e.g. :18080, the bare URL would hit whatever
 	// owns :80 (a front proxy), so the port must be in the URL the browser,

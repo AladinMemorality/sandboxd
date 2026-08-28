@@ -2,7 +2,10 @@ package traefik
 
 import (
 	"reflect"
+	"strings"
 	"testing"
+
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/previewhost"
 )
 
 func TestLabels_NoPorts(t *testing.T) {
@@ -107,5 +110,23 @@ func TestLabels_Private(t *testing.T) {
 	}
 	if !foundPub {
 		t.Fatalf("public sandbox must carry the embed middleware; got %#v", pub)
+	}
+}
+
+func TestLabelsForFlatStyle(t *testing.T) {
+	hs := previewhost.Scheme{Domain: "ex.com", Style: previewhost.StyleFlat, Tag: "eu1"}
+	got := LabelsFor(hs, "nx", []int{3000}, "public", "web", false)
+	want := "traefik.http.routers.s-nx-3000.rule=Host(`s-nx-3000--eu1.ex.com`)"
+	found := false
+	for _, l := range got {
+		if l == want {
+			found = true
+		}
+		if strings.Contains(l, ".preview.") {
+			t.Errorf("flat labels must not mention .preview.: %s", l)
+		}
+	}
+	if !found {
+		t.Errorf("missing %q in %v", want, got)
 	}
 }

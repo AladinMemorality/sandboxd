@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/previewhost"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
 
@@ -144,8 +145,21 @@ func TestPreviewLabelsStale(t *testing.T) {
 		{"nil labels", nil, "x.example", false},
 	}
 	for _, c := range cases {
-		if got := PreviewLabelsStale(c.labels, c.domain); got != c.want {
+		if got := PreviewLabelsStale(c.labels, previewhost.Scheme{Domain: c.domain}); got != c.want {
 			t.Errorf("%s: PreviewLabelsStale = %v; want %v", c.name, got, c.want)
 		}
+	}
+	// Switching host style or tag re-labels too: the old nested router does
+	// not serve the flat host, and a flat router of another tag is stale.
+	flat := previewhost.Scheme{Domain: "old.example", Style: previewhost.StyleFlat, Tag: "eu1"}
+	if !PreviewLabelsStale(rule("old.example"), flat) {
+		t.Error("nested labels under a flat scheme: want stale")
+	}
+	flatRule := map[string]string{"traefik.http.routers.s-01A-3000.rule": "Host(`s-01A-3000--eu1.old.example`)"}
+	if PreviewLabelsStale(flatRule, flat) {
+		t.Error("flat labels matching the scheme: want fresh")
+	}
+	if !PreviewLabelsStale(flatRule, previewhost.Scheme{Domain: "old.example", Style: previewhost.StyleFlat, Tag: "eu2"}) {
+		t.Error("flat labels of another tag: want stale")
 	}
 }

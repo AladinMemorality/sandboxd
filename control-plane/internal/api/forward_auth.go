@@ -5,6 +5,7 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"net/url"
 	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/audit"
@@ -29,7 +30,8 @@ func (s *Server) handleForwardAuth(w http.ResponseWriter, r *http.Request) {
 	fwdHost := r.Header.Get("X-Forwarded-Host")
 	fwdURI := r.Header.Get("X-Forwarded-Uri")
 
-	id := parseSandboxIDFromHost(fwdHost, s.PreviewDomain)
+	hs := s.hosts()
+	id := parseSandboxIDFromHost(fwdHost, hs)
 	if id == "" {
 		// Unparseable host — deny, no redirect.
 		w.WriteHeader(http.StatusUnauthorized)
@@ -50,6 +52,13 @@ func (s *Server) handleForwardAuth(w http.ResponseWriter, r *http.Request) {
 		metrics.PreviewAccess.WithLabelValues("allowed").Inc()
 		w.WriteHeader(http.StatusOK)
 		return
+	}
+
+	if hs.Flat() {
+		if u, perr := url.ParseRequestURI(fwdURI); perr == nil && u.Path == flatAuthLandingPath {
+			s.handleFlatAuthLanding(w, r, id, fwdHost, u.Query())
+			return
+		}
 	}
 
 	ownerUID := ""
@@ -100,7 +109,13 @@ func (s *Server) forwardAuthDeny(w http.ResponseWriter, r *http.Request, id, fwd
 		w.WriteHeader(http.StatusUnauthorized)
 		return
 	}
-	target := auth.BuildRedirectURL(cfg.AuthRedirectURL, id, returnURL)
+	s.forwardAuthRedirect(w, r, auth.BuildRedirectURL(cfg.AuthRedirectURL, id, returnURL))
+}
+
+// forwardAuthRedirect sends the browser to target from inside a
+// forward-auth response: a 302, or the 401 + <meta refresh> form when
+// SANDBOXD_FORWARD_AUTH_DENY_MODE=meta-refresh.
+func (s *Server) forwardAuthRedirect(w http.ResponseWriter, r *http.Request, target string) {
 	if s.ForwardAuthDenyMode == "meta-refresh" {
 		w.Header().Set("Location", target)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

@@ -21,6 +21,8 @@ package traefik
 import (
 	"fmt"
 	"strings"
+
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/previewhost"
 )
 
 // Labels returns the slice of "key=value" label strings for a
@@ -30,7 +32,8 @@ import (
 //
 // Each port produces one router and one service whose names are the
 // same string `s-<id>-<port>`. The Host() rule covers the literal
-// preview URL `s-<id>-<port>.preview.<domain>`.
+// preview URL `s-<id>-<port>.preview.<domain>` (or the flat form
+// `s-<id>-<port>[--tag].<domain>`, see package previewhost).
 //
 // Phase 8 extension: when visibility == "private", each
 // router additionally references the `sandbox-preview-auth@file`
@@ -45,6 +48,12 @@ import (
 // a wildcard cert to Traefik's default TLS store, and gets the original
 // HTTPS behaviour with no per-host ACME.
 func Labels(id string, ports []int, domain, visibility, entrypoint string, tls bool) []string {
+	return LabelsFor(previewhost.Scheme{Domain: domain}, id, ports, visibility, entrypoint, tls)
+}
+
+// LabelsFor is Labels with the preview hostnames laid out by hs (nested
+// or flat, see package previewhost).
+func LabelsFor(hs previewhost.Scheme, id string, ports []int, visibility, entrypoint string, tls bool) []string {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -58,7 +67,7 @@ func Labels(id string, ports []int, domain, visibility, entrypoint string, tls b
 	out := []string{"traefik.enable=true", "sandboxd.managed=true"}
 	for _, p := range ports {
 		router := fmt.Sprintf("s-%s-%d", id, p)
-		host := fmt.Sprintf("s-%s-%d.preview.%s", id, p, domain)
+		host := hs.Preview(id, p)
 		out = append(out,
 			fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s`)", router, host),
 			fmt.Sprintf("traefik.http.routers.%s.entrypoints=%s", router, entrypoint),
@@ -79,8 +88,9 @@ func Labels(id string, ports []int, domain, visibility, entrypoint string, tls b
 		)
 		if tls {
 			// TLS on, but no per-router certresolver: Traefik serves the
-			// shared *.preview.<domain> wildcard from the default TLS
-			// store. One cert for every preview host — no per-host ACME.
+			// shared wildcard (*.preview.<domain>, or *.<domain> in the
+			// flat style) from the default TLS store. One cert for every
+			// preview host — no per-host ACME.
 			out = append(out, fmt.Sprintf("traefik.http.routers.%s.tls=true", router))
 		}
 		// Every preview router strips X-Frame-Options so the console can embed

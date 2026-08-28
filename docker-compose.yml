@@ -104,6 +104,9 @@ services:
       # --- routing (HTTP by default) ---
       PREVIEW_ENTRYPOINT: ${PREVIEW_ENTRYPOINT:-web}
       PREVIEW_TLS: ${PREVIEW_TLS:-false}
+      # Hostname layout under PREVIEW_DOMAIN (see .env.example).
+      PREVIEW_HOST_STYLE: ${PREVIEW_HOST_STYLE:-nested}
+      PREVIEW_HOST_TAG: ${PREVIEW_HOST_TAG:-}
       # Host-facing port previews/console are reached on; appended to preview
       # URLs unless it's the scheme default (80/443). Matches HTTP_PORT so a
       # shared-host deploy (e.g. 18080) returns a reachable URL.
@@ -131,6 +134,8 @@ services:
   #   *.preview.<PREVIEW_DOMAIN> -> sandbox previews
   # one entrypoint (:${HTTP_PORT}), Traefik picks by the router rule.
   # Reachable at http://console.${PREVIEW_DOMAIN:-localhost}:${HTTP_PORT}.
+  # CONSOLE_HOST overrides the hostname (e.g. console--<tag>.<domain> with
+  # PREVIEW_HOST_STYLE=flat and a PREVIEW_HOST_TAG).
   #
   # AUTH: the control plane is the login authority. The console serves a login /
   # first-run "create password" screen and authenticates every /v1 call with an
@@ -149,7 +154,7 @@ services:
     labels:
       - "sandboxd.managed=true" # satisfies the traefik docker-provider constraint
       - "traefik.enable=true"
-      - "traefik.http.routers.console.rule=Host(`console.${PREVIEW_DOMAIN:-localhost}`)"
+      - "traefik.http.routers.console.rule=Host(`${CONSOLE_HOST:-console.${PREVIEW_DOMAIN:-localhost}}`)"
       - "traefik.http.routers.console.entrypoints=web"
       # No Traefik gate — the control plane authenticates the console (login /
       # first-run password → session cookie). The SPA + its /v1 proxy sit behind

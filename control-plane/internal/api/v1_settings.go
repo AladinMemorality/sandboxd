@@ -55,9 +55,15 @@ type v1Settings struct {
 }
 
 type v1SettingsNet struct {
-	PreviewDomain     string `json:"preview_domain"`
-	PublicHTTPPort    string `json:"public_http_port,omitempty"`
+	PreviewDomain  string `json:"preview_domain"`
+	PublicHTTPPort string `json:"public_http_port,omitempty"`
+	// PreviewBase is scheme://<pattern>[:port] covering every preview host.
+	// Nested: a real DNS wildcard (*.preview.<domain>). Flat: previews share
+	// their parent with the console and API, so the pattern is written as
+	// s-*-*[--tag].<domain>, mirroring the preview host shape.
 	PreviewBase       string `json:"preview_base"`
+	PreviewHostStyle  string `json:"preview_host_style"`
+	PreviewHostTag    string `json:"preview_host_tag,omitempty"`
 	PreviewTLS        bool   `json:"preview_tls"`
 	PreviewURLScheme  string `json:"preview_url_scheme"`
 	PreviewEntrypoint string `json:"preview_entrypoint,omitempty"`
@@ -111,6 +117,8 @@ func (s *Server) v1GetSettings(w http.ResponseWriter, _ *http.Request) {
 		GitCommit: s.Instance.GitCommit,
 		Networking: v1SettingsNet{
 			PreviewDomain:     s.PreviewDomain,
+			PreviewHostStyle:  s.hosts().Style,
+			PreviewHostTag:    s.hosts().Tag,
 			PublicHTTPPort:    s.PublicHTTPPort,
 			PreviewBase:       s.previewBase(),
 			PreviewTLS:        s.PreviewTLS,
@@ -303,7 +311,7 @@ func (s *Server) previewBase() string {
 	if s.PreviewURLScheme != "" {
 		defaultPort = s.PublicHTTPPort // the terminator in front owns the public port
 	}
-	host := "*.preview." + s.PreviewDomain
+	host := s.hosts().Wildcard()
 	if p := s.PublicHTTPPort; p != "" && p != defaultPort {
 		host += ":" + p
 	}

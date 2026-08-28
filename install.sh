@@ -191,7 +191,7 @@ PROFILE_ARGS=""
 # Stash the console URL + bootstrap key (gitignored, 0600) so ./console-login.sh
 # can show them again anytime.
 {
-  printf 'console_url=http://console.%s%s\n' "${PREVIEW_DOMAIN:-localhost}" "$([ "${HTTP_PORT:-80}" != "80" ] && printf ':%s' "${HTTP_PORT:-80}")"
+  printf 'console_url=http://%s%s\n' "${CONSOLE_HOST:-console.${PREVIEW_DOMAIN:-localhost}}" "$([ "${HTTP_PORT:-80}" != "80" ] && printf ':%s' "${HTTP_PORT:-80}")"
   printf 'api_key=%s\n' "$API_KEY"
 } > .console-login 2>/dev/null && chmod 600 .console-login
 
@@ -226,14 +226,20 @@ STAGE=done
 API_BIND="${SANDBOXD_API_BIND:-127.0.0.1:9090}"
 HTTP_PORT="${HTTP_PORT:-80}"
 PREVIEW_DOMAIN="${PREVIEW_DOMAIN:-localhost}"
+CONSOLE_HOST="${CONSOLE_HOST:-console.${PREVIEW_DOMAIN}}"
 PORTSUFFIX=""; [ "$HTTP_PORT" != "80" ] && PORTSUFFIX=":$HTTP_PORT"
+# Preview host shape, mirroring PREVIEW_HOST_STYLE / PREVIEW_HOST_TAG.
+PREVIEW_SUFFIX=".preview.${PREVIEW_DOMAIN}"
+if [ "${PREVIEW_HOST_STYLE:-nested}" = "flat" ]; then
+  PREVIEW_SUFFIX="${PREVIEW_HOST_TAG:+--$PREVIEW_HOST_TAG}.${PREVIEW_DOMAIN}"
+fi
 
 echo
 bold "sandboxd is running 🎉"
 cat <<EOF
 
   Control-plane API : http://${API_BIND}   (auth required — use your API key)
-  Preview URLs      : http://s-<id>-<port>.preview.${PREVIEW_DOMAIN}${PORTSUFFIX}
+  Preview URLs      : http://s-<id>-<port>${PREVIEW_SUFFIX}${PORTSUFFIX}
 
   Create your first sandbox (exposing a dev server on port 3000):
 
@@ -242,7 +248,7 @@ cat <<EOF
       -H 'content-type: application/json' \\
       -d '{"id":"demo01","ports":[3000]}' | tee /dev/stderr
 
-  Then open:  http://s-demo01-3000.preview.${PREVIEW_DOMAIN}${PORTSUFFIX}
+  Then open:  http://s-demo01-3000${PREVIEW_SUFFIX}${PORTSUFFIX}
 
   Logs:   $COMPOSE logs -f sandboxd
   Stop:   $COMPOSE down
@@ -253,7 +259,7 @@ EOF
 if [ "$CONSOLE" = "1" ]; then
   echo
   bold "Web console — open this first 👇"
-  printf '\n  Open    : http://console.%s%s\n' "$PREVIEW_DOMAIN" "$PORTSUFFIX"
+  printf '\n  Open    : http://%s%s\n' "$CONSOLE_HOST" "$PORTSUFFIX"
   printf '  Login   : create your password on first visit (change it anytime in Settings)\n'
   printf '  Then connect an agent in Settings, create an app, and build.\n'
 fi

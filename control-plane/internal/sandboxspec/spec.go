@@ -12,6 +12,7 @@ package sandboxspec
 
 import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/previewhost"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/traefik"
 	"strings"
@@ -27,6 +28,8 @@ type Env struct {
 	Runtime           string // "" = docker default, "runsc" = gVisor
 	DNSResolvConf     string // gVisor: host resolv.conf to bind-mount
 	PreviewDomain     string
+	PreviewHostStyle  string // previewhost.StyleNested (default) or StyleFlat
+	PreviewHostTag    string // optional instance tag, flat style only
 	PreviewEntrypoint string
 	PreviewTLS        bool
 	AgentProxyURL     string
@@ -85,7 +88,7 @@ func Build(sb *store.Sandbox, e Env) docker.RunSpec {
 	if visibility == "" {
 		visibility = "private"
 	}
-	labels := traefik.Labels(sb.ID, ports, e.PreviewDomain, visibility, e.PreviewEntrypoint, e.PreviewTLS)
+	labels := traefik.LabelsFor(e.Hosts(), sb.ID, ports, visibility, e.PreviewEntrypoint, e.PreviewTLS)
 
 	return docker.RunSpec{
 		Name:        name,
@@ -116,18 +119,24 @@ func NeedsRecreate(containerImage, currentImage string) bool {
 	return containerImage != "" && currentImage != "" && containerImage != currentImage
 }
 
+// Hosts returns the preview hostname scheme for this environment.
+func (e Env) Hosts() previewhost.Scheme {
+	return previewhost.Scheme{Domain: e.PreviewDomain, Style: e.PreviewHostStyle, Tag: e.PreviewHostTag}
+}
+
 // PreviewLabelsStale reports whether a container's Traefik preview routers
-// were generated for a different PREVIEW_DOMAIN than the instance uses now.
+// were generated for a different PREVIEW_DOMAIN (or host style / tag) than
+// the instance uses now.
 // Labels are baked in at create time; without this check, changing the
 // domain (new domain, new IP, moved behind a proxy) leaves every existing
 // sandbox answering only to the OLD host, and its new preview URL falls
 // through to the wake page forever. Containers with no preview routers at
 // all (e.g. a worker) are never stale.
-func PreviewLabelsStale(labels map[string]string, previewDomain string) bool {
-	if previewDomain == "" {
+func PreviewLabelsStale(labels map[string]string, hs previewhost.Scheme) bool {
+	if hs.Domain == "" {
 		return false
 	}
-	want := ".preview." + previewDomain
+	want := hs.Suffix()
 	sawRouter := false
 	for k, v := range labels {
 		if !strings.HasPrefix(k, "traefik.http.routers.") || !strings.HasSuffix(k, ".rule") {
