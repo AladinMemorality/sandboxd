@@ -16,6 +16,8 @@
 # automatically if it does not come up. Safe to run on a production instance.
 
 set -euo pipefail
+# Never fail silently: name the line so a report carries it.
+trap 'rc=$?; if [ "$rc" -ne 0 ]; then printf "  \033[31m✗ upgrade.sh stopped (exit %s) at line %s\033[0m\n" "$rc" "$LINENO" >&2; fi' ERR
 cd "$(dirname "$0")"
 
 bold() { printf '\033[1m%s\033[0m\n' "$*"; }

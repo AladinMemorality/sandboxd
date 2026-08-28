@@ -13,9 +13,10 @@ T="$(mktemp -d)"; trap 'rm -rf "$T"' EXIT
 fail() {
   printf '  FAIL: %s\n' "$*" >&2
   # On failure, re-run the last invocation traced so CI logs show the exact line.
-  if [ -n "${LAST_ARGS+x}" ]; then
-    printf '  --- trace of: upgrade.sh %s ---\n' "${LAST_ARGS[*]}" >&2
-    ( cd "$T/repo" && bash -x ./upgrade.sh "${LAST_ARGS[@]}" </dev/null 2>&1 | tail -40 ) >&2 || true
+  if [ -f "$T/last-args" ]; then
+    printf '  --- trace of: upgrade.sh %s ---\n' "$(cat "$T/last-args")" >&2
+    # shellcheck disable=SC2046
+    ( cd "$T/repo" && bash -x ./upgrade.sh $(cat "$T/last-args") </dev/null 2>&1 | tail -40 ) >&2 || true
   fi
   exit 1
 }
@@ -51,7 +52,7 @@ release_json v0.2.0 "$notes_breaking" > "$STUB_DIR/latest.json"
 release_json v0.2.0 "$notes_breaking" > "$STUB_DIR/tag-v0.2.0.json"
 release_json v0.3.0 "$notes_plain"    > "$STUB_DIR/tag-v0.3.0.json"
 
-run() { LAST_ARGS=("$@"); ( cd "$T/repo" && bash ./upgrade.sh "$@" 2>&1 ) || true; }
+run() { printf '%s' "$*" > "$T/last-args"; ( cd "$T/repo" && bash ./upgrade.sh "$@" 2>&1 ) || true; }
 
 # ── --check ──────────────────────────────────────────────────────────
 out="$(run --check </dev/null)"
