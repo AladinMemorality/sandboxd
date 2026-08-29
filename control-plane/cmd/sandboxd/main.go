@@ -550,6 +550,7 @@ func main() {
 		Events:              eventRec,
 		SnapshotsRoot:       snapshotsRoot,
 		ForwardAuthDenyMode: denyMode,
+		LogDir:              logDir,
 		TemplatesDir:        envDefault("SANDBOXD_TEMPLATES_DIR", templatesRoot),
 		LibraryRoot:         envDefault("SANDBOXD_LIBRARY_DIR", libraryRoot),
 		LLMTxtPath:          envDefault("SANDBOXD_LLM_TXT_PATH", legacyAware("/etc/sandboxd/llm.txt", legacyEtcDir+"/llm.txt")),

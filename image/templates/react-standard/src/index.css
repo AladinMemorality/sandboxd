@@ -1,48 +1,110 @@
+/* Design tokens and base components. Build on these instead of restating
+   them: change the token values to retheme, add classes rather than inline
+   styles, and keep new components in this file's spirit. */
+
 :root {
-  color-scheme: light dark;
-  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --bg: #f4efe6;
+  --card: #fdfbf6;
+  --ink: #23201b;
+  --dim: #6d675e;
+  --line: rgba(35, 32, 27, 0.14);
+  --accent: #a3372e;
+  --accent-ink: #ffffff;
+  --radius: 14px;
+  --font: "Helvetica Neue", -apple-system, "Segoe UI", Arial, sans-serif;
+  --font-display: Georgia, "Times New Roman", serif;
 }
+
+* { box-sizing: border-box; }
 
 body {
   margin: 0;
-  display: grid;
-  place-items: center;
   min-height: 100vh;
-  background: #0b0d12;
-  color: #e8eaf0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font);
+  line-height: 1.6;
 }
 
-.app {
-  text-align: center;
-  padding: 2rem;
+h1, h2, h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: -0.01em;
 }
 
-.app h1 {
-  font-size: 2rem;
-  margin: 0 0 0.5rem;
+/* ---------- base components ---------- */
+
+.container { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+.section { padding: 56px 0; }
+.dim { color: var(--dim); }
+
+.kicker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+  color: var(--accent);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
 }
 
-.app p {
-  opacity: 0.7;
-  margin: 0 0 1.5rem;
-}
-
-.app code {
-  background: rgba(255, 255, 255, 0.1);
-  padding: 0.15em 0.4em;
-  border-radius: 4px;
-}
-
-.app button {
+.btn {
+  display: inline-block;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 10px 22px;
+  background: var(--accent);
+  color: var(--accent-ink);
   font: inherit;
-  padding: 0.6em 1.2em;
-  border: 1px solid #3a3f4b;
-  border-radius: 8px;
-  background: #1a1d25;
-  color: inherit;
+  font-weight: 600;
   cursor: pointer;
+  text-decoration: none;
 }
 
-.app button:hover {
-  border-color: #5b6473;
+.btn.ghost { background: transparent; border-color: var(--line); color: var(--ink); }
+
+.card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 22px;
+  background: var(--card);
+}
+
+.grid { display: grid; gap: 16px; }
+.grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+
+@media (max-width: 760px) {
+  .grid.cols-2, .grid.cols-3 { grid-template-columns: 1fr; }
+}
+
+/* ---------- the waiting screen; replaced by the first real build ---------- */
+
+.app-waiting {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  min-height: 100vh;
+  padding: 32px;
+  text-align: center;
+}
+
+.app-waiting h1 { font-size: clamp(30px, 6vw, 46px); }
+.app-waiting .dim { max-width: 420px; margin: 14px 0 0; }
+
+.pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
 }

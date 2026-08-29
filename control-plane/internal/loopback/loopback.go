@@ -183,18 +183,34 @@ func (m *Manager) ProvisionFromTemplate(ctx context.Context, id, templatePath st
 func (m *Manager) NormalizeOwnership(dir string) error { return m.normalizeOwnership(dir) }
 
 func (m *Manager) normalizeOwnership(dir string) error {
-	n := 0
+	n, failed := 0, 0
+	var firstErr error
 	if err := filepath.WalkDir(dir, func(path string, _ fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 		if cerr := lchownFn(path, sandboxUID, sandboxGID); cerr != nil {
-			return cerr
+			// Best-effort per entry: on macOS Docker Desktop (virtiofs)
+			// lchown of read-only files — every .git/objects/* in a
+			// snapshot — fails with EPERM even as root, and one such file
+			// used to abort the whole fork/restore. Ownership there is
+			// cosmetic anyway (--userns=host maps everything to the host
+			// user), so record the failure and keep going; a genuinely
+			// unusable workspace still surfaces as EACCES in the sandbox.
+			failed++
+			if firstErr == nil {
+				firstErr = cerr
+			}
+			return nil
 		}
 		n++
 		return nil
 	}); err != nil {
 		return err
+	}
+	if failed > 0 && m.Log != nil {
+		m.Log.Warn("workspace ownership normalization incomplete (continuing)",
+			"dir", dir, "chowned", n, "failed", failed, "first_err", firstErr.Error())
 	}
 	if m.Log != nil {
 		m.Log.Info("normalized workspace ownership for snapshot/template restore",

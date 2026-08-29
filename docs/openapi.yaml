@@ -613,6 +613,8 @@ paths:
               properties:
                 snapshot_id: { type: string }
                 name: { type: string, description: "New app name; defaults to '<source> (fork)'." }
+                external_user_id: { type: string, description: "Ownership override for the new app; empty inherits the source app's." }
+                external_project_id: { type: string, description: "External project id override for the new app; empty inherits the source app's." }
       responses:
         "201":
           description: New app, with its sandbox spun from the snapshot
@@ -1714,6 +1716,15 @@ components:
             alias/id (e.g. sonnet). Empty = the agent's default. Max 200 chars; validity
             is the agent's concern (an unknown model fails the task).
         timeout_s: { type: integer, description: "0/omitted = 10m default; max 86400." }
+        env:
+          type: object
+          additionalProperties: { type: string }
+          description: >
+            Extra environment for this task's agent process — the caller's
+            side-channel into the sandbox (e.g. a bridge URL + token the agent
+            can call back). At most 16 variables; names must match
+            [A-Z_][A-Z0-9_]{0,63}; values up to 4096 bytes. Provider-proxy
+            variables (e.g. ANTHROPIC_BASE_URL) are overridden by the platform.
     TaskResult:
       type: object
       properties:

@@ -242,6 +242,18 @@ func (a *app) runTask(t *task) {
 		rl = rawLog
 		defer rawLog.Close()
 	}
+	// The exact agent transcript: every raw stdout line the agent CLI
+	// emitted, stamped with its arrival time (see stampWriter). events.jsonl
+	// stays the mapped view; stream.jsonl is the debugging source of truth.
+	var sl io.Writer
+	if streamFile, serr := os.Create(filepath.Join(t.dir, "stream.jsonl")); serr == nil {
+		sw := newStampWriter(streamFile)
+		sl = sw
+		defer func() {
+			_ = sw.Close()
+			_ = streamFile.Close()
+		}()
+	}
 	// Render the platform briefing with THIS sandbox's real values (no hard-coded
 	// loopback address or port) and hand it to the adapter.
 	sysPrompt := agentprompt.Render(agentprompt.Vars{
@@ -249,7 +261,7 @@ func (a *app) runTask(t *task) {
 	})
 	finalMsg, usage, agentErr := ag.run(ctx, agentSpec{
 		workDir: a.appDir, prompt: t.prompt, model: t.model, env: t.env, rawLog: rl,
-		systemPrompt: sysPrompt, cont: t.cont,
+		streamLog: sl, systemPrompt: sysPrompt, cont: t.cont,
 	}, t.emit)
 	res.AgentMessageFinal = finalMsg
 	res.Tokens = usage

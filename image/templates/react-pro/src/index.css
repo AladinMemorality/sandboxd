@@ -1,0 +1,108 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * DESIGN TOKEN CONTRACT — every ui component consumes these semantic slots.
+ * Retheme an entire app by editing the variable values below (both :root and
+ * .dark); never restate colors inside components. Add app-specific tokens
+ * alongside these rather than hardcoding values in class names.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
+  --radius-xl: calc(var(--radius) + 6px);
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: var(--font-sans);
+}
+
+/* ————— light (default) ————— */
+:root {
+  --radius: 8px;
+
+  --background: oklch(0.985 0.002 90);
+  --foreground: oklch(0.22 0.012 260);
+
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.22 0.012 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.22 0.012 260);
+
+  --primary: oklch(0.28 0.02 260);
+  --primary-foreground: oklch(0.985 0.002 90);
+  --secondary: oklch(0.955 0.004 90);
+  --secondary-foreground: oklch(0.28 0.02 260);
+  --muted: oklch(0.955 0.004 90);
+  --muted-foreground: oklch(0.52 0.014 260);
+  --accent: oklch(0.945 0.006 90);
+  --accent-foreground: oklch(0.28 0.02 260);
+  --destructive: oklch(0.577 0.215 27);
+  --destructive-foreground: oklch(0.985 0.002 90);
+
+  --border: oklch(0.9 0.006 90);
+  --input: oklch(0.9 0.006 90);
+  --ring: oklch(0.55 0.02 260);
+}
+
+/* ————— dark ————— */
+.dark {
+  --background: oklch(0.17 0.01 260);
+  --foreground: oklch(0.95 0.004 90);
+
+  --card: oklch(0.21 0.012 260);
+  --card-foreground: oklch(0.95 0.004 90);
+  --popover: oklch(0.21 0.012 260);
+  --popover-foreground: oklch(0.95 0.004 90);
+
+  --primary: oklch(0.92 0.006 90);
+  --primary-foreground: oklch(0.2 0.012 260);
+  --secondary: oklch(0.27 0.012 260);
+  --secondary-foreground: oklch(0.95 0.004 90);
+  --muted: oklch(0.27 0.012 260);
+  --muted-foreground: oklch(0.68 0.012 260);
+  --accent: oklch(0.29 0.014 260);
+  --accent-foreground: oklch(0.95 0.004 90);
+  --destructive: oklch(0.65 0.19 25);
+  --destructive-foreground: oklch(0.95 0.004 90);
+
+  --border: oklch(1 0 0 / 12%);
+  --input: oklch(1 0 0 / 16%);
+  --ring: oklch(0.55 0.02 260);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+    outline-color: color-mix(in oklab, var(--color-ring) 50%, transparent);
+  }
+  body {
+    background: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+    min-height: 100vh;
+  }
+}

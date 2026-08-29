@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "slug": "worker-standard",
+  "version": "1.0.0",
+  "skills": false,
+  "name": "Worker",
+  "stack": "worker",
+  "kind": "starter",
+  "description": "Background worker with no web preview."
+}

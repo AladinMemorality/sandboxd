@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "slug": "nextjs-standard",
+  "version": "1.0.0",
+  "skills": true,
+  "name": "Next.js",
+  "stack": "nextjs",
+  "kind": "starter",
+  "description": "Next.js App Router starter."
+}

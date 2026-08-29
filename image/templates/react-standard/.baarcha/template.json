@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "slug": "react-standard",
+  "version": "1.0.0",
+  "skills": true,
+  "name": "React / Vite",
+  "stack": "react-vite",
+  "kind": "starter",
+  "description": "React 18 + Vite + TypeScript single-page starter with design tokens and base classes."
+}

@@ -33,7 +33,11 @@ to `.runtimed/tasks/<id>/events.jsonl` and streamed live (NDJSON, resumable via
 `?since=`). `done` is the single terminal event and carries the result.
 
 **Persistence + recovery.** Each task keeps `.runtimed/tasks/<id>/` with
-`events.jsonl`, `result.json`, `agent.log`. On boot, a task with an event log but no
+`events.jsonl`, `result.json`, `agent.log` (the agent CLI's stderr), and
+`stream.jsonl` — the agent CLI's raw stdout, one record per line with the line's
+arrival timestamp (`{"ts":…,"ev":<verbatim JSON line>}`). `events.jsonl` is the
+mapped, truncated view; `stream.jsonl` is the exact transcript for debugging what
+the agent did and when. On boot, a task with an event log but no
 `result.json` (interrupted by a stop/crash) is finalized `failed` — never resumed.
 
 **Cancellation & timeout.** Cancel kills the agent's process group and finalizes

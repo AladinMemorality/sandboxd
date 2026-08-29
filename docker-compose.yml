@@ -73,12 +73,19 @@ services:
     environment:
       # --- core ---
       PREVIEW_DOMAIN: ${PREVIEW_DOMAIN:-localhost}
+      # Brand link for the wake pages' "Create your own".
+      SANDBOXD_BRAND_HOME: ${SANDBOXD_BRAND_HOME:-}
+      # Redirect target prefix for top-level preview visits (branded framing).
+      SANDBOXD_PREVIEW_LANDING: ${SANDBOXD_PREVIEW_LANDING:-}
       SANDBOXD_IMAGE: ${SANDBOXD_IMAGE:-sandboxd-base:0.3.0}
       SANDBOXD_NETWORK: ${SANDBOXD_NETWORK:-sandboxd_net}
       SANDBOXD_USERNS: ${SANDBOXD_USERNS:-host}
       # Default coding agent for tasks that don't specify one. Explicit
       # agent:"claude-code" tasks work regardless (creds are mounted per provider).
       SANDBOXD_DEFAULT_AGENT: ${SANDBOXD_DEFAULT_AGENT:-opencode}
+      # Optional Anthropic-compatible endpoint used by Claude Code through the
+      # credential-injecting proxy (for example a local Hannibal gateway).
+      SANDBOXD_ANTHROPIC_UPSTREAM: ${SANDBOXD_ANTHROPIC_UPSTREAM:-}
       # Which OpenCode Zen endpoint opencode routes through the auth proxy:
       # "zen" (pay-as-you-go, full catalog) or "zengo" (Zen "go" subscription).
       SANDBOXD_OPENCODE_ZEN_PATH: ${SANDBOXD_OPENCODE_ZEN_PATH:-zen}
@@ -112,6 +119,8 @@ services:
       SANDBOXD_API_TOKENS: ${SANDBOXD_API_TOKENS:-}
       # --- idle lifecycle (override if you like) ---
       SANDBOXD_IDLE_THRESHOLD_SECONDS: ${SANDBOXD_IDLE_THRESHOLD_SECONDS:-2100}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     networks:
       - sandboxd_net
 

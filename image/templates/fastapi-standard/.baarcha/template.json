@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "slug": "fastapi-standard",
+  "version": "1.0.0",
+  "skills": false,
+  "name": "Python / FastAPI",
+  "stack": "fastapi",
+  "kind": "starter",
+  "description": "FastAPI + uvicorn REST API; health at /health."
+}

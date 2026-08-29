@@ -26,9 +26,37 @@ type Preset struct {
 }
 
 // order fixes the display order of List().
-var order = []string{"react-vite", "nextjs", "node-express", "fastapi", "worker"}
+var order = []string{"react-pro", "marketplace", "react-vite", "nextjs", "node-express", "fastapi", "worker"}
 
 var registry = map[string]Preset{
+	"react-pro": {
+		ID: "react-pro", Label: "React Pro (component kit)",
+		Description: "React + Vite + Tailwind with a pre-installed shadcn-style component kit, design tokens, charts, and icons — the fastest base for building apps.",
+		Template:    "react-pro",
+		Manifest: `version: 1
+web:
+  command: "[ -x node_modules/.bin/vite ] || pnpm install; pnpm exec vite --host 0.0.0.0 --port 3000"
+  port: 3000
+  health_path: "/"
+build:
+  command: "pnpm build"
+`,
+		Capabilities: []string{"node", "pnpm"},
+	},
+	"marketplace": {
+		ID: "marketplace", Label: "Marketplace starter",
+		Description: "A working marketplace app (listings, filters, favorites, posting form, localStorage) on the React Pro base — customize it instead of building from scratch.",
+		Template:    "marketplace-starter",
+		Manifest: `version: 1
+web:
+  command: "[ -x node_modules/.bin/vite ] || pnpm install; pnpm exec vite --host 0.0.0.0 --port 3000"
+  port: 3000
+  health_path: "/"
+build:
+  command: "pnpm build"
+`,
+		Capabilities: []string{"node", "pnpm"},
+	},
 	"react-vite": {
 		ID: "react-vite", Label: "React / Vite",
 		Description: "React + Vite single-page app with hot reload.",

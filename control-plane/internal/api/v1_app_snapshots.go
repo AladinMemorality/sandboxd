@@ -16,6 +16,7 @@
 package api
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -137,6 +138,11 @@ func (s *Server) v1RestoreApp(w http.ResponseWriter, r *http.Request) {
 type v1ForkReq struct {
 	SnapshotID string `json:"snapshot_id"`
 	Name       string `json:"name"`
+	// Optional ownership overrides for the NEW app. A product forking a
+	// shared template on behalf of a signed-in user passes that user here;
+	// empty keeps the source app's values (the pre-existing behavior).
+	ExternalUserID    string `json:"external_user_id"`
+	ExternalProjectID string `json:"external_project_id"`
 }
 
 // v1ForkApp — POST /v1/apps/{id}/fork. Creates a NEW app from a snapshot
@@ -162,12 +168,19 @@ func (s *Server) v1ForkApp(w http.ResponseWriter, r *http.Request) {
 		name = srcApp.Name + " (fork)"
 	}
 
+	extUser, extProject := srcApp.ExternalUserID, srcApp.ExternalProjectID
+	if req.ExternalUserID != "" {
+		extUser = sql.NullString{String: req.ExternalUserID, Valid: true}
+	}
+	if req.ExternalProjectID != "" {
+		extProject = sql.NullString{String: req.ExternalProjectID, Valid: true}
+	}
 	newApp := &store.App{
 		ID:                newULID(),
 		OwnerToken:        tenantToken(r),
 		Name:              name,
-		ExternalUserID:    srcApp.ExternalUserID,
-		ExternalProjectID: srcApp.ExternalProjectID,
+		ExternalUserID:    extUser,
+		ExternalProjectID: extProject,
 	}
 	if err := s.Store.CreateApp(r.Context(), newApp); err != nil {
 		writeV1Err(w, http.StatusInternalServerError, "internal", err.Error())

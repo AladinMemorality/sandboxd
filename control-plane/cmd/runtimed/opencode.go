@@ -25,6 +25,10 @@ type agentSpec struct {
 	model   string // per-task model (agent CLI --model); empty = agent default
 	env     map[string]string
 	rawLog  io.Writer // the agent's own diagnostics (stderr)
+	// streamLog receives the agent CLI's raw stdout verbatim as it is read
+	// (a stampWriter turns it into the timestamped stream.jsonl transcript).
+	// nil = discard.
+	streamLog io.Writer
 	// systemPrompt is the rendered platform briefing (agentprompt.Render). Each
 	// adapter delivers it in its own supported way (claude: --append-system-prompt;
 	// opencode/codex: a preamble on the user prompt). Empty = inject nothing.
@@ -423,7 +427,7 @@ func (o *opencodeAgent) run(ctx context.Context, spec agentSpec, emit eventSink)
 
 	// Parse stdout (one JSON event per line) — pure function so it can
 	// be unit-tested without spawning opencode.
-	pr := parseOpencodeStream(stdout, emit)
+	pr := parseOpencodeStream(teeStream(stdout, spec.streamLog), emit)
 	waitErr := cmd.Wait()
 	<-stderrDone
 

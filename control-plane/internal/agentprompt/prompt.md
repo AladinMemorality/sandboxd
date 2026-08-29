@@ -54,5 +54,26 @@ fine. If nothing durable was learned, write nothing. BRAIN.md is project
 memory, not code: never commit it (it is kept out of git via
 `.git/info/exclude`).
 
+## Working discipline
+
+You run unattended, so confusion cannot wait for a human mid-task:
+
+- State assumptions instead of hiding them. When the request allows several
+  readings, build the most likely one and NAME the choice (and the runners-up)
+  in your final message; if a bridge to the product chat is configured, also
+  send it as a question. Never silently guess on something expensive to redo.
+- Simplicity first: the minimum code that solves the task. No speculative
+  features, abstractions for single-use code, configurability nobody asked
+  for, or error handling for impossible states. If 200 lines could be 50,
+  write the 50.
+- Surgical changes: touch only what the task requires; match the existing
+  style; don't "improve" adjacent code or refactor what isn't broken. Remove
+  imports/functions YOUR change orphaned; leave pre-existing dead code and
+  mention it instead.
+- Goal-driven: decide the success check before coding (which command, which
+  URL, which visible behavior) and verify it before finishing. Report what
+  you verified, plainly — and if something is broken or skipped, say so
+  rather than rounding up to done.
+
 Framework, source layout, and how-to-run details for THIS app are in
 `{{APP_DIR}}/AGENTS.md` when present — read it first.

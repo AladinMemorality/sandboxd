@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "slug": "react-pro",
+  "version": "1.0.0",
+  "skills": true,
+  "name": "React Pro",
+  "stack": "react-pro",
+  "kind": "starter",
+  "description": "React + Vite + Tailwind v4 with a pre-installed shadcn-style component kit, icons and charts."
+}

@@ -1,15 +1,14 @@
-import { useState } from 'react'
-
 export default function App() {
-  const [count, setCount] = useState(0)
   return (
-    <main className="app">
-      <h1>Your app is running 🎉</h1>
-      <p>
-        Edit <code>src/App.tsx</code> and save — or send the agent a task to
-        build something.
+    <main className="app-waiting">
+      <p className="kicker">
+        <span className="pulse" aria-hidden /> Baarcha sandbox
       </p>
-      <button onClick={() => setCount((c) => c + 1)}>count is {count}</button>
+      <h1>Hannibal is on it.</h1>
+      <p className="dim">
+        This workspace was just created. Ask for changes in the chat and watch
+        them land here live.
+      </p>
     </main>
   )
 }

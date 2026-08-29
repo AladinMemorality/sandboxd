@@ -205,7 +205,7 @@ func (c *codexAgent) run(ctx context.Context, spec agentSpec, emit eventSink) (s
 		close(stderrDone)
 	}()
 
-	pr := parseCodexStream(stdout, emit)
+	pr := parseCodexStream(teeStream(stdout, spec.streamLog), emit)
 	waitErr := cmd.Wait()
 	<-stderrDone
 

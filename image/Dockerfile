@@ -137,6 +137,32 @@ COPY image/skel/ /opt/sandbox-skel/
 # Add a template = drop a new dir here; the registry is additive.
 COPY image/templates/ /opt/templates/
 
+# The shared agent skill pack (taste, web design guidelines, self-screenshot
+# et al) — single-sourced here and copied into every FRONTEND template's
+# .claude/skills so agents discover them natively. Backend/worker templates
+# skip it: the pack is design-work tooling. See image/templates/README.md.
+COPY image/agent-skills/ /opt/agent-skills/
+RUN for t in react-standard react-pro marketplace-starter nextjs-standard; do       mkdir -p /opt/templates/$t/.claude       && rm -rf /opt/templates/$t/.claude/skills       && cp -r /opt/agent-skills /opt/templates/$t/.claude/skills;     done
+
+# Pre-installed dependencies for the JS templates. A fresh sandbox's preview
+# must answer within seconds of creation; a cold `pnpm install` on first boot
+# left it a 502 for minutes while the user watched. The manifests' install
+# guards ([ -x node_modules/.bin/vite ] etc.) see the baked modules and skip
+# straight to the dev server. package-import-method=copy keeps each template
+# self-contained: real files, no links into a store that is pruned away.
+RUN cd /opt/templates/react-standard \
+ && pnpm install --config.package-import-method=copy \
+ && cd /opt/templates/react-pro \
+ && pnpm install --config.package-import-method=copy \
+ && cd /opt/templates/marketplace-starter \
+ && pnpm install --config.package-import-method=copy \
+ && cd /opt/templates/nextjs-standard \
+ && pnpm install --config.package-import-method=copy \
+ && cd /opt/templates/node-express-standard \
+ && pnpm install --config.package-import-method=copy \
+ && pnpm store prune \
+ && rm -rf /root/.cache /root/.local/share/pnpm/store
+
 # Base-image self-check (Node 22, npm/pnpm/bun, python3/uv/setuptools, build
 # tools). Run: `docker run --rm <image> bash /opt/verify-base.sh`.
 COPY image/verify-base.sh /opt/verify-base.sh

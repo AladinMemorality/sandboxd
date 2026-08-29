@@ -20,8 +20,22 @@ package traefik
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
+
+// landingURL, when set, turns direct browser visits to a preview host
+// into a redirect to the platform's branded project page (which frames
+// the app under its own bar). Only top-level navigations redirect: the
+// rule matches `Sec-Fetch-Dest: document`, so the landing page's own
+// <iframe> (dest: iframe), assets, websockets, health probes and curl
+// all still reach the app directly. Empty keeps the distribution
+// white-label with no redirect routers at all.
+//
+// The value is a URL prefix; the sandbox id is appended:
+//   SANDBOXD_PREVIEW_LANDING=http://localhost:3100/p/s
+//   → http://localhost:3100/p/s/<sandbox-id>
+var landingURL = os.Getenv("SANDBOXD_PREVIEW_LANDING")
 
 // Labels returns the slice of "key=value" label strings for a
 // sandbox with the given ports. If ports is empty, Labels returns
@@ -93,6 +107,25 @@ func Labels(id string, ports []int, domain, visibility, entrypoint string, tls b
 		}
 		out = append(out,
 			fmt.Sprintf("traefik.http.routers.%s.middlewares=%s", router, strings.Join(mws, ",")))
+
+		// Branded framing: a person typing or clicking the raw preview URL
+		// lands on the platform's project page instead of the bare app, so
+		// the "Made with" bar survives past the wake page. See landingURL.
+		if landingURL != "" {
+			doc := router + "-doc"
+			out = append(out,
+				fmt.Sprintf("traefik.http.routers.%s.rule=Host(`%s`) && Header(`Sec-Fetch-Dest`, `document`)", doc, host),
+				fmt.Sprintf("traefik.http.routers.%s.entrypoints=%s", doc, entrypoint),
+				fmt.Sprintf("traefik.http.routers.%s.priority=200", doc),
+				fmt.Sprintf("traefik.http.routers.%s.service=%s", doc, router),
+				fmt.Sprintf("traefik.http.middlewares.%s-redir.redirectregex.regex=.*", doc),
+				fmt.Sprintf("traefik.http.middlewares.%s-redir.redirectregex.replacement=%s/%s", doc, strings.TrimRight(landingURL, "/"), id),
+				fmt.Sprintf("traefik.http.routers.%s.middlewares=%s-redir", doc, doc),
+			)
+			if tls {
+				out = append(out, fmt.Sprintf("traefik.http.routers.%s.tls=true", doc))
+			}
+		}
 	}
 	return out
 }

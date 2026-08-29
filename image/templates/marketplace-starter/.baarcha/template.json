@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "slug": "marketplace-starter",
+  "version": "1.0.0",
+  "skills": true,
+  "name": "Marketplace",
+  "stack": "marketplace",
+  "kind": "app",
+  "description": "A working buy-and-sell marketplace: listings, filters, favorites, posting form, localStorage."
+}

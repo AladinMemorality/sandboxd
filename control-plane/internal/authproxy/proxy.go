@@ -41,7 +41,7 @@ const oauthBeta = "oauth-2025-04-20"
 // sandbox base URL. A base path (e.g. /zen/v1) is preserved: the incoming path
 // after /<agent>/<upstream> is appended to it.
 var upstreams = map[string]string{
-	"anthropic": "https://api.anthropic.com",
+	"anthropic": envOr("SANDBOXD_ANTHROPIC_UPSTREAM", "https://api.anthropic.com"),
 	"openai":    "https://api.openai.com/v1",
 	"zen":       "https://opencode.ai/zen/v1",    // opencode's hosted gateway (pay-as-you-go)
 	"zengo":     "https://opencode.ai/zen/go/v1", // opencode Zen "go" subscription
@@ -53,6 +53,13 @@ var upstreams = map[string]string{
 	"minimax-cn":           "https://api.minimaxi.com/v1",
 	"minimax-anthropic":    "https://api.minimax.io/anthropic",
 	"minimax-anthropic-cn": "https://api.minimaxi.com/anthropic",
+}
+
+func envOr(name, fallback string) string {
+	if value := strings.TrimSpace(os.Getenv(name)); value != "" {
+		return value
+	}
+	return fallback
 }
 
 // isMiniMaxUpstream reports whether <upstream> is one of the MiniMax direct

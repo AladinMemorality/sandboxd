@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"time"
 
@@ -55,7 +56,22 @@ type v1TaskSubmitReq struct {
 	// Tri-state: omitted = default (continue when a prior session exists, else
 	// fresh); true/false force the choice.
 	Continue *bool `json:"continue,omitempty"`
+	// Env is extra environment for THIS task's agent process — the caller's
+	// side-channel into the sandbox (e.g. a product's bridge URL + token the
+	// agent can call back). Applied after the credential scrub, before the
+	// provider-proxy overrides; a key colliding with those is overwritten.
+	Env map[string]string `json:"env,omitempty"`
 }
+
+// v1 task env bounds: a small side-channel, not a config store.
+const (
+	maxTaskEnvVars   = 16
+	maxTaskEnvValLen = 4096
+)
+
+// validTaskEnvKey matches conventional environment names (uppercase,
+// digits, underscores, not starting with a digit).
+var validTaskEnvKey = regexp.MustCompile(`^[A-Z_][A-Z0-9_]{0,63}$`)
 
 func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
@@ -132,6 +148,23 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 		writeV1Err(w, http.StatusBadRequest, "invalid_request", "model too long")
 		return
 	}
+	if len(req.Env) > maxTaskEnvVars {
+		writeV1Err(w, http.StatusBadRequest, "invalid_request",
+			fmt.Sprintf("env: at most %d variables", maxTaskEnvVars))
+		return
+	}
+	for k, v := range req.Env {
+		if !validTaskEnvKey.MatchString(k) {
+			writeV1Err(w, http.StatusBadRequest, "invalid_request",
+				"env: invalid variable name "+strconv.Quote(k))
+			return
+		}
+		if len(v) > maxTaskEnvValLen {
+			writeV1Err(w, http.StatusBadRequest, "invalid_request",
+				fmt.Sprintf("env: value of %s exceeds %d bytes", k, maxTaskEnvValLen))
+			return
+		}
+	}
 
 	// Model precedence when the caller didn't pick one (req.Model == ""):
 	//   1. the operator's per-agent default model (Settings → AI Agents), then
@@ -153,7 +186,7 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 
 	taskID := newULID()
 	if err := s.runtimeClientFor(id).StartTask(r.Context(), runtime.StartTaskRequest{
-		TaskID: taskID, Prompt: req.Prompt, Agent: agent, Model: req.Model, TimeoutS: req.TimeoutS, Continue: req.Continue,
+		TaskID: taskID, Prompt: req.Prompt, Agent: agent, Model: req.Model, TimeoutS: req.TimeoutS, Continue: req.Continue, Env: req.Env,
 	}); err != nil {
 		if errors.Is(err, runtime.ErrTaskInProgress) {
 			writeV1Err(w, http.StatusConflict, "task_in_progress", "a task is already in progress")

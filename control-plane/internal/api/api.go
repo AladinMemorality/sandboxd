@@ -136,6 +136,11 @@ type Server struct {
 	Events              *events.Recorder // Phase 5 — durable app_events timeline
 	SnapshotsRoot       string           // per-sandbox purge of _snapshots/<id>/
 	ForwardAuthDenyMode string           // "redirect" (default) | "meta-refresh"
+	// LogDir is the host log directory (SANDBOXD_LOG_DIR). A purge moves
+	// the sandbox's .runtimed/tasks/ transcripts to <LogDir>/tasks/<id>/
+	// before deleting the workspace, so the record of what each agent
+	// did (and when) survives the sandbox. Empty = archive nothing.
+	LogDir string
 
 	// Phase 8A — static, safe instance metadata for GET /v1/settings.
 	// Populated in main; contains no secrets.

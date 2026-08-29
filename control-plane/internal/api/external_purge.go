@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -13,6 +15,71 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/metrics"
 )
+
+// archiveTaskLogs moves a workspace's .runtimed/tasks/ directory (the
+// per-task events.jsonl / stream.jsonl / agent.log / result.json
+// debugging record) to <LogDir>/tasks/<id>/ before the workspace is
+// purged. Best-effort: archiving must never block a purge, so failures
+// are logged and swallowed. A rename suffices — LogDir and the
+// workspaces root live on the same data volume.
+func (s *Server) archiveTaskLogs(id, imgPath string) {
+	if s.LogDir == "" {
+		return
+	}
+	src := filepath.Join(imgPath, ".runtimed", "tasks")
+	if fi, err := os.Stat(src); err != nil || !fi.IsDir() {
+		return // no tasks ever ran (or workspace already gone)
+	}
+	dst := filepath.Join(s.LogDir, "tasks", id)
+	if err := os.MkdirAll(filepath.Dir(dst), 0o750); err != nil {
+		s.Log.Warn("purge: task-log archive mkdir failed", "sandbox", id, "err", err.Error())
+		return
+	}
+	if err := os.Rename(src, dst); err != nil {
+		// LogDir can sit on a different mount than the workspaces root
+		// (e.g. two separate bind mounts), where rename fails with EXDEV —
+		// fall back to a copy. The source goes away with the workspace
+		// removal that follows either way.
+		if cerr := copyTree(src, dst); cerr != nil {
+			s.Log.Warn("purge: task-log archive failed", "sandbox", id, "err", cerr.Error())
+		}
+	}
+}
+
+// copyTree copies a directory of regular files (the task-log layout;
+// anything else is skipped) recursively from src to dst.
+func copyTree(src, dst string) error {
+	return filepath.WalkDir(src, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, rerr := filepath.Rel(src, p)
+		if rerr != nil {
+			return rerr
+		}
+		target := filepath.Join(dst, rel)
+		if d.IsDir() {
+			return os.MkdirAll(target, 0o750)
+		}
+		if !d.Type().IsRegular() {
+			return nil
+		}
+		in, oerr := os.Open(p)
+		if oerr != nil {
+			return oerr
+		}
+		defer in.Close()
+		out, cerr := os.Create(target)
+		if cerr != nil {
+			return cerr
+		}
+		if _, werr := io.Copy(out, in); werr != nil {
+			out.Close()
+			return werr
+		}
+		return out.Close()
+	})
+}
 
 // purgeOne is the irreversible per-sandbox teardown shared by all
 // three purge endpoints: stop + remove the container,
@@ -69,8 +136,11 @@ func (s *Server) purgeOne(ctx context.Context, id string) (freedBytes int64, ext
 		return 0, externalUserID, fmt.Errorf("loopback release: %w", e)
 	}
 
-	// Delete the workspace directory.
+	// Delete the workspace directory — but first move the per-task agent
+	// transcripts (.runtimed/tasks/) to <LogDir>/tasks/<id>/ so the record
+	// of what each agent did, with timing, survives the purge.
 	imgPath, _ := s.Loopback.Paths(id)
+	s.archiveTaskLogs(id, imgPath)
 	freedBytes += diskBytes(imgPath)
 	if e := os.RemoveAll(imgPath); e != nil && !os.IsNotExist(e) {
 		return freedBytes, externalUserID, fmt.Errorf("remove workspace: %w", e)

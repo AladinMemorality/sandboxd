@@ -63,8 +63,17 @@ func runGitIndex(appDir, indexFile string, args ...string) (string, error) {
 func worktreeTree(appDir string) (string, error) {
 	idx := filepath.Join(appDir, ".git", "sandboxd-ckpt.index")
 	defer os.Remove(idx)
+	// `git add -A` stats every candidate file, so it loses the race against a
+	// build tool rewriting its scratch space mid-scan (seen: Vite deleting
+	// node_modules/.vite/deps_temp_* → "unable to stat … No such file or
+	// directory", which cost the task its checkpoint and files_changed). A
+	// tracked .gitignore prevents the scan from entering such dirs, but an
+	// imported repo without one still races — so retry the snapshot once
+	// before giving up.
 	if _, err := runGitIndex(appDir, idx, "add", "-A"); err != nil {
-		return "", err
+		if _, err = runGitIndex(appDir, idx, "add", "-A"); err != nil {
+			return "", err
+		}
 	}
 	return runGitIndex(appDir, idx, "write-tree")
 }

@@ -245,7 +245,7 @@ func (c *claudeCodeAgent) run(ctx context.Context, spec agentSpec, emit eventSin
 		close(stderrDone)
 	}()
 
-	pr := parseClaudeStream(stdout, emit)
+	pr := parseClaudeStream(teeStream(stdout, spec.streamLog), emit)
 	waitErr := cmd.Wait()
 	<-stderrDone
 
