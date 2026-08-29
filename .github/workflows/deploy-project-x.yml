@@ -1,0 +1,30 @@
+# Ships this branch to project-x, where the box rebuilds the base image and
+# the control plane and restarts the stack. The SSH key is restricted on the
+# server to a forced command that accepts nothing but a deploy verb and a
+# commit sha, so a leaked key cannot run anything else.
+name: deploy-project-x
+
+on:
+  push:
+    branches: [deploy/project-x]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sandboxd-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: deploy to project-x
+        env:
+          SSH_KEY: ${{ secrets.PROJECT_X_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H 65.108.225.153 >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -i ~/.ssh/deploy_key root@65.108.225.153 "deploy-sandboxd $GITHUB_SHA"
