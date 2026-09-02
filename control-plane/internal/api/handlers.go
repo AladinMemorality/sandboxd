@@ -27,6 +27,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/metrics"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/sandboxspec"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/snapshot"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/traefik"
@@ -739,6 +740,10 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		// gVisor: override the unreachable embedded DNS (127.0.0.11).
 		volumes = append(volumes, s.DNSResolvConf+":/etc/resolv.conf:ro")
 	}
+	limits := s.Limits
+	if limits.Memory == "" {
+		limits = sandboxspec.DefaultLimits
+	}
 	startRun := time.Now()
 	var runErr error
 	containerID, runErr := s.Docker.Run(r.Context(), docker.RunSpec{
@@ -751,8 +756,9 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		CapDrop:     []string{"ALL"},
 		SecurityOpt: []string{"no-new-privileges"},
 		CPUShares:   100,
-		Memory:      "10g",
-		MemorySwap:  "10g",
+		CPUs:        limits.CPUs,
+		Memory:      limits.Memory,
+		MemorySwap:  limits.Memory,
 		PidsLimit:   1024,
 		Ulimits:     []string{"nofile=65536:65536"},
 		Tmpfs:       []string{"/tmp:size=512m", "/var/tmp:size=128m"},

@@ -46,6 +46,7 @@ type RunSpec struct {
 	CapDrop     []string // --cap-drop=ALL (passed once per entry)
 	SecurityOpt []string // --security-opt=no-new-privileges
 	CPUShares   int      // --cpu-shares=100
+	CPUs        string   // --cpus=2 ("" = unlimited)
 	Memory      string   // --memory=10g
 	MemorySwap  string   // --memory-swap=10g
 	PidsLimit   int      // --pids-limit=1024
@@ -87,6 +88,9 @@ func (c *Client) Run(ctx context.Context, spec RunSpec) (string, error) {
 	}
 	if spec.CPUShares > 0 {
 		args = append(args, fmt.Sprintf("--cpu-shares=%d", spec.CPUShares))
+	}
+	if spec.CPUs != "" {
+		args = append(args, "--cpus="+spec.CPUs)
 	}
 	if spec.Memory != "" {
 		args = append(args, "--memory="+spec.Memory)

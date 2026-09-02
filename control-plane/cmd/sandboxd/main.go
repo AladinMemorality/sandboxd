@@ -159,6 +159,10 @@ func main() {
 	// the published HTTP_PORT here). Default "80": bare URLs on a dedicated host.
 	publicHTTPPort := envDefault("SANDBOXD_PUBLIC_HTTP_PORT", "80")
 	setMemoryHigh := boolFromEnv("SANDBOXD_SET_MEMORY_HIGH", false)
+	// Per-sandbox ceilings: SANDBOXD_SANDBOX_MEMORY (default 10g) and
+	// SANDBOXD_SANDBOX_CPUS (default unlimited). Applied on create and on
+	// recreate-after-upgrade alike.
+	sandboxLimits := sandboxspec.LimitsFromEnv()
 
 	migrations := envDefault("SANDBOXD_MIGRATIONS", migrationsDir)
 	if _, err := os.Stat(migrations); err != nil {
@@ -498,6 +502,7 @@ func main() {
 			OpencodeModel:     envDefault("SANDBOXD_OPENCODE_MODEL", ""),
 			OpencodeZenPath:   envDefault("SANDBOXD_OPENCODE_ZEN_PATH", ""),
 			RuntimePreset:     runtimePresetForSandbox(ctx, st, sb),
+			Limits:            sandboxLimits,
 		})
 		// Remove any existing container first so the name is free; ignore a
 		// not-found (the common case) and let Run surface a real failure.
@@ -538,6 +543,7 @@ func main() {
 		},
 		PublicHTTPPort:      publicHTTPPort,
 		SetMemoryHigh:       setMemoryHigh,
+		Limits:              sandboxLimits,
 		Inflight:            inflight,
 		Wake:                wakeHandler,
 		Admit:               admitCfg,

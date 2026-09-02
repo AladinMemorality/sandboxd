@@ -116,6 +116,10 @@ services:
       SANDBOXD_PUBLIC_HTTP_PORT: ${SANDBOXD_PUBLIC_HTTP_PORT:-${HTTP_PORT:-80}}
       # --- portability toggles ---
       SANDBOXD_SET_MEMORY_HIGH: ${SANDBOXD_SET_MEMORY_HIGH:-false}
+      # Per-sandbox ceilings (docker --memory / --cpus). Defaults keep the
+      # historical 10g and no CPU cap; a multi-tenant host sets e.g. 2g / 2.
+      SANDBOXD_SANDBOX_MEMORY: ${SANDBOXD_SANDBOX_MEMORY:-10g}
+      SANDBOXD_SANDBOX_CPUS: ${SANDBOXD_SANDBOX_CPUS:-0}
       # --- auth (open by default for local use; set tokens for prod) ---
       # Auth is ON by default — every /v1 request needs a console session or an
       # API key (no loopback bypass). The installer seeds a bootstrap key in

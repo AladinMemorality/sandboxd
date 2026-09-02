@@ -24,6 +24,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/instancecfg"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/loopback"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/metrics"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/sandboxspec"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/secrets"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/snapshot"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
@@ -74,6 +75,9 @@ type Server struct {
 	// a reachable ":18080" URL instead of a bare :80 one. Empty = default.
 	PublicHTTPPort string
 	SetMemoryHigh  bool
+	// Limits caps every sandbox container this server creates (memory and
+	// CPUs); zero value = sandboxspec.DefaultLimits.
+	Limits sandboxspec.Limits
 
 	// GitPush runs the host-side git read+push ops (B2). Nil in production →
 	// the handler uses the real gitimport.Runner; tests inject a fake.

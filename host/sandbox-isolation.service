@@ -1,0 +1,17 @@
+[Unit]
+Description=sandboxd: network isolation rules for sandbox containers
+# The rules resolve the infrastructure containers' addresses, so they can
+# only be applied once compose has brought the stack up. The deploy script
+# re-runs the script after every `docker compose up` for the same reason.
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 30); do docker ps -q --filter label=com.docker.compose.service=traefik | grep -q . && exit 0; sleep 2; done; exit 1'
+ExecStart=/opt/sandboxd/src/host/sandbox-isolation.sh
+ExecStop=/usr/sbin/nft delete table inet sandbox_platform
+
+[Install]
+WantedBy=multi-user.target

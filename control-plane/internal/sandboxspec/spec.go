@@ -33,6 +33,7 @@ type Env struct {
 	OpencodeModel     string
 	OpencodeZenPath   string
 	RuntimePreset     string   // from the owning app, when known
+	Limits            Limits   // memory/CPU ceilings; zero value = DefaultLimits
 	AgentAuthMounts   []string // only when the auth proxy is disabled
 }
 
@@ -87,6 +88,11 @@ func Build(sb *store.Sandbox, e Env) docker.RunSpec {
 	}
 	labels := traefik.Labels(sb.ID, ports, e.PreviewDomain, visibility, e.PreviewEntrypoint, e.PreviewTLS)
 
+	limits := e.Limits
+	if limits.Memory == "" {
+		limits = DefaultLimits
+	}
+
 	return docker.RunSpec{
 		Name:        name,
 		Hostname:    name,
@@ -97,8 +103,9 @@ func Build(sb *store.Sandbox, e Env) docker.RunSpec {
 		CapDrop:     []string{"ALL"},
 		SecurityOpt: []string{"no-new-privileges"},
 		CPUShares:   100,
-		Memory:      "10g",
-		MemorySwap:  "10g",
+		CPUs:        limits.CPUs,
+		Memory:      limits.Memory,
+		MemorySwap:  limits.Memory,
 		PidsLimit:   1024,
 		Ulimits:     []string{"nofile=65536:65536"},
 		Tmpfs:       []string{"/tmp:size=512m", "/var/tmp:size=128m"},
