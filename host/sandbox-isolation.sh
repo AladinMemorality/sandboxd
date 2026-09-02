@@ -9,8 +9,8 @@
 #      port on the control plane. A sandbox has no business talking to the
 #      API that creates and deletes sandboxes.
 #   3. sandbox -> private address space (RFC1918, CGNAT, link-local, including
-#      the ZeroTier range): dropped, except the model gateway the coding agent
-#      needs, until agents go through the auth proxy.
+#      the ZeroTier range): dropped. The coding agent reaches the model
+#      gateway through the auth proxy (rule 2), never directly.
 #   4. sandbox -> port 25: dropped (no outbound SMTP from a hosted sandbox).
 #   5. new connections per source above SANDBOX_NEW_CONN_RATE/s: dropped, so
 #      a sandbox cannot be used to flood anything from this host's address.
@@ -51,11 +51,15 @@ for name in traefik sandboxd; do
 done
 infra_set=$(IFS=,; echo "${infra_ips[*]}")
 
-# The model gateway the agent calls directly (SANDBOXD_ANTHROPIC_UPSTREAM),
-# allowed through the private-range block until the auth proxy fronts it.
+# The model gateway (SANDBOXD_ANTHROPIC_UPSTREAM) is reached by the coding
+# agent THROUGH the control plane's auth proxy, which injects the key; the
+# sandbox itself never needs a route to it. SANDBOX_ALLOW_MODEL_GATEWAY=1
+# punches that route anyway, for an install whose agents still call the
+# upstream directly. Off by default: with it on, any code in a sandbox can
+# use the gateway, and if the gateway has no key, for free.
 upstream=$(grep -E '^SANDBOXD_ANTHROPIC_UPSTREAM=' "$ENV_FILE" 2>/dev/null | cut -d= -f2- | sed -E 's#^[a-z]+://##; s#/.*$##')
 gateway_rule=""
-if [[ "$upstream" =~ ^([0-9.]+):([0-9]+)$ ]]; then
+if [ "${SANDBOX_ALLOW_MODEL_GATEWAY:-0}" = "1" ] && [[ "$upstream" =~ ^([0-9.]+):([0-9]+)$ ]]; then
   gateway_rule="iifname \"$bridge\" ip daddr ${BASH_REMATCH[1]} tcp dport ${BASH_REMATCH[2]} accept comment \"model gateway\""
 fi
 
