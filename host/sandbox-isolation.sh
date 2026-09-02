@@ -41,12 +41,23 @@ net_id=$(docker network inspect "$NETWORK" -f '{{.Id}}')
 bridge="br-${net_id:0:12}"
 ip link show "$bridge" > /dev/null
 
+# The deploy script calls this right after `docker compose up`, when a
+# recreated infra container can still be a second away from having its
+# address, so each lookup gets a short retry and a strict format check: a
+# bad element would make nft reject the whole table and leave the old rules.
 infra_ips=()
 for name in traefik sandboxd; do
-  cid=$(docker ps -q --filter "label=com.docker.compose.service=$name" | head -1)
-  [ -n "$cid" ] || { echo "sandbox-isolation: compose service '$name' is not running" >&2; exit 1; }
-  ip=$(docker inspect -f "{{with index .NetworkSettings.Networks \"$NETWORK\"}}{{.IPAddress}}{{end}}" "$cid")
-  [ -n "$ip" ] || { echo "sandbox-isolation: no address for $name on $NETWORK" >&2; exit 1; }
+  ip=""
+  for attempt in $(seq 1 20); do
+    cid=$(docker ps -q --filter "label=com.docker.compose.service=$name" | head -1)
+    if [ -n "$cid" ]; then
+      ip=$(docker inspect -f "{{with index .NetworkSettings.Networks \"$NETWORK\"}}{{.IPAddress}}{{end}}" "$cid" 2>/dev/null || true)
+      [[ "$ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]] && break
+      ip=""
+    fi
+    sleep 1
+  done
+  [ -n "$ip" ] || { echo "sandbox-isolation: no address for compose service '$name' on $NETWORK" >&2; exit 1; }
   infra_ips+=("$ip")
 done
 infra_set=$(IFS=,; echo "${infra_ips[*]}")
