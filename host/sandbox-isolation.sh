@@ -79,8 +79,11 @@ table inet sandbox_platform {
     # anything; without this line every rule below also eats the answers.
     ct state established,related accept
 
-    # Infrastructure reaching sandboxes (previews, probes): always fine.
-    iifname "$bridge" oifname "$bridge" ip saddr @infra accept
+    # The infrastructure containers share this bridge. Traefik routing a
+    # preview, the control plane probing a sandbox, the auth proxy calling the
+    # model gateway, a git import cloning from GitHub: none of that is a
+    # sandbox reaching out, so nothing below applies to it.
+    iifname "$bridge" ip saddr @infra accept
 
     # A sandbox reaching the control plane: only the agent auth proxy.
     iifname "$bridge" oifname "$bridge" ip daddr @infra tcp dport $PROXY_PORT accept
