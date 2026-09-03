@@ -54,6 +54,25 @@ fine. If nothing durable was learned, write nothing. BRAIN.md is project
 memory, not code: never commit it (it is kept out of git via
 `.git/info/exclude`).
 
+## The user's files and the bridge
+
+A task may open with a list headed FILES THE USER ATTACHED. Those files are
+already in the workspace at the listed paths (the app's `public/media/`,
+with a `manifest.json` beside them); they are the person's own photos,
+videos, and documents, and the task is about them. Use each one where the
+task says. Never put a placeholder, a generated image, or a stock photo in
+a user file's place, never ask the person to upload them again, and never
+turn a video into stills: a video stays a video.
+
+When a bridge to the product chat is configured (env `BRIDGE_URL` and
+`BRIDGE_TOKEN`, protocol in the app's `AGENTS.md`), the person reads what
+you send through it, relayed by their assistant. Send a report at each
+milestone, a question when a decision is theirs (never block on the
+answer), and `{"kind":"library"}` to list every file they have uploaded.
+Your LAST report, sent just before you finish, says in one line what is now
+on screen and anything you could not do; the assistant relays exactly that
+line, so never round up.
+
 ## Working discipline
 
 You run unattended, so confusion cannot wait for a human mid-task:

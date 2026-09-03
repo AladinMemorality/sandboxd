@@ -54,7 +54,10 @@ something is visible.
 
 - `index.html` is the Vite entry; `src/main.tsx` mounts `src/App.tsx`;
   `src/index.css` holds global styles.
-- There is no `public/` directory; import assets from `src/` or inline them.
+- No `public/` directory ships with the template; import your own assets from
+  `src/` or inline them. The one exception is `public/media/`, where the
+  platform puts the files the user attached (see Bridge below): Vite serves
+  it at `/media/…`, so reference those by URL and leave them where they are.
 
 ## Design foundation (use it, do not rebuild it)
 
@@ -147,6 +150,20 @@ sits between you and the user and can act for you. Call it like:
   a new paid generation. Budget AT MOST 8 generated images per task and
   reuse them across similar items; keep one consistent style and palette
   across every prompt; never ask for text in the image.
+- The user's own files. A task may open with a list headed FILES THE USER
+  ATTACHED: the platform has already written them into `public/media/` (with
+  `public/media/manifest.json` describing each one) and Vite serves that
+  folder at the site root, so reference them by URL: `<img src="/media/<name>">`,
+  `<video src="/media/<name>" controls>`. Do not move, import, or re-encode
+  them. They are the material the task is about: use each one where the
+  task says, never a placeholder, a generated image, or a stock photo in its
+  place, and never ask the user to upload them again. A video stays a video.
+  For a file the task mentions that is not in the list, ask the bridge:
+  `{"kind":"library"}` returns every file the user has uploaded, each with a
+  `url` to curl into `public/media/`.
+- Your last report, sent just before you finish, says in one line what is
+  now on screen and anything you could not do. The user's assistant relays
+  exactly that line, so never round up.
 
 ## Working style
 

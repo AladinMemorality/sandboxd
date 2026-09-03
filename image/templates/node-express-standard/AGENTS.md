@@ -17,6 +17,21 @@ task asks for from there (split into modules freely).
   route live mid-task, kill the running node process; the supervisor restarts
   it within seconds with your changes, then `curl -s http://127.0.0.1:3000/health`.
 
+## Bridge to the product chat (only when $BRIDGE_URL is set)
+
+When the env vars `BRIDGE_URL` and `BRIDGE_TOKEN` exist, a chat assistant
+sits between you and the user. POST JSON with
+`Authorization: Bearer $BRIDGE_TOKEN`:
+`{"kind":"report","text":"…"}` for milestone progress,
+`{"kind":"question","text":"…"}` for something the user should decide
+(never block on an answer), and `{"kind":"library"}` returns every file the
+user has uploaded, each with a `url` to curl. A task may open with a list
+headed FILES THE USER ATTACHED: those files are already in the workspace at
+the listed paths (`public/media/`, with a `manifest.json`); use them where
+the task says and never ask for them again. Your last report, sent just
+before you finish, says in one line what now works and anything you could
+not do; the user's assistant relays exactly that line, so never round up.
+
 ## Working style
 
 Generation speed is the bottleneck in this environment: prefer small,

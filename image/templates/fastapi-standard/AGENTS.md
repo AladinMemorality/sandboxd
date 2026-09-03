@@ -34,7 +34,17 @@ sits between you and the user. POST JSON with
 `{"kind":"question","text":"…"}` for something the user should decide
 (never block on an answer), and
 `{"kind":"image","prompt":"…","aspect_ratio":"16:9"}` returns
-`{"url":"…"}` when the app serves HTML that needs a real image.
+`{"url":"…"}` when the app serves HTML that needs a real image, and
+`{"kind":"library"}` returns every file the user has uploaded, each with a
+`url` to curl.
+
+The user's own files: a task may open with a list headed FILES THE USER
+ATTACHED, already written into `public/media/` with a `manifest.json` beside
+them. Serve that folder as static files and use each file where the task says;
+never a placeholder in its place, and a video stays a video. Your last report,
+sent just before you finish, says in one line what now works and anything you
+could not do; the user's assistant relays exactly that line, so never round
+up.
 
 ## How it runs (platform-managed, do not fight it)
 

@@ -130,6 +130,20 @@ sits between you and the user and can act for you. Call it like:
   a new paid generation. Budget AT MOST 8 generated images per task and
   reuse them across similar items; keep one consistent style per build;
   never ask for text inside the image.
+- The user's own files. A task may open with a list headed FILES THE USER
+  ATTACHED: the platform has already written them into `public/media/` (with
+  `public/media/manifest.json` describing each one) and Next.js serves that
+  folder at the site root, so reference them by URL: `<img src="/media/<name>">`,
+  `<video src="/media/<name>" controls>`. Do not move, import, or re-encode
+  them. They are the material the task is about: use each one where the
+  task says, never a placeholder, a generated image, or a stock photo in its
+  place, and never ask the user to upload them again. A video stays a video.
+  For a file the task mentions that is not in the list, ask the bridge:
+  `{"kind":"library"}` returns every file the user has uploaded, each with a
+  `url` to curl into `public/media/`.
+- Your last report, sent just before you finish, says in one line what is
+  now on screen and anything you could not do. The user's assistant relays
+  exactly that line, so never round up.
 
 ## Working style
 
