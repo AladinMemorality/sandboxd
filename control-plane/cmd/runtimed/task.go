@@ -263,6 +263,22 @@ func (a *app) runTask(t *task) {
 		workDir: a.appDir, prompt: t.prompt, model: t.model, env: t.env, rawLog: rl,
 		streamLog: sl, systemPrompt: sysPrompt, cont: t.cont,
 	}, t.emit)
+	// An agent that ends its turn on a sentence about what it is about to do
+	// ("Now the Offer cards:") has not finished; it has stopped. Some models
+	// do this reliably mid-task, the build check then passes on the half that
+	// exists, and the task is reported as a success nobody asked for. So the
+	// same session is continued, up to a few times, until the last message
+	// describes work rather than announcing it.
+	for round := 0; round < maxContinueRounds && agentErr == nil && ctx.Err() == nil && announcesNextStep(finalMsg); round++ {
+		a.log.Info("agent stopped mid-task; continuing", "task", t.id, "round", round+1, "last", tail(finalMsg, 120))
+		t.emit("agent_continue", map[string]any{"round": round + 1, "last": tail(finalMsg, 300)})
+		var more runtime.TokenUsage
+		finalMsg, more, agentErr = ag.run(ctx, agentSpec{
+			workDir: a.appDir, prompt: continuePrompt, model: t.model, env: t.env, rawLog: rl,
+			streamLog: sl, systemPrompt: sysPrompt, cont: true,
+		}, t.emit)
+		usage = addUsage(usage, more)
+	}
 	res.AgentMessageFinal = finalMsg
 	res.Tokens = usage
 
