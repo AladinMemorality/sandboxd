@@ -1113,6 +1113,32 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /v1/sandboxes/{id}/recreate:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    post:
+      operationId: recreateSandbox
+      tags: [sandboxes]
+      summary: >-
+        Stop, remove and rebuild the container from the stored row with the
+        current image and the app's current config (delivered as environment).
+        The workspace is untouched. Use after changing app config values.
+      responses:
+        "200":
+          description: Running again, on a fresh container
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Sandbox" }
+        "409":
+          description: A task is in progress; cancel it first.
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+        "503":
+          description: Capacity pushback (Retry-After).
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
   /v1/sandboxes/{id}/stop:
     parameters: [ { $ref: "#/components/parameters/Id" } ]
     post:

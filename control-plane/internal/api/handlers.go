@@ -16,6 +16,7 @@ import (
 
 	"github.com/oklog/ulid/v2"
 
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/appenv"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/audit"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cgroup"
@@ -740,6 +741,9 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		// gVisor: override the unreachable embedded DNS (127.0.0.11).
 		volumes = append(volumes, s.DNSResolvConf+":/etc/resolv.conf:ro")
 	}
+	// The app's stored config, for the runtime: keys the owner entered
+	// through /v1/apps/{id}/config ride in as environment (internal/appenv).
+	envFlags = append(envFlags, appenv.Best(r.Context(), s.Store, s.Secrets, req.AppID, s.Log)...)
 	limits := s.Limits
 	if limits.Memory == "" {
 		limits = sandboxspec.DefaultLimits

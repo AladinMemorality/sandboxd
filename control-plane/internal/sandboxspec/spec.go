@@ -35,6 +35,10 @@ type Env struct {
 	RuntimePreset     string   // from the owning app, when known
 	Limits            Limits   // memory/CPU ceilings; zero value = DefaultLimits
 	AgentAuthMounts   []string // only when the auth proxy is disabled
+	// AppEnv is the app's stored config as KEY=VALUE, already decrypted
+	// (internal/appenv). Delivered as container environment, so it takes
+	// effect on create and recreate only.
+	AppEnv []string
 }
 
 // Build returns the RunSpec for `sb`. It reproduces the create path's flags:
@@ -55,6 +59,9 @@ func Build(sb *store.Sandbox, e Env) docker.RunSpec {
 	}
 	if e.OpencodeZenPath != "" {
 		env = append(env, "SANDBOXD_OPENCODE_ZEN_PATH="+e.OpencodeZenPath)
+	}
+	if len(e.AppEnv) > 0 {
+		env = append(env, e.AppEnv...)
 	}
 
 	volumes := append([]string{sb.WorkspaceMnt + ":/home/sandbox"}, e.AgentAuthMounts...)

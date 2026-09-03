@@ -32,6 +32,25 @@ the task says and never ask for them again. Your last report, sent just
 before you finish, says in one line what now works and anything you could
 not do; the user's assistant relays exactly that line, so never round up.
 
+## Keys and secrets
+
+An API key or any secret the app needs is declared, never written. Declare
+it in `sandbox.yaml` under `env:` and read it from the environment on the
+server side only:
+
+    env:
+      - name: OPENAI_API_KEY
+        required: true
+        hint: Used by the chat feature; from platform.openai.com
+
+The platform stores the value the person enters (sealed, outside the
+workspace) and starts the app with it as an environment variable. So: never
+write a real value into any file, never ask for one through the bridge,
+never put a secret in a `VITE_` / `NEXT_PUBLIC_` variable or anywhere the
+browser loads, and build the feature so the app still runs, saying it needs
+its key, until the value is set. A remix of the app carries the declaration
+and never the value.
+
 ## Working style
 
 Generation speed is the bottleneck in this environment: prefer small,

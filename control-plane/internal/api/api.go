@@ -256,6 +256,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/sandboxes/{id}", s.observe("GET /v1/sandboxes/{id}", s.v1GetSandbox))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/stop", s.observe("POST /v1/sandboxes/{id}/stop", s.v1StopSandbox))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/start", s.observe("POST /v1/sandboxes/{id}/start", s.v1StartSandbox))
+	mux.HandleFunc("POST /v1/sandboxes/{id}/recreate", s.observe("POST /v1/sandboxes/{id}/recreate", s.v1RecreateSandbox))
 	mux.HandleFunc("DELETE /v1/sandboxes/{id}", s.observe("DELETE /v1/sandboxes/{id}", s.v1DeleteSandbox))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/tasks", s.observe("POST /v1/sandboxes/{id}/tasks", s.v1SubmitTask))
 	mux.HandleFunc("GET /v1/sandboxes/{id}/tasks", s.observe("GET /v1/sandboxes/{id}/tasks", s.v1ListTasks))

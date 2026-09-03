@@ -37,6 +37,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/activity"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/agentauth"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/api"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/appenv"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/audit"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/authproxy"
@@ -503,6 +504,7 @@ func main() {
 			OpencodeZenPath:   envDefault("SANDBOXD_OPENCODE_ZEN_PATH", ""),
 			RuntimePreset:     runtimePresetForSandbox(ctx, st, sb),
 			Limits:            sandboxLimits,
+			AppEnv:            appenv.Best(ctx, st, secretsCipher, sb.AppID.String, log),
 		})
 		// Remove any existing container first so the name is free; ignore a
 		// not-found (the common case) and let Run surface a real failure.
