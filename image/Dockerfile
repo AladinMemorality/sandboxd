@@ -130,19 +130,31 @@ COPY image/etc/profile.d/sandbox-env.sh /etc/profile.d/sandbox-env.sh
 # Canonical home skeleton — consumed only by host-side provision-home.
 # Never read by the runtime container itself. See image/HOME_LAYOUT.md
 # for the contract.
-COPY image/skel/ /opt/sandbox-skel/
+# Sandbox user (uid/gid 1000 inside the container; userns-remap offsets
+# it on the host so a running sandbox's processes appear as host-uid
+# DOCKREMAP_BASE+1000, typically 101000). Created BEFORE anything is
+# written under /opt so every layer below can own its files as it writes
+# them: a separate `chown -R` layer over the templates' node_modules
+# copied every one of their files up into a new layer, which took a
+# quarter of an hour of disk time on the deploy box and outlived the CI
+# runner's silent SSH connection.
+RUN /usr/sbin/groupadd -g 1000 sandbox \
+ && /usr/sbin/useradd -u 1000 -g 1000 -m -s /bin/bash sandbox
+
+COPY --chown=1000:1000 image/skel/ /opt/sandbox-skel/
+RUN chmod 700 /opt/sandbox-skel
 
 # Baked app templates. runtimed seeds the chosen one (RUNTIMED_TEMPLATE,
 # default react-standard) into an empty workspace/app on first boot.
 # Add a template = drop a new dir here; the registry is additive.
-COPY image/templates/ /opt/templates/
+COPY --chown=1000:1000 image/templates/ /opt/templates/
 
 # The shared agent skill pack (taste, web design guidelines, self-screenshot
 # et al) — single-sourced here and copied into every FRONTEND template's
 # .claude/skills so agents discover them natively. Backend/worker templates
 # skip it: the pack is design-work tooling. See image/templates/README.md.
-COPY image/agent-skills/ /opt/agent-skills/
-RUN for t in react-standard react-pro marketplace-starter nextjs-standard; do       mkdir -p /opt/templates/$t/.claude       && rm -rf /opt/templates/$t/.claude/skills       && cp -r /opt/agent-skills /opt/templates/$t/.claude/skills;     done
+COPY --chown=1000:1000 image/agent-skills/ /opt/agent-skills/
+RUN for t in react-standard react-pro marketplace-starter nextjs-standard; do       mkdir -p /opt/templates/$t/.claude       && rm -rf /opt/templates/$t/.claude/skills       && cp -r /opt/agent-skills /opt/templates/$t/.claude/skills       && chown -R 1000:1000 /opt/templates/$t/.claude;     done
 
 # Pre-installed dependencies for the JS templates. A fresh sandbox's preview
 # must answer within seconds of creation; a cold `pnpm install` on first boot
@@ -161,19 +173,12 @@ RUN cd /opt/templates/react-standard \
  && cd /opt/templates/node-express-standard \
  && pnpm install --config.package-import-method=copy \
  && pnpm store prune \
- && rm -rf /root/.cache /root/.local/share/pnpm/store
+ && rm -rf /root/.cache /root/.local/share/pnpm/store \
+ && chown -R 1000:1000 /opt/templates
 
 # Base-image self-check (Node 22, npm/pnpm/bun, python3/uv/setuptools, build
 # tools). Run: `docker run --rm <image> bash /opt/verify-base.sh`.
 COPY image/verify-base.sh /opt/verify-base.sh
-
-# Sandbox user (uid/gid 1000 inside the container; userns-remap offsets
-# it on the host so a running sandbox's processes appear as host-uid
-# DOCKREMAP_BASE+1000, typically 101000).
-RUN /usr/sbin/groupadd -g 1000 sandbox \
- && /usr/sbin/useradd -u 1000 -g 1000 -m -s /bin/bash sandbox \
- && chown -R 1000:1000 /opt/sandbox-skel /opt/templates \
- && chmod 700 /opt/sandbox-skel
 
 # Public registries. The original platform pointed these at a host-side
 # nginx caching proxy (172.17.0.1:8080) for cross-tenant dedupe; the

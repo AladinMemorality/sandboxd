@@ -27,4 +27,9 @@ jobs:
           printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
           chmod 600 ~/.ssh/deploy_key
           ssh-keyscan -H 65.108.225.153 >> ~/.ssh/known_hosts 2>/dev/null
-          ssh -i ~/.ssh/deploy_key root@65.108.225.153 "deploy-sandboxd $GITHUB_SHA"
+          # Keepalives, because the image build has minutes-long silent
+          # steps and a hosted runner's idle connection dies after about
+          # four of them. The server-side deploy survives a dropped session;
+          # the run just goes red for nothing.
+          ssh -i ~/.ssh/deploy_key -o ServerAliveInterval=30 -o ServerAliveCountMax=20 \
+            root@65.108.225.153 "deploy-sandboxd $GITHUB_SHA"
