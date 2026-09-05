@@ -138,9 +138,10 @@ func (c *Client) Run(ctx context.Context, spec RunSpec) (string, error) {
 type ContainerJSON struct {
 	ID    string `json:"Id"`
 	State struct {
-		Status  string `json:"Status"`
-		Running bool   `json:"Running"`
-		Pid     int    `json:"Pid"`
+		Status    string `json:"Status"`
+		Running   bool   `json:"Running"`
+		Pid       int    `json:"Pid"`
+		StartedAt string `json:"StartedAt"` // latest container start, including wakes/restarts
 	} `json:"State"`
 	Config struct {
 		Image  string            `json:"Image"`
