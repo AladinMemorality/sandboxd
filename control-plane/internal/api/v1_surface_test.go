@@ -40,6 +40,7 @@ var requiredPublicSurface = []string{
 	"POST /v1/apps/{id}/fork",
 	"POST /v1/apps/{id}/config",
 	"GET /v1/apps/{id}/config",
+	"POST /v1/apps/{id}/config/{key}/reveal",
 	"PATCH /v1/apps/{id}/config/{key}",
 	"DELETE /v1/apps/{id}/config/{key}",
 	"GET /v1/apps/{id}/events",

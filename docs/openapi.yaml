@@ -996,9 +996,11 @@ paths:
       summary: Create a config entry (set sensitive=true to encrypt at rest)
       description: >
         Sensitive values are AES-256-GCM-encrypted at rest and are
-        write-only — they are never returned by any GET. access_policy
+        redacted — they are never returned by any GET. access_policy
         governs who may later read the value through the broker; the
-        default control_plane_only never leaves sandboxd.
+        default control_plane_only is not supplied to runtime processes.
+        The owning tenant service may explicitly reveal one stored value
+        using the separate POST reveal endpoint.
       requestBody:
         required: true
         content:
@@ -1053,6 +1055,37 @@ paths:
       responses:
         "204": { description: Deleted }
         "404": { $ref: "#/components/responses/Error" }
+
+  /v1/apps/{id}/config/{key}/reveal:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+      - in: path
+        name: key
+        required: true
+        schema: { type: string }
+    post:
+      operationId: revealAppConfig
+      tags: [apps]
+      summary: Explicitly reveal one key to the owning tenant service
+      description: >
+        Requires an authenticated service belonging to the app tenant.
+        Responses are private and no-store. Audit records contain the key
+        name only, never its value. GET/list remains redacted. Integrators
+        must additionally authorize the individual project owner.
+      responses:
+        "200":
+          description: Revealed value; must not be logged or cached
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [key, value]
+                properties:
+                  key: { type: string }
+                  value: { type: string }
+        "403": { $ref: "#/components/responses/Error" }
+        "404": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
 
   /v1/sandboxes:
     post:

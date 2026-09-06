@@ -1,7 +1,8 @@
 // v1_app_config.go — app-scoped config and secrets, owned by the
 // control plane (not Docker env, workspace files, or task logs).
-// Sensitive values are AES-256-GCM-encrypted at rest and write-only over
-// the API (GET returns metadata only). Scoped to the app, which is
+// Sensitive values are AES-256-GCM-encrypted at rest; GET returns metadata
+// only. A separate tenant-authorized POST explicitly reveals one value.
+// Scoped to the app, which is
 // scoped to the API tenant. Plaintext is never logged or audited.
 package api
 
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/audit"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/events"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
@@ -151,6 +153,41 @@ type v1PatchConfigReq struct {
 	AccessPolicy *string `json:"access_policy"`
 }
 
+// v1RevealAppConfig returns one stored value only to the app's API tenant.
+// Baarcha further checks the individual project owner before calling this.
+// No container exec, workspace writes, sensitivity changes, or cached values.
+func (s *Server) v1RevealAppConfig(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "private, no-store")
+	w.Header().Set("Vary", "Authorization, Cookie")
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	actor := auth.ActorFrom(r.Context())
+	if actor.Kind != "service" || actor.Name == "" {
+		writeV1Err(w, http.StatusForbidden, "forbidden", "an authenticated tenant service is required")
+		return
+	}
+	app, ok := s.appForConfig(w, r)
+	if !ok {
+		return
+	}
+	key := r.PathValue("key")
+	c, err := s.Store.GetAppConfig(r.Context(), app.ID, key)
+	if errors.Is(err, store.ErrNotFound) {
+		writeV1Err(w, http.StatusNotFound, "not_found", "no such config key")
+		return
+	}
+	if err != nil {
+		writeV1Err(w, http.StatusInternalServerError, "internal", "could not read config")
+		return
+	}
+	value, err := s.effectiveConfigValue(c, nil)
+	if err != nil {
+		writeV1Err(w, http.StatusServiceUnavailable, "internal", "could not decrypt config")
+		return
+	}
+	s.auditConfig(r, "app_config.reveal", app.ID, key)
+	writeJSON(w, http.StatusOK, map[string]string{"key": key, "value": value})
+}
+
 // v1PatchAppConfig — PATCH /v1/apps/{id}/config/{key}.
 func (s *Server) v1PatchAppConfig(w http.ResponseWriter, r *http.Request) {
 	app, ok := s.appForConfig(w, r)
@@ -253,7 +290,7 @@ func (s *Server) encodeConfigValue(c *store.AppConfig, plaintext string) error {
 
 // effectiveConfigValue returns the new plaintext to store: the request's
 // value if provided, otherwise the existing value (decrypted if it was
-// sensitive). Used only internally for re-encoding; never returned via API.
+// sensitive). Used for re-encoding and the explicit authorized reveal route.
 func (s *Server) effectiveConfigValue(existing *store.AppConfig, reqValue *string) (string, error) {
 	if reqValue != nil {
 		return *reqValue, nil

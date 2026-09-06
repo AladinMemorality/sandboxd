@@ -318,6 +318,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/apps/{id}/git/commit", s.observe("POST /v1/apps/{id}/git/commit", s.v1GitCommit))
 	mux.HandleFunc("POST /v1/apps/{id}/git/push", s.observe("POST /v1/apps/{id}/git/push", s.v1GitPush))
 	mux.HandleFunc("GET /v1/apps/{id}/config", s.observe("GET /v1/apps/{id}/config", s.v1ListAppConfig))
+	mux.HandleFunc("POST /v1/apps/{id}/config/{key}/reveal", s.observe("POST /v1/apps/{id}/config/{key}/reveal", s.v1RevealAppConfig))
 	mux.HandleFunc("PATCH /v1/apps/{id}/config/{key}", s.observe("PATCH /v1/apps/{id}/config/{key}", s.v1PatchAppConfig))
 	mux.HandleFunc("DELETE /v1/apps/{id}/config/{key}", s.observe("DELETE /v1/apps/{id}/config/{key}", s.v1DeleteAppConfig))
 
