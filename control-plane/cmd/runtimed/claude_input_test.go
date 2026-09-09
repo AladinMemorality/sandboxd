@@ -55,7 +55,7 @@ func TestLiveInputBeforeStartAndReplay(t *testing.T) {
 		t.Fatal("closed stdin while a follow-up is awaiting CLI acknowledgement")
 	}
 	sink, events := collectSink()
-	parseClaudeStreamInput(strings.NewReader(`{"type":"user","uuid":"`+req.MessageID+`"}`+"\n"+`{"type":"result","subtype":"success","result":"Applied"}`+"\n"), sink, in)
+	parseClaudeStreamInput(strings.NewReader(`{"type":"user","uuid":"`+req.MessageID+`","message":{"role":"user","content":"Use blue instead"}}`+"\n"+`{"type":"result","subtype":"success","result":"Applied"}`+"\n"), sink, in)
 	if !w.closed {
 		t.Fatal("stdin must close after the final result")
 	}

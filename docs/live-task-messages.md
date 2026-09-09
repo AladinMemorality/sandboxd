@@ -30,3 +30,10 @@ their old runtimed binary until upgraded/recreated. Let active tasks finish,
 then install the new binary and restart idle sandboxes, or recreate them from
 the updated base image while preserving their workspaces. A task launched with
 one-shot input cannot acquire live stdin retroactively.
+
+The full runtime smoke is `scripts/check-runtime-live-input.py`. Run it inside
+the base image with `--network none` and `--entrypoint python3`, mounting the
+script read-only. It verifies live delivery during Bash, idempotent submission,
+the CLI replay acknowledgement (whose message content is a string), and normal
+task completion. This catches parser/stdin lifecycle failures that a CLI-only
+probe cannot.

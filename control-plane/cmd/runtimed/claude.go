@@ -103,6 +103,19 @@ func parseClaudeStreamInput(r io.Reader, emit eventSink, input *claudeInput) cla
 	sc.Buffer(make([]byte, 64*1024), 4*1024*1024)
 	for sc.Scan() {
 		raw := sc.Bytes()
+		// Replayed user messages can carry string content, whereas assistant
+		// messages carry block arrays. Decode the acknowledgement envelope
+		// independently so a valid replay cannot be dropped by block decoding.
+		var envelope struct {
+			Type string `json:"type"`
+			UUID string `json:"uuid"`
+		}
+		if json.Unmarshal(raw, &envelope) == nil && envelope.Type == "user" {
+			if input != nil && input.acknowledge(envelope.UUID) {
+				emit("input", map[string]any{"message_id": envelope.UUID, "status": "received"})
+			}
+			continue
+		}
 		var ev claudeEvent
 		if json.Unmarshal(raw, &ev) != nil {
 			// Non-JSON line. claude prints "Not logged in · Please run /login"
@@ -115,10 +128,6 @@ func parseClaudeStreamInput(r io.Reader, emit eventSink, input *claudeInput) cla
 			continue
 		}
 		switch ev.Type {
-		case "user":
-			if input != nil && input.acknowledge(ev.UUID) {
-				emit("input", map[string]any{"message_id": ev.UUID, "status": "received"})
-			}
 		case "system":
 			// The init event reports the RESOLVED model (an alias like "sonnet"
 			// becomes e.g. "claude-sonnet-5"). Surface it so the user sees which
