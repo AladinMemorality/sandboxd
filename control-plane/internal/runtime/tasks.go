@@ -2,6 +2,8 @@ package runtime
 
 import (
 	"encoding/json"
+	"regexp"
+	"strings"
 	"time"
 )
 
@@ -10,6 +12,19 @@ import (
 // the default, shared by runtimed (which enforces it) and the
 // control-plane task watcher (which must outlive it).
 const DefaultTaskTimeout = 10 * time.Minute
+
+// TaskMessage is delivered to an existing coding session. MessageID is a
+// client UUID, reused on retries so a lost HTTP response cannot duplicate it.
+type TaskMessage struct {
+	MessageID string `json:"message_id"`
+	Prompt    string `json:"prompt"`
+}
+
+var messageUUID = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+
+func (m TaskMessage) Valid() bool {
+	return messageUUID.MatchString(m.MessageID) && strings.TrimSpace(m.Prompt) != "" && len(m.Prompt) <= 80000
+}
 
 // TaskStatus is the lifecycle state of a coding task.
 type TaskStatus string

@@ -30,6 +30,7 @@ func (c *claudeCodeAgent) name() string { return "claude-code" }
 // claudeEvent is one line of `claude … --output-format stream-json`. Only the
 // fields runtimed maps are declared; the rest is treated as opaque.
 type claudeEvent struct {
+	UUID    string  `json:"uuid"`
 	Type    string  `json:"type"`    // system | assistant | user | result
 	Subtype string  `json:"subtype"` // on result: success | error_* …
 	Model   string  `json:"model"`   // on system/init: the RESOLVED model id
@@ -91,6 +92,10 @@ type claudeParseResult struct {
 // parseClaudeStream consumes NDJSON from r, dispatches canonical events, and
 // returns a structured summary. Pure — unit-testable without spawning claude.
 func parseClaudeStream(r io.Reader, emit eventSink) claudeParseResult {
+	return parseClaudeStreamInput(r, emit, nil)
+}
+
+func parseClaudeStreamInput(r io.Reader, emit eventSink, input *claudeInput) claudeParseResult {
 	var pr claudeParseResult
 	var acc strings.Builder
 
@@ -110,6 +115,10 @@ func parseClaudeStream(r io.Reader, emit eventSink) claudeParseResult {
 			continue
 		}
 		switch ev.Type {
+		case "user":
+			if input != nil && input.acknowledge(ev.UUID) {
+				emit("input", map[string]any{"message_id": ev.UUID, "status": "received"})
+			}
 		case "system":
 			// The init event reports the RESOLVED model (an alias like "sonnet"
 			// becomes e.g. "claude-sonnet-5"). Surface it so the user sees which
@@ -150,6 +159,9 @@ func parseClaudeStream(r io.Reader, emit eventSink) claudeParseResult {
 				}
 			}
 		case "result":
+			if input != nil {
+				input.result(ev.IsError || (ev.Subtype != "" && ev.Subtype != "success"))
+			}
 			if ev.Result != "" {
 				pr.FinalMessage = ev.Result
 			}
@@ -187,6 +199,10 @@ func parseClaudeStream(r io.Reader, emit eventSink) claudeParseResult {
 func (c *claudeCodeAgent) run(ctx context.Context, spec agentSpec, emit eventSink) (string, runtime.TokenUsage, error) {
 	var usage runtime.TokenUsage
 	args := []string{"-p", "--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions"}
+	if spec.input != nil {
+		args = append(args, "--input-format", "stream-json", "--replay-user-messages")
+		defer spec.input.close()
+	}
 	// Per-task model (claude accepts an alias like "sonnet"/"opus" or a full id).
 	if spec.model != "" {
 		args = append(args, "--model", spec.model)
@@ -200,7 +216,9 @@ func (c *claudeCodeAgent) run(ctx context.Context, spec agentSpec, emit eventSin
 	if spec.systemPrompt != "" {
 		args = append(args, "--append-system-prompt", spec.systemPrompt)
 	}
-	args = append(args, spec.prompt)
+	if spec.input == nil {
+		args = append(args, spec.prompt)
+	}
 	cmd := exec.Command("claude", args...)
 	cmd.Dir = spec.workDir
 	// Scrub secret-shaped vars and point HOME at THIS agent's mounted auth dir
@@ -208,6 +226,15 @@ func (c *claudeCodeAgent) run(ctx context.Context, spec agentSpec, emit eventSin
 	// agent name so it works even when the sandbox default is opencode.
 	cmd.Env = agentEnv(c.name(), spec.env)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	var stdin io.WriteCloser
+	if spec.input != nil {
+		var err error
+		stdin, err = cmd.StdinPipe()
+		if err != nil {
+			return "", usage, err
+		}
+		defer stdin.Close()
+	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -238,6 +265,13 @@ func (c *claudeCodeAgent) run(ctx context.Context, spec agentSpec, emit eventSin
 		}
 	}()
 	defer close(finished)
+	if spec.input != nil {
+		if err := spec.input.attach(stdin, spec.prompt); err != nil {
+			_ = syscall.Kill(-pgid, syscall.SIGTERM)
+			_ = cmd.Wait()
+			return "", usage, fmt.Errorf("start live input: %w", err)
+		}
+	}
 
 	stderrDone := make(chan struct{})
 	go func() {
@@ -245,7 +279,7 @@ func (c *claudeCodeAgent) run(ctx context.Context, spec agentSpec, emit eventSin
 		close(stderrDone)
 	}()
 
-	pr := parseClaudeStream(teeStream(stdout, spec.streamLog), emit)
+	pr := parseClaudeStreamInput(teeStream(stdout, spec.streamLog), emit, spec.input)
 	waitErr := cmd.Wait()
 	<-stderrDone
 

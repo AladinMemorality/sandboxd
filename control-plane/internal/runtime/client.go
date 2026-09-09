@@ -17,6 +17,28 @@ import (
 // has an active task (one task at a time).
 var ErrTaskInProgress = errors.New("a task is already in progress")
 
+var ErrTaskInputUnavailable = errors.New("the agent is finishing or does not support live messages")
+
+func (c *Client) SendTaskMessage(ctx context.Context, taskID string, req TaskMessage) error {
+	body, err := json.Marshal(req)
+	if err != nil {
+		return err
+	}
+	resp, err := c.do(ctx, c.http, http.MethodPost,
+		"http://runtimed/tasks/"+url.PathEscape(taskID)+"/messages", body)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode == http.StatusAccepted {
+		return nil
+	}
+	if resp.StatusCode == http.StatusConflict || resp.StatusCode == http.StatusNotFound {
+		return ErrTaskInputUnavailable
+	}
+	return fmt.Errorf("runtimed input: %s", resp.Status)
+}
+
 // Client is the sandboxd-side client for one sandbox's runtimed,
 // reached over its Unix domain socket. It is the integration seam:
 // sandboxd constructs a Client per sandbox from the host-side socket

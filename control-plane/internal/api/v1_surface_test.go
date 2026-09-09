@@ -11,6 +11,7 @@ import (
 // sync, but parity alone wouldn't notice a route AND its spec entry being
 // deleted together. This test pins the surface so a removal fails loudly.
 var requiredPublicSurface = []string{
+	"POST /v1/sandboxes/{id}/tasks/{taskId}/messages",
 	"GET /v1/settings",
 	"PATCH /v1/settings",
 	"GET /v1/agents",

@@ -264,6 +264,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /v1/sandboxes/{id}/tasks/{taskId}/revert", s.observe("POST /v1/sandboxes/{id}/tasks/{taskId}/revert", s.v1RevertTask))
 	mux.HandleFunc("GET /v1/sandboxes/{id}/tasks/{taskId}/events", s.observe("GET /v1/sandboxes/{id}/tasks/{taskId}/events", s.v1TaskEvents))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/tasks/{taskId}/cancel", s.observe("POST /v1/sandboxes/{id}/tasks/{taskId}/cancel", s.v1CancelTask))
+	mux.HandleFunc("POST /v1/sandboxes/{id}/tasks/{taskId}/messages", s.observe("POST /v1/sandboxes/{id}/tasks/{taskId}/messages", s.v1TaskMessage))
 	mux.HandleFunc("GET /v1/sandboxes/{id}/files", s.observe("GET /v1/sandboxes/{id}/files", s.v1ListFiles))
 	mux.HandleFunc("GET /v1/sandboxes/{id}/files/content", s.observe("GET /v1/sandboxes/{id}/files/content", s.v1FileContent))
 	mux.HandleFunc("PUT /v1/sandboxes/{id}/files", s.observe("PUT /v1/sandboxes/{id}/files", s.v1PutFile))

@@ -29,6 +29,7 @@ type eventSink func(evType string, data any)
 
 // task is one coding-agent run. One at a time per sandbox.
 type task struct {
+	input     *claudeInput
 	id        string
 	prompt    string
 	agentName string
@@ -74,8 +75,13 @@ func newTask(req runtime.StartTaskRequest, tasksRoot string) (*task, error) {
 	if req.TimeoutS > 0 {
 		timeout = time.Duration(req.TimeoutS) * time.Second
 	}
+	var input *claudeInput
+	if req.Agent == "claude-code" {
+		input = newClaudeInput()
+	}
 	return &task{
-		id: req.TaskID, prompt: req.Prompt, agentName: req.Agent, model: req.Model, cont: cont, env: req.Env,
+		input: input,
+		id:    req.TaskID, prompt: req.Prompt, agentName: req.Agent, model: req.Model, cont: cont, env: req.Env,
 		timeout: timeout, dir: dir, createdAt: time.Now().UTC(),
 		updatedCh: make(chan struct{}), phase: "queued", eventsW: f,
 	}, nil
@@ -260,6 +266,7 @@ func (a *app) runTask(t *task) {
 		AppDir: a.appDir, Port: a.previewPort, HealthPath: a.webHealthPath,
 	})
 	finalMsg, usage, agentErr := ag.run(ctx, agentSpec{
+		input:   t.input,
 		workDir: a.appDir, prompt: t.prompt, model: t.model, env: t.env, rawLog: rl,
 		streamLog: sl, systemPrompt: sysPrompt, cont: t.cont,
 	}, t.emit)
@@ -273,7 +280,11 @@ func (a *app) runTask(t *task) {
 		a.log.Info("agent stopped mid-task; continuing", "task", t.id, "round", round+1, "last", tail(finalMsg, 120))
 		t.emit("agent_continue", map[string]any{"round": round + 1, "last": tail(finalMsg, 300)})
 		var more runtime.TokenUsage
+		if t.input != nil {
+			t.input.reopen()
+		}
 		finalMsg, more, agentErr = ag.run(ctx, agentSpec{
+			input:   t.input,
 			workDir: a.appDir, prompt: continuePrompt, model: t.model, env: t.env, rawLog: rl,
 			streamLog: sl, systemPrompt: sysPrompt, cont: true,
 		}, t.emit)

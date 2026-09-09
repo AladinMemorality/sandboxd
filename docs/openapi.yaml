@@ -1304,6 +1304,34 @@ paths:
       responses:
         "200": { description: Cancelled }
 
+  /v1/sandboxes/{id}/tasks/{taskId}/messages:
+    parameters:
+      - $ref: "#/components/parameters/Id"
+      - in: path
+        name: taskId
+        required: true
+        schema: { type: string }
+    post:
+      operationId: sendTaskMessage
+      tags: [tasks]
+      summary: Send a follow-up into the current coding-agent session
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message_id, prompt]
+              properties:
+                message_id: { type: string, format: uuid }
+                prompt: { type: string, maxLength: 80000 }
+      responses:
+        "202": { description: Accepted by the running session; input events acknowledge consumption }
+        "400": { description: Invalid input }
+        "404": { description: Unknown task or project outside this tenant }
+        "409": { description: Agent is finishing or live input is unsupported }
+        "502": { description: Agent could not be reached }
+
   /v1/sandboxes/{id}/tasks/{taskId}/revert:
     parameters:
       - $ref: "#/components/parameters/Id"

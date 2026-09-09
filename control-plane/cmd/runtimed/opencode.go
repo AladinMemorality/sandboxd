@@ -20,6 +20,7 @@ import (
 
 // agentSpec is the input to an agent adapter run.
 type agentSpec struct {
+	input   *claudeInput // native live input, when the selected adapter supports it
 	workDir string
 	prompt  string
 	model   string // per-task model (agent CLI --model); empty = agent default
