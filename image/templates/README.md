@@ -7,9 +7,10 @@ equivalent of Lovable's `.lovable` folder, split by consumer:
 |---|---|---|
 | `.baarcha/template.json` | the platform | machine-readable identity: schema, slug, name, stack (preset id), kind (starter \| app), version, description, whether skills ship |
 | `CLAUDE.md` | the coding agent | exactly `@AGENTS.md` — never anything else |
-| `AGENTS.md` | the coding agent | stable stack facts: Starter state (zero-discovery inventory), How it runs, Design playbook, Bridge protocol, Session memory. THE file to keep truthful |
+| `AGENTS.md` | the coding agent | stable stack facts: Starter map (verify relevant current files before edits), How it runs, Design playbook, Bridge protocol, Session memory. THE file to keep truthful |
 | `.claude/skills/` | the coding agent | the shared skill pack (taste, web-design-guidelines + vendored rules, design-inspiration, image-to-code, self-screenshot). Single-sourced from `image/agent-skills/` and copied in at image build — edit it THERE, not per-template |
 | `sandbox.yaml` | runtimed | written by the preset on first boot; templates do not ship it |
+| `BRIEF.md` | the coding agent | created for durable product scope, user decisions, assumptions, acceptance criteria and open questions |
 | `BRAIN.md` | the coding agent | NOT shipped — created at runtime; per-project decisions and gotchas |
 
 Rules:

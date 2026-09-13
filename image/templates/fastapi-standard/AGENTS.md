@@ -3,10 +3,27 @@
 Python + FastAPI REST API served by uvicorn. It starts as a single `main.py`;
 build what the task asks for from there.
 
-## Starter state — skip discovery, start building
+## Task workflow
 
-On a fresh project (no `BRAIN.md` yet) do NOT spend a turn reading files;
-everything below is current, so your FIRST tool call can already write code:
+Understand the goal and scope before editing. Read relevant current files,
+BRIEF.md and BRAIN.md when present; check whether the requested behavior already
+exists. A starter map is navigation, not proof that files are unchanged. Batch
+independent reads and keep discovery proportional to the task. For bugs, inspect
+relevant logs and reproduce the failure before selecting a fix.
+
+Clear implementation requests need no approval ritual. Ideas, reviews and
+questions need discussion or inspection unless implementation is requested.
+Choose sensible minor defaults and respect delegated choices. For consequential
+unresolved decisions, use the bridge question workflow below and leave dependent
+work unimplemented until answered. Keep BRIEF.md concise with product scope,
+user decisions, assumptions, acceptance criteria and open questions; update it
+when decisions change, not on every trivial edit. Keep technical gotchas in
+BRAIN.md. A follow-up answer should resolve its question in the same project.
+
+## Starter map
+
+This describes the shipped template. Inspect the relevant current files before
+editing; an existing or remixed workspace may already differ:
 
 - `main.py` — a minimal `app` with `GET /health` returning 200. Keep that
   route working forever; build everything else around it.
@@ -32,7 +49,8 @@ sits between you and the user. POST JSON with
 `Authorization: Bearer $BRIDGE_TOKEN`:
 `{"kind":"report","text":"…"}` for milestone progress,
 `{"kind":"question","text":"…"}` for something the user should decide
-(never block on an answer), and
+(continue only independent work; if blocked, checkpoint in BRIEF.md, report
+what needs input and end the task for a later update), and
 `{"kind":"image","prompt":"…","aspect_ratio":"16:9"}` returns
 `{"url":"…"}` when the app serves HTML that needs a real image, and
 `{"kind":"library"}` returns every file the user has uploaded, each with a
@@ -82,14 +100,14 @@ and never the value.
 
 ## Working style
 
-Generation speed is the bottleneck in this environment: prefer small,
-targeted edits over rewriting whole files, and keep code in separate modules
-so a change touches little. Run the cheapest check that actually verifies
-the change.
+Inspect before changing, batch independent operations, and use focused edits.
+Keep components and modules small. Verify the requested behavior with sufficient
+checks at meaningful stages; compilation alone does not prove feature completion.
 
 ## Session memory
 
-Every task runs in a fresh agent session. Files are the only memory:
+New tasks start fresh; live follow-ups retain their current session. Keep durable
+context in files so a later task can continue:
 
 - `BRAIN.md` carries project state, decisions, and gotchas from earlier
   sessions. Read it before starting; append durable learnings before you

@@ -3,10 +3,27 @@
 Next.js 14 (App Router) + React 18. It starts as a minimal `app/` scaffold;
 build what the task asks for under `app/`.
 
-## Starter state — skip discovery, start building
+## Task workflow
 
-On a fresh project (no `BRAIN.md` yet) do NOT spend a turn reading files;
-everything below is current, so your FIRST tool call can already write code:
+Understand the goal and scope before editing. Read relevant current files,
+BRIEF.md and BRAIN.md when present; check whether the requested behavior already
+exists. A starter map is navigation, not proof that files are unchanged. Batch
+independent reads and keep discovery proportional to the task. For bugs, inspect
+relevant logs and reproduce the failure before selecting a fix.
+
+Clear implementation requests need no approval ritual. Ideas, reviews and
+questions need discussion or inspection unless implementation is requested.
+Choose sensible minor defaults and respect delegated choices. For consequential
+unresolved decisions, use the bridge question workflow below and leave dependent
+work unimplemented until answered. Keep BRIEF.md concise with product scope,
+user decisions, assumptions, acceptance criteria and open questions; update it
+when decisions change, not on every trivial edit. Keep technical gotchas in
+BRAIN.md. A follow-up answer should resolve its question in the same project.
+
+## Starter map
+
+This describes the shipped template. Inspect the relevant current files before
+editing; an existing or remixed workspace may already differ:
 
 - `app/layout.js` and `app/page.js` — plain-JS placeholders; replace them
   (switching to `.tsx` is fine, the starter has no TypeScript config yet).
@@ -15,9 +32,8 @@ everything below is current, so your FIRST tool call can already write code:
 - No global CSS file, no Tailwind, no database. Global styles go in an
   `app/globals.css` you create and import from the layout.
 
-Emit independent file writes as parallel tool calls in one message, and put
-the layout + page shell in the very first batch so the preview shows
-structure within seconds. Server components by default; add `"use client"`
+After understanding the scope, show a coherent shell early. Batch independent
+operations and use focused edits to existing files. Server components by default; add `"use client"`
 only where state or handlers demand it.
 
 ## How it runs (platform-managed, do not fight it)
@@ -44,68 +60,38 @@ only where state or handlers demand it.
 
 ## Show progress in the preview
 
-The user watches the preview live while you work. Put the experience's
-shell on screen in your first batch (navigation plus the primary view,
-with designed placeholders), then flesh out one part at a time, saving as
-you go so hot reload shows each step. Data, API routes, and polish come
-after something is visible.
+Report the understood scope, then show a coherent primary view early and complete
+the requested workflow. Keep milestone reports factual. Early preview progress
+does not justify skipping discovery or guessing unresolved decisions.
 
 ## Design playbook
 
-Build the actual usable experience as the first screen. When someone asks
-for an app, tool, platform, or game, the first screen IS the app — never a
-marketing page about it, and never in-app text explaining the app's own
-features, sections, or shortcuts. A landing/marketing page is only the
-deliverable when explicitly requested.
+Follow the user's requested design, references and existing product conventions.
+These are defaults, not reasons to override the brief. Before visual edits,
+inspect the existing view and design system and choose a coherent direction.
+An app should open on its useful workflow; a marketing site should communicate
+the requested offer. Do not replace a functioning app with a promotional page.
 
-Match the design to the domain. SaaS, CRM, admin, and operational tools are
-quiet, dense, and work-focused: organized information for scanning and
-repeated action, restrained styling, predictable navigation — no oversized
-heroes, no decorative card grids, no editorial composition. Games can be
-expressive, animated, and playful. Brand, venue, product, and portfolio
-pages are editorial and image-led.
-
-Decide an art direction from the brief BEFORE writing components — a mood,
-a palette, a type pairing — and set it up as CSS custom properties in your globals.css first. Then:
-
-- Controls: icon buttons (with tooltips when unfamiliar) for tools,
-  segmented controls for modes, toggles for binary settings,
-  sliders/steppers for numbers, menus for option sets, tabs for views.
-  Prefer a standard icon over a text pill (undo/redo arrows, B/I, save,
-  zoom). Use lucide icons: `pnpm add lucide-react`, never hand-drawn SVG
-  icons. Build the states a real user expects: hover, disabled, loading,
-  and DESIGNED empty states.
-- Cards: border radius 8px or less. Cards are ONLY for repeated items,
-  modals, and genuinely framed tools — never cards inside cards, never
-  page sections styled as floating cards. Sections are full-width bands
-  with constrained inner content.
-- Imagery: websites need real visual assets — request generated bitmap
-  images through the bridge (below); never SVG illustrations or CSS-only
-  art as primary media (custom SVG is for game assets). Images must show
-  the actual product, place, object, or subject — not dark, blurred, or
-  purely atmospheric filler.
-- Heroes (only where a hero belongs): a real full-bleed image with text
-  over it, NOT in a card; never a split text/media card layout, never a
-  gradient or SVG hero. H1 = the brand/product/place name or literal
-  offer; value props go in supporting copy. The next section must peek
-  into the first viewport at every size.
-- Color: no one-note palettes — if the page reads as mostly one hue family
-  (all-purple, all-beige/cream/sand, all-slate, all-brown/orange), revise
-  before finishing. Neutrals plus a real accent; text contrast ≥ 4.5:1.
-- Typography: one display + one text face; display-scale type only in true
-  heroes — compact panels, dashboards, and tools get smaller tight
-  headings. Letter-spacing 0, never negative. Font size never scales with
-  viewport width. Body measure 60–75ch.
-- Layout stability: give boards, grids, toolbars, tiles, and icon buttons
-  stable dimensions (aspect-ratio, grid tracks, min/max) so hover states
-  or dynamic text can never shift the layout. Text must fit its container
-  on every viewport (wrap, then shrink-to-fit the longest word) and
-  NOTHING may overlap incoherently.
-- No decorative orbs, gradient blobs, or bokeh. No Lorem ipsum, no emoji
-  as icons: realistic copy in the product's language.
-- Motion: 150–250ms ease on hover/reveal only; nothing loops.
-- Domain logic with established rules (chess, physics, parsing): use a
-  proven library rather than hand-rolling, unless asked.
+- Match layout and density to the domain: operational tools favor scanning and
+  efficient actions; games and brand sites can be expressive when appropriate.
+- Reuse the component kit and semantic design tokens. Customize shared variants
+  when needed instead of scattering overrides. Keep unrelated styles intact.
+- Use meaningful hierarchy, readable type and adequate contrast. Choose radii,
+  colors, imagery and hero composition to fit the brief, not a universal recipe.
+- Use the user's exact assets first. Request generated imagery through the bridge
+  only when useful; do not replace supplied logos, photos or videos. Diagrams and
+  code-native game visuals may use SVG/canvas when appropriate.
+- Make layouts responsive and stable; text must fit without incoherent overlap.
+  Include keyboard access, visible focus, accessible control names, and useful
+  loading, empty and error states. Avoid motion that distracts from the task and
+  respect reduced-motion preferences.
+- Write realistic copy in the product's language. Do not invent business facts
+  or present demo data, local storage or stub integrations as production systems.
+- For public pages add relevant titles, descriptions, semantic structure and
+  descriptive image text. Do not add unrelated SEO features to private tools.
+- Use proven libraries for established domain logic when appropriate.
+- Verify the main interaction and use self-screenshot for visual work: inspect
+  the pixels, fix relevant problems and report what was actually checked.
 
 ## Bridge to the product chat (only when $BRIDGE_URL is set)
 
@@ -117,9 +103,11 @@ sits between you and the user and can act for you. Call it like:
 
 - Progress, at milestones (fire-and-forget):
   `{"kind":"report","text":"Layout and hero are live; pricing next."}`
-- A question the user should see: `{"kind":"question","text":"..."}` —
-  never block waiting for an answer; note the open question in your final
-  message too.
+- A product question: `{"kind":"question","text":"..."}`.
+  Ask only for a consequential decision you cannot discover from context.
+  Continue independent work. If no independent work remains before an answer
+  arrives, record the question and remaining work in BRIEF.md, report what needs
+  input and end the task. A later update can resume; do not poll or guess.
 - Real images: `{"kind":"image","prompt":"<subject, setting, style, lighting, composition>","aspect_ratio":"16:9"}`
   returns `{"url":"..."}`. Download using that URL EXACTLY as returned
   (never rewrite its host: localhost points at your own container) into `public/`
@@ -166,12 +154,9 @@ and never the value.
 
 ## Working style
 
-Model turns cost real seconds, so keep the turn count low. Building new:
-write each file COMPLETE on the first pass and batch every independent
-write of a stage into one message of parallel tool calls. Changing
-existing code: small targeted edits, never whole-file rewrites. Keep code
-in separate modules so a change touches little, and verify once at the
-end with the cheapest sufficient check.
+Inspect before changing, batch independent operations, and use focused edits.
+Keep components and modules small. Verify the requested behavior with sufficient
+checks at meaningful stages; compilation alone does not prove feature completion.
 
 ## Skills (in .claude/skills — use them)
 
@@ -185,7 +170,8 @@ work: state a direction, build, self-screenshot, judge the pixels, fix.
 
 ## Session memory
 
-Every task runs in a fresh agent session. Files are the only memory:
+New tasks start fresh; live follow-ups retain their current session. Keep durable
+context in files so a later task can continue:
 
 - `BRAIN.md` carries project state, decisions, and gotchas from earlier
   sessions. Read it before starting; append durable learnings before you
