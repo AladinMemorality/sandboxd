@@ -331,6 +331,10 @@ type v1CreateAppSandboxReq struct {
 // proven internal create path with the app's id + integration tags.
 func (s *Server) v1CreateAppSandbox(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if s.CubeApps[id] && s.Locks != nil {
+		s.Locks.Lock("cube-app:" + id)
+		defer s.Locks.Unlock("cube-app:" + id)
+	}
 	app, err := s.Store.GetAppForOwner(r.Context(), id, tenantToken(r))
 	if errors.Is(err, store.ErrNotFound) {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no such app")
@@ -390,6 +394,10 @@ func (s *Server) v1CreateAppSandbox(w http.ResponseWriter, r *http.Request) {
 		createBody["runtime_preset"] = rp
 	} else if req.Template != "" {
 		createBody["template"] = req.Template
+	}
+	if s.CubeApps[app.ID] {
+		s.createCubeAppSandbox(w, r, app, req, rp)
+		return
 	}
 	internal, _ := json.Marshal(createBody)
 	code, body := s.delegate(r, s.handleCreate, http.MethodPost, "/sandbox", nil, internal)

@@ -2,26 +2,105 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/json"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
+
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 )
 
-// serve binds the control Unix domain socket and serves the runtimed
-// RPC surface until ctx is cancelled.
+// remoteControl is opt-in; the Unix listener remains available in both modes.
+type remoteControl struct {
+	Address string
+	Token   string
+}
+
+func (c remoteControl) validate() error {
+	if c.Address == "" {
+		return nil
+	}
+	return runtime.ValidateRemoteToken(c.Token)
+}
+
+// serve preserves the default Unix-only control transport.
 func serve(ctx context.Context, socketPath string, a *app) error {
+	return serveControl(ctx, socketPath, a, remoteControl{})
+}
+
+// serveControl binds both listeners before accepting requests and closes both
+// when either fails or ctx ends. Only the optional TCP listener requires auth.
+func serveControl(ctx context.Context, socketPath string, a *app, remote remoteControl) error {
+	if err := remote.validate(); err != nil {
+		return err
+	}
 	if err := os.MkdirAll(filepath.Dir(socketPath), 0o755); err != nil {
 		return err
 	}
-	// Clear a stale socket left by a previous boot before binding.
 	_ = os.Remove(socketPath)
-	ln, err := net.Listen("unix", socketPath)
+	unix, err := net.Listen("unix", socketPath)
 	if err != nil {
 		return err
 	}
+	defer unix.Close()
+	defer os.Remove(socketPath)
 
+	handler := a.controlHandler()
+	newServer := func(h http.Handler) *http.Server {
+		return &http.Server{Handler: h, ReadHeaderTimeout: 5 * time.Second, MaxHeaderBytes: 8192,
+			BaseContext: func(net.Listener) context.Context { return ctx }}
+	}
+	local := newServer(handler)
+	defer local.Close()
+	errors := make(chan error, 2)
+	var tcp net.Listener
+	var network *http.Server
+	if remote.Address != "" {
+		tcp, err = net.Listen("tcp", remote.Address)
+		if err != nil {
+			return err
+		}
+		defer tcp.Close()
+		network = newServer(authenticatedControl(remote.Token, handler))
+		defer network.Close()
+	}
+	go func() { errors <- local.Serve(unix) }()
+	a.log.Info("runtimed control socket listening", "socket", socketPath)
+	if network != nil {
+		go func() { errors <- network.Serve(tcp) }()
+		a.log.Info("runtimed authenticated control HTTP listening", "address", tcp.Addr().String())
+	}
+	select {
+	case <-ctx.Done():
+		return nil
+	case err := <-errors:
+		if err == http.ErrServerClosed {
+			return nil
+		}
+		return err
+	}
+}
+
+// authenticatedControl authenticates before routing, including unknown paths.
+// Hashing both inputs gives constant-length input to the constant-time compare.
+func authenticatedControl(token string, next http.Handler) http.Handler {
+	expected := sha256.Sum256([]byte("Bearer " + token))
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		supplied := sha256.Sum256([]byte(r.Header.Get("Authorization")))
+		if subtle.ConstantTimeCompare(supplied[:], expected[:]) != 1 || len(r.Header.Values("Authorization")) != 1 {
+			w.Header().Set("WWW-Authenticate", "Bearer")
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+func (a *app) controlHandler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /status", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, a.status())
@@ -33,19 +112,7 @@ func serve(ctx context.Context, socketPath string, a *app) error {
 	mux.HandleFunc("POST /tasks/{id}/messages", a.handleTaskMessage)
 	mux.HandleFunc("POST /tasks/{id}/revert", a.handleRevertTask)
 
-	srv := &http.Server{Handler: mux}
-	go func() {
-		<-ctx.Done()
-		_ = srv.Close()
-	}()
-
-	a.log.Info("runtimed control socket listening", "socket", socketPath)
-	err = srv.Serve(ln)
-	if err == http.ErrServerClosed {
-		err = nil
-	}
-	_ = os.Remove(socketPath)
-	return err
+	return mux
 }
 
 func writeJSON(w http.ResponseWriter, code int, body any) {

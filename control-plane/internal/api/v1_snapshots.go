@@ -98,6 +98,18 @@ func (s *Server) v1CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 		writeV1Err(w, http.StatusInternalServerError, "internal", err.Error())
 		return
 	}
+	if src.RuntimeProvider != "" && src.RuntimeProvider != "docker" {
+		if !src.AppID.Valid {
+			writeV1Err(w, 404, "not_found", "no such source sandbox")
+			return
+		}
+		if _, err := s.Store.GetAppForOwner(r.Context(), src.AppID.String, tenantToken(r)); err != nil {
+			writeV1Err(w, 404, "not_found", "no such source sandbox")
+			return
+		}
+		writeV1Err(w, http.StatusNotImplemented, "cube_operation_unsupported", "Cube publishing requires a sanitized template and is not implemented")
+		return
+	}
 	if src.Status == "running" {
 		writeV1Err(w, http.StatusConflict, "conflict",
 			"source sandbox is running; stop it first (POST /v1/sandboxes/{id}/stop) then snapshot")

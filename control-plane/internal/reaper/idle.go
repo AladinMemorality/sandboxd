@@ -108,6 +108,10 @@ func (i *Idle) tick(ctx context.Context) error {
 		return fmt.Errorf("list idle candidates: %w", err)
 	}
 	for _, sb := range candidates {
+		// Remote runtimes must never enter Docker or host workspace maintenance.
+		if sb.RuntimeProvider != "" && sb.RuntimeProvider != "docker" {
+			continue
+		}
 		// Skip rule 0: always_on policy
 		if sb.IdlePolicy == "always_on" {
 			continue

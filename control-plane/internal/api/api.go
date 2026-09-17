@@ -17,6 +17,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/agentauth"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/audit"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/egress"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/events"
@@ -35,6 +36,12 @@ import (
 
 // Server bundles the collaborators the handlers need.
 type Server struct {
+	Cube          *cube.Client
+	CubeTemplates map[string]string
+	CubeApps      map[string]bool
+	CubeProxyURL  string
+	CubeDomain    string
+
 	Store  *store.Store
 	Docker *docker.Client
 	// Upgrade runs in-place upgrades via a detached upgrader container
@@ -338,7 +345,9 @@ func (s *Server) observe(endpoint string, h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		sw := &statusWriter{ResponseWriter: w, status: 200}
-		h(sw, r)
+		if !s.guardCubeRoute(sw, r, endpoint) {
+			h(sw, r)
+		}
 		metrics.APIDuration.WithLabelValues(endpoint, r.Method).Observe(time.Since(start).Seconds())
 		metrics.APIRequests.WithLabelValues(endpoint, r.Method, statusBucket(sw.status)).Inc()
 	}

@@ -233,6 +233,12 @@ func (h *Handler) serve(r *http.Request, w http.ResponseWriter, id, port string,
 		return
 	}
 
+	// Cube preview routing is not implemented in the Docker catch-all.
+	if sb.RuntimeProvider != "" && sb.RuntimeProvider != "docker" {
+		h.respondNotFound(w, id, isHTML)
+		return
+	}
+
 	switch sb.Status {
 	case "running":
 		// Traefik may not have observed the route yet (catch-all

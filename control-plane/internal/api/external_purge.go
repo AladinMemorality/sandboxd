@@ -14,6 +14,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/audit"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/metrics"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
 
 // archiveTaskLogs moves a workspace's .runtimed/tasks/ directory (the
@@ -101,6 +102,15 @@ func (s *Server) purgeOne(ctx context.Context, id string) (freedBytes int64, ext
 		// id, so there is no lock-ordering cycle / deadlock.
 		s.Locks.Lock(gitLockKey(id))
 		defer s.Locks.Unlock(gitLockKey(id))
+	}
+
+	// Bulk/internal purge cannot fall back to deleting a remote runtime locally.
+	if sb, e := s.Store.Get(ctx, id); e == nil {
+		if sb.RuntimeProvider != "" && sb.RuntimeProvider != "docker" {
+			return 0, "", fmt.Errorf("remote runtime purge is not implemented")
+		}
+	} else if !errors.Is(e, store.ErrNotFound) {
+		return 0, "", e
 	}
 
 	// Resolve the owner first — the workspace_owner row is about to be
@@ -229,6 +239,18 @@ func (s *Server) purgeScope(w http.ResponseWriter, r *http.Request, scope, value
 	if err != nil {
 		writeErr(w, http.StatusInternalServerError, "lookup: "+err.Error())
 		return
+	}
+	// Preflight the entire scope before deleting any local workspaces.
+	for _, id := range ids {
+		sb, err := s.Store.Get(r.Context(), id)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			writeErr(w, 503, "cannot resolve sandbox runtime")
+			return
+		}
+		if err == nil && sb.RuntimeProvider != "" && sb.RuntimeProvider != "docker" {
+			writeErr(w, 501, "remote runtime purge is not implemented")
+			return
+		}
 	}
 	var totalFreed int64
 	purged := 0

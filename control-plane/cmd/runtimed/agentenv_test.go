@@ -109,3 +109,12 @@ func TestIsSecretEnvKey(t *testing.T) {
 		}
 	}
 }
+
+func TestAgentEnvironmentExcludesRemoteSupervisorToken(t *testing.T) {
+	const token = "remote-supervisor-token-must-not-be-inherited"
+	for _, kv := range buildAgentEnv([]string{"PATH=/usr/bin", "RUNTIMED_HTTP_TOKEN=" + token}, nil) {
+		if strings.Contains(kv, token) || strings.HasPrefix(kv, "RUNTIMED_HTTP_TOKEN=") {
+			t.Fatal("remote supervisor token leaked to agent environment")
+		}
+	}
+}

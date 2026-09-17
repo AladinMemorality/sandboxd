@@ -16,6 +16,7 @@ package reconcile
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
@@ -72,6 +73,9 @@ func Once(ctx context.Context, d Deps) (Result, error) {
 	knownIDs := make(map[string]bool, len(rows))
 	for _, sb := range rows {
 		knownIDs[sb.ID] = true
+		if sb.RuntimeProvider != "" && sb.RuntimeProvider != "docker" {
+			continue
+		}
 		// Phase 5 V11 fix: kernel mount namespaces don't survive a
 		// reboot; the .img on disk does. For every row whose .img is
 		// still on disk, re-establish the loopback mount BEFORE the
@@ -164,6 +168,14 @@ func CheckWorkspaceOwnerOrphans(ctx context.Context, st *store.Store, lb *loopba
 	}
 	n := 0
 	for _, wo := range owners {
+		if sb, err := st.Get(ctx, wo.SandboxID); err == nil {
+			if sb.RuntimeProvider != "" && sb.RuntimeProvider != "docker" {
+				continue
+			}
+		} else if !errors.Is(err, store.ErrNotFound) {
+			log.Warn("reconcile: cannot resolve workspace runtime", "sandbox_id", wo.SandboxID)
+			continue
+		}
 		if !lb.ImgExists(wo.SandboxID) {
 			log.Warn("reconcile: workspace_owner with no .img on disk (manual disposition)",
 				"sandbox_id", wo.SandboxID, "external_user_id", wo.ExternalUserID)
@@ -174,6 +186,9 @@ func CheckWorkspaceOwnerOrphans(ctx context.Context, st *store.Store, lb *loopba
 }
 
 func (d *Deps) reconcileRow(ctx context.Context, sb *store.Sandbox, res *Result) {
+	if sb.RuntimeProvider != "" && sb.RuntimeProvider != "docker" {
+		return
+	}
 	log := d.Log.With("sandbox_id", sb.ID, "row_status", sb.Status)
 
 	// Treat a "creating" row older than 5 minutes as failed. Roadmap

@@ -383,6 +383,27 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 		writeErr(w, http.StatusBadRequest, errPerAppImage)
 		return
 	}
+	// App-linked creates must preserve owner and provider identity even through
+	// the internal legacy endpoint; app configuration contains owner secrets.
+	if req.AppID != "" {
+		if _, err := s.Store.GetAppForOwner(r.Context(), req.AppID, tenantToken(r)); err != nil {
+			writeErr(w, 404, "no such app")
+			return
+		}
+		if s.CubeApps[req.AppID] {
+			writeErr(w, 501, "Cube apps must use the Cube creation path")
+			return
+		}
+		if current, err := s.Store.CurrentSandboxForApp(r.Context(), req.AppID); err == nil {
+			if current.RuntimeProvider == "cube" {
+				writeErr(w, 409, "app already has a Cube sandbox")
+				return
+			}
+		} else if !errors.Is(err, store.ErrNotFound) {
+			writeErr(w, 503, "cannot resolve app runtime")
+			return
+		}
+	}
 	if req.MemoryHigh == "" {
 		req.MemoryHigh = "4G"
 	}
@@ -921,6 +942,9 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]sandboxResp, 0, len(rows))
 	for _, sb := range rows {
+		if sb.RuntimeProvider == "cube" && !s.canReadCubeSandbox(r, sb) {
+			continue
+		}
 		out = append(out, toRespRow(sb))
 	}
 	writeJSON(w, http.StatusOK, out)

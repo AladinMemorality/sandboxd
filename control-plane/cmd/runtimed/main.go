@@ -57,6 +57,15 @@ func main() {
 	socketPath := envOr("RUNTIMED_SOCKET", filepath.Join(runtimeDir, "sock"))
 	probeInterval := time.Duration(envOrInt("RUNTIMED_PROBE_INTERVAL_SECONDS", 3)) * time.Second
 
+	remote := remoteControl{Address: os.Getenv("RUNTIMED_HTTP_ADDR"), Token: os.Getenv("RUNTIMED_HTTP_TOKEN")}
+	// Remove the transport credential before spawning web, worker or agent
+	// processes. The token is specific to this sandbox, never a host credential.
+	_ = os.Unsetenv("RUNTIMED_HTTP_TOKEN")
+	if err := remote.validate(); err != nil {
+		log.Error("invalid remote control configuration", "err", err.Error())
+		os.Exit(1)
+	}
+
 	// Manifest defaults preserve the pre-manifest Vite behavior. The
 	// long-standing RUNTIMED_* env vars remain the source of each default, so
 	// an operator override still applies when sandbox.yaml doesn't set the
@@ -155,9 +164,11 @@ func main() {
 
 	log.Info("runtimed started", "version", version, "app_dir", appDir, "socket", socketPath,
 		"web", a.web != nil, "workers", len(a.workers))
-	if err := serve(ctx, socketPath, a); err != nil {
+	if err := serveControl(ctx, socketPath, a, remote); err != nil {
 		log.Error("control server", "err", err.Error())
 	}
+
+	stop()
 
 	// ctx is done — stop all supervised processes cleanly before exiting.
 	log.Info("runtimed shutting down — stopping processes")

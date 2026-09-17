@@ -85,3 +85,54 @@ automatically — there is no `docker exec`-started dev server.
   surfaced; `files_changed` is always computed from git.
 - **Dev-server restart on dependency changes** — a task that edits `package.json`
   does not yet trigger a dev-server restart.
+
+## Optional authenticated guest HTTP transport
+
+The default remains the Unix socket (`RUNTIMED_SOCKET`). To supervise a Cube
+microVM without a shared host filesystem, set `RUNTIMED_HTTP_ADDR=:3031` and
+`RUNTIMED_HTTP_TOKEN` to a unique cryptographically random token for that sandbox.
+Generate at least 32 random bytes and encode as hex or unpadded base64url. The
+process fails at startup if HTTP is enabled with a missing or malformed token.
+Unix and HTTP listeners then serve the same status/task/event/cancel/message/
+revert protocol. All HTTP routes, including unknown paths, require
+`Authorization: Bearer <token>` before routing. No token is logged.
+
+Keep the management port on private, restricted ingress; it must not be listed
+among public application preview ports. For a local CubeProxy route, the control
+plane can use a private proxy origin with HTTP Host `3031-<cube-id>.cube.app`.
+If the proxy itself has public ingress, block management-port hostnames there.
+Use Cube private ingress and its per-sandbox `cube-traffic-access-token` header
+when available; this is a different credential from the Cube management API key.
+A Host header is routing, not access control. Across an untrusted network, use
+HTTPS (or a private encrypted transport); a bearer token over plain HTTP alone
+is insufficient.
+
+The control-plane constructor is:
+
+```go
+client, err := runtime.NewRemoteClient(runtime.RemoteConfig{
+    BaseURL: "http://127.0.0.1:80", // trusted/private proxy origin
+    Host:    "3031-<cube-id>.cube.app",
+    Token:   token,
+    TrafficAccessToken: trafficToken, // private ingress token returned at creation
+})
+```
+
+Redirects and environment proxy discovery are disabled for remote clients.
+Ordinary RPCs retain their five-second timeout. Task events stream immediately,
+with no overall client/server write timeout; cancellation or closing the response
+body closes the stream. This protocol is newline-delimited JSON, not SSE.
+
+The supervisor removes its HTTP token from the inherited environment before
+launching web/worker processes; agent environment filtering also excludes all
+`RUNTIMED_*` variables. This is not an isolation boundary from other code running
+under the same guest UID. Tokens grant access only to their own sandbox and must
+never authorize a host operation or another tenant. Never bake a live token into
+a reusable image/template. Publishing/remixing a guest memory snapshot requires
+credential sanitization and a new token binding; changing boot environment alone
+does not rotate a token already retained in a restored process's memory.
+
+This transport does not add host filesystem mounts or generic command execution.
+The existing protocol does not provide workspace file read/write/export or
+supervised-process logs; these need separately reviewed scoped guest APIs before
+those Docker-dependent operations can be migrated.

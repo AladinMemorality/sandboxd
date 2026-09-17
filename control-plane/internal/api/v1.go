@@ -169,11 +169,10 @@ func (s *Server) v1SandboxFromRow(r *http.Request, sb *store.Sandbox) v1Sandbox 
 		CreatedAt: sb.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt: sb.UpdatedAt.UTC().Format(time.RFC3339),
 	}
-	_, mnt := s.Loopback.Paths(sb.ID)
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 	var rs *runtime.Status
-	if got, err := runtime.NewClient(filepath.Join(mnt, ".runtimed", "sock")).Status(ctx); err == nil {
+	if got, err := s.runtimeClientFor(sb.ID).Status(ctx); err == nil {
 		rs = got
 	}
 	out.Preview, out.Processes = s.v1RuntimeView(sb.ID, sb.Status, rs, webPortOf(sb))
@@ -255,6 +254,16 @@ func (s *Server) v1CreateSandbox(w http.ResponseWriter, r *http.Request) {
 	// project is returned as-is (one durable sandbox per project).
 	if rows, err := s.Store.ListFiltered(r.Context(), "", req.Project.ID); err == nil {
 		for _, sb := range rows {
+			if sb.RuntimeProvider == "cube" {
+				if !s.canReadCubeSandbox(r, sb) {
+					writeV1Err(w, 404, "not_found", "no such project")
+					return
+				}
+				if sb.Status == "error" {
+					writeV1Err(w, 409, "conflict", "existing Cube sandbox requires recovery or deletion")
+					return
+				}
+			}
 			if sb.Status != "error" {
 				writeJSON(w, http.StatusOK, s.v1SandboxFromRow(r, sb))
 				return
@@ -349,6 +358,9 @@ func (s *Server) v1GetSandbox(w http.ResponseWriter, r *http.Request) {
 // --- POST /v1/sandboxes/{id}/stop -----------------------------------
 
 func (s *Server) v1StopSandbox(w http.ResponseWriter, r *http.Request) {
+	if s.cubeLifecycle(w, r, "pause") {
+		return
+	}
 	id := r.PathValue("id")
 	sb, err := s.Store.Get(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
@@ -396,6 +408,9 @@ func (s *Server) v1StopSandbox(w http.ResponseWriter, r *http.Request) {
 // of /stop, so a console (API-only) need not reach the internal wake
 // path. Idempotent when already running.
 func (s *Server) v1StartSandbox(w http.ResponseWriter, r *http.Request) {
+	if s.cubeLifecycle(w, r, "connect") {
+		return
+	}
 	id := r.PathValue("id")
 	sb, err := s.Store.Get(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
@@ -436,6 +451,9 @@ func (s *Server) v1StartSandbox(w http.ResponseWriter, r *http.Request) {
 // DELETE — the soft DELETE preserves the .img for id-reuse, which is
 // not the v1 "destroy the project's sandbox" contract.
 func (s *Server) v1DeleteSandbox(w http.ResponseWriter, r *http.Request) {
+	if s.cubeLifecycle(w, r, "delete") {
+		return
+	}
 	id := r.PathValue("id")
 	code, body := s.delegate(r, s.handlePurgeSandbox, http.MethodPost, "/sandbox/"+id+"/purge",
 		map[string]string{"id": id}, nil)

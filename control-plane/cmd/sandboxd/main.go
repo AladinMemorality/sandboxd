@@ -515,7 +515,13 @@ func main() {
 		return err
 	}
 
+	cubeConfig, err := loadCubeConfig()
+	if err != nil {
+		log.Error("invalid Cube configuration", "err", err)
+		os.Exit(1)
+	}
 	server := &api.Server{
+		Cube: cubeConfig.client, CubeTemplates: cubeConfig.templates, CubeApps: cubeConfig.apps, CubeProxyURL: cubeConfig.proxyURL, CubeDomain: cubeConfig.domain,
 		Store:             st,
 		Secrets:           secretsCipher,
 		Update:            updateChecker,

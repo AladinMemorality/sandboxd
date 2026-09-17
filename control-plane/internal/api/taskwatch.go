@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/events"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
 
 const (
@@ -187,6 +189,16 @@ func (s *Server) ReconcileTasks(ctx context.Context) {
 		return
 	}
 	for _, t := range tasks {
+		// Cube task recovery needs guest result retrieval; do not read a host path.
+		if sb, err := s.Store.Get(ctx, t.SandboxID); err == nil {
+			if sb.RuntimeProvider != "" && sb.RuntimeProvider != "docker" {
+				s.Log.Warn("task reconcile: remote task recovery is not implemented", "task", t.TaskID)
+				continue
+			}
+		} else if !errors.Is(err, store.ErrNotFound) {
+			s.Log.Warn("task reconcile: cannot resolve sandbox runtime", "task", t.TaskID)
+			continue
+		}
 		_, mnt := s.Loopback.Paths(t.SandboxID)
 		resultPath := filepath.Join(mnt, ".runtimed", "tasks", t.TaskID, "result.json")
 		if raw, rerr := os.ReadFile(resultPath); rerr == nil {

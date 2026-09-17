@@ -20,6 +20,9 @@ import (
 
 // runtimeClientFor builds a runtime.Client for a sandbox's runtimed.
 func (s *Server) runtimeClientFor(id string) *runtime.Client {
+	if client, remote := s.cubeRuntimeClient(id); remote {
+		return client
+	}
 	_, mnt := s.Loopback.Paths(id)
 	return runtime.NewClient(filepath.Join(mnt, ".runtimed", "sock"))
 }

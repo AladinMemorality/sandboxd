@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"time"
 )
 
@@ -74,6 +75,18 @@ func (s *Store) SetWebPort(ctx context.Context, id string, port int) error {
 // matches the caller's external.user_id).
 // Returns ErrConflict if a sandbox row with the same id already exists.
 func (s *Store) Create(ctx context.Context, sb *Sandbox) error {
+	if sb.RuntimeProvider == "" {
+		sb.RuntimeProvider = "docker"
+	}
+	if sb.RuntimeProvider != "docker" && sb.RuntimeProvider != "cube" {
+		return fmt.Errorf("unknown runtime provider")
+	}
+	if sb.RuntimeProvider == "cube" && (sb.RuntimeBinding == nil || sb.RuntimeBinding.Provider != "cube") {
+		return fmt.Errorf("Cube requires an atomic runtime binding")
+	}
+	if sb.RuntimeProvider == "docker" && sb.RuntimeBinding != nil {
+		return fmt.Errorf("Docker cannot carry a Cube binding")
+	}
 	return s.submit(ctx, func(db *sql.DB) error {
 		tx, err := db.BeginTx(ctx, nil)
 		if err != nil {
@@ -95,18 +108,23 @@ func (s *Store) Create(ctx context.Context, sb *Sandbox) error {
 			                    created_at, updated_at,
 			                    external_user_id, external_project_id,
 			                    external_workspace_id, visibility,
-			                    idle_policy, app_id, web_port)
-			VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			                    idle_policy, app_id, web_port, runtime_provider)
+			VALUES (?, ?, ?, ?, ?, NULL, NULL, ?, NULL, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 			sb.ID, sb.Status, sb.Image, sb.WorkspaceImg, sb.WorkspaceMnt,
 			sb.MemoryHigh, now, now,
 			sb.ExternalUserID, sb.ExternalProjectID, sb.ExternalWorkspaceID, visibility, idlePolicy,
-			sb.AppID, sb.WebPort)
+			sb.AppID, sb.WebPort, sb.RuntimeProvider)
 
 		if err != nil {
 			if isUniqueViolation(err) {
 				return ErrConflict
 			}
 			return err
+		}
+		if b := sb.RuntimeBinding; b != nil {
+			if err := insertRuntimeBinding(ctx, tx, sb.ID, b); err != nil {
+				return err
+			}
 		}
 		for _, p := range sb.Ports {
 			_, err = tx.ExecContext(ctx,
