@@ -125,6 +125,9 @@ func mountOwner(mnt string) (uid, gid int) {
 
 // v1PutFile is the handler for PUT /v1/sandboxes/{id}/files.
 func (s *Server) v1PutFile(w http.ResponseWriter, r *http.Request) {
+	if s.serveCubeFiles(w, r, "v1PutFile") {
+		return
+	}
 	id := r.PathValue("id")
 	if !isULID(id) {
 		writeV1Err(w, http.StatusBadRequest, "invalid_request", "invalid sandbox id")

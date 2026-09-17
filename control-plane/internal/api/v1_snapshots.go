@@ -107,6 +107,10 @@ func (s *Server) v1CreateSnapshot(w http.ResponseWriter, r *http.Request) {
 			writeV1Err(w, 404, "not_found", "no such source sandbox")
 			return
 		}
+		if src.RuntimeProvider == "cube" {
+			s.createCubeSourceSnapshot(w, r, src, req)
+			return
+		}
 		writeV1Err(w, http.StatusNotImplemented, "cube_operation_unsupported", "Cube publishing requires a sanitized template and is not implemented")
 		return
 	}

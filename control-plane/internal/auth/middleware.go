@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"regexp"
 	"strings"
 	"sync/atomic"
 )
@@ -80,6 +81,13 @@ var exemptPaths = map[string]bool{
 	"/v1/auth/setup":  true, // first-run "create password" (self-guards: 409 once set)
 }
 
+// Relay paths have their own task-scoped capability gate; no prefix exemption.
+var cubeModelPath = regexp.MustCompile(`^/v1/cube-model/[0-9A-HJKMNP-TV-Z]{26}/[0-9A-HJKMNP-TV-Z]{26}/v1/messages(/count_tokens)?$`)
+
+func cubeModelSelfAuthenticated(r *http.Request) bool {
+	return r.Method == http.MethodPost && r.URL.RawPath == "" && cubeModelPath.MatchString(r.URL.Path)
+}
+
 // Wrap returns next gated by the uniform credential check.
 func (m *Middleware) Wrap(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -100,7 +108,7 @@ func (m *Middleware) Wrap(next http.Handler) http.Handler {
 		// Exempt paths serve regardless of whether a credential was present
 		// (they carry nothing sensitive, or self-guard). Attach whatever actor
 		// resolved so handlers like /v1/auth/status can report authenticated.
-		if exemptPaths[r.URL.Path] {
+		if exemptPaths[r.URL.Path] || cubeModelSelfAuthenticated(r) {
 			next.ServeHTTP(w, r.WithContext(WithActor(r.Context(), actor)))
 			return
 		}

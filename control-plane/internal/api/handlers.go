@@ -152,18 +152,19 @@ func ensurePort(ports []int, p int) []int {
 }
 
 type sandboxResp struct {
-	ID           string `json:"id"`
-	Status       string `json:"status"`
-	Image        string `json:"image"`
-	WorkspaceImg string `json:"workspace_img"`
-	WorkspaceMnt string `json:"workspace_mnt"`
-	ContainerID  string `json:"container_id,omitempty"`
-	CgroupPath   string `json:"cgroup_path,omitempty"`
-	MemoryHigh   string `json:"memory_high"`
-	ErrorMessage string `json:"error_message,omitempty"`
-	Ports        []int  `json:"ports"`
-	CreatedAt    string `json:"created_at"`
-	UpdatedAt    string `json:"updated_at"`
+	RuntimeProvider string `json:"runtime_provider"`
+	ID              string `json:"id"`
+	Status          string `json:"status"`
+	Image           string `json:"image"`
+	WorkspaceImg    string `json:"workspace_img"`
+	WorkspaceMnt    string `json:"workspace_mnt"`
+	ContainerID     string `json:"container_id,omitempty"`
+	CgroupPath      string `json:"cgroup_path,omitempty"`
+	MemoryHigh      string `json:"memory_high"`
+	ErrorMessage    string `json:"error_message,omitempty"`
+	Ports           []int  `json:"ports"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
 	// Phase 5 — surface the activity columns so the V2/V3 validation
 	// expressions (`jq .row.last_active_at`, `jq .row.status`)
 	// work directly. last_active_at and stopped_at are unix seconds;
@@ -205,15 +206,16 @@ type execResp struct {
 
 func toRespRow(sb *store.Sandbox) sandboxResp {
 	r := sandboxResp{
-		ID:           sb.ID,
-		Status:       sb.Status,
-		Image:        sb.Image,
-		WorkspaceImg: sb.WorkspaceImg,
-		WorkspaceMnt: sb.WorkspaceMnt,
-		MemoryHigh:   sb.MemoryHigh,
-		Ports:        sb.Ports,
-		CreatedAt:    sb.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:    sb.UpdatedAt.Format(time.RFC3339),
+		RuntimeProvider: runtimeProviderName(sb),
+		ID:              sb.ID,
+		Status:          sb.Status,
+		Image:           sb.Image,
+		WorkspaceImg:    sb.WorkspaceImg,
+		WorkspaceMnt:    sb.WorkspaceMnt,
+		MemoryHigh:      sb.MemoryHigh,
+		Ports:           sb.Ports,
+		CreatedAt:       sb.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:       sb.UpdatedAt.Format(time.RFC3339),
 	}
 	if sb.ContainerID.Valid {
 		r.ContainerID = sb.ContainerID.String
@@ -390,7 +392,12 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 404, "no such app")
 			return
 		}
-		if s.CubeApps[req.AppID] {
+		usesCube, err := s.Store.AppUsesCube(r.Context(), req.AppID)
+		if err != nil {
+			writeErr(w, 503, "cannot resolve app runtime")
+			return
+		}
+		if usesCube || s.CubeApps[req.AppID] {
 			writeErr(w, 501, "Cube apps must use the Cube creation path")
 			return
 		}

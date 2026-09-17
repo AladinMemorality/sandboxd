@@ -93,6 +93,25 @@ func (s *Store) Create(ctx context.Context, sb *Sandbox) error {
 			return err
 		}
 		defer tx.Rollback()
+		// Cube task results retain their original tenant after VM deletion.
+		// Never recycle that stable ID into a Docker sandbox owned by someone
+		// else, which would bypass the archived result ownership boundary.
+		var reserved int
+		if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM runtime_task_scope WHERE sandbox_id=?)`, sb.ID).Scan(&reserved); err != nil {
+			return err
+		}
+		if reserved != 0 {
+			return ErrConflict
+		}
+		if sb.RuntimeProvider == "docker" && sb.AppID.Valid {
+			var bound int
+			if err := tx.QueryRowContext(ctx, `SELECT EXISTS(SELECT 1 FROM app_runtime WHERE app_id=? AND provider='cube')`, sb.AppID.String).Scan(&bound); err != nil {
+				return err
+			}
+			if bound != 0 {
+				return ErrConflict
+			}
+		}
 		now := time.Now().Unix()
 		visibility := sb.Visibility
 		if visibility == "" {

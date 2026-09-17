@@ -37,6 +37,23 @@ func (s *Server) guardCubeRoute(w http.ResponseWriter, r *http.Request, endpoint
 		return false
 	}
 	if errors.Is(err, store.ErrNotFound) {
+		if strings.Contains(endpoint, "/sandboxes/{id}/tasks") {
+			owner, scopeErr := s.Store.CubeTaskOwner(r.Context(), id)
+			if scopeErr == nil {
+				if owner != tenantToken(r) {
+					writeV1Err(w, 404, "not_found", "no such sandbox")
+					return true
+				}
+				if endpoint != "GET /v1/sandboxes/{id}/tasks" && endpoint != "GET /v1/sandboxes/{id}/tasks/{taskId}" {
+					writeV1Err(w, 404, "not_found", "sandbox no longer exists")
+					return true
+				}
+			}
+			if scopeErr != nil && !errors.Is(scopeErr, store.ErrNotFound) {
+				writeV1Err(w, 503, "runtime_unavailable", "cannot resolve task owner")
+				return true
+			}
+		}
 		return false
 	}
 	if err != nil {
@@ -55,7 +72,22 @@ func (s *Server) guardCubeRoute(w http.ResponseWriter, r *http.Request, endpoint
 		return true
 	}
 	switch endpoint {
-	case "GET /v1/sandboxes/{id}", "POST /v1/sandboxes/{id}/start", "POST /v1/sandboxes/{id}/stop", "DELETE /v1/sandboxes/{id}", "GET /v1/apps/{id}":
+	case "GET /v1/apps/{id}/snapshots", "POST /v1/apps/{id}/fork", "POST /v1/apps/{id}/restore", "DELETE /v1/apps/{id}":
+		return false
+	case "POST /v1/apps/{id}/config", "GET /v1/apps/{id}/config", "PATCH /v1/apps/{id}/config/{key}", "DELETE /v1/apps/{id}/config/{key}", "POST /v1/apps/{id}/config/{key}/reveal":
+		return false
+	case "GET /v1/sandboxes/{id}/files", "GET /v1/sandboxes/{id}/files/content", "PUT /v1/sandboxes/{id}/files", "GET /v1/sandboxes/{id}/export", "GET /v1/sandboxes/{id}/processes/{name}/logs":
+		return false
+	case "POST /v1/sandboxes/{id}/tasks", "GET /v1/sandboxes/{id}/tasks", "GET /v1/sandboxes/{id}/tasks/{taskId}", "POST /v1/sandboxes/{id}/tasks/{taskId}/revert", "GET /v1/sandboxes/{id}/tasks/{taskId}/events", "POST /v1/sandboxes/{id}/tasks/{taskId}/cancel", "POST /v1/sandboxes/{id}/tasks/{taskId}/messages":
+		if taskID := r.PathValue("taskId"); taskID != "" {
+			t, err := s.Store.GetTask(r.Context(), taskID)
+			if err != nil || t.SandboxID != id {
+				writeV1Err(w, 404, "not_found", "no such task")
+				return true
+			}
+		}
+		return false
+	case "POST /v1/sandboxes/{id}/preview-access", "POST /v1/sandboxes/{id}/recreate", "GET /v1/sandboxes/{id}", "POST /v1/sandboxes/{id}/start", "POST /v1/sandboxes/{id}/stop", "DELETE /v1/sandboxes/{id}", "GET /v1/apps/{id}":
 		return false
 	default:
 		writeV1Err(w, http.StatusNotImplemented, "cube_operation_unsupported", "this operation is not yet implemented for Cube sandboxes")
@@ -92,11 +124,16 @@ func (s *Server) createCubeAppSandbox(w http.ResponseWriter, r *http.Request, ap
 	token := hex.EncodeToString(tokenBytes)
 	// Initial pilot deliberately denies all outbound traffic. Public previews,
 	// package registries and model proxy access need an operator-reviewed policy.
+	network, err := cube.OperatorEgressPolicy("")
+	if err != nil {
+		writeV1Err(w, 503, "runtime_unavailable", "Cube egress policy unavailable")
+		return
+	}
 	remote, err := s.Cube.Create(r.Context(), cube.CreateRequest{TemplateID: template, TimeoutSeconds: 3600,
 		EnvVars:   map[string]string{"RUNTIMED_HTTP_ADDR": ":3031", "RUNTIMED_HTTP_TOKEN": token},
 		Metadata:  map[string]string{"sandboxd_id": id, "sandboxd_app_id": app.ID},
 		Lifecycle: &cube.Lifecycle{OnTimeout: "pause", AutoResume: false},
-		Network:   &cube.NetworkPolicy{AllowPublicTraffic: false, DenyOut: []string{"0.0.0.0/0", "::/0"}},
+		Network:   network,
 	})
 	if err != nil {
 		writeV1Err(w, 502, "runtime_unavailable", "Cube creation failed")
@@ -156,6 +193,10 @@ func (s *Server) createCubeAppSandbox(w http.ResponseWriter, r *http.Request, ap
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
+	if err = s.syncCubeAppConfig(r.Context(), id); err != nil {
+		writeV1Err(w, 502, "runtime_unavailable", "Cube app config is pending; runtime binding retained")
+		return
+	}
 	if err = s.Store.MarkRunningWoke(r.Context(), id, "", "", time.Now().UTC()); err != nil {
 		writeV1Err(w, 503, "runtime_unavailable", "cannot persist Cube readiness")
 		return
@@ -181,6 +222,11 @@ func (s *Server) cubeRuntimeClient(id string) (*runtime.Client, bool) {
 	defer cancel()
 	isCube, err := s.Store.IsCube(ctx, id)
 	if errors.Is(err, store.ErrNotFound) {
+		if _, scopeErr := s.Store.CubeTaskOwner(ctx, id); scopeErr == nil {
+			return runtime.NewUnavailableClient(errors.New("Cube sandbox no longer exists")), true
+		} else if !errors.Is(scopeErr, store.ErrNotFound) {
+			return runtime.NewUnavailableClient(scopeErr), true
+		}
 		return nil, false
 	}
 	if err != nil {
@@ -248,6 +294,11 @@ func (s *Server) cubeLifecycle(w http.ResponseWriter, r *http.Request, action st
 		// Fail closed when task state cannot be read: pausing an unknown active
 		// write/task could interrupt application state or coding work.
 		if sb.Status != "stopped" {
+			active, e := s.Store.SandboxHasRunningTask(r.Context(), id)
+			if e != nil || active {
+				writeV1Err(w, 409, "task_in_progress", "a task may still be running; wait for its result before stopping")
+				return true
+			}
 			ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 			defer cancel()
 			status, e := s.runtimeClientFor(id).Status(ctx)
@@ -265,10 +316,7 @@ func (s *Server) cubeLifecycle(w http.ResponseWriter, r *http.Request, action st
 			}
 		}
 	case "connect":
-		_, err = s.Cube.Connect(r.Context(), b.RuntimeID, cube.ConnectRequest{})
-		if err == nil {
-			err = s.Store.MarkRunningWoke(r.Context(), id, "", "", time.Now().UTC())
-		}
+		err = s.connectCube(r.Context(), id, 3600)
 	case "delete":
 		err = s.Cube.Delete(r.Context(), b.RuntimeID)
 		var apiErr *cube.APIError
@@ -288,6 +336,9 @@ func (s *Server) cubeLifecycle(w http.ResponseWriter, r *http.Request, action st
 	if err != nil {
 		writeV1Err(w, 502, "runtime_unavailable", "Cube lifecycle operation failed")
 		return true
+	}
+	if action == "pause" || action == "delete" {
+		s.cubePreviewLeases.Delete(id)
 	}
 	if action == "delete" {
 		w.WriteHeader(http.StatusNoContent)

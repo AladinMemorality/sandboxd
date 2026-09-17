@@ -1,107 +1,138 @@
-# Cube migration branch checkpoint
+# Cube migration integration and acceptance
 
-2026-09-17 — branch `codex/cube-migration`, based on `d913a6f`.
-The companion Baarcha branch has the same name, based on `632e253`.
-This is an opt-in integration foundation. It is **not a usable coding-app pilot
-or a production runtime replacement yet**. Nothing has been deployed.
+2026-09-17, paired `codex/cube-migration` branches. Docker remains the default.
+The isolated VPS pilot passes the supported runtime and application contracts.
+**This is not yet a production replacement:** real model/bridge egress,
+dependency preparation, existing-project transfer and operational acceptance
+remain release gates. No production projects were moved.
 
 ## Implemented
 
-- Pinned Cube v0.7.1 wire contracts for create/get/connect/pause/delete and
-  snapshot operations, with bounded requests, explicit policy, redacted errors,
-  redirect blocking, and rejection of Cube's reserved `host-mount` metadata.
-- An authenticated optional HTTP listener alongside runtimed's existing Unix
-  socket. Separate supervisor and private Cube ingress tokens, streaming events,
-  cancellation, and removal of the supervisor token from child environments.
-- Additive SQLite migration `0024`: stable sandbox IDs, explicit provider, and
-  an atomic runtime binding whose credentials use the existing encryption key.
-- Operator-selected apps and preset-to-template mapping; Docker remains default.
-  Cube create verifies the fresh supervisor credential before marking running.
-- Owner-checked lifecycle routes and fail-closed guards for unsupported APIs,
-  body-based publish, collection/legacy creation paths, and host maintenance.
+- Pinned Cube v0.7.1 lifecycle client; encrypted, durable runtime bindings and
+  provider selection that survives VM deletion and operator allowlist changes.
+- Fresh-token template bootstrap, explicit UID/GID1000, no effective capabilities,
+  all-thread no-new-privileges and non-dumpable supervisors. Build guest binaries
+  with `CGO_ENABLED=0`; foreign CGO threads cannot be hardened by this mechanism.
+- Authenticated guest status/tasks, event replay, live input/cancel/revert,
+  durable results and reconciliation after control-plane interruption. Ambiguous
+  submissions return the existing task ID instead of encouraging duplicate work.
+- Workspace-scoped files, root `path=.` listing, process logs and ZIP export,
+  with bounds and descriptor-relative traversal/link protections.
+- Sealed runtime config application/removal with revision acknowledgement;
+  `/recreate` preserves the VM identity and avoids restarting an applied revision.
+- Stable preview hosts, owner authentication, WebSockets, streaming, app bearer
+  headers/cookies, supervisor-port denial and a cached management lease.
+- Five-minute preview handoffs issued only through an authenticated service API.
+  Host-only HttpOnly cookies; clean relative redirects; reserved cookie-refresh
+  endpoint; no capability in ordinary sandbox status responses.
+- Immutable sanitized source publication and fresh-template remix. Memory,
+  runtime state, owner config, credentials and creator dependencies are not
+  copied. Fresh-template dependencies are retained only when manifests/locks match.
+- Scoped model relay with task-bound bridge-token digest, expiry, live task
+  validation, streaming and revocation. Tests use a mock upstream; default off.
 
-The low-level client supports snapshots, but the application publish/remix API
-is intentionally blocked until templates can be sanitized. A live memory clone
-can copy owner credentials and private data even when subsequent writes use
-copy-on-write.
+The platform companion handles private iframe/screenshot access, renews cookies
+without reloading a running app, checks published/legacy URL permissions, avoids
+Cube stop/start during publication, and preserves explicit nonretryable errors.
 
-## Local checks
+## Measured isolated pilot
 
-Run from the repository root with Docker available:
+See [raw final run](cube-pilot-results/integration-v4.json). Ubuntu24.04, nested
+KVM, 4vCPU/12GiB, NVMe/XFS; small React/Vite + Node fixture, prepared dependencies.
+This is a five-resume sample, not a production latency guarantee.
+
+| Operation | Observed time |
+| --- | ---: |
+| Create, two guests | 344 / 430 ms |
+| Authenticated preview resume, median | 463 ms |
+| Resume range | 384–1523 ms |
+| Publish sanitized source | 48 ms |
+| Remix API, fresh template + source import | 800 ms |
+
+Publish excludes screenshot/upload/database work; remix timing ends at the API
+response, with frontend/backend readiness checked subsequently. Resume measures
+the authenticated preview response and preserves process memory and disk. The
+platform screenshot fixtures separately measured authenticated capture at329ms.
+
+The live run verifies actual UI file-query syntax and preview-access URL/cookie
+handoff; two guest identities; wrong-tenant denial; frontend/backend preview;
+file independence/export; five memory-preserving wake cycles; durable task result
+across control-plane restart; runtime config addition/removal; source/remix data
+exclusions; UID/groups/capabilities/no-new-privileges; proc token denial; host-path
+sentinels and five denied IPv4/IPv6 endpoints. The task CLI is deliberately a
+**deterministic OpenCode fixture, not an AI call**. All test guests were removed.
+
+Testing found and fixed real deployment differences: Cube ignored OCI `USER`,
+and a thread-local no-new-privileges call did not protect children forked from
+other Go threads. Regression tests exercise actual child processes.
+
+## Reproduce
 
 ```sh
 bash scripts/check-cube-migration.sh ./...
+bash scripts/check-cube-migration.sh -race ./internal/api ./internal/runtime ./internal/cube ./internal/store ./cmd/runtimed ./cmd/sandboxd
 ```
 
-The runner uses Go 1.22 and disposable containers, with named module/build
-caches. It mounts the full repository because API contract tests read
-`docs/openapi.yaml`. It does not contact Cube or production services.
+The privileged guest thread test must also run with `CGO_ENABLED=0`; ordinary
+race builds use CGO and explicitly skip that one unsupported configuration.
+`image/cube/Dockerfile` builds real guest binaries. `scripts/cube-pilot` is a
+separate disposable fixture; **never ship its fake agent** in a production image.
+`setup.py` and `test.py` require the isolated benchmark VM marker and keep secrets
+outside source. Test failures retain identified guests for inspection; successful
+runs delete them. Source upload must exclude macOS `._*` metadata.
 
-Checkpoint validation: the full `go test ./...` suite passed. The Cube client
-also passed its 11 tests with the race detector.
+The full Go suite passed, with focused race suites for ownership, preview/HMR,
+files/ZIPs, task recovery, config, publication and model relay. Platform tests,
+production build and real Chromium screenshot fixtures passed separately.
 
-The tests cover Cube wire contracts and errors, supervisor authentication and
-stream cancellation, encrypted bindings, tenant checks, distinct lifecycle
-operations, and rejection before Docker/host operations. They are mock/loopback
-integration tests, not proof of deployed guest isolation.
-
-## Operator configuration for the future isolated pilot
-
-Cube is disabled by default. Configuration is server-side only:
+## Operator configuration
 
 | Variable | Meaning |
 | --- | --- |
-| `SANDBOXD_CUBE_ENABLED` | Explicit `true` to enable |
-| `SANDBOXD_CUBE_API_URL` | Private CubeAPI origin |
-| `SANDBOXD_CUBE_API_KEY` | Management credential, never sent to guest |
-| `SANDBOXD_CUBE_PROXY_URL` | Trusted private CubeProxy origin |
-| `SANDBOXD_CUBE_DOMAIN` | Trusted virtual-host routing suffix |
-| `SANDBOXD_CUBE_TEMPLATES` | JSON map of supported presets to reviewed templates |
-| `SANDBOXD_CUBE_APP_IDS` | Comma-separated internal app allowlist |
+| `SANDBOXD_CUBE_ENABLED` | Explicit true to enable |
+| `SANDBOXD_CUBE_API_URL`, `SANDBOXD_CUBE_API_KEY` | Private management API/credential |
+| `SANDBOXD_CUBE_PROXY_URL`, `SANDBOXD_CUBE_DOMAIN` | Trusted private ingress routing |
+| `SANDBOXD_CUBE_TEMPLATES` | Reviewed preset-to-template JSON map |
+| `SANDBOXD_CUBE_APP_IDS` | Explicit internal app allowlist |
+| `SANDBOXD_PREVIEW_TOKEN_SECRETS` | Preview signing keys, never guest credentials |
+| `SANDBOXD_CUBE_AGENT_RELAY_ORIGIN` | Optional HTTPS relay origin |
+| `SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED` | Operator attestation, not proof |
 
-Do not enable this branch against user projects yet. Creation requests private
-ingress, no internet access, deny-all outbound policy, pause on timeout and no
-automatic resume. IPv6 denial must be proven or disabled at the worker boundary:
-upstream network-policy code inspected so far does not establish that guarantee.
-Management endpoints must remain unreachable from guests.
+Creation remains private and deny-all outbound. Nonempty domain allowances fail
+closed: upstream v0.7.1 learns domain addresses into an allow map that precedes
+private/metadata deny rules. See the [worker patch and evidence](../ops/cube/security/README.md)
+and [model relay contract](cube-model-relay.md). An eBPF verifier/unit pass alone
+is not sufficient to enable Internet access or claim deployed isolation.
 
-Templates require the new runtimed binary and a fresh-token bootstrap. Updating
-Cube's envVars does not rewrite the environment or authentication token of an
-already-running restored process. The create readiness check fails closed if
-that bootstrap contract is not met. No live token may be baked into a template.
+## Release gates and limitations
 
-## Work required before an app pilot
+1. Prove the patched worker with allowed-domain positive controls, DNS rebinding,
+   metadata/host/sibling destinations, forged reply/source-port traffic, IPv6,
+   pause/resume and restart. Review CubeEgress L7 independently. Keep domain
+   egress disabled until the deployed configuration passes.
+2. Deploy reviewed TLS model/bridge routing and test a real Claude task with
+   usage attribution, limits, cancellation and credential revocation. Disabled
+   Claude requests currently fail503 before task launch. Package downloads and
+   arbitrary external backend APIs are unavailable under deny-all egress.
+3. Prepare dependency-aware source revision templates; changed dependencies
+   currently fail explicitly. Git import, legacy Docker snapshot conversion and
+   some lockfile schemes remain unsupported. Source naming rules cannot detect
+   secrets hardcoded into otherwise publishable code/assets.
+4. Use same-site HTTPS preview domains for reliable browser cookies. Cross-site
+   sslip.io embeds may be blocked by browser privacy settings. Redact capability
+   query strings at every outer proxy; sandboxd logs only URL.Path. Already issued
+   preview capabilities remain valid up to five minutes after platform access
+   is revoked. The public viewer rechecks permission while open.
+5. Implement journaled, resumable existing-workspace migration: quiesce writes,
+   validate copy/config, atomically switch provider, retain stopped source, and
+   reverse-sync new writes before rollback. No existing-project migration tool
+   or production data movement is represented by this pilot.
+6. Validate representative project sizes, simultaneous wake/publish/remix load,
+   admission quotas, backups/restores, snapshot growth, worker loss and upgrade
+   recovery. One pilot creation failed with retained test guests; cleanup resolved
+   it. Current small-sample timing is not a capacity or availability guarantee.
 
-1. Build and exercise a trusted template bootstrap with fresh per-sandbox
-   credentials, private management ingress and verified IPv4/IPv6 isolation.
-2. Preserve Baarcha preview URLs, ownership, WebSockets/HMR and authenticated
-   wake routing. GET may currently show legacy preview information; raw wake is
-   blocked for Cube and no usable preview route is promised.
-3. Port scoped file/export/process-log operations and config application. Keep
-   path traversal and symlink protections inside the guest workspace boundary.
-4. Enable coding tasks only after model/bridge egress, metering, live input,
-   cancellation and task-result recovery work through the guest channel.
-5. Integrate Cube reconciliation, idle/pressure policy, and durable cleanup of
-   remote creates whose response or persistence was interrupted. Existing Docker
-   jobs skip Cube rows, so automatic Cube state convergence is not implemented.
-6. Build sanitized revision templates for publish/remix and test cross-owner
-   isolation, then add resumable existing-workspace migration and rollback.
-
-Also required before rollout: audit/event coverage for lifecycle operations,
-resource admission/quotas, failure recovery, snapshot capacity/backups, and
-concurrent end-to-end latency tests. A management API success is not sufficient
-proof that an app is ready or isolated.
-
-## Integration review findings addressed
-
-The independent agent review identified body/collection routes outside the
-ID-route guard: legacy app-linked Docker creation could bypass provider/owner
-selection, and idempotent creation/listing could disclose private Cube metadata.
-The branch checks owner/provider before allocation and filters those serializers.
-The review also required recoverable deletion after partial remote/local success
-and avoiding a success response before supervisor readiness after a canceled
-create. Regression tests accompany these changes.
-
-The companion application branch includes the separately validated screenshot
-latency fix, measured VPS benchmarks and the broader migration assessment in
-`landing/docs/cube-migration.md`.
+MicroVMs isolate tenants from the worker; app and supervisor still share a guest
+UID. Proc protections do not prevent same-UID signals or local runtime-file
+modification. Do not describe the supervisor as a separate trust boundary inside
+one guest. No host mounts or global provider credentials belong in templates.

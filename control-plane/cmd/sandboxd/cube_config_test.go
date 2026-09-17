@@ -38,3 +38,17 @@ func TestCubeConfigRequiresExplicitPilot(t *testing.T) {
 		})
 	}
 }
+
+func TestCubeRelayRequiresHTTPSAndExplicitNetworkAttestation(t *testing.T) {
+	t.Setenv("SANDBOXD_CUBE_ENABLED", "true")
+	t.Setenv("SANDBOXD_CUBE_EGRESS_ALLOW_DOMAINS", "")
+	t.Setenv("SANDBOXD_CUBE_AGENT_RELAY_ORIGIN", "http://relay.example")
+	if _, err := loadCubeConfig(); err == nil {
+		t.Fatal("plain HTTP relay accepted")
+	}
+	t.Setenv("SANDBOXD_CUBE_AGENT_RELAY_ORIGIN", "https://relay.example")
+	t.Setenv("SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED", "")
+	if _, err := loadCubeConfig(); err == nil {
+		t.Fatal("unverified network relay enabled")
+	}
+}

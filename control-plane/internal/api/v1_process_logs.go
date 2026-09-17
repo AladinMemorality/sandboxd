@@ -32,6 +32,9 @@ var procNameRe = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 
 // v1ProcessLogs — GET /v1/sandboxes/{id}/processes/{name}/logs?tail=N.
 func (s *Server) v1ProcessLogs(w http.ResponseWriter, r *http.Request) {
+	if s.serveCubeFiles(w, r, "v1ProcessLogs") {
+		return
+	}
 	id := r.PathValue("id")
 	if !isULID(id) {
 		writeV1Err(w, http.StatusBadRequest, "invalid_request", "invalid sandbox id")

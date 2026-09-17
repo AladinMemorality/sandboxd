@@ -21,7 +21,7 @@ func TestCubePublishAndPurgeCannotTouchHost(t *testing.T) {
 	for _, tc := range []struct {
 		tenant string
 		want   int
-	}{{cfgTenant, 501}, {"another-tenant", 404}} {
+	}{{cfgTenant, 503}, {"another-tenant", 404}} {
 		r := httptest.NewRequest("POST", "/v1/snapshots", strings.NewReader(`{"source_sandbox_id":"cube-no-host","name":"published"}`))
 		r = r.WithContext(auth.WithActor(r.Context(), auth.Actor{Name: tc.tenant, Kind: "service"}))
 		w := httptest.NewRecorder()
@@ -55,7 +55,7 @@ func TestCubeAlternateRoutesPreserveOwnerAndProvider(t *testing.T) {
 	}{
 		{"POST", "/v1/sandboxes", `{"project":{"id":"cube-project","user_id":"attacker"}}`, "attacker", 404},
 		{"POST", "/sandbox", `{"app_id":"` + appID + `"}`, "attacker", 404},
-		{"POST", "/sandbox", `{"app_id":"` + appID + `"}`, cfgTenant, 409},
+		{"POST", "/sandbox", `{"app_id":"` + appID + `"}`, cfgTenant, 501},
 		{"GET", "/sandboxes", "", "attacker", 200},
 	} {
 		r := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))

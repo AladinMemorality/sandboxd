@@ -187,7 +187,7 @@ func (a *app) startTask(req runtime.StartTaskRequest) (*task, error) {
 	}
 	a.taskMu.Lock()
 	defer a.taskMu.Unlock()
-	if a.task != nil && !a.task.isDone() {
+	if a.restartPending || (a.task != nil && !a.task.isDone()) {
 		return nil, errTaskInProgress
 	}
 	t, err := newTask(req, filepath.Join(a.runtimeDir, "tasks"))

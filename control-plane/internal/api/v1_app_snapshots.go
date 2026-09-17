@@ -72,6 +72,9 @@ func (s *Server) resolveReadySnapshot(w http.ResponseWriter, r *http.Request, id
 // delegating to the internal create path with template_path set. Returns
 // the inner handler's (code, body).
 func (s *Server) createAppSandboxFromSnapshot(r *http.Request, app *store.App, snap *store.Snapshot) (int, []byte) {
+	if snap.Format == cubeSourceFormat {
+		return s.createCubeFromSource(r, app, snap)
+	}
 	body, _ := json.Marshal(map[string]any{
 		"ports":         []int{3000},
 		"app_id":        app.ID,
@@ -106,6 +109,9 @@ func (s *Server) v1RestoreApp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if s.restoreCubeSource(w, r, app, snap) {
+		return
+	}
 	// Replace the current sandbox, if any: purge it (container + workspace
 	// + row) so the snapshot clone starts clean and the app has room for a
 	// new current sandbox.
@@ -181,6 +187,14 @@ func (s *Server) v1ForkApp(w http.ResponseWriter, r *http.Request) {
 		Name:              name,
 		ExternalUserID:    extUser,
 		ExternalProjectID: extProject,
+	}
+	if snap.Format == cubeSourceFormat {
+		_, preset, err := s.readCubeSource(snap)
+		if err != nil {
+			writeV1Err(w, 422, "source_artifact_invalid", "source artifact unavailable or invalid")
+			return
+		}
+		newApp.RuntimePreset = sql.NullString{String: preset, Valid: true}
 	}
 	if err := s.Store.CreateApp(r.Context(), newApp); err != nil {
 		writeV1Err(w, http.StatusInternalServerError, "internal", err.Error())

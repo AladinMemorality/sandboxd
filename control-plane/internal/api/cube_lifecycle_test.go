@@ -99,9 +99,9 @@ func TestCubeRoutesFailClosedBeforeDockerAndTenantChecks(t *testing.T) {
 		want                 int
 	}{
 		{"POST", "/sandbox/" + sb.ID + "/exec", cfgTenant, 501},
-		{"POST", "/v1/sandboxes/" + sb.ID + "/recreate", cfgTenant, 501},
-		{"GET", "/v1/sandboxes/" + sb.ID + "/files", cfgTenant, 501},
-		{"POST", "/v1/apps/" + appID + "/fork", cfgTenant, 501},
+		{"POST", "/v1/sandboxes/" + sb.ID + "/recreate", "other-tenant", 404},
+		{"GET", "/v1/apps/" + appID + "/git/status", cfgTenant, 501},
+		{"GET", "/v1/apps/" + appID + "/runtime-inspect", cfgTenant, 501},
 		{"GET", "/v1/sandboxes/" + sb.ID, "other-tenant", 404},
 		{"DELETE", "/v1/sandboxes/" + sb.ID, "other-tenant", 404},
 	} {

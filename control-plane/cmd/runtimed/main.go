@@ -16,6 +16,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -29,6 +30,11 @@ const version = "0.1.0"
 // server and any workers from sandbox.yaml), the most recent preview health
 // probe, and the one active coding task.
 type app struct {
+	requestRestart    func()
+	restartPending    bool // guarded by taskMu
+	nextAppConfig     *runtime.AppConfigRequest
+	appConfigRevision string // immutable for this process lifetime
+
 	web           *process   // the previewed process; nil for a worker-only app
 	workers       []*process // background processes, no preview
 	previewPort   int        // web process's HTTP port
@@ -58,6 +64,13 @@ func main() {
 	probeInterval := time.Duration(envOrInt("RUNTIMED_PROBE_INTERVAL_SECONDS", 3)) * time.Second
 
 	remote := remoteControl{Address: os.Getenv("RUNTIMED_HTTP_ADDR"), Token: os.Getenv("RUNTIMED_HTTP_TOKEN")}
+	if remote.Address != "" {
+		if err := runtime.ProtectSupervisorProcess(); err != nil {
+			log.Error("cannot protect remote supervisor process")
+			os.Exit(1)
+		}
+	}
+
 	// Remove the transport credential before spawning web, worker or agent
 	// processes. The token is specific to this sandbox, never a host credential.
 	_ = os.Unsetenv("RUNTIMED_HTTP_TOKEN")
@@ -128,11 +141,12 @@ func main() {
 	}
 
 	a := &app{
-		build:      m.Build,
-		appDir:     appDir,
-		runtimeDir: runtimeDir,
-		log:        log,
-		bootedAt:   time.Now(),
+		build:             m.Build,
+		appDir:            appDir,
+		runtimeDir:        runtimeDir,
+		log:               log,
+		bootedAt:          time.Now(),
+		appConfigRevision: os.Getenv("RUNTIMED_APP_CONFIG_REVISION"),
 	}
 	if m.Web != nil {
 		a.web = newProcess("web", "web", appDir, m.Web.Command, filepath.Join(runtimeDir, "web.log"), log)
@@ -153,6 +167,8 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
+	var restarting atomic.Bool
+	a.requestRestart = func() { restarting.Store(true); stop() }
 
 	if a.web != nil {
 		go a.web.supervise(ctx)
@@ -179,6 +195,21 @@ func main() {
 		w.stop()
 	}
 	log.Info("runtimed stopped")
+	if restarting.Load() {
+		executable, err := os.Executable()
+		env := a.restartEnvironment()
+		if remote.Address != "" {
+			env = append(env, "RUNTIMED_HTTP_TOKEN="+remote.Token)
+		}
+		if err == nil {
+			err = syscall.Exec(executable, os.Args, env)
+		}
+		if err != nil {
+			log.Error("supervisor restart failed", "err", err.Error())
+			os.Exit(1)
+		}
+	}
+
 }
 
 // seedTemplateApp copies a baked app scaffold from /opt/templates/<name>
@@ -288,6 +319,7 @@ func (a *app) status() runtime.Status {
 	}
 
 	return runtime.Status{
+		AppConfigRevision: a.appConfigRevision,
 		Runtimed: runtime.RuntimedInfo{
 			Version:  version,
 			BootedAt: a.bootedAt,

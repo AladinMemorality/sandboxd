@@ -35,6 +35,8 @@ import (
 //     The path-value provides the id; Accept: application/json (or
 //     no Host that matches preview shape) → JSON.
 type Handler struct {
+	// CubePreview handles bound remote previews before Docker wake locking.
+	CubePreview   func(http.ResponseWriter, *http.Request) bool
 	Store         *store.Store
 	Docker        *docker.Client
 	PreviewDomain string
@@ -144,6 +146,9 @@ func New(s *store.Store, d *docker.Client, previewDomain string, cfg Config, adm
 // the gate; this handler does not double-check (returns 400 if the
 // shape doesn't match anyway).
 func (h *Handler) ServeCatchAll(w http.ResponseWriter, r *http.Request) {
+	if h.CubePreview != nil && h.CubePreview(w, r) {
+		return
+	}
 	host := r.Host
 	m := h.hostRE.FindStringSubmatch(host)
 	if m == nil {

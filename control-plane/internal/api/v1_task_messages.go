@@ -10,6 +10,13 @@ import (
 
 func (s *Server) v1TaskMessage(w http.ResponseWriter, r *http.Request) {
 	id, taskID := r.PathValue("id"), r.PathValue("taskId")
+	if remote, err := s.Store.IsCube(r.Context(), id); err == nil && remote {
+		if err := s.prepareCubeTaskRPC(r.Context(), id); err != nil {
+			writeV1Err(w, 502, "sandbox_unavailable", "Cube task runtime unavailable")
+			return
+		}
+	}
+
 	sb, err := s.Store.Get(r.Context(), id)
 	if err != nil || !sb.AppID.Valid {
 		writeV1Err(w, 404, "not_found", "no such project sandbox")

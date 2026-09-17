@@ -13,6 +13,7 @@ import (
 )
 
 type cubeConfig struct {
+	relayOrigin      string
 	client           *cube.Client
 	templates        map[string]string
 	apps             map[string]bool
@@ -29,6 +30,22 @@ func loadCubeConfig() (cubeConfig, error) {
 	}
 	if enabled != "true" {
 		return cfg, fmt.Errorf("SANDBOXD_CUBE_ENABLED must be true or false")
+	}
+	// Keep operator intent explicit and fail startup instead of silently
+	// enabling a domain allowance that can override private-address isolation.
+	if _, err := cube.OperatorEgressPolicy(os.Getenv("SANDBOXD_CUBE_EGRESS_ALLOW_DOMAINS")); err != nil {
+		return cfg, fmt.Errorf("SANDBOXD_CUBE_EGRESS_ALLOW_DOMAINS: %w", err)
+	}
+
+	cfg.relayOrigin = strings.TrimRight(os.Getenv("SANDBOXD_CUBE_AGENT_RELAY_ORIGIN"), "/")
+	if cfg.relayOrigin != "" {
+		origin, e := url.Parse(cfg.relayOrigin)
+		if e != nil || origin.Scheme != "https" || origin.Host == "" || origin.User != nil || origin.Path != "" || origin.RawQuery != "" || origin.Fragment != "" {
+			return cfg, fmt.Errorf("SANDBOXD_CUBE_AGENT_RELAY_ORIGIN must be an HTTPS origin")
+		}
+		if os.Getenv("SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED") != "true" {
+			return cfg, fmt.Errorf("Cube model relay requires verified network isolation deployment attestation")
+		}
 	}
 	cfg.proxyURL = os.Getenv("SANDBOXD_CUBE_PROXY_URL")
 	u, err := url.Parse(cfg.proxyURL)

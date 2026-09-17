@@ -521,7 +521,7 @@ func main() {
 		os.Exit(1)
 	}
 	server := &api.Server{
-		Cube: cubeConfig.client, CubeTemplates: cubeConfig.templates, CubeApps: cubeConfig.apps, CubeProxyURL: cubeConfig.proxyURL, CubeDomain: cubeConfig.domain,
+		CubeAgentRelayOrigin: cubeConfig.relayOrigin, Cube: cubeConfig.client, CubeTemplates: cubeConfig.templates, CubeApps: cubeConfig.apps, CubeProxyURL: cubeConfig.proxyURL, CubeDomain: cubeConfig.domain,
 		Store:             st,
 		Secrets:           secretsCipher,
 		Update:            updateChecker,
@@ -581,9 +581,13 @@ func main() {
 		Live: live,
 	}
 
+	wakeHandler.CubePreview = server.TryServeCubePreview
+
 	// Finalize any coding task left `running` by a previous sandboxd
 	// run before the idle reaper (which trusts the task table) starts.
+	server.ReconcileCube(ctx)
 	server.ReconcileTasks(ctx)
+	go server.RunCubeMaintenance(ctx)
 
 	// Phase 5 — after reconcile, if MemAvailable is
 	// already below the healthy floor, run one synchronous pressure

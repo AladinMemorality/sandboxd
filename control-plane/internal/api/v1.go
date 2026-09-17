@@ -39,14 +39,15 @@ type v1Preview struct {
 }
 
 type v1Sandbox struct {
-	ID           string      `json:"id"`
-	Status       string      `json:"status"`
-	Preview      v1Preview   `json:"preview"`
-	Processes    []v1Process `json:"processes"`
-	ActiveTaskID string      `json:"active_task_id,omitempty"`
-	Template     string      `json:"template"`
-	CreatedAt    string      `json:"created_at"`
-	UpdatedAt    string      `json:"updated_at,omitempty"`
+	RuntimeProvider string      `json:"runtime_provider"`
+	ID              string      `json:"id"`
+	Status          string      `json:"status"`
+	Preview         v1Preview   `json:"preview"`
+	Processes       []v1Process `json:"processes"`
+	ActiveTaskID    string      `json:"active_task_id,omitempty"`
+	Template        string      `json:"template"`
+	CreatedAt       string      `json:"created_at"`
+	UpdatedAt       string      `json:"updated_at,omitempty"`
 }
 
 // v1Process is one supervised process (the web dev server or a worker) from the
@@ -163,17 +164,22 @@ func (s *Server) previewURL(id string, webPort int) string {
 // in the live runtime/preview state from runtimed when reachable.
 func (s *Server) v1SandboxFromRow(r *http.Request, sb *store.Sandbox) v1Sandbox {
 	out := v1Sandbox{
-		ID:        sb.ID,
-		Status:    sb.Status,
-		Template:  defaultTemplate,
-		CreatedAt: sb.CreatedAt.UTC().Format(time.RFC3339),
-		UpdatedAt: sb.UpdatedAt.UTC().Format(time.RFC3339),
+		RuntimeProvider: runtimeProviderName(sb),
+		ID:              sb.ID,
+		Status:          sb.Status,
+		Template:        defaultTemplate,
+		CreatedAt:       sb.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:       sb.UpdatedAt.UTC().Format(time.RFC3339),
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 	var rs *runtime.Status
-	if got, err := s.runtimeClientFor(sb.ID).Status(ctx); err == nil {
-		rs = got
+	// Paused Cube VMs cannot answer; status polling must not spend the
+	// remote timeout (or wake them) just to rediscover the durable stopped state.
+	if sb.RuntimeProvider != "cube" || sb.Status != "stopped" {
+		if got, err := s.runtimeClientFor(sb.ID).Status(ctx); err == nil {
+			rs = got
+		}
 	}
 	out.Preview, out.Processes = s.v1RuntimeView(sb.ID, sb.Status, rs, webPortOf(sb))
 	if rs != nil && rs.ActiveTask != nil {
@@ -299,6 +305,10 @@ func (s *Server) v1CreateSandbox(w http.ResponseWriter, r *http.Request) {
 		}
 		if snap.Status != "ready" {
 			writeV1Err(w, http.StatusBadRequest, "invalid_request", "snapshot is not ready")
+			return
+		}
+		if snap.Format == cubeSourceFormat {
+			writeV1Err(w, 501, "cube_operation_unsupported", "Cube source artifacts require the owned app fork or restore API")
 			return
 		}
 		createBody["template_path"] = snap.ImagePath
@@ -472,6 +482,9 @@ func (s *Server) v1DeleteSandbox(w http.ResponseWriter, r *http.Request) {
 // takes an environment once, at create.
 func (s *Server) v1RecreateSandbox(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if s.cubeRecreateSandbox(w, r, id) {
+		return
+	}
 	sb, err := s.Store.Get(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no such sandbox")

@@ -63,6 +63,11 @@ func (s *Server) watchTask(sandboxID, taskID string, taskTimeoutS int) {
 // watchTaskWindow is watchTask with an explicit streaming window. Split
 // out so tests can inject a short window instead of waiting minutes.
 func (s *Server) watchTaskWindow(sandboxID, taskID string, window time.Duration) {
+	if remote, err := s.Store.IsCube(context.Background(), sandboxID); err == nil && remote {
+		s.watchCubeTask(sandboxID, taskID, window)
+		return
+	}
+
 	log := s.Log.With("component", "taskwatch", "task", taskID)
 	ctx, cancel := context.WithTimeout(context.Background(), window)
 	defer cancel()
@@ -191,8 +196,16 @@ func (s *Server) ReconcileTasks(ctx context.Context) {
 	for _, t := range tasks {
 		// Cube task recovery needs guest result retrieval; do not read a host path.
 		if sb, err := s.Store.Get(ctx, t.SandboxID); err == nil {
+			if sb.RuntimeProvider == "cube" {
+				s.recoverCubeTask(ctx, t)
+				continue
+			}
 			if sb.RuntimeProvider != "" && sb.RuntimeProvider != "docker" {
-				s.Log.Warn("task reconcile: remote task recovery is not implemented", "task", t.TaskID)
+				continue
+			}
+		} else if errors.Is(err, store.ErrNotFound) {
+			if _, scopeErr := s.Store.CubeTaskOwner(ctx, t.SandboxID); scopeErr == nil {
+				s.finishWatchedTask(t.SandboxID, t.TaskID, failedResult(t.TaskID, "sandbox_unavailable", "Cube sandbox was deleted"))
 				continue
 			}
 		} else if !errors.Is(err, store.ErrNotFound) {
