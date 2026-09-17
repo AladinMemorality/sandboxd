@@ -1,0 +1,47 @@
+=== RUN   TestBaarchaHardDenyOverridesAllowAndCachedSession
+--- PASS: TestBaarchaHardDenyOverridesAllowAndCachedSession (0.10s)
+=== RUN   TestClassifyEgressFlowLPMFallback
+=== RUN   TestClassifyEgressFlowLPMFallback/IP_rule
+=== RUN   TestClassifyEgressFlowLPMFallback/subnet_rule
+--- PASS: TestClassifyEgressFlowLPMFallback (0.02s)
+    --- PASS: TestClassifyEgressFlowLPMFallback/IP_rule (0.01s)
+    --- PASS: TestClassifyEgressFlowLPMFallback/subnet_rule (0.01s)
+=== RUN   TestClassifyEgressFlowExactL7Match
+--- PASS: TestClassifyEgressFlowExactL7Match (0.01s)
+=== RUN   TestClassifyEgressFlowExactL7MatchHTTP
+--- PASS: TestClassifyEgressFlowExactL7MatchHTTP (0.02s)
+=== RUN   TestClassifyEgressFlowL7UnknownSchemeFailsClosed
+--- PASS: TestClassifyEgressFlowL7UnknownSchemeFailsClosed (0.02s)
+=== RUN   TestClassifyEgressFlowUDPAndICMPOnL7PortAreSNAT
+--- PASS: TestClassifyEgressFlowUDPAndICMPOnL7PortAreSNAT (0.01s)
+=== RUN   TestClassifyEgressFlowExpiredAllow
+=== RUN   TestClassifyEgressFlowExpiredAllow/expired_exact_L7_then_deny
+=== RUN   TestClassifyEgressFlowExpiredAllow/expired_fallback_IP_then_deny
+--- PASS: TestClassifyEgressFlowExpiredAllow (0.03s)
+    --- PASS: TestClassifyEgressFlowExpiredAllow/expired_exact_L7_then_deny (0.01s)
+    --- PASS: TestClassifyEgressFlowExpiredAllow/expired_fallback_IP_then_deny (0.01s)
+=== RUN   TestSessionPolicyRevoked
+=== RUN   TestSessionPolicyRevoked/same_generation_is_not_re-evaluated
+=== RUN   TestSessionPolicyRevoked/still_allowed_under_the_new_generation_is_restamped
+=== RUN   TestSessionPolicyRevoked/no_longer_allowed_is_revoked
+=== RUN   TestSessionPolicyRevoked/verdict_change_SNAT_to_L7_is_revoked
+=== RUN   TestSessionPolicyRevoked/verdict_change_L7_scheme_is_revoked
+=== RUN   TestSessionPolicyRevoked/unchanged_L7_verdict_is_restamped
+=== RUN   TestSessionPolicyRevoked/UDP_SNAT_against_an_L7_dest_is_restamped
+=== RUN   TestSessionPolicyRevoked/ICMP_SNAT_against_an_L7_dest_is_restamped
+=== RUN   TestSessionPolicyRevoked/generation_0_on_both_sides_is_not_re-evaluated
+=== RUN   TestSessionPolicyRevoked/generation_0_against_a_newer_one_is_re-evaluated
+--- PASS: TestSessionPolicyRevoked (0.01s)
+    --- PASS: TestSessionPolicyRevoked/same_generation_is_not_re-evaluated (0.00s)
+    --- PASS: TestSessionPolicyRevoked/still_allowed_under_the_new_generation_is_restamped (0.00s)
+    --- PASS: TestSessionPolicyRevoked/no_longer_allowed_is_revoked (0.00s)
+    --- PASS: TestSessionPolicyRevoked/verdict_change_SNAT_to_L7_is_revoked (0.00s)
+    --- PASS: TestSessionPolicyRevoked/verdict_change_L7_scheme_is_revoked (0.00s)
+    --- PASS: TestSessionPolicyRevoked/unchanged_L7_verdict_is_restamped (0.00s)
+    --- PASS: TestSessionPolicyRevoked/UDP_SNAT_against_an_L7_dest_is_restamped (0.00s)
+    --- PASS: TestSessionPolicyRevoked/ICMP_SNAT_against_an_L7_dest_is_restamped (0.00s)
+    --- PASS: TestSessionPolicyRevoked/generation_0_on_both_sides_is_not_re-evaluated (0.00s)
+    --- PASS: TestSessionPolicyRevoked/generation_0_against_a_newer_one_is_re-evaluated (0.00s)
+PASS
+ok  	github.com/tencentcloud/CubeSandbox/CubeNet/cubevs	0.226s
+?   	github.com/tencentcloud/CubeSandbox/CubeNet/cubevs/cmd/cubevsmapdump	[no test files]

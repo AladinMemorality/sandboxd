@@ -1,0 +1,29 @@
+go: downloading github.com/cilium/ebpf v0.17.3
+go: downloading github.com/florianl/go-tc v0.4.1
+go: downloading golang.org/x/sys v0.38.0
+go: downloading github.com/josharian/native v1.1.0
+go: downloading github.com/mdlayher/netlink v1.7.2
+go: downloading github.com/mdlayher/socket v0.4.1
+go: downloading golang.org/x/net v0.38.0
+go: downloading golang.org/x/sync v0.1.0
+Compiled /root/cube-pilot/CubeSandbox/CubeNet/cubevs/localgw_x86_bpfel.o
+Stripped /root/cube-pilot/CubeSandbox/CubeNet/cubevs/localgw_x86_bpfel.o
+Wrote /root/cube-pilot/CubeSandbox/CubeNet/cubevs/localgw_x86_bpfel.go
+Compiled /root/cube-pilot/CubeSandbox/CubeNet/cubevs/mvmtap_x86_bpfel.o
+Stripped /root/cube-pilot/CubeSandbox/CubeNet/cubevs/mvmtap_x86_bpfel.o
+Wrote /root/cube-pilot/CubeSandbox/CubeNet/cubevs/mvmtap_x86_bpfel.go
+Compiled /root/cube-pilot/CubeSandbox/CubeNet/cubevs/nodenic_x86_bpfel.o
+Stripped /root/cube-pilot/CubeSandbox/CubeNet/cubevs/nodenic_x86_bpfel.o
+Wrote /root/cube-pilot/CubeSandbox/CubeNet/cubevs/nodenic_x86_bpfel.go
+Compiled /root/cube-pilot/CubeSandbox/CubeNet/cubevs/dnslearn_x86_bpfel_test.o
+Stripped /root/cube-pilot/CubeSandbox/CubeNet/cubevs/dnslearn_x86_bpfel_test.o
+Wrote /root/cube-pilot/CubeSandbox/CubeNet/cubevs/dnslearn_x86_bpfel_test.go
+Compiled /root/cube-pilot/CubeSandbox/CubeNet/cubevs/egresspolicy_x86_bpfel_test.o
+Stripped /root/cube-pilot/CubeSandbox/CubeNet/cubevs/egresspolicy_x86_bpfel_test.o
+Wrote /root/cube-pilot/CubeSandbox/CubeNet/cubevs/egresspolicy_x86_bpfel_test.go
+Compiled /root/cube-pilot/CubeSandbox/CubeNet/cubevs/l7mark_x86_bpfel_test.o
+Stripped /root/cube-pilot/CubeSandbox/CubeNet/cubevs/l7mark_x86_bpfel_test.o
+Wrote /root/cube-pilot/CubeSandbox/CubeNet/cubevs/l7mark_x86_bpfel_test.go
+Compiled /root/cube-pilot/CubeSandbox/CubeNet/cubevs/tcpstate_x86_bpfel_test.o
+Stripped /root/cube-pilot/CubeSandbox/CubeNet/cubevs/tcpstate_x86_bpfel_test.o
+Wrote /root/cube-pilot/CubeSandbox/CubeNet/cubevs/tcpstate_x86_bpfel_test.go

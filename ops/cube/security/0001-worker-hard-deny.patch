@@ -1,0 +1,146 @@
+--- a/CubeNet/src/session.h
++++ b/CubeNet/src/session.h
+@@ -6,6 +6,7 @@
+ #include <vmlinux.h>
+ #include "cubevs.h"
+ #include "map.h"
++#include "baarcha_hard_deny.h"
+ 
+ enum packet_class {
+ 	SNAT_PACKET = 0,
+@@ -161,7 +162,7 @@
+  * @dport:    destination port in network byte order (0 for port-agnostic)
+  * @protocol: IPPROTO_* of the candidate flow
+  *
+- * Priority: allow_out_v3 > deny_out > default allow.
++ * Priority: worker hard deny > allow_out_v3 > deny_out > default allow.
+  *
+  *   1. Look up (daddr, dport)/48 in allow_out_v3. LPM automatically falls
+  *      back to a matching /32 or subnet entry. A non-expired L7_REQUIRED
+@@ -188,6 +189,10 @@
+ 	struct net_policy_value_v3 *value;
+ 	void *inner_map;
+ 	__u64 now = bpf_ktime_get_ns();
++
++	/* Worker-owned destination denies cannot be overridden by tenant allows. */
++	if (baarcha_hard_deny_flow(daddr, dport, protocol))
++		return FLOW_REJECT;
+ 
+ 	/* internal traffic destined for the MVM gateway is always allowed */
+ 	if (daddr == mvm_gateway_ip)
+@@ -303,6 +308,10 @@
+ {
+ 	__u8 verdict;
+ 
++	/* Also recheck hard denies when a cached session version is unchanged. */
++	if (baarcha_hard_deny_flow(daddr, dport, protocol))
++		return true;
++
+ 	if (sess->policy_version == policy_version)
+ 		return false;
+ 
+--- a/CubeNet/src/dns_response.h
++++ b/CubeNet/src/dns_response.h
+@@ -5,6 +5,7 @@
+ 
+ #include "dns_parser.h"
+ #include "map.h"
++#include "baarcha_hard_deny.h"
+ 
+ /* Inline twins of the dns_parser.h helpers used on the response path.
+  *
+@@ -124,6 +125,10 @@
+ 	__u64 now = bpf_ktime_get_ns();
+ 	__u64 expires = now + ((__u64)ttl * NSEC_PER_SEC);
+ 	void *inner_map;
++
++	/* An allowed DNS name must never authorize a protected destination. */
++	if (baarcha_hard_deny_ip(ip))
++		return;
+ 
+ 	inner_map = bpf_map_lookup_elem(&allow_out_v3, &ifindex);
+ 	if (!inner_map)
+--- a/CubeNet/src/mvmtap.bpf.c
++++ b/CubeNet/src/mvmtap.bpf.c
+@@ -997,12 +997,12 @@
+ 		return TC_ACT_SHOT;
+ 
+ 	if (daddr == mvm_gateway_ip) {
+-		/* Filter traffic to cubegw0:
+-		 * allow ICMP, allow TCP non-SYN, drop everything else.
++		/* Only TCP replies to gateway-initiated control connections pass.
++		 * No guest-initiated ICMP, UDP or TCP SYN to the worker gateway.
+ 		 */
+ 		switch (proto) {
+ 		case IPPROTO_ICMP:
+-			break;
++			return TC_ACT_SHOT;
+ 		case IPPROTO_TCP:
+ 			if (!__pull_headers(skb, &l2, &l3, &l4))
+ 				return TC_ACT_SHOT;
+--- /dev/null
++++ b/CubeNet/src/baarcha_hard_deny.h
+@@ -0,0 +1 @@
++#error "Generate worker-specific baarcha_hard_deny.h using ops/cube/security/render_hard_deny.py before building"
+--- /dev/null
++++ b/CubeNet/cubevs/baarcha_hard_deny_test.go
+@@ -0,0 +1,26 @@
++package cubevs
++
++import (
++    "os"
++    "testing"
++)
++
++// Run on the actual worker: skipped BPF tests do NOT attest enforcement.
++func TestBaarchaHardDenyOverridesAllowAndCachedSession(t *testing.T) {
++    management := os.Getenv("CUBE_HARD_DENY_TEST_MANAGEMENT_IP")
++    if management == "" { t.Fatal("set CUBE_HARD_DENY_TEST_MANAGEMENT_IP to a protected worker/control-plane IPv4 address") }
++    env := loadEgressPolicyTestEnv(t)
++    for index, address := range []string{"10.1.2.3", "127.0.0.1", "100.64.0.1", "169.254.169.254", "172.16.0.1", "192.168.0.1", "224.0.0.1", management} {
++        ifindex := uint32(900+index)
++        allow, _ := env.attachInnerMaps(t, ifindex)
++        daddr := mustParseCIDRForTest(t, address).IP
++        key := lpmKeyV3{Prefixlen:32,IP:daddr}
++        value := netPolicyValueV3{KeyPrefixlen:32}
++        if err := allow.Put(&key,&value);err!=nil{t.Fatal(err)}
++        for _, protocol := range []uint8{ipprotoTCP,ipprotoUDP,ipprotoICMP} {
++            if got:=runEgressPolicyCaseProto(t,env.program,ifindex,daddr,htonsPort(443),protocol);got!=flowVerdictReject {t.Fatalf("protected %s protocol%d allowed despite hard deny",address,protocol)}
++            result:=runSessionRecheckCase(t,env.recheckProgram,sessionRecheckCase{ifindex:ifindex,daddr:daddr,dport:htonsPort(443),protocol:protocol,sessPolicyVersion:1,metaPolicyVersion:1})
++            if !result.revoked {t.Fatalf("cached flow to %s protocol%d escaped hard deny",address,protocol)}
++        }
++    }
++}
+--- /dev/null
++++ b/CubeNet/cubevs/baarcha_dataplane_verifier_test.go
+@@ -0,0 +1,30 @@
++package cubevs
++
++import (
++	"testing"
++
++	"github.com/cilium/ebpf"
++)
++
++// Loading fresh anonymous maps/programs checks the real full dataplane against
++// this kernel's verifier without attaching a program or reusing worker pins.
++func TestBaarchaFullDataplaneVerifier(t *testing.T) {
++	loaders := map[string]func() (*ebpf.CollectionSpec, error){
++		"mvmtap": loadMvmtap,
++		"nodenic": loadNodenic,
++		"localgw": loadLocalgw,
++	}
++	for name, load := range loaders {
++		t.Run(name, func(t *testing.T) {
++			spec, err := load()
++			if err != nil { t.Fatal(err) }
++			for _, m := range spec.Maps {
++				m.Pinning = ebpf.PinNone
++				if m.InnerMap != nil { m.InnerMap.Pinning = ebpf.PinNone }
++			}
++			collection, err := ebpf.NewCollection(spec)
++			if err != nil { t.Fatalf("full %s dataplane verifier: %+v", name, err) }
++			collection.Close()
++		})
++	}
++}

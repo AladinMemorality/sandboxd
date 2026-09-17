@@ -52,7 +52,7 @@ This is a five-resume sample, not a production latency guarantee.
 Publish excludes screenshot/upload/database work; remix timing ends at the API
 response, with frontend/backend readiness checked subsequently. Resume measures
 the authenticated preview response and preserves process memory and disk. The
-platform screenshot fixtures separately measured authenticated capture at329ms.
+platform screenshot fixtures separately measured authenticated capture at 329 ms.
 
 The live run verifies actual UI file-query syntax and preview-access URL/cookie
 handoff; two guest identities; wrong-tenant denial; frontend/backend preview;

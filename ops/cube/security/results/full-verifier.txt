@@ -1,0 +1,10 @@
+=== RUN   TestBaarchaFullDataplaneVerifier
+=== RUN   TestBaarchaFullDataplaneVerifier/mvmtap
+=== RUN   TestBaarchaFullDataplaneVerifier/nodenic
+=== RUN   TestBaarchaFullDataplaneVerifier/localgw
+--- PASS: TestBaarchaFullDataplaneVerifier (0.51s)
+    --- PASS: TestBaarchaFullDataplaneVerifier/mvmtap (0.31s)
+    --- PASS: TestBaarchaFullDataplaneVerifier/nodenic (0.14s)
+    --- PASS: TestBaarchaFullDataplaneVerifier/localgw (0.06s)
+PASS
+ok  	github.com/tencentcloud/CubeSandbox/CubeNet/cubevs	0.513s
