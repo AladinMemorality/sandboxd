@@ -6,6 +6,14 @@ egress or replace a running worker. sandboxd still rejects nonempty
 tests and an enforcement attestation has been integrated. The current safe
 default is no outbound access.
 
+## Latest isolated trial, 2026-09-23
+
+The second candidate was attached only inside the disposable nested VM. Its
+87 crafted attached-program checks passed, but full guest-network acceptance
+failed at DNS setup and remains incomplete. Domain egress stays disabled. See
+[the exact handoff and limitations](results/2026-09-23/HANDOFF.md). The older
+status below describes the September17 build, not the current trial state.
+
 ## Validation status, 2026-09-17
 
 **The candidate has not replaced or attached to a live worker. Domain egress
