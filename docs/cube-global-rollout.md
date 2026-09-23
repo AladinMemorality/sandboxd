@@ -107,13 +107,29 @@ home journals and changed-configuration rollback. A real Docker rollback fixture
 verified normal wake with updated app configuration and retained new files; its
 Cube side was a filesystem fixture, so it is not additional real-Cube acceptance.
 
-The shared capture load test passed 65 accepted captures and eleven functional
-fixtures. Eight prepared workers completed eight captures in **585 ms**, but a
-full refill took **14.99 seconds**. A separate single-replacement profile measured
-477 ms capture, 2.46 seconds Docker removal, 3.27 seconds Docker replacement
-startup and approximately one second Node/browser preparation. Warm latency is
-therefore insufficient evidence of sustained capacity. See the platform capture
-benchmark artifacts and [deployment readiness report](../ops/cube/production-readiness.md).
+The disposable shared capture pool is not ready for global deployment. Its earlier
+65 accepted captures and eleven functional fixtures passed, but a later same-fixture
+56-request burst completed only **16 requests and rejected 40**, taking **27.54
+seconds**; the deployed shared browser completed all 56 in **5.01 seconds**.
+The pool entered its protective failed state during final refill after a sustained
+one-request-per-second workload; that group's per-request outcomes were not saved,
+so they remain unknown. A separate profile measured 477 ms capture, 2.46 seconds
+Docker removal, 3.27 seconds replacement startup and about one second Node/browser
+preparation. Warm capture speed does not establish sustained capacity. Single-use
+isolation and confirmed-disposal bounds remain intact. See the platform's
+`fleet-service-incomplete.json`, `replacement.json` and
+[deployment readiness report](../ops/cube/production-readiness.md).
+
+An independent readiness-only release candidate retains the existing shared
+browser architecture and replaces fixed waits with rendered-content checks.
+Its frozen final files passed all **120 captures** in the same-fixture comparison:
+eight-request completion improved from 1.785 to **0.796 seconds**, the 56-request
+burst from 5.008 to **4.066 seconds**, and sustained one-request-per-second p95
+from 1.433 to **0.448 seconds**, with zero failures and byte-identical JPEGs.
+Both shared-browser variants had the same eight-CPU/6-GiB budget. Exact source
+hashes and cleanup evidence are in the platform's `fleet-final.json` and
+`fleet-comparison.md`. This supports that separate capture optimization after its
+release checks; it does not change any full Cube migration or worker-pool gate.
 
 No production project has been switched by this work. Outstanding release gates
 remain safe working guest egress and real model/registry/backend calls, reviewed
