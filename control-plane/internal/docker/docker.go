@@ -137,6 +137,7 @@ func (c *Client) Run(ctx context.Context, spec RunSpec) (string, error) {
 // by encoding/json.
 type ContainerJSON struct {
 	ID     string `json:"Id"`
+	Name   string `json:"Name"`
 	Mounts []struct {
 		Source      string `json:"Source"`
 		Destination string `json:"Destination"`
@@ -149,6 +150,7 @@ type ContainerJSON struct {
 	} `json:"State"`
 	Config struct {
 		Image  string            `json:"Image"`
+		Env    []string          `json:"Env"`
 		Labels map[string]string `json:"Labels"`
 	} `json:"Config"`
 	// NetworkSettings is the subset Phase 5's wake-readiness probe
@@ -372,4 +374,11 @@ func (c *Client) run(ctx context.Context, args ...string) ([]byte, error) {
 		return stdout.Bytes(), fmt.Errorf("docker %s: %w (%s)", args[0], err, stderr.String())
 	}
 	return stdout.Bytes(), nil
+}
+
+// Rename changes only a stopped container's name; callers validate identity and
+// ownership before this operation. It does not remove the recovery container.
+func (c *Client) Rename(ctx context.Context, id, name string) error {
+	_, err := c.run(ctx, "rename", id, name)
+	return err
 }

@@ -11,6 +11,8 @@ import (
 )
 
 type Backend interface {
+	ValidateRollback(context.Context, *store.RuntimeMigration) error
+	PrepareRollback(context.Context, *store.RuntimeMigration) error
 	StopSource(context.Context, *store.RuntimeMigration) error
 	ArchiveSource(context.Context, *store.RuntimeMigration) (string, error)
 	StageTarget(context.Context, *store.RuntimeMigration) error
@@ -111,14 +113,7 @@ func (e *Engine) RollbackEligible(ctx context.Context, m *store.RuntimeMigration
 	if active {
 		return errors.New("active task prevents rollback")
 	}
-	fingerprint, err := e.Store.RuntimeConfigFingerprint(ctx, m.Source.AppID.String)
-	if err != nil {
-		return err
-	}
-	if fingerprint != m.ConfigFingerprint {
-		return errors.New("runtime config changed since migration; retained Docker environment must be recreated before rollback")
-	}
-	return nil
+	return e.Backend.ValidateRollback(ctx, m)
 }
 
 // Rollback exports current target writes before touching the retained source.
@@ -137,6 +132,15 @@ func (e *Engine) Rollback(ctx context.Context, id string) error {
 		if err != nil {
 			return err
 		}
+		if m.Phase != "complete" && m.Phase != "rolled_back" {
+			fingerprint, checkErr := e.Store.RuntimeConfigFingerprint(ctx, m.Source.AppID.String)
+			if checkErr != nil {
+				return checkErr
+			}
+			if fingerprint != m.RollbackConfigFingerprint {
+				return errors.New("runtime config changed during rollback; refusing stale recovery")
+			}
+		}
 		switch m.Phase {
 		case "complete":
 			if err = e.RollbackEligible(ctx, m); err == nil {
@@ -153,7 +157,10 @@ func (e *Engine) Rollback(ctx context.Context, id string) error {
 				err = e.advance(ctx, m, "rollback_restored", "")
 			}
 		case "rollback_restored":
-			if err = e.Backend.PauseTarget(ctx, m); err == nil {
+			if err = e.Backend.PrepareRollback(ctx, m); err == nil {
+				err = e.Backend.PauseTarget(ctx, m)
+			}
+			if err == nil {
 				err = e.Store.CommitRuntimeRollback(ctx, id)
 			}
 			if err == nil && e.AfterPhase != nil {

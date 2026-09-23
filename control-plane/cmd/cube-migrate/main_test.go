@@ -39,3 +39,26 @@ func TestInventoryAcceptsLegacySchemaWithoutMutatingIt(t *testing.T) {
 		t.Fatal("inventory created mutation lock", err)
 	}
 }
+
+func TestStatusReadsLegacyJournalWithoutApplyingSchema(t *testing.T) {
+	root := t.TempDir()
+	database := filepath.Join(root, "legacy-journal.db")
+	db, e := sql.Open("sqlite3", database)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer db.Close()
+	if _, e = db.Exec(`CREATE TABLE runtime_migration(sandbox_id TEXT,phase TEXT,template_id TEXT,runtime_id TEXT,archive_sha256 TEXT,rollback_sha256 TEXT)`); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = db.Exec(`INSERT INTO runtime_migration VALUES ('fixture','rollback_started','template','remote','source-digest','')`); e != nil {
+		t.Fatal(e)
+	}
+	if e = run([]string{"--database", database, "status"}); e != nil {
+		t.Fatal(e)
+	}
+	var columns int
+	if e = db.QueryRow(`SELECT COUNT(*) FROM pragma_table_info('runtime_migration')`).Scan(&columns); e != nil || columns != 6 {
+		t.Fatal("status mutated old recovery journal", e, columns)
+	}
+}

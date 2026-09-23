@@ -29,7 +29,7 @@ func TestInventoryReportsRealHomeAndTransportLimits(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(rows) != 1 || rows[0].Eligible || len(rows[0].UnhandledHomePaths) != 1 || rows[0].UnhandledHomePaths[0] != "custom-owner-data" || rows[0].CompressedArchiveLimit != runtime.MaxPrivateWorkspaceBytes {
+	if len(rows) != 1 || rows[0].Eligible || len(rows[0].UnhandledHomePaths) != 1 || rows[0].UnhandledHomePaths[0] != "custom-owner-data" || rows[0].CompressedArchiveLimit != runtime.MaxPrivateWorkspaceStreamBytes {
 		t.Fatalf("incomplete inventory: %+v", rows)
 	}
 	if err = os.Remove(filepath.Join(home, "custom-owner-data")); err != nil {
@@ -41,5 +41,18 @@ func TestInventoryReportsRealHomeAndTransportLimits(t *testing.T) {
 	rows, err = Inventory(context.Background(), engine.Store.DB(), root, id)
 	if err != nil || rows[0].Eligible {
 		t.Fatal("absolute runtime symlink silently accepted", err)
+	}
+	if err = os.Remove(filepath.Join(app, "python")); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.MkdirAll(filepath.Join(app, ".venv", "bin"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err = os.Symlink("/usr/bin/python3", filepath.Join(app, ".venv", "bin", "python")); err != nil {
+		t.Fatal(err)
+	}
+	rows, err = Inventory(context.Background(), engine.Store.DB(), root, id)
+	if err != nil || !rows[0].Eligible {
+		t.Fatalf("approved private interpreter leaf rejected: %+v %v", rows, err)
 	}
 }

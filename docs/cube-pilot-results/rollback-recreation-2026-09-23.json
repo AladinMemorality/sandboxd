@@ -1,0 +1,29 @@
+{
+  "observed_at": "2026-09-23",
+  "scope": "isolated disposable Docker fixture on outer VPS; no production project mutation",
+  "test": "TestLiveChangedConfigRollbackNormalWake",
+  "passed": true,
+  "seconds": 48.82,
+  "real_components": [
+    "Docker stop and retained source identity",
+    "Docker rename applied with simulated lost acknowledgement before journal update",
+    "durable rollback resume",
+    "wake.Handler recreation via sandboxspec and current appenv",
+    "HTTP readiness returning changed runtime configuration",
+    "post-Cube workspace writes retained",
+    "CubeAllApps preview routing defers to restored Docker provider"
+  ],
+  "simulated_components": [
+    "Cube hypervisor and guest lifecycle use filesystem fixture"
+  ],
+  "validation": [
+    "migration/store/docker/CLI race suite passed",
+    "final targeted inventory/fleet/home/legacy-status/config-drift race checks passed"
+  ],
+  "does_not_establish": [
+    "production disk capacity",
+    "review of every owner-home manifest and legacy preset",
+    "fresh v2 guest-template fleet readiness",
+    "arbitrary database consistency or adversarial guest-supervisor trust"
+  ]
+}

@@ -21,6 +21,13 @@ type fixtureBackend struct {
 	creates        int
 }
 
+func (f *fixtureBackend) ValidateRollback(context.Context, *store.RuntimeMigration) error { return nil }
+func (f *fixtureBackend) PrepareRollback(ctx context.Context, m *store.RuntimeMigration) error {
+	if m.RollbackRecreate {
+		return f.Store.RecordRetainedDocker(ctx, m.SandboxID, retainedDockerName(m.SandboxID))
+	}
+	return nil
+}
 func (f *fixtureBackend) StopSource(context.Context, *store.RuntimeMigration) error { return nil }
 func (f *fixtureBackend) ArchiveSource(_ context.Context, m *store.RuntimeMigration) (string, error) {
 	data, e := runtime.ExportPrivateWorkspace(f.source)
@@ -78,6 +85,9 @@ func (f *fixtureBackend) RestoreSource(_ context.Context, m *store.RuntimeMigrat
 func (f *fixtureBackend) PauseTarget(context.Context, *store.RuntimeMigration) error { return nil }
 
 func fixture(t *testing.T) (*Engine, *fixtureBackend, string, string) {
+	return fixtureID(t, "stable-id")
+}
+func fixtureID(t *testing.T, id string) (*Engine, *fixtureBackend, string, string) {
 	t.Helper()
 	root := t.TempDir()
 	db := filepath.Join(root, "sandboxd.db")
@@ -90,7 +100,6 @@ func fixture(t *testing.T) (*Engine, *fixtureBackend, string, string) {
 	if e = st.CreateApp(context.Background(), app); e != nil {
 		t.Fatal(e)
 	}
-	id := "stable-id"
 	if e = st.Create(context.Background(), &store.Sandbox{ID: id, Status: "stopped", Image: "original", AppID: sql.NullString{String: app.ID, Valid: true}, Ports: []int{3000}, Visibility: "private"}); e != nil {
 		t.Fatal(e)
 	}
@@ -265,7 +274,7 @@ func TestCorruptRecoveryArchiveNeverChangesProvider(t *testing.T) {
 	}
 }
 
-func TestChangedRuntimeConfigPreventsRollbackBeforeQuiescence(t *testing.T) {
+func TestChangedRuntimeConfigRollbackRequiresRecreation(t *testing.T) {
 	engine, _, id, _ := fixture(t)
 	ctx := context.Background()
 	if err := engine.Run(ctx, id); err != nil {
@@ -274,11 +283,47 @@ func TestChangedRuntimeConfigPreventsRollbackBeforeQuiescence(t *testing.T) {
 	if err := engine.Store.CreateAppConfig(ctx, &store.AppConfig{ID: "new-config", AppID: "durable-app", Key: "PUBLIC_VALUE", ValuePlaintext: sql.NullString{String: "new value", Valid: true}, AccessPolicy: "runtime_access"}); err != nil {
 		t.Fatal(err)
 	}
-	if err := engine.Rollback(ctx, id); err == nil {
-		t.Fatal("stale retained Docker environment accepted")
+	if err := engine.Rollback(ctx, id); err != nil {
+		t.Fatal(err)
 	}
 	m, err := engine.Store.GetRuntimeMigration(ctx, id)
-	if err != nil || m.Phase != "complete" {
-		t.Fatal("changed-config rejection interrupted live provider", err)
+	if err != nil || m.Phase != "rolled_back" || !m.RollbackRecreate || m.RetainedDockerName == "" {
+		t.Fatal("recreation not journaled", err)
+	}
+	sb, err := engine.Store.Get(ctx, id)
+	if err != nil || sb.ContainerID.Valid || sb.Status != "stopped" {
+		t.Fatal("stale retained Docker environment could resume", err)
+	}
+}
+
+func TestRollbackConfigDriftAfterCheckpointRemainsRecoverable(t *testing.T) {
+	engine, _, id, _ := fixture(t)
+	ctx := context.Background()
+	if e := engine.Run(ctx, id); e != nil {
+		t.Fatal(e)
+	}
+	engine.AfterPhase = func(phase string) error {
+		if phase == "rollback_started" {
+			return errors.New("power loss")
+		}
+		return nil
+	}
+	if e := engine.Rollback(ctx, id); e == nil {
+		t.Fatal("missing failpoint")
+	}
+	if e := engine.Store.CreateAppConfig(ctx, &store.AppConfig{ID: "changed-during-recovery", AppID: "durable-app", Key: "PUBLIC_VALUE", ValuePlaintext: sql.NullString{String: "unreviewed", Valid: true}, AccessPolicy: "runtime_access"}); e != nil {
+		t.Fatal(e)
+	}
+	engine.AfterPhase = nil
+	if e := engine.Rollback(ctx, id); e == nil {
+		t.Fatal("config drift ignored")
+	}
+	current, e := engine.Store.Get(ctx, id)
+	if e != nil || current.RuntimeProvider != "cube" {
+		t.Fatal("provider changed after drift", e)
+	}
+	m, e := engine.Store.GetRuntimeMigration(ctx, id)
+	if e != nil || m.Phase != "rollback_started" {
+		t.Fatal("recovery phase lost", e)
 	}
 }

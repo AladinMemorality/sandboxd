@@ -14,23 +14,30 @@ import (
 // verified the new provider. Both copies remain private to the same app owner.
 // Credential ciphertext is deliberately absent from JSON/status output.
 type RuntimeMigration struct {
-	SandboxID             string
-	Phase                 string
-	Source                Sandbox
-	SourcePreset          string
-	ConfigFingerprint     string
-	TargetPreset          string
-	Binding               RuntimeBinding `json:"-"`
-	ArchiveSHA256         string
-	RollbackSHA256        string
-	HistorySHA256         string
-	RollbackHistorySHA256 string
+	SandboxID                 string
+	Phase                     string
+	Source                    Sandbox
+	SourcePreset              string
+	ConfigFingerprint         string
+	TargetPreset              string
+	Binding                   RuntimeBinding `json:"-"`
+	ArchiveSHA256             string
+	RollbackSHA256            string
+	HistorySHA256             string
+	RollbackHistorySHA256     string
+	RollbackConfigFingerprint string
+	RollbackRecreate          bool
+	RetainedDockerName        string
+	RetainedDockerRetired     bool
+	HomeManifestJSON          string `json:"-"`
+	HomeSHA256                string
+	RollbackHomeSHA256        string
 }
 
 func (s *Store) GetRuntimeMigration(ctx context.Context, id string) (*RuntimeMigration, error) {
 	m := &RuntimeMigration{}
 	var source string
-	err := s.db.QueryRowContext(ctx, `SELECT sandbox_id,phase,source_json,source_preset,config_fingerprint,target_preset,runtime_id,template_id,domain,token_ciphertext,token_nonce,archive_sha256,rollback_sha256,history_sha256,rollback_history_sha256 FROM runtime_migration WHERE sandbox_id=?`, id).Scan(&m.SandboxID, &m.Phase, &source, &m.SourcePreset, &m.ConfigFingerprint, &m.TargetPreset, &m.Binding.RuntimeID, &m.Binding.TemplateID, &m.Binding.Domain, &m.Binding.TokenCiphertext, &m.Binding.TokenNonce, &m.ArchiveSHA256, &m.RollbackSHA256, &m.HistorySHA256, &m.RollbackHistorySHA256)
+	err := s.db.QueryRowContext(ctx, `SELECT sandbox_id,phase,source_json,source_preset,config_fingerprint,target_preset,runtime_id,template_id,domain,token_ciphertext,token_nonce,archive_sha256,rollback_sha256,history_sha256,rollback_history_sha256,rollback_config_fingerprint,rollback_recreate,retained_docker_name,retained_docker_retired,home_manifest_json,home_sha256,rollback_home_sha256 FROM runtime_migration WHERE sandbox_id=?`, id).Scan(&m.SandboxID, &m.Phase, &source, &m.SourcePreset, &m.ConfigFingerprint, &m.TargetPreset, &m.Binding.RuntimeID, &m.Binding.TemplateID, &m.Binding.Domain, &m.Binding.TokenCiphertext, &m.Binding.TokenNonce, &m.ArchiveSHA256, &m.RollbackSHA256, &m.HistorySHA256, &m.RollbackHistorySHA256, &m.RollbackConfigFingerprint, &m.RollbackRecreate, &m.RetainedDockerName, &m.RetainedDockerRetired, &m.HomeManifestJSON, &m.HomeSHA256, &m.RollbackHomeSHA256)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -54,6 +61,14 @@ func (s *Store) HasIncompleteRuntimeMigrations(ctx context.Context) (bool, error
 // BeginRuntimeMigration must be called under the offline exclusive maintenance
 // lock. Eligibility is rechecked transactionally rather than trusting inventory.
 func (s *Store) BeginRuntimeMigration(ctx context.Context, id, preset, template, domain string) error {
+	return s.BeginRuntimeMigrationWithHome(ctx, id, preset, template, domain, "")
+}
+
+// BeginRuntimeMigrationWithHome freezes the reviewed manifest with the source identity.
+func (s *Store) BeginRuntimeMigrationWithHome(ctx context.Context, id, preset, template, domain, homeManifest string) error {
+	if len(homeManifest) > 4096 || (homeManifest != "" && !json.Valid([]byte(homeManifest))) {
+		return errors.New("invalid bounded home manifest")
+	}
 	sb, err := s.Get(ctx, id)
 	if err != nil {
 		return err
@@ -107,7 +122,7 @@ func (s *Store) BeginRuntimeMigration(ctx context.Context, id, preset, template,
 		if provider != "docker" {
 			return ErrConflict
 		}
-		_, err = tx.ExecContext(ctx, `INSERT INTO runtime_migration(sandbox_id,phase,source_json,source_preset,config_fingerprint,target_preset,template_id,domain,updated_at) VALUES (?,'planned',?,?,?,?,?,?,?)`, id, string(raw), app.RuntimePreset.String, fingerprint, preset, template, domain, time.Now().Unix())
+		_, err = tx.ExecContext(ctx, `INSERT INTO runtime_migration(sandbox_id,phase,source_json,source_preset,config_fingerprint,target_preset,template_id,domain,home_manifest_json,updated_at) VALUES (?,'planned',?,?,?,?,?,?,?,?)`, id, string(raw), app.RuntimePreset.String, fingerprint, preset, template, domain, homeManifest, time.Now().Unix())
 		if err != nil {
 			return err
 		}
@@ -202,14 +217,22 @@ func (s *Store) MigratedDockerTasks(ctx context.Context, id string) (map[string]
 }
 
 // RuntimeConfigFingerprint hashes encrypted rows, never plaintext secrets.
-// Rollback to the retained Docker environment is eligible only while unchanged.
+// Changed configuration requires recreation instead of restarting the retained container.
 func (s *Store) RuntimeConfigFingerprint(ctx context.Context, appID string) (string, error) {
 	return RuntimeConfigFingerprintDB(ctx, s.db, appID)
 }
 
 // RuntimeConfigFingerprintDB supports a mode=ro eligibility check while the
 // daemon is serving requests. The offline mutator rechecks after taking its lock.
+type configQuery interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+}
+
 func RuntimeConfigFingerprintDB(ctx context.Context, db *sql.DB, appID string) (string, error) {
+	return runtimeConfigFingerprint(ctx, db, appID)
+}
+
+func runtimeConfigFingerprint(ctx context.Context, db configQuery, appID string) (string, error) {
 	rows, err := db.QueryContext(ctx, `SELECT key,access_policy,value_ciphertext,value_nonce,value_plaintext,sensitive FROM app_config WHERE app_id=? AND access_policy IN ('runtime_access','both') ORDER BY key`, appID)
 	if err != nil {
 		return "", err
@@ -264,6 +287,9 @@ func (s *Store) AbortRuntimeMigration(ctx context.Context, id string) error {
 // AdvanceRuntimeMigration is a compare-and-swap. Side effects precede their
 // acknowledgement and must be repeatable when the process dies between them.
 func (s *Store) AdvanceRuntimeMigration(ctx context.Context, id, from, to, checksum string) error {
+	if from == "complete" && to == "rollback_started" {
+		return s.BeginRuntimeRollback(ctx, id)
+	}
 	allowed := map[string]string{"planned": "quiesced", "quiesced": "archived", "archived": "staging", "staged": "imported", "imported": "verified", "complete": "rollback_started", "rollback_started": "rollback_archived", "rollback_archived": "rollback_restored"}
 	if allowed[from] != to {
 		return ErrConflict
@@ -315,7 +341,7 @@ func (s *Store) CommitRuntimeMigration(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	if m.Phase != "verified" {
+	if m.Phase != "verified" || (m.HomeManifestJSON != "" && m.HomeSHA256 == "") {
 		return ErrConflict
 	}
 	return s.submit(ctx, func(db *sql.DB) error {
@@ -324,6 +350,13 @@ func (s *Store) CommitRuntimeMigration(ctx context.Context, id string) error {
 			return err
 		}
 		defer tx.Rollback()
+		fingerprint, err := runtimeConfigFingerprint(ctx, tx, m.Source.AppID.String)
+		if err != nil {
+			return err
+		}
+		if fingerprint != m.ConfigFingerprint {
+			return errors.New("runtime config changed since migration was planned")
+		}
 		r, err := tx.ExecContext(ctx, `UPDATE runtime_migration SET phase='complete',updated_at=? WHERE sandbox_id=? AND phase='verified'`, time.Now().Unix(), id)
 		if err != nil {
 			return err
@@ -362,7 +395,7 @@ func (s *Store) CommitRuntimeRollback(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	if m.Phase != "rollback_restored" || m.RollbackSHA256 == "" {
+	if m.Phase != "rollback_restored" || m.RollbackSHA256 == "" || (m.HomeManifestJSON != "" && (m.HomeSHA256 == "" || m.RollbackHomeSHA256 == "")) {
 		return ErrConflict
 	}
 	return s.submit(ctx, func(db *sql.DB) error {
@@ -371,6 +404,21 @@ func (s *Store) CommitRuntimeRollback(ctx context.Context, id string) error {
 			return err
 		}
 		defer tx.Rollback()
+		fingerprint, err := runtimeConfigFingerprint(ctx, tx, m.Source.AppID.String)
+		if err != nil {
+			return err
+		}
+		if m.RollbackConfigFingerprint == "" || fingerprint != m.RollbackConfigFingerprint {
+			return errors.New("runtime config changed during rollback; restart preparation before provider switch")
+		}
+		if m.RollbackRecreate && m.RetainedDockerName == "" {
+			return errors.New("original Docker container must be retained before recreation")
+		}
+		containerID, cgroup := m.Source.ContainerID, m.Source.CgroupPath
+		if m.RollbackRecreate {
+			containerID = sql.NullString{}
+			cgroup = sql.NullString{}
+		}
 		// Freeze every imported task ID, including tasks run on Cube, before
 		// restoring the legacy runtime. None establishes a local CLI session.
 		if _, err = tx.ExecContext(ctx, `INSERT OR IGNORE INTO runtime_migration_task(sandbox_id,task_id) SELECT sandbox_id,task_id FROM task WHERE sandbox_id=?`, id); err != nil {
@@ -384,7 +432,7 @@ func (s *Store) CommitRuntimeRollback(ctx context.Context, id string) error {
 		if n != 1 {
 			return ErrConflict
 		}
-		r, err = tx.ExecContext(ctx, `UPDATE sandbox SET runtime_provider='docker',status='stopped',image=?,workspace_img=?,workspace_mnt=?,container_id=?,cgroup_path=?,container_ip=NULL,stopped_at=?,updated_at=? WHERE id=? AND runtime_provider='cube'`, m.Source.Image, m.Source.WorkspaceImg, m.Source.WorkspaceMnt, m.Source.ContainerID, m.Source.CgroupPath, time.Now().Unix(), time.Now().Unix(), id)
+		r, err = tx.ExecContext(ctx, `UPDATE sandbox SET runtime_provider='docker',status='stopped',image=?,workspace_img=?,workspace_mnt=?,container_id=?,cgroup_path=?,container_ip=NULL,stopped_at=?,updated_at=? WHERE id=? AND runtime_provider='cube'`, m.Source.Image, m.Source.WorkspaceImg, m.Source.WorkspaceMnt, containerID, cgroup, time.Now().Unix(), time.Now().Unix(), id)
 		if err != nil {
 			return err
 		}

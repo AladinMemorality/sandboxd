@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -107,6 +108,19 @@ func (b *OfflineBackend) validateSourceContainer(m *store.RuntimeMigration, insp
 }
 
 func (b *OfflineBackend) StopSource(ctx context.Context, m *store.RuntimeMigration) error {
+	if m.HomeManifestJSON != "" {
+		plan, e := migrationHome(m)
+		if e != nil {
+			return e
+		}
+		report, e := runtime.ValidateHomeManifest(ctx, filepath.Join(b.WorkspaceRoot, m.SandboxID), plan)
+		if e != nil {
+			return e
+		}
+		if !report.Eligible {
+			return errors.New("source owner-home manifest no longer passes preflight")
+		}
+	}
 	if _, err := b.sourceRoot(m); err != nil {
 		return err
 	}
@@ -225,11 +239,12 @@ func (b *OfflineBackend) ArchiveSource(ctx context.Context, m *store.RuntimeMigr
 	if err != nil {
 		return "", err
 	}
-	data, err := runtime.ExportPrivateWorkspaceOwnerContext(ctx, root, filepath.Join(b.WorkspaceRoot, m.SandboxID))
-	if err != nil {
+	if err = b.archiveSourceHome(ctx, m); err != nil {
 		return "", err
 	}
-	digest, err := b.saveArchive(m, "source", data)
+	digest, err := b.saveWorkspaceArchive(ctx, m, "source", func(w io.Writer) error {
+		return runtime.ExportPrivateWorkspaceFile(ctx, root, filepath.Join(b.WorkspaceRoot, m.SandboxID), w)
+	})
 	if err != nil {
 		return "", err
 	}
@@ -331,10 +346,11 @@ func wait(ctx context.Context, timeout time.Duration, condition func() bool) err
 }
 
 func (b *OfflineBackend) ImportTarget(ctx context.Context, m *store.RuntimeMigration) error {
-	data, err := b.readArchive(m, "source", m.ArchiveSHA256)
+	data, size, err := b.readWorkspaceArchive(ctx, m, "source", m.ArchiveSHA256)
 	if err != nil {
 		return err
 	}
+	defer data.Close()
 	client, err := b.connect(ctx, m)
 	if err != nil {
 		return err
@@ -346,7 +362,7 @@ func (b *OfflineBackend) ImportTarget(ctx context.Context, m *store.RuntimeMigra
 	if err != nil {
 		return err
 	}
-	if err = client.ImportPrivateWorkspace(ctx, data); err != nil {
+	if err = client.ImportPrivateWorkspaceFile(ctx, data, size); err != nil {
 		return err
 	}
 	err = wait(ctx, 30*time.Second, func() bool {
@@ -360,7 +376,10 @@ func (b *OfflineBackend) ImportTarget(ctx context.Context, m *store.RuntimeMigra
 	if err != nil {
 		return err
 	}
-	return client.ImportPrivateTaskHistory(ctx, history)
+	if err = client.ImportPrivateTaskHistory(ctx, history); err != nil {
+		return err
+	}
+	return b.importTargetHome(ctx, m, client)
 }
 
 func (b *OfflineBackend) VerifyTarget(ctx context.Context, m *store.RuntimeMigration) error {
@@ -371,13 +390,12 @@ func (b *OfflineBackend) VerifyTarget(ctx context.Context, m *store.RuntimeMigra
 	if err = client.QuiesceWorkspace(ctx); err != nil {
 		return fmt.Errorf("quiesce target before verification: %w", err)
 	}
-	copied, err := client.ExportPrivateWorkspace(ctx)
+	if err = b.verifyTargetHome(ctx, m, client); err != nil {
+		return err
+	}
+	digest, err := b.saveWorkspaceArchive(ctx, m, "verified", func(w io.Writer) error { return client.ExportPrivateWorkspaceFile(ctx, w) })
 	if err != nil {
 		return fmt.Errorf("export target workspace for verification: %w", err)
-	}
-	digest, err := runtime.PrivateWorkspaceDigest(copied)
-	if err != nil {
-		return err
 	}
 	if digest != m.ArchiveSHA256 {
 		return errors.New("target workspace manifest differs from source")
@@ -443,23 +461,15 @@ func (b *OfflineBackend) ArchiveTarget(ctx context.Context, m *store.RuntimeMigr
 	if err = client.QuiesceWorkspace(ctx); err != nil {
 		return "", err
 	}
-	data, err := client.ExportPrivateWorkspace(ctx)
+	if err = b.archiveTargetHome(ctx, m, client); err != nil {
+		return "", err
+	}
+	export := func(w io.Writer) error { return client.ExportPrivateWorkspaceFile(ctx, w) }
+	digest, err := b.saveWorkspaceArchive(ctx, m, "rollback", export)
 	if err != nil {
 		return "", err
 	}
-	digest, err := runtime.PrivateWorkspaceDigest(data)
-	if err != nil {
-		return "", err
-	}
-	again, err := client.ExportPrivateWorkspace(ctx)
-	if err != nil {
-		return "", err
-	}
-	other, err := runtime.PrivateWorkspaceDigest(again)
-	if err != nil || other != digest {
-		return "", errors.New("target changed after quiescence; rollback cannot use an inconsistent copy")
-	}
-	if _, err = b.saveArchive(m, "rollback", data); err != nil {
+	if _, err = b.saveWorkspaceArchive(ctx, m, "rollback", export); err != nil {
 		return "", err
 	}
 	ids, err := b.Store.MigrationTaskIDs(ctx, m.SandboxID)
@@ -487,13 +497,20 @@ func (b *OfflineBackend) RestoreSource(ctx context.Context, m *store.RuntimeMigr
 	if err := b.sourceStopped(ctx, m); err != nil {
 		return err
 	}
-	if _, err := b.readArchive(m, "source", m.ArchiveSHA256); err != nil {
+	original, _, err := b.readWorkspaceArchive(ctx, m, "source", m.ArchiveSHA256)
+	if err != nil {
 		return err
 	}
+	original.Close()
 	if _, err := b.readArchive(m, "source-history", m.HistorySHA256); err != nil {
 		return err
 	}
-	data, err := b.readArchive(m, "rollback", m.RollbackSHA256)
+	data, size, err := b.readWorkspaceArchive(ctx, m, "rollback", m.RollbackSHA256)
+	if err != nil {
+		return err
+	}
+	defer data.Close()
+	history, err := b.readArchive(m, "rollback-history", m.RollbackHistorySHA256)
 	if err != nil {
 		return err
 	}
@@ -501,7 +518,10 @@ func (b *OfflineBackend) RestoreSource(ctx context.Context, m *store.RuntimeMigr
 	if err != nil {
 		return err
 	}
-	if err = runtime.InstallPrivateWorkspace(root, data); err != nil {
+	if err = b.restoreSourceHome(ctx, m); err != nil {
+		return err
+	}
+	if err = runtime.InstallPrivateWorkspaceFile(ctx, root, data, size); err != nil {
 		return err
 	}
 	// The host importer runs as root; preserve the guest's unprivileged owner.
@@ -513,20 +533,14 @@ func (b *OfflineBackend) RestoreSource(ctx context.Context, m *store.RuntimeMigr
 	}); err != nil {
 		return err
 	}
-	restored, err := runtime.ExportPrivateWorkspaceContext(ctx, root)
-	if err != nil {
-		return err
-	}
-	digest, err := runtime.PrivateWorkspaceDigest(restored)
+	digest, err := b.saveWorkspaceArchive(ctx, m, "restored", func(w io.Writer) error {
+		return runtime.ExportPrivateWorkspaceFile(ctx, root, filepath.Join(b.WorkspaceRoot, m.SandboxID), w)
+	})
 	if err != nil {
 		return err
 	}
 	if digest != m.RollbackSHA256 {
 		return errors.New("restored Docker workspace checksum mismatch")
-	}
-	history, err := b.readArchive(m, "rollback-history", m.RollbackHistorySHA256)
-	if err != nil {
-		return err
 	}
 	tasksRoot := filepath.Join(b.WorkspaceRoot, m.SandboxID, ".runtimed", "tasks")
 	if err = os.MkdirAll(filepath.Dir(tasksRoot), 0755); err != nil {

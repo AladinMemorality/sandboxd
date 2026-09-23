@@ -20,6 +20,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/manifest"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/migration"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/secrets"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
@@ -45,6 +46,10 @@ func run(args []string) error {
 	archives := flags.String("archives", filepath.Join(data, "migration-archives"), "private retained recovery archives")
 	keyfile := flags.String("keyfile", filepath.Join(data, "secrets.key"), "existing sandboxd secrets keyfile")
 	id := flags.String("sandbox", "", "stable sandbox ID")
+	homeManifests := flags.String("home-manifests", "", "reviewed JSON map of sandbox IDs to private owner-home manifests")
+	expectedFleet := flags.String("expected-fleet", "", "identity_sha256 from the reviewed fleet plan; checked before every phase")
+	fleetPresets := flags.String("fleet-presets", "", "reviewed JSON map of app IDs to target presets")
+	library := flags.String("library", filepath.Join(data, "library"), "snapshot library root for fleet preflight")
 	targetPreset := flags.String("preset", "", "reviewed target runtime preset")
 	remote := flags.String("adopt-runtime", "", "recover a known Cube VM after uncertain creation")
 	trafficFile := flags.String("traffic-token-file", "", "0600 file containing adoption ingress credential; never a command argument")
@@ -60,13 +65,34 @@ func run(args []string) error {
 	if !filepath.IsAbs(*database) || !filepath.IsAbs(*workspaces) || !filepath.IsAbs(*archives) {
 		return errors.New("database, workspaces and archives must be absolute paths")
 	}
+	homes, err := migration.ReadHomeManifests(*homeManifests)
+	if err != nil {
+		return err
+	}
 	uri := url.URL{Scheme: "file", Path: *database}
-	if action == "inventory" || action == "status" || action == "rollback-check" {
+	if action == "inventory" || action == "fleet-preflight" || action == "status" || action == "rollback-check" {
 		db, err := sql.Open("sqlite3", uri.String()+"?mode=ro&_busy_timeout=5000")
 		if err != nil {
 			return err
 		}
 		defer db.Close()
+		if action == "fleet-preflight" {
+			assignments, e := migration.ReadFleetPresets(*fleetPresets)
+			if e != nil {
+				return e
+			}
+			templates := map[string]string{}
+			if raw := os.Getenv("SANDBOXD_CUBE_TEMPLATES"); raw != "" {
+				if e = json.Unmarshal([]byte(raw), &templates); e != nil {
+					return e
+				}
+			}
+			report, e := migration.FleetPreflight(ctx, db, *workspaces, migration.FleetOptions{Templates: templates, AppPresets: assignments, LibraryRoot: *library, HomeManifests: homes})
+			if e != nil {
+				return e
+			}
+			return json.NewEncoder(os.Stdout).Encode(report)
+		}
 		if action == "rollback-check" {
 			if *id == "" {
 				return errors.New("--sandbox is required")
@@ -74,36 +100,68 @@ func run(args []string) error {
 			if err = migration.RollbackCheck(ctx, db, *id); err != nil {
 				return err
 			}
-			fmt.Println("preliminary rollback config/task eligibility passed; rechecked under maintenance before quiescence")
-			return nil
+			var original, appID string
+			if err = db.QueryRowContext(ctx, `SELECT m.config_fingerprint,s.app_id FROM runtime_migration m JOIN sandbox s ON s.id=m.sandbox_id WHERE m.sandbox_id=?`, *id).Scan(&original, &appID); err != nil {
+				return err
+			}
+			current, e := store.RuntimeConfigFingerprintDB(ctx, db, appID)
+			if e != nil {
+				return e
+			}
+			return json.NewEncoder(os.Stdout).Encode(map[string]any{"sandbox_id": *id, "preliminary_eligible": true, "requires_docker_recreation": current != original, "pending_checks": []string{"offline source identity and config validation", "current workspace/history reverse-copy", "normal Docker wake and application readiness"}})
 		}
 		if action == "inventory" {
-			rows, err := migration.Inventory(ctx, db, *workspaces, *id)
+			rows, err := migration.InventoryWithHome(ctx, db, *workspaces, *id, homes)
 			if err != nil {
 				return err
 			}
 			return json.NewEncoder(os.Stdout).Encode(rows)
 		}
-		rows, err := db.QueryContext(ctx, `SELECT sandbox_id,phase,template_id,runtime_id,archive_sha256,rollback_sha256 FROM runtime_migration WHERE (?='' OR sandbox_id=?)`, *id, *id)
+		// Status must remain readable before applying the new journal columns.
+		optional := map[string]string{"retained_docker_name": "''", "retained_docker_retired": "0", "home_sha256": "''", "rollback_home_sha256": "''"}
+		columns, e := db.QueryContext(ctx, `PRAGMA table_info(runtime_migration)`)
+		if e != nil {
+			return e
+		}
+		for columns.Next() {
+			var index, required, primary int
+			var name, kind string
+			var fallback any
+			if e = columns.Scan(&index, &name, &kind, &required, &fallback, &primary); e != nil {
+				columns.Close()
+				return e
+			}
+			if _, ok := optional[name]; ok {
+				optional[name] = name
+			}
+		}
+		e = columns.Err()
+		columns.Close()
+		if e != nil {
+			return e
+		}
+		query := `SELECT sandbox_id,phase,template_id,runtime_id,archive_sha256,rollback_sha256,` + optional["retained_docker_name"] + `,` + optional["retained_docker_retired"] + `,` + optional["home_sha256"] + `,` + optional["rollback_home_sha256"] + ` FROM runtime_migration WHERE (?='' OR sandbox_id=?)`
+		rows, err := db.QueryContext(ctx, query, *id, *id)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		values := []map[string]string{}
 		for rows.Next() {
-			var sid, phase, template, runtimeID, source, rollback string
-			if err = rows.Scan(&sid, &phase, &template, &runtimeID, &source, &rollback); err != nil {
+			var sid, phase, template, runtimeID, source, rollback, retained, home, rollbackHome string
+			var retired bool
+			if err = rows.Scan(&sid, &phase, &template, &runtimeID, &source, &rollback, &retained, &retired, &home, &rollbackHome); err != nil {
 				return err
 			}
-			values = append(values, map[string]string{"sandbox_id": sid, "phase": phase, "template_id": template, "runtime_id": runtimeID, "source_sha256": source, "rollback_sha256": rollback})
+			values = append(values, map[string]string{"sandbox_id": sid, "phase": phase, "template_id": template, "runtime_id": runtimeID, "source_sha256": source, "rollback_sha256": rollback, "retained_docker_name": retained, "retained_docker_retired": fmt.Sprint(retired), "home_sha256": home, "rollback_home_sha256": rollbackHome})
 		}
 		if err = rows.Err(); err != nil {
 			return err
 		}
 		return json.NewEncoder(os.Stdout).Encode(values)
 	}
-	if action != "migrate" && action != "resume" && action != "rollback" && action != "rollback-check" && action != "adopt" && action != "abort" {
-		return errors.New("action must be inventory, status, migrate, resume, rollback-check, rollback, adopt or abort (flags precede action)")
+	if action != "migrate" && action != "resume" && action != "rollback" && action != "rollback-check" && action != "adopt" && action != "abort" && action != "retire-source" {
+		return errors.New("action must be inventory, fleet-preflight, status, migrate, resume, rollback-check, rollback, adopt, abort or retire-source (flags precede action)")
 	}
 	if *id == "" {
 		return errors.New("--sandbox is required")
@@ -141,9 +199,21 @@ func run(args []string) error {
 		return err
 	}
 	backend := &migration.OfflineBackend{Store: st, Docker: docker.NewClient(), Cube: client, Secrets: cipher, ProxyURL: os.Getenv("SANDBOXD_CUBE_PROXY_URL"), ArchiveDir: *archives, WorkspaceRoot: *workspaces}
-	engine := migration.Engine{Store: st, Backend: backend, BeforePhase: func() error { return maintenance.CheckDatabaseUsers(*database) }}
+	fence := func() error {
+		if e := maintenance.CheckDatabaseUsers(*database); e != nil {
+			return e
+		}
+		if *expectedFleet != "" {
+			return migration.VerifyFleetIdentity(ctx, st.DB(), *expectedFleet)
+		}
+		return nil
+	}
+	if err = fence(); err != nil {
+		return err
+	}
+	engine := migration.Engine{Store: st, Backend: backend, BeforePhase: fence}
 	if action == "migrate" {
-		rows, err := migration.Inventory(ctx, st.DB(), *workspaces, *id)
+		rows, err := migration.InventoryWithHome(ctx, st.DB(), *workspaces, *id, homes)
 		if err != nil {
 			return err
 		}
@@ -180,13 +250,23 @@ func run(args []string) error {
 		if domain == "" || strings.ContainsAny(domain, "/:\\ \r\n") {
 			return errors.New("invalid Cube domain")
 		}
-		if err = st.BeginRuntimeMigration(ctx, *id, *targetPreset, templates[*targetPreset], domain); err != nil {
+		homeJSON := ""
+		if home, ok := homes[*id]; ok {
+			raw, e := runtime.CanonicalHomeManifest(home)
+			if e != nil {
+				return e
+			}
+			homeJSON = string(raw)
+		}
+		if err = st.BeginRuntimeMigrationWithHome(ctx, *id, *targetPreset, templates[*targetPreset], domain, homeJSON); err != nil {
 			return err
 		}
 	}
 	switch action {
 	case "rollback":
 		err = engine.Rollback(ctx, *id)
+	case "retire-source":
+		err = backend.RetireSource(ctx, *id)
 	case "abort":
 		err = backend.Abort(ctx, *id)
 	case "adopt":
@@ -220,5 +300,9 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	return json.NewEncoder(os.Stdout).Encode(map[string]string{"sandbox_id": *id, "phase": m.Phase})
+	current, e := st.Get(ctx, *id)
+	if e != nil {
+		return e
+	}
+	return json.NewEncoder(os.Stdout).Encode(map[string]any{"sandbox_id": *id, "phase": m.Phase, "pending_recreation": m.Phase == "rolled_back" && m.RollbackRecreate && !current.ContainerID.Valid, "retained_docker_name": m.RetainedDockerName, "retained_docker_retired": m.RetainedDockerRetired})
 }

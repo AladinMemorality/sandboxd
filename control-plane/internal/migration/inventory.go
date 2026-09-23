@@ -15,26 +15,27 @@ import (
 )
 
 type InventoryRow struct {
-	SandboxID              string   `json:"sandbox_id"`
-	AppID                  string   `json:"app_id"`
-	Provider               string   `json:"provider"`
-	Status                 string   `json:"status"`
-	ActiveTasks            int      `json:"active_tasks"`
-	AppBytes               int64    `json:"app_bytes"`
-	AppEntries             int      `json:"app_entries"`
-	HardlinkedFiles        int      `json:"hardlinked_files"`
-	CompressedArchiveLimit int64    `json:"compressed_archive_limit"`
-	UnhandledHomeEntries   int      `json:"unhandled_home_entries"`
-	UnhandledHomePaths     []string `json:"unhandled_home_paths,omitempty"`
-	Eligible               bool     `json:"eligible"`
-	Reasons                []string `json:"reasons,omitempty"`
+	SandboxID              string              `json:"sandbox_id"`
+	AppID                  string              `json:"app_id"`
+	Provider               string              `json:"provider"`
+	Status                 string              `json:"status"`
+	ActiveTasks            int                 `json:"active_tasks"`
+	AppBytes               int64               `json:"app_bytes"`
+	AppEntries             int                 `json:"app_entries"`
+	HardlinkedFiles        int                 `json:"hardlinked_files"`
+	CompressedArchiveLimit int64               `json:"compressed_archive_limit"`
+	UnhandledHomeEntries   int                 `json:"unhandled_home_entries"`
+	UnhandledHomePaths     []string            `json:"unhandled_home_paths,omitempty"`
+	HomeReport             *runtime.HomeReport `json:"home_report,omitempty"`
+	Eligible               bool                `json:"eligible"`
+	Reasons                []string            `json:"reasons,omitempty"`
 }
 
 // RollbackCheck is a preliminary read-only eligibility report. The engine
 // rechecks these predicates under exclusive maintenance before quiescing Cube.
 func RollbackCheck(ctx context.Context, db *sql.DB, id string) error {
-	var phase, expected, appID string
-	err := db.QueryRowContext(ctx, `SELECT m.phase,m.config_fingerprint,s.app_id FROM runtime_migration m JOIN sandbox s ON s.id=m.sandbox_id WHERE m.sandbox_id=?`, id).Scan(&phase, &expected, &appID)
+	var phase, appID string
+	err := db.QueryRowContext(ctx, `SELECT m.phase,s.app_id FROM runtime_migration m JOIN sandbox s ON s.id=m.sandbox_id WHERE m.sandbox_id=?`, id).Scan(&phase, &appID)
 	if err != nil {
 		return err
 	}
@@ -48,13 +49,12 @@ func RollbackCheck(ctx context.Context, db *sql.DB, id string) error {
 	if count != 0 {
 		return errors.New("active task prevents rollback")
 	}
-	fingerprint, err := store.RuntimeConfigFingerprintDB(ctx, db, appID)
+	_, err = store.RuntimeConfigFingerprintDB(ctx, db, appID)
 	if err != nil {
 		return err
 	}
-	if fingerprint != expected {
-		return errors.New("runtime config changed; retained Docker environment needs recreation before rollback")
-	}
+	// A changed fingerprint now selects guarded recreation; eligibility remains
+	// preliminary until the backend validates source identity and config delivery.
 	return nil
 }
 
@@ -62,6 +62,10 @@ func RollbackCheck(ctx context.Context, db *sql.DB, id string) error {
 // does not apply migrations, does not stop workloads, and does not read file
 // contents or decrypted app config. Size is an estimate while apps are running.
 func Inventory(ctx context.Context, db *sql.DB, workspaceRoot, id string) ([]InventoryRow, error) {
+	return InventoryWithHome(ctx, db, workspaceRoot, id, nil)
+}
+
+func InventoryWithHome(ctx context.Context, db *sql.DB, workspaceRoot, id string, homes map[string]runtime.HomeManifest) ([]InventoryRow, error) {
 	provider := "'docker'"
 	columns, err := db.QueryContext(ctx, `PRAGMA table_info(sandbox)`)
 	if err != nil {
@@ -110,7 +114,7 @@ func Inventory(ctx context.Context, db *sql.DB, workspaceRoot, id string) ([]Inv
 			out = append(out, row)
 			continue
 		}
-		row.CompressedArchiveLimit = runtime.MaxPrivateWorkspaceBytes
+		row.CompressedArchiveLimit = runtime.MaxPrivateWorkspaceStreamBytes
 		categories := map[string]bool{}
 		if row.Provider != "docker" {
 			row.Reasons = append(row.Reasons, "provider is not Docker")
@@ -217,7 +221,7 @@ func Inventory(ctx context.Context, db *sql.DB, workspaceRoot, id string) ([]Inv
 				}
 				if info.Mode().IsRegular() {
 					row.AppBytes += info.Size()
-					if info.Size() > runtime.MaxPrivateWorkspaceFileBytes {
+					if info.Size() > runtime.MaxPrivateWorkspaceStreamFileBytes {
 						row.Reasons = append(row.Reasons, "app contains a file exceeding the private archive limit")
 					}
 					if stat, ok := info.Sys().(*syscall.Stat_t); ok && stat.Nlink > 1 {
@@ -229,8 +233,8 @@ func Inventory(ctx context.Context, db *sql.DB, workspaceRoot, id string) ([]Inv
 					if e != nil {
 						return e
 					}
-					relative, e := filepath.Rel(app, filepath.Join(filepath.Dir(path), target))
-					if e != nil || filepath.IsAbs(target) || relative == ".." || strings.HasPrefix(relative, "../") {
+					name, e := filepath.Rel(app, path)
+					if e != nil || !runtime.ValidPrivateWorkspaceLink(filepath.ToSlash(name), target) {
 						row.Reasons = append(row.Reasons, "app contains an absolute or escaping symlink requiring a compatibility adapter")
 					}
 				}
@@ -260,10 +264,18 @@ func Inventory(ctx context.Context, db *sql.DB, workspaceRoot, id string) ([]Inv
 			row.UnhandledHomePaths = append(row.UnhandledHomePaths, category)
 		}
 		sort.Strings(row.UnhandledHomePaths)
-		if len(row.UnhandledHomePaths) > 0 {
+		if plan, ok := homes[row.SandboxID]; ok {
+			report, e := runtime.ValidateHomeManifest(ctx, home, plan)
+			row.HomeReport = &report
+			if e != nil {
+				row.Reasons = append(row.Reasons, "owner home manifest validation failed")
+			} else if !report.Eligible {
+				row.Reasons = append(row.Reasons, report.Reasons...)
+			}
+		} else if len(row.UnhandledHomePaths) > 0 {
 			row.Reasons = append(row.Reasons, "owner data outside workspace/app requires a reviewed home/history transfer adapter")
 		}
-		if row.AppBytes > runtime.MaxPrivateWorkspaceExpandedBytes || row.AppEntries > runtime.MaxPrivateWorkspaceEntries {
+		if row.AppBytes > runtime.MaxPrivateWorkspaceStreamExpandedBytes || row.AppEntries > runtime.MaxPrivateWorkspaceEntries {
 			row.Reasons = append(row.Reasons, "workspace exceeds private archive limits")
 		}
 		row.Eligible = len(row.Reasons) == 0
