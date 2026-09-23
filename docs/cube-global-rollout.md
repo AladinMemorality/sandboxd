@@ -2,7 +2,7 @@
 
 The target is the whole platform: existing projects, new creates, published app
 links, remixes, AI tasks, configuration, previews and rollback. The branch is not
-yet approved for production cutover. Global scope does not waive any project's
+yet ready for production cutover. Global scope does not waive any project's
 data-compatibility checks or the deployed network-isolation acceptance gate.
 
 ## Operator selection and durable identity
@@ -121,3 +121,69 @@ manifests and templates for the entire frozen fleet, disk/backup acceptance,
 production browser/link checks and sustained load. The readiness tool deliberately
 reports `authorizes_rollout: false` while guest egress is unavailable. Neither
 the global routing flag nor passing fixture suites overrides those gates.
+
+## Merge, deployment and production observation
+
+The user authorized merging, deployment and production monitoring once the release
+gates pass. Another generic deployment approval is not required. This authorization
+does not turn an incomplete connectivity or data-compatibility check into a pass.
+
+The platform's `.github/workflows/landing.yml` deploys successful pushes to `main`;
+merging and pushing there is a production action. Runtime's
+`.github/workflows/deploy-project-x.yml` deploys pushes to `deploy/project-x`,
+independently of its CI workflow. Do not assume the runtime deployment trigger
+waits for all tests. Use the exact revisions and image digests that passed the
+required workflows and record both repositories' deployed identities.
+
+Deployment order, after acceptance:
+
+1. Record the running revisions, service configuration references, current fleet
+   identity, active tasks, traffic/error/latency baseline and verified backup
+   locations. Keep secrets and signed preview capabilities out of evidence.
+2. Install the reviewed shared capture image and manager with its final Node path,
+   socket permissions, address exclusions and measured capacity. Verify liveness,
+   idle readiness and a complete capture through the platform client/broker
+   before publishing callers that require it. Keep the previous platform release
+   available for application rollback.
+3. Deploy the reviewed Cube worker/templates/relay and runtime with new admission
+   still controlled. Verify the actual HTTPS, model, bridge, dependency and
+   isolation paths against these exact artifacts. Recheck readiness after restart.
+4. Freeze project creation and task submissions, drain active work, acquire the
+   offline maintenance fence and regenerate the entire fleet plan. Resolve every
+   project and published-snapshot blocker; execute journaled migration with the
+   reviewed fleet identity and per-project manifests. Preserve source data and
+   recovery archives. The acceptance scope is the whole fleet, not a passing
+   subset. Follow the migration runbook's recovery path for interrupted phases.
+5. Deploy the reviewed platform revision and enable global admission only after
+   the complete migration and service dependencies have passed. Verify all
+   expected projects, provider bindings and published snapshot identities against
+   the frozen inventory before reopening normal traffic.
+
+Production tests must use a dedicated operator-owned test project for mutations,
+with ordinary authenticated and unauthenticated browser sessions. Exercise new
+frontend and backend creation, files and secrets, real AI streaming and billing,
+cancel/retry, API and WebSocket previews, stop/resume, publish, old and new remix
+links, owner/public/unlisted/private access and screenshots from both Chat and
+sandbox agents. Inspect existing fleet health and identifiers without editing
+users' applications. Record expected and observed results; HTTPS200 alone is not
+application acceptance. Remove only the test resources after checking billing and
+publication cleanup, and regenerate the post-test inventory accordingly.
+
+Observe actively for at least 15 minutes after traffic reopens and repeat checks
+at one hour. Record platform/runtime/worker restarts and errors, failed or stuck
+AI tasks, inference accounting, preview failures, create/wake/remix/publish and
+capture queue latency, capture ready/warming/failed counts, CPU, memory and disk
+growth. Compare latency with the measured baseline and the pre-agreed sustained
+rate/burst targets; warm-only screenshots cannot establish acceptance. Do not
+report the one-hour check as completed before it runs, or imply background
+monitoring is installed merely because a terminal observation completed.
+
+Any owner-boundary failure, missing data, incorrect billing or unrecoverable
+provider binding stops admission immediately. Stop and investigate sustained
+application errors, repeated crashes, exhausted disk or accepted capture jobs
+failing; a busy capture pool alone is not a restart trigger. Platform code rollback
+uses the recorded previous revision. Project rollback uses verified reverse-copy
+and the durable migration journal, including current app configuration; changing
+the global flag or replaying a stale database backup is not data-safe rollback.
+Retire source containers only after post-deployment acceptance and the documented
+retention period, using the identity-checked retirement command.
