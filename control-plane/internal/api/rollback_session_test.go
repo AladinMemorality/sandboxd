@@ -26,7 +26,9 @@ func TestRollbackForcesFreshSessionAtLegacyRuntimeBoundary(t *testing.T) {
 	id := newULID()
 	s.Loopback = loopback.New()
 	shortRoot, err := os.MkdirTemp("", "rollback-")
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() { os.RemoveAll(shortRoot) })
 	s.Loopback.Root = shortRoot
 	must := func(err error) {

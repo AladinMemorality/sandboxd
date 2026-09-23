@@ -190,11 +190,13 @@ is not sufficient to enable Internet access or claim deployed isolation.
    preview capabilities remain valid up to five minutes after platform access
    is revoked. The public viewer rechecks permission while open.
 5. Complete existing-project compatibility before fleet transfer. The CLI now
-   quiesces writes, verifies private app/history archives and config, atomically
-   switches provider, and reverse-copies new data before rollback. Production
-   inventory found55projects with additional owner-home material requiring
-   explicit handling, plus oversized files. Changed runtime configuration blocks
-   rollback until Docker recreation can apply it safely. No production data moved.
+   quiesces writes, verifies private app/home/history archives and config,
+   atomically switches provider, and reverse-copies new data before rollback.
+   File-backed transport handles larger archives; changed configuration uses a
+   retained stopped source plus guarded Docker recreation. The current inventory
+   contains56projects, each requiring a reviewed home manifest and preset mapping,
+   template/disk-capacity checks and application acceptance. See the
+   [migration runbook](cube-existing-project-migration.md). No production data moved.
 6. Validate representative project sizes, simultaneous wake/publish/remix load,
    admission quotas, backups/restores, snapshot growth, worker loss and upgrade
    recovery. One pilot creation failed with retained test guests; cleanup resolved

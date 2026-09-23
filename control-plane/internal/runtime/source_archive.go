@@ -30,15 +30,20 @@ func PublishedSourcePath(name string) bool {
 		}
 	}
 	base := strings.ToLower(path.Base(name))
- ext := strings.ToLower(path.Ext(name))
- // Authentication/session modules are source code, not automatically runtime
- // state. Keep the same JSON/data exclusions and explicit secret-file names.
- authModule := false
- switch ext { case ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go", ".rb", ".rs", ".php": authModule=true }
+	ext := strings.ToLower(path.Ext(name))
+	// Authentication/session modules are source code, not automatically runtime
+	// state. Keep the same JSON/data exclusions and explicit secret-file names.
+	authModule := false
+	switch ext {
+	case ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go", ".rb", ".rs", ".php":
+		authModule = true
+	}
 	for _, prefix := range []string{"credentials.", "secrets.", "secret.", "tokens.", "token.", "auth.", "session.", "sessions.", "bench-state.", "runtime-state."} {
 		if strings.HasPrefix(base, prefix) {
- if authModule && (prefix=="auth." || prefix=="session." || prefix=="sessions.") { continue }
- return false
+			if authModule && (prefix == "auth." || prefix == "session." || prefix == "sessions.") {
+				continue
+			}
+			return false
 		}
 	}
 	if base == "state.json" || base == "database.json" || base == "users.json" {

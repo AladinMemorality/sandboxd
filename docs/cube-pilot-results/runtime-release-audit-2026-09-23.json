@@ -1,0 +1,77 @@
+{
+  "observed_at": "2026-09-23",
+  "scope": "runtime branch release audit with Cube disabled; read-only production inspection",
+  "tested_source": "b32e7a1 plus gofmt-only fixes in this commit",
+  "checks": {
+    "gofmt": "passed",
+    "go_vet_all": "passed",
+    "go_build_all": "passed",
+    "go_test_all": "passed",
+    "test_environment": "isolated golang:1.22-bookworm container limited to 2 CPU and 2 GiB",
+    "staging_correction": "uploaded image/templates fixtures needed by agentprompt and preset tests; final full suite passed",
+    "native_docker_regression": "earlier isolated changed-config recreation fixture passed in 48.82s; no new full e2e run"
+  },
+  "github_ci_still_required": [
+    "amd64 Docker image and lifecycle e2e",
+    "arm64 Docker image and lifecycle e2e",
+    "console typecheck/unit/build/image",
+    "Linux and macOS installer smoke"
+  ],
+  "production": {
+    "checkout_revision": "d913a6ffdeac20850ddd88c7ed17685d89007557",
+    "checkout_state": "detached; no tracked changes",
+    "control_plane_container": "src-sandboxd-1",
+    "control_plane_image_tag": "sandboxd-control-plane:0.3.0",
+    "control_plane_image_id": "sha256:ab4587aa89cfea2889b9d0188b6b59644f3be73c4778efa663d21c334336cc3f",
+    "started_at": "2026-09-13T13:42:46.680309513Z",
+    "schema_version": 23,
+    "sandbox_count": 56,
+    "active_tasks": 0,
+    "cube_sandboxes": 0,
+    "cube_runtime_bindings": 0,
+    "app_runtime_rows": 0,
+    "migration_journals": 0,
+    "cube_configuration": "flags/API credential unset; empty app allowlist"
+  },
+  "deployment": {
+    "pr_base": "AladinMemorality/sandboxd:deploy/project-x",
+    "trigger": "push deploy/project-x triggers deploy independently of ci",
+    "script": "/opt/sandboxd/deploy.sh",
+    "checkout": "/opt/sandboxd/src",
+    "steps": [
+      "forced detached checkout",
+      "rebuild mutable base/control-plane image tags",
+      "docker compose up -d",
+      "host isolation script (failure logs warning)",
+      "authenticated /v1/agents smoke check"
+    ],
+    "cube_disabled": "current Compose passes no SANDBOXD_CUBE_* environment keys; enabling Cube later requires reviewed configuration wiring"
+  },
+  "rollback": {
+    "docker_only": "migrations24-31 are additive; old migration loader ignores newer applied IDs, so Docker-only schema compatibility is supported by code review, not a legacy-binary live rollback trial",
+    "required": [
+      "retain current image digests before rebuilding mutable tags",
+      "keep current database after new writes; do not restore stale DB backup",
+      "never start legacy daemon after Cube state or migration journals exist",
+      "verify host isolation and API/application health explicitly after deployment"
+    ]
+  },
+  "fleet_candidate_review": {
+    "projects": 56,
+    "preliminary_transport_eligible": 48,
+    "home_link_policy_blockers": 8,
+    "native_tool_abi_application_checks": 4,
+    "native_tool_projects_overlapping_link_blockers": 3,
+    "legacy_preset_proposals_requiring_review": 9,
+    "published_snapshots": 30,
+    "reviewed_template_mapping": "intentionally absent; fleet plan blocks every project and snapshot until provided",
+    "still_required": [
+      "offline hardlink ownership/export checksum proof",
+      "guest disk budget and archive roundtrip",
+      "reviewed presets and home manifests",
+      "fresh trusted templates",
+      "application acceptance and stable UI flows"
+    ]
+  },
+  "production_changes": "none"
+}

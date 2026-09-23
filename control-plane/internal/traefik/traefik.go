@@ -33,8 +33,9 @@ import (
 // white-label with no redirect routers at all.
 //
 // The value is a URL prefix; the sandbox id is appended:
-//   SANDBOXD_PREVIEW_LANDING=http://localhost:3100/p/s
-//   → http://localhost:3100/p/s/<sandbox-id>
+//
+//	SANDBOXD_PREVIEW_LANDING=http://localhost:3100/p/s
+//	→ http://localhost:3100/p/s/<sandbox-id>
 var landingURL = os.Getenv("SANDBOXD_PREVIEW_LANDING")
 
 // Labels returns the slice of "key=value" label strings for a
