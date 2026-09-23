@@ -12,8 +12,9 @@ import (
 
 func (a *app) workspaceFence(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		history := r.URL.Path == "/export/private-task-history" || r.URL.Path == "/import/private-task-history"
-		control := history || strings.HasPrefix(r.URL.Path, "/workspace/") || (r.URL.Path == "/import/private-workspace" || r.URL.Path == "/import/git-workspace") || r.URL.Path == "/export/private-workspace" || r.URL.Path == "/import/source"
+		history := r.URL.Path == "/export/private-task-history" || r.URL.Path == "/import/private-task-history" || r.URL.Path == "/export/private-home" || r.URL.Path == "/import/private-home"
+		streaming := r.URL.Path == "/export/private-workspace-v2" || r.URL.Path == "/import/private-workspace-v2"
+		control := history || streaming || strings.HasPrefix(r.URL.Path, "/workspace/") || (r.URL.Path == "/import/private-workspace" || r.URL.Path == "/import/git-workspace") || r.URL.Path == "/export/private-workspace" || r.URL.Path == "/import/source"
 		if !control && r.Method != http.MethodGet && r.Method != http.MethodHead {
 			a.workspaceMu.RLock()
 			defer a.workspaceMu.RUnlock()
@@ -21,7 +22,7 @@ func (a *app) workspaceFence(next http.Handler) http.Handler {
 		a.taskMu.Lock()
 		paused := a.workspaceQuiesced
 		a.taskMu.Unlock()
-		if paused && !history && r.Method != "GET" && r.URL.Path != "/workspace/resume" && r.URL.Path != "/workspace/quiesce" && r.URL.Path != "/import/private-workspace" && r.URL.Path != "/import/git-workspace" && r.URL.Path != "/config" {
+		if paused && !history && !streaming && r.Method != "GET" && r.URL.Path != "/workspace/resume" && r.URL.Path != "/workspace/quiesce" && r.URL.Path != "/import/private-workspace" && r.URL.Path != "/import/git-workspace" && r.URL.Path != "/config" {
 			http.Error(w, "workspace is quiesced for migration", 409)
 			return
 		}

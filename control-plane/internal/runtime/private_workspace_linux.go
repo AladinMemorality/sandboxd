@@ -100,126 +100,9 @@ func ExportPrivateWorkspaceOwnerContext(ctx context.Context, root, ownerHome str
 	return exportPrivateWorkspace(ctx, root, links)
 }
 func exportPrivateWorkspace(ctx context.Context, root string, ownedLinks map[privateInode]uint64) ([]byte, error) {
-	dir, e := privateDirectory(root)
-	if e != nil {
-		return nil, e
-	}
-	defer dir.Close()
 	var out privateArchiveBuffer
-	z := zip.NewWriter(&out)
-	count := 0
-	var size int64
-	var walk func(*os.File, string, int) error
-	walk = func(dir *os.File, prefix string, depth int) error {
-		if depth > 32 {
-			return errors.New("workspace depth exceeds limit")
-		}
-		for {
-			names, e := dir.Readdirnames(-1)
-			sort.Strings(names)
-			if e != nil && e != io.EOF {
-				return e
-			}
-			for _, name := range names {
-				if e := ctx.Err(); e != nil {
-					return e
-				}
-				full := path.Join(prefix, name)
-				if !ValidArchivePath(full) {
-					return errors.New("invalid workspace path")
-				}
-				count++
-				if count > MaxPrivateWorkspaceEntries {
-					return errors.New("workspace entry limit")
-				}
-				var st unix.Stat_t
-				if e := unix.Fstatat(int(dir.Fd()), name, &st, unix.AT_SYMLINK_NOFOLLOW); e != nil {
-					return e
-				}
-				h := &zip.FileHeader{Name: full, Method: zip.Deflate}
-				h.SetMode(os.FileMode(st.Mode & 0777))
-				var content []byte
-				switch st.Mode & unix.S_IFMT {
-				case unix.S_IFDIR:
-					h.Name += "/"
-					h.SetMode(os.ModeDir | os.FileMode(st.Mode&0777))
-					if _, e := z.CreateHeader(h); e != nil {
-						return e
-					}
-					child, e := privateChild(dir, name, true)
-					if e != nil {
-						return e
-					}
-					e = walk(child, full, depth+1)
-					child.Close()
-					if e != nil {
-						return e
-					}
-					continue
-				case unix.S_IFLNK:
-					buf := make([]byte, 4097)
-					n, e := unix.Readlinkat(int(dir.Fd()), name, buf)
-					if e != nil {
-						return e
-					}
-					if n > 4096 || !privateLink(full, string(buf[:n])) {
-						return errors.New("workspace symlink escapes root")
-					}
-					content = buf[:n]
-					h.SetMode(os.ModeSymlink | 0777)
-				case unix.S_IFREG:
-					f, e := privateChild(dir, name, false)
-					if e != nil {
-						return e
-					}
-					var actual unix.Stat_t
-					e = unix.Fstat(int(f.Fd()), &actual)
-					if e != nil || actual.Mode&unix.S_IFMT != unix.S_IFREG || actual.Size > MaxPrivateWorkspaceFileBytes {
-						f.Close()
-						return errors.New("invalid, linked, or oversized workspace file")
-					}
-					if actual.Nlink != 1 && (actual.Uid != 1000 || ownedLinks[privateInode{uint64(actual.Dev), actual.Ino}] != uint64(actual.Nlink)) {
-						f.Close()
-						return errPrivateWorkspaceHardlink
-					}
-					content, e = io.ReadAll(io.LimitReader(f, MaxPrivateWorkspaceFileBytes+1))
-					f.Close()
-					if e != nil {
-						return e
-					}
-					if len(content) > MaxPrivateWorkspaceFileBytes {
-						return errors.New("workspace file limit")
-					}
-				default:
-					return errors.New("workspace contains special file")
-				}
-				size += int64(len(content))
-				if size > MaxPrivateWorkspaceExpandedBytes {
-					return errors.New("expanded workspace limit")
-				}
-				w, e := z.CreateHeader(h)
-				if e != nil {
-					return e
-				}
-				if _, e = w.Write(content); e != nil {
-					return e
-				}
-				if out.Len() > MaxPrivateWorkspaceBytes {
-					return errors.New("compressed workspace limit")
-				}
-			}
-			break
-		}
-		return nil
-	}
-	if e = walk(dir, "", 0); e != nil {
-		return nil, e
-	}
-	if e = z.Close(); e != nil {
-		return nil, e
-	}
-	if out.Len() > MaxPrivateWorkspaceBytes {
-		return nil, errors.New("workspace limit")
+	if err := exportPrivateWorkspaceTo(ctx, root, &out, workspaceV1Limits, func() (map[privateInode]uint64, error) { return ownedLinks, nil }); err != nil {
+		return nil, err
 	}
 	return out.Bytes(), nil
 }
@@ -229,14 +112,20 @@ func ValidatePrivateWorkspaceArchive(data []byte) error {
 	return e
 }
 func privateWorkspaceEntries(data []byte) ([]*zip.File, error) {
-	if len(data) > MaxPrivateWorkspaceBytes {
+	return privateWorkspaceReader(bytes.NewReader(data), int64(len(data)), workspaceV1Limits)
+}
+func privateWorkspaceReader(reader io.ReaderAt, archiveBytes int64, limits workspaceArchiveLimits) ([]*zip.File, error) {
+	if archiveBytes < 0 || archiveBytes > limits.compressed {
 		return nil, errors.New("workspace archive limit")
 	}
-	z, e := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err := ValidatePrivateArchiveIndex(reader, archiveBytes, limits.entries); err != nil {
+		return nil, err
+	}
+	z, e := zip.NewReader(reader, archiveBytes)
 	if e != nil {
 		return nil, e
 	}
-	if len(z.File) > MaxPrivateWorkspaceEntries {
+	if len(z.File) > limits.entries {
 		return nil, errors.New("workspace entry limit")
 	}
 	seen := map[string]os.FileMode{}
@@ -254,9 +143,12 @@ func privateWorkspaceEntries(data []byte) ([]*zip.File, error) {
 			return nil, errors.New("special workspace entry")
 		}
 		seen[name] = mode
-		size += f.UncompressedSize64
-		if size > MaxPrivateWorkspaceExpandedBytes || f.UncompressedSize64 > MaxPrivateWorkspaceFileBytes {
+		if f.UncompressedSize64 > uint64(limits.expanded)-size || f.UncompressedSize64 > uint64(limits.file) {
 			return nil, errors.New("expanded workspace limit")
+		}
+		size += f.UncompressedSize64
+		if mode.IsDir() && f.UncompressedSize64 != 0 {
+			return nil, errors.New("nonempty workspace directory entry")
 		}
 	}
 	for _, f := range z.File {
@@ -273,7 +165,7 @@ func privateWorkspaceEntries(data []byte) ([]*zip.File, error) {
 		if e != nil {
 			return nil, e
 		}
-		n, e := io.Copy(io.Discard, io.LimitReader(r, MaxPrivateWorkspaceFileBytes+1))
+		n, e := io.Copy(io.Discard, io.LimitReader(r, limits.file+1))
 		r.Close()
 		if e != nil || uint64(n) != f.UncompressedSize64 {
 			return nil, errors.New("invalid workspace content")
@@ -304,6 +196,9 @@ func InstallPrivateWorkspacePrepared(root string, data []byte, prepare func(stri
 	if e != nil {
 		return e
 	}
+	return installPrivateWorkspaceEntries(context.Background(), root, files, prepare)
+}
+func installPrivateWorkspaceEntries(ctx context.Context, root string, files []*zip.File, prepare func(string) error) error {
 	parent, e := privateDirectory(filepath.Dir(root))
 	if e != nil {
 		return e
@@ -322,6 +217,9 @@ func InstallPrivateWorkspacePrepared(root string, data []byte, prepare func(stri
 	// Directories/files first, symlinks last. Validation prohibits any archive
 	// entry beneath a symlink; extraction never follows an archive-provided link.
 	for _, f := range files {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if f.Mode()&os.ModeSymlink != 0 {
 			continue
 		}
@@ -344,8 +242,11 @@ func InstallPrivateWorkspacePrepared(root string, data []byte, prepare func(stri
 			r.Close()
 			return e
 		}
-		_, e = io.Copy(w, r)
+		_, e = io.Copy(w, workspaceContextReader{ctx: ctx, reader: r})
 		r.Close()
+		if e == nil {
+			e = w.Chmod(f.Mode().Perm())
+		}
 		if e == nil {
 			e = w.Sync()
 		}
@@ -358,6 +259,9 @@ func InstallPrivateWorkspacePrepared(root string, data []byte, prepare func(stri
 		}
 	}
 	for _, f := range files {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
 		if f.Mode()&os.ModeSymlink == 0 {
 			continue
 		}
@@ -394,6 +298,9 @@ func InstallPrivateWorkspacePrepared(root string, data []byte, prepare func(stri
 	if e = syncPrivateTree(staged); e != nil {
 		return e
 	}
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if e = unix.Renameat2(int(parent.Fd()), filepath.Base(staged), int(parent.Fd()), filepath.Base(root), unix.RENAME_EXCHANGE); e != nil {
 		return e
 	}
@@ -424,6 +331,9 @@ func PrivateWorkspaceDigest(data []byte) (string, error) {
 	if e != nil {
 		return "", e
 	}
+	return privateWorkspaceDigestEntries(files)
+}
+func privateWorkspaceDigestEntries(files []*zip.File) (string, error) {
 	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
 	h := sha256.New()
 	for _, f := range files {
@@ -466,25 +376,30 @@ func syncPrivateTree(root string) error {
 		if depth > 32 {
 			return errors.New("workspace directory depth limit")
 		}
-		names, e := dir.Readdirnames(-1)
-		if e != nil {
-			return e
-		}
-		for _, name := range names {
-			var st unix.Stat_t
-			if e = unix.Fstatat(int(dir.Fd()), name, &st, unix.AT_SYMLINK_NOFOLLOW); e != nil {
-				return e
+		for {
+			names, readErr := dir.Readdirnames(128)
+			if readErr != nil && readErr != io.EOF {
+				return readErr
 			}
-			if st.Mode&unix.S_IFMT == unix.S_IFDIR {
-				child, e := privateChild(dir, name, true)
-				if e != nil {
+			for _, name := range names {
+				var st unix.Stat_t
+				if e = unix.Fstatat(int(dir.Fd()), name, &st, unix.AT_SYMLINK_NOFOLLOW); e != nil {
 					return e
 				}
-				e = syncDir(child, depth+1)
-				child.Close()
-				if e != nil {
-					return e
+				if st.Mode&unix.S_IFMT == unix.S_IFDIR {
+					child, e := privateChild(dir, name, true)
+					if e != nil {
+						return e
+					}
+					e = syncDir(child, depth+1)
+					child.Close()
+					if e != nil {
+						return e
+					}
 				}
+			}
+			if readErr == io.EOF {
+				break
 			}
 		}
 		return dir.Sync()
@@ -501,9 +416,9 @@ func inventoryOwnerLinks(ctx context.Context, root string) (map[privateInode]uin
 		return nil, e
 	}
 	defer dir.Close()
-	var rootStat unix.Stat_t
-	if e = unix.Fstat(int(dir.Fd()), &rootStat); e != nil {
-		return nil, e
+	var rootStat unix.Statx_t
+	if e = unix.Statx(int(dir.Fd()), "", unix.AT_EMPTY_PATH, unix.STATX_MNT_ID, &rootStat); e != nil || rootStat.Mask&unix.STATX_MNT_ID == 0 {
+		return nil, errors.New("owner mount identity unavailable")
 	}
 	links := map[privateInode]uint64{}
 	entries := 0
@@ -512,40 +427,46 @@ func inventoryOwnerLinks(ctx context.Context, root string) (map[privateInode]uin
 		if depth > 64 {
 			return errors.New("owner home depth limit")
 		}
-		names, e := dir.Readdirnames(-1)
-		if e != nil {
-			return e
-		}
-		for _, name := range names {
-			if e = ctx.Err(); e != nil {
-				return e
+		for {
+			names, readErr := dir.Readdirnames(128)
+			if readErr != nil && readErr != io.EOF {
+				return readErr
 			}
-			entries++
-			if entries > 1000000 {
-				return errors.New("owner home inventory limit")
-			}
-			var st unix.Stat_t
-			if e = unix.Fstatat(int(dir.Fd()), name, &st, unix.AT_SYMLINK_NOFOLLOW); e != nil {
-				return e
-			}
-			if st.Dev != rootStat.Dev {
-				return errors.New("owner home crosses filesystem boundary")
-			}
-			switch st.Mode & unix.S_IFMT {
-			case unix.S_IFREG:
-				if st.Nlink > 1 && st.Uid == 1000 {
-					links[privateInode{uint64(st.Dev), st.Ino}]++
-				}
-			case unix.S_IFDIR:
-				child, e := privateChild(dir, name, true)
-				if e != nil {
+			for _, name := range names {
+				if e = ctx.Err(); e != nil {
 					return e
 				}
-				e = walk(child, depth+1)
-				child.Close()
-				if e != nil {
+				entries++
+				if entries > 1000000 {
+					return errors.New("owner home inventory limit")
+				}
+				var st unix.Stat_t
+				if e = unix.Fstatat(int(dir.Fd()), name, &st, unix.AT_SYMLINK_NOFOLLOW); e != nil {
 					return e
 				}
+				var mount unix.Statx_t
+				if e = unix.Statx(int(dir.Fd()), name, unix.AT_SYMLINK_NOFOLLOW, unix.STATX_MNT_ID, &mount); e != nil || mount.Mask&unix.STATX_MNT_ID == 0 || mount.Mnt_id != rootStat.Mnt_id {
+					return errors.New("owner home crosses mount boundary")
+				}
+				switch st.Mode & unix.S_IFMT {
+				case unix.S_IFREG:
+					if st.Nlink > 1 && st.Uid == 1000 {
+						links[privateInode{uint64(st.Dev), st.Ino}]++
+					}
+				case unix.S_IFDIR:
+					child, e := privateChild(dir, name, true)
+					if e != nil {
+						return e
+					}
+					e = walk(child, depth+1)
+					child.Close()
+					if e != nil {
+						return e
+					}
+				}
+			}
+			if readErr == io.EOF {
+				break
 			}
 		}
 		return nil
@@ -603,6 +524,9 @@ func ValidatePrivateWorkspaceInterpreters(data []byte) error {
 	if e != nil {
 		return e
 	}
+	return validatePrivateWorkspaceInterpreters(files)
+}
+func validatePrivateWorkspaceInterpreters(files []*zip.File) error {
 	for _, f := range files {
 		if f.Mode()&os.ModeSymlink == 0 {
 			continue
