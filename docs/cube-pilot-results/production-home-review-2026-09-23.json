@@ -1,0 +1,2380 @@
+{
+  "fleet_identity_sha256": "5ad04ddb743b307bde41c8f78318104d3300965efafe255343d87c893c05ad89",
+  "global_pending_checks": [
+    "freeze admission and task submissions, drain tasks, stop the control plane, then regenerate this plan offline",
+    "reject new, missing, or reassigned IDs by comparing identity_sha256 before each migration",
+    "offline task drain and exclusive maintenance fence",
+    "Docker source identity, owner mount and stopped-state verification",
+    "complete owner manifest and private archive checksums",
+    "trusted template capability and authenticated guest readiness",
+    "source archive filesystem and guest disk capacity must cover compressed spool plus expanded staging plus retained original app/home; transport limits do not guarantee free space",
+    "stable UI/preview routes and post-cutover application checks",
+    "Review and resolve each external-link target without dropping owner data or dereferencing host files",
+    "Verify exact target image Node/Python/glibc/native-module capabilities and run owner application smoke tests",
+    "Retained provider conversations/authentication state are intentionally not transported; canonical platform task history uses separate transport"
+  ],
+  "method": [
+    "SQLite mode=ro",
+    "No tenant program execution; filesystem link metadata, bounded package/manifest capability extraction, stock hashes, and native ELF headers only",
+    "Go inventory and fleet-preflight in network-none Docker with 2 CPU/2 GiB limits, all production mounts read-only",
+    "Native machine type proves architecture only; source/target ABI and behavior still require isolated guest verification"
+  ],
+  "observed_at": "2026-09-23T16:41:20.726710+00:00",
+  "private_artifacts": {
+    "candidate-home-manifests.json": "327c8af458cf10442656b78d0dc5ff029f4c8ec6bbcaebb0d1340abebd1d89fb",
+    "candidate-preset-assignments.json": "59052c16423e838556a363207930fd993515cae7cbdbacc5d58d7eca9f19055c",
+    "custom-paths-private.json": "924114120611faf5ce20a15041fb523614ef1b517e655c50722a840662ec1f50",
+    "fleet-private.json": "4b871a27e2553927749df0c846d8bad97acb1c89af9663085b6fbd0b7fe7dc6c",
+    "inventory-private.json": "6c7eb2145925e41576f668433aa537a6568ee9c8ddcdb2d719116eed835cd187",
+    "links-private.json": "b54d2299acd65e27151d60aa7c9250a13c6d3b671a953e03e2ebefdad0bff4aa",
+    "native-headers-private.json": "d930d2f5de5de8006a2938b19ab7a80f743c17d0d7bf5fc4f5f0673439739d5e",
+    "review-private.json": "1cdcdee095911a224ffb53bb01a0e2adba57a0dcd85543609376bd95665ce7f2"
+  },
+  "projects": [
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 8,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M16MV7KZSF3YNAJ1VKWKYED5",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Installed package capabilities and declared web-command family agree; no source or manifest replacement proposed",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M17DFXSNY0CDDQ8EN0TBE6G3",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 8,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1CCEP66548JX3WGK8B8HS75",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "842573a087ac1d5face82ef9c120a3b7f9594dff1aed791cd9501b46293b03bb",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1EM0G4210FQJSQ0T8F5FZ5E",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "separate": 2
+      },
+      "candidate_preset": "react-vite",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": false,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": false,
+        "vite": true
+      },
+      "package_sha256": "1ab153f0d0d2b63a9406657ef5d20643f4c90510e8455337b7aedb80bfbcf9cd",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1H8BB8B5JZHM52P4C77E3R8",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-vite",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "separate": 2
+      },
+      "candidate_preset": "react-vite",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "0c44dad75efb7b44d9a91bfc2158f9f7b168dfc5ca46da8056d59cab784abf9d",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1H8JMM1TFD6KS2DYAD0B1TT",
+      "sandbox_yaml_sha256": "d6eb56d3ebb37d8cdada134369f2e416d199d95585cff17cb566ed2ae807135b",
+      "source_preset": "react-vite",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "separate": 2
+      },
+      "candidate_preset": "react-vite",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "e47ee3dc42aa1f050eb412b263b6fc120cd2b15c4248036db4a4306debca0991",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1H98JF608M3R9HBPAQRV29B",
+      "sandbox_yaml_sha256": "d6eb56d3ebb37d8cdada134369f2e416d199d95585cff17cb566ed2ae807135b",
+      "source_preset": "react-vite",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "separate": 2
+      },
+      "candidate_preset": "react-vite",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "ca16b0a7284d26c924d00e817a44308a008fbbee50c24158f780014433ba5391",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1H9XZ4D7B8X3G5A9JKPBSYN",
+      "sandbox_yaml_sha256": "d6eb56d3ebb37d8cdada134369f2e416d199d95585cff17cb566ed2ae807135b",
+      "source_preset": "react-vite",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "separate": 2
+      },
+      "candidate_preset": "react-vite",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "a102e2d1ab8b1797c65ffa6457486017bb98138e977ce7b9f24da6c09d71dce7",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1HH34KHGPFSPKT3ATC87E93",
+      "sandbox_yaml_sha256": "d6eb56d3ebb37d8cdada134369f2e416d199d95585cff17cb566ed2ae807135b",
+      "source_preset": "react-vite",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "separate": 2
+      },
+      "candidate_preset": "react-vite",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "f0e20c66f9a010b8de40e6b8e0349ea2f8fcf8214b1605e5a9ebd459c5512397",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1HH5DT8FVCP5TNRESEDJBH6",
+      "sandbox_yaml_sha256": "d6eb56d3ebb37d8cdada134369f2e416d199d95585cff17cb566ed2ae807135b",
+      "source_preset": "react-vite",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "separate": 2
+      },
+      "candidate_preset": "react-vite",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "ae160ef19254b6836a5816813009353b29c924fae9fcd28cdba5bf5b9ada7a68",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1HH74TCHSB8JX4MP456KN2N",
+      "sandbox_yaml_sha256": "d6eb56d3ebb37d8cdada134369f2e416d199d95585cff17cb566ed2ae807135b",
+      "source_preset": "react-vite",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 3,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 13,
+        "retained": 3,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 237,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {
+        "os_configuration_or_library_reference": 28
+      },
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": false,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [
+        "unsupported_home_symlink",
+        "native_tool_abi_not_verified"
+      ],
+      "sandbox_id": "01M1HJ4EXF1GS6GE3BS9G3ANF3",
+      "sandbox_yaml_sha256": "7c8297678b4fa2efbd8d3b9d4818f615ac59031abbf87d2c640f0af16d796207",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": true,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1J9BBCYC9F12M8B9XHHWG0T",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "f0e20c66f9a010b8de40e6b8e0349ea2f8fcf8214b1605e5a9ebd459c5512397",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Installed package capabilities and declared web-command family agree; no source or manifest replacement proposed",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1JA324F44MNCRES2D5SF8Z8",
+      "sandbox_yaml_sha256": "d6eb56d3ebb37d8cdada134369f2e416d199d95585cff17cb566ed2ae807135b",
+      "source_preset": "",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 1,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1KQNEWZYRSC3KBWMWE8ET5H",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1KT9XSMXJGZ2S60RFX8J2J8",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1PMEMRS1HGSD1FTK51VGQ17",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 8,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1PPQSKJM2A0MQN5JJWM81WZ",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 1,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "8d0d5e3a6b73c095dda372aa90a202cd012ec138a949df3f71de16e00beac900",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1Q864EHTKVK8PAPYCPVK44W",
+      "sandbox_yaml_sha256": "a3b697d2bd130266240d036ec6bc68fc483eda8feada89aade3275c7340f3d4d",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "440576ae9b002eeb9ae4069004af9f0d81effcce212d9099d81245304572486a",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1QJTG1ZSXMSGKKNPX0P71K2",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "dce48ced744d63112c679000455158add8dff15b6a6c0d10978597cfa7e9d134",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1QJX33ZHQVX4RH0HCZP40MB",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 4,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 13,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 13,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {
+        "temporary_directory_reference": 1
+      },
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": false,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [
+        "unsupported_home_symlink",
+        "native_tool_abi_not_verified"
+      ],
+      "sandbox_id": "01M1RVEEX30YK93FEHN50FZXT0",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "f0e20c66f9a010b8de40e6b8e0349ea2f8fcf8214b1605e5a9ebd459c5512397",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Installed package capabilities and declared web-command family agree; no source or manifest replacement proposed",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1VP2K06RKG442R9ZEGYDB0D",
+      "sandbox_yaml_sha256": "d6eb56d3ebb37d8cdada134369f2e416d199d95585cff17cb566ed2ae807135b",
+      "source_preset": "",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "dce48ced744d63112c679000455158add8dff15b6a6c0d10978597cfa7e9d134",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1VS46719VYZ9DG302ETWTFW",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 1,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "8d0d5e3a6b73c095dda372aa90a202cd012ec138a949df3f71de16e00beac900",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Installed package capabilities and declared web-command family agree; no source or manifest replacement proposed",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1XF6PYNAR67S21WRQ89781G",
+      "sandbox_yaml_sha256": "a3b697d2bd130266240d036ec6bc68fc483eda8feada89aade3275c7340f3d4d",
+      "source_preset": "",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M1XFEHGCQ2HV5NNJBXNQK3WE",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M207490J92AWVN2R0AMCKDDS",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "separate": 2
+      },
+      "candidate_preset": "react-vite",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": false,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": false,
+        "vite": true
+      },
+      "package_sha256": "27f136288cc286f75bb2bb8a511a63d9ea04ad397347d90c6b24f36207d17d9d",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M211R5GCN4MAPYKDP8CRMMGH",
+      "sandbox_yaml_sha256": "0a2dbf5fe51700eef0bd15eb88f45ad37c2e883e32453bcd11db2e6b920fd095",
+      "source_preset": "react-vite",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "77a7d2c5769e1ddbb93b0ab06262fc3e4a3742a4cf9366b208d3662f23f609a2",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M236D00KGCMGYTDMR66MF31Z",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {
+        "temporary_directory_reference": 1
+      },
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": false,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [
+        "unsupported_home_symlink"
+      ],
+      "sandbox_id": "01M24DHKQQWT4APTJTBMTT40PG",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Installed package capabilities and declared web-command family agree; no source or manifest replacement proposed",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M24GEQ88YGHHH3WPC9WD9DY0",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 8,
+        "separate": 2
+      },
+      "candidate_preset": "react-vite",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": false,
+        "express": false,
+        "lucide-react": false,
+        "next": false,
+        "react": true,
+        "tailwindcss": false,
+        "vite": true
+      },
+      "package_sha256": "e0b9b7502751a68d929b2b101ec0bbff9fe5e8e141e06c9c5d18a0143fdb9728",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M28XBR5WVEB9B3XWX1CN4NEB",
+      "sandbox_yaml_sha256": "47951976fcf01657153551c59ef6494b2157e21d6bce5ea0ea0d4f05a376c206",
+      "source_preset": "react-vite",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": true,
+        "npm": true,
+        "pnpm": false,
+        "python3": false,
+        "uvicorn": false,
+        "vite": false
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 2,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 12,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-vite",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {
+        "temporary_directory_reference": 1
+      },
+      "package_capabilities": {
+        "@radix-ui/react-dialog": false,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": false,
+        "vite": true
+      },
+      "package_sha256": "134d5d5be8992e102fd4fb6339b71311351eddffff1497038f320e0e12fc9727",
+      "preliminary_go_inventory_passed": false,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [
+        "unsupported_home_symlink"
+      ],
+      "sandbox_id": "01M2AR44CA9AW2FEFA44KVEAGQ",
+      "sandbox_yaml_sha256": "6bc365e97a76a80fbeb46cc513de07e2f81375890ed840168475afbcaccea843",
+      "source_preset": "react-vite",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-vite",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {
+        "temporary_directory_reference": 1
+      },
+      "package_capabilities": {
+        "@radix-ui/react-dialog": false,
+        "express": false,
+        "lucide-react": false,
+        "next": false,
+        "react": true,
+        "tailwindcss": false,
+        "vite": true
+      },
+      "package_sha256": "80bbd8bdc8e3a86ddf8e96f0f9bda846462d500c1c7da9b495d9f81e49d8bb85",
+      "preliminary_go_inventory_passed": false,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [
+        "unsupported_home_symlink"
+      ],
+      "sandbox_id": "01M2CVJ37ND31WSFCMH1MZHH2C",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-vite",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 1,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 4,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [
+        "native_tool_abi_not_verified"
+      ],
+      "sandbox_id": "01M2E2NBZV6ZRTNNKC3JG50HJY",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "464fe55cf05227d91261cf125bf8dbf1ea2c9266b5a5c7b8a5e9c97421a422b2",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2EA1RS4R36NEBDNT0ZH37QQ",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2EAAQ1M9FZDY0F1BQPRM1CA",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "8ae9d88182daafa74a04f37729e0c7a9238cfe4e74bd88e30b676ace4e2574b9",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2FKXZHAXX9AT99YZ99VS5Z6",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2FQ7QMTYEW50GS0KPR9HK2P",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "8f6cd71b2b8f25e8b371df03ccce37341cd57d795feb299e22fba8d16dbdda35",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2FS3WRK6FVDSG7VWC8QWSZN",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2G3FXCPPH6J2B36BPQWW4NY",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 8,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2JJKKPBEN19SETC51QT34Y3",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "separate": 2
+      },
+      "candidate_preset": "react-vite",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": false,
+        "express": false,
+        "lucide-react": false,
+        "next": false,
+        "react": true,
+        "tailwindcss": false,
+        "vite": true
+      },
+      "package_sha256": "979a66d4c0b58991955e0e272e8ce5d6f86cb284f10b9e4d3128df5b18fedf4d",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2JXMTMTBA5XXYDDJY2T51C9",
+      "sandbox_yaml_sha256": "1035297d3b1d23aeb475a2c0761836e127133fb343aec3e9dc4f6f5d624e0736",
+      "source_preset": "react-vite",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": true,
+        "npm": true,
+        "pnpm": false,
+        "python3": false,
+        "uvicorn": false,
+        "vite": false
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Installed package capabilities and declared web-command family agree; no source or manifest replacement proposed",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2JY1NNJZZ05FPC6M464Q86G",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 9,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2NQ9VME1ABTN3BFPHGV1HNP",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Installed package capabilities and declared web-command family agree; no source or manifest replacement proposed",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2NR4GQEVFHC8TBJX94X499C",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "b9a50bb19d134f1a64976cac490a0dba536ecea0739c470a1a28c830f3fd6e28",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2NYBQSJW3PZ0ADETPFQJ9DE",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 2,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 11,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {
+        "python_interpreter": 1
+      },
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": false,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [
+        "unsupported_home_symlink"
+      ],
+      "sandbox_id": "01M2P0ME8C8NYPCAM0PNF1ADSK",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 2,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 12,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "node-express",
+      "custom_native_elf_files_inspected": 23,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {
+        "python_interpreter": 1,
+        "temporary_directory_reference": 1
+      },
+      "package_capabilities": {
+        "@radix-ui/react-dialog": false,
+        "express": true,
+        "lucide-react": false,
+        "next": false,
+        "react": false,
+        "tailwindcss": false,
+        "vite": false
+      },
+      "package_sha256": "68fa39925e76babf00be960ba62cef1648b7d24fee569ecc06859847806de50c",
+      "preliminary_go_inventory_passed": false,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [
+        "unsupported_home_symlink",
+        "native_tool_abi_not_verified"
+      ],
+      "sandbox_id": "01M2P1KJ8086W06ANFAV50KA93",
+      "sandbox_yaml_sha256": "89b12e0bd020c92b5fba4a3e9f68e574585aa8aa5fed03528422d5ec5fb449bb",
+      "source_preset": "node-express",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": true,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": false
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 1,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "8d0d5e3a6b73c095dda372aa90a202cd012ec138a949df3f71de16e00beac900",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Installed package capabilities and declared web-command family agree; no source or manifest replacement proposed",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2QDV0PGEJ1AAKE2MJXGK4P8",
+      "sandbox_yaml_sha256": "a3b697d2bd130266240d036ec6bc68fc483eda8feada89aade3275c7340f3d4d",
+      "source_preset": "",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 1,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "8d0d5e3a6b73c095dda372aa90a202cd012ec138a949df3f71de16e00beac900",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Installed package capabilities and declared web-command family agree; no source or manifest replacement proposed",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2QE916759XSRGJ4M8Z29Z2S",
+      "sandbox_yaml_sha256": "a3b697d2bd130266240d036ec6bc68fc483eda8feada89aade3275c7340f3d4d",
+      "source_preset": "",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 8,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "nextjs",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": false,
+        "express": false,
+        "lucide-react": false,
+        "next": true,
+        "react": true,
+        "tailwindcss": false,
+        "vite": false
+      },
+      "package_sha256": "a15856fdda6e70a739ec0fac9a0345ebddb5deac8cfcc982101f24929ba76739",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2QMWHFV91J7PV5HG3TRTZRK",
+      "sandbox_yaml_sha256": "e33de254df952f7d191c46fe1b6c21cafca125e5867769179564c4b573e5a0e6",
+      "source_preset": "nextjs",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": true,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": false
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 8,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2QR4FCP4VR4G6367E4A8JN4",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 8,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2RCQAZ5XA0KRWA72VPGFT1N",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 10,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {},
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": true,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [],
+      "sandbox_id": "01M2SWKJ77VE69QXM9ZFA33E0B",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    },
+    {
+      "additional_preserved_owner_roots": 0,
+      "all_three_stock_defaults_match": true,
+      "candidate_manifest_dispositions": {
+        "preserve": 8,
+        "retained": 2,
+        "separate": 2
+      },
+      "candidate_preset": "react-pro",
+      "custom_native_elf_files_inspected": 0,
+      "declared_ports": [
+        3000
+      ],
+      "home_links_requiring_adapter": {
+        "python_interpreter": 1
+      },
+      "package_capabilities": {
+        "@radix-ui/react-dialog": true,
+        "express": false,
+        "lucide-react": true,
+        "next": false,
+        "react": true,
+        "tailwindcss": true,
+        "vite": true
+      },
+      "package_sha256": "05ec85af31433786a7be9b939bf32313ca97f12482ccfd34b8596f941418a404",
+      "preliminary_go_inventory_passed": false,
+      "preset_evidence": "Existing durable project preset retained",
+      "remaining_project_specific_checks": [
+        "unsupported_home_symlink"
+      ],
+      "sandbox_id": "01M36Y40QAN8DKB0GJHWR6W5Y1",
+      "sandbox_yaml_sha256": "5c7512a2fa4ed78e67b7344acd54b09fedeb7efb099808403d0898271008e066",
+      "source_preset": "react-pro",
+      "web_command_capabilities": {
+        "bun": false,
+        "next": false,
+        "node": false,
+        "npm": false,
+        "pnpm": true,
+        "python3": false,
+        "uvicorn": false,
+        "vite": true
+      }
+    }
+  ],
+  "scope": "Read-only production compatibility review; candidate assignments only. No production DB, files, services, containers or provider bindings changed.",
+  "summary": {
+    "apps": 56,
+    "candidate_home_manifests": 56,
+    "candidate_preset_counts": {
+      "nextjs": 1,
+      "node-express": 1,
+      "react-pro": 42,
+      "react-vite": 12
+    },
+    "home_link_blocked_projects": 8,
+    "missing_preset_candidates": 9,
+    "native_tool_projects_requiring_abi_verification": 4,
+    "preliminary_go_inventory_passed": 48,
+    "published_snapshots": 30,
+    "sandboxes": 56,
+    "stock_defaults_matched_projects": 56,
+    "unique_projects_with_concrete_link_or_abi_checks": 9,
+    "unsupported_app_symlinks": 0,
+    "unsupported_home_symlinks": 36
+  },
+  "template_status": "No target template map supplied to this review; fleet-preflight correctly reports missing reviewed template for all 56 projects and 30 snapshots. This is not a release approval."
+}
