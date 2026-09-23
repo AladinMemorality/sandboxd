@@ -16,6 +16,16 @@ import (
 )
 
 func TestCubeCreatePreservesIdentityAndPrivateCredentials(t *testing.T) {
+	for _, global := range []bool{false, true} {
+		name := "allowlist"
+		if global {
+			name = "global"
+		}
+		t.Run(name, func(t *testing.T) { testCubeCreatePreservesIdentityAndPrivateCredentials(t, global) })
+	}
+}
+
+func testCubeCreatePreservesIdentityAndPrivateCredentials(t *testing.T, global bool) {
 	s, appID := newConfigTestServer(t)
 	var sent cube.CreateRequest
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -42,7 +52,10 @@ func TestCubeCreatePreservesIdentityAndPrivateCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 	s.CubeTemplates = map[string]string{"react-vite": "tpl-safe"}
-	s.CubeApps = map[string]bool{appID: true}
+	s.CubeAllApps = global
+	if !global {
+		s.CubeApps = map[string]bool{appID: true}
+	}
 	s.CubeProxyURL = upstream.URL
 	s.CubeDomain = "trusted.cube.test"
 	req := httptest.NewRequest("POST", "/v1/apps/"+appID+"/sandbox", strings.NewReader(`{"runtime_preset":"react-vite"}`))

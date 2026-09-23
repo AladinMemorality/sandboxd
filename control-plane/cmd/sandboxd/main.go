@@ -533,7 +533,7 @@ func main() {
 		os.Exit(1)
 	}
 	server := &api.Server{
-		CubeAgentRelayOrigin: cubeConfig.relayOrigin, Cube: cubeConfig.client, CubeTemplates: cubeConfig.templates, CubeApps: cubeConfig.apps, CubeProxyURL: cubeConfig.proxyURL, CubeDomain: cubeConfig.domain,
+		CubeAgentRelayOrigin: cubeConfig.relayOrigin, Cube: cubeConfig.client, CubeTemplates: cubeConfig.templates, CubeApps: cubeConfig.apps, CubeAllApps: cubeConfig.allApps, CubeProxyURL: cubeConfig.proxyURL, CubeDomain: cubeConfig.domain,
 		Store:             st,
 		Secrets:           secretsCipher,
 		Update:            updateChecker,

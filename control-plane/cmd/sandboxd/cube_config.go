@@ -17,11 +17,13 @@ type cubeConfig struct {
 	client           *cube.Client
 	templates        map[string]string
 	apps             map[string]bool
+	allApps          bool
 	proxyURL, domain string
 }
 
-// Cube remains a per-app operator-selected pilot, never a request-body runtime
-// switch. Disabling the flag doesn't reinterpret existing Cube rows as Docker.
+// Provider selection belongs to the operator, never the request body. Global
+// mode selects Cube for new app sandboxes; it does not migrate existing rows.
+// Disabling the flag doesn't reinterpret existing Cube rows as Docker.
 func loadCubeConfig() (cubeConfig, error) {
 	var cfg cubeConfig
 	enabled := os.Getenv("SANDBOXD_CUBE_ENABLED")
@@ -30,6 +32,13 @@ func loadCubeConfig() (cubeConfig, error) {
 	}
 	if enabled != "true" {
 		return cfg, fmt.Errorf("SANDBOXD_CUBE_ENABLED must be true or false")
+	}
+	switch os.Getenv("SANDBOXD_CUBE_ROLLOUT") {
+	case "", "allowlist":
+	case "global":
+		cfg.allApps = true
+	default:
+		return cfg, fmt.Errorf("SANDBOXD_CUBE_ROLLOUT must be allowlist or global")
 	}
 	// Keep operator intent explicit and fail startup instead of silently
 	// enabling a domain allowance that can override private-address isolation.
@@ -71,7 +80,19 @@ func loadCubeConfig() (cubeConfig, error) {
 			cfg.apps[id] = true
 		}
 	}
-	if len(cfg.apps) == 0 {
+	if cfg.allApps {
+		if len(cfg.apps) != 0 {
+			return cfg, fmt.Errorf("global Cube rollout must not also specify SANDBOXD_CUBE_APP_IDS")
+		}
+		for _, p := range preset.List() {
+			if cfg.templates[p.ID] == "" {
+				return cfg, fmt.Errorf("global Cube rollout requires a reviewed template for preset %s", p.ID)
+			}
+		}
+		if cfg.relayOrigin == "" {
+			return cfg, fmt.Errorf("global Cube rollout requires the configured model relay")
+		}
+	} else if len(cfg.apps) == 0 {
 		return cfg, fmt.Errorf("SANDBOXD_CUBE_APP_IDS requires an explicit pilot app allowlist")
 	}
 	cfg.client, err = cube.New(cube.Config{APIURL: os.Getenv("SANDBOXD_CUBE_API_URL"), APIKey: os.Getenv("SANDBOXD_CUBE_API_KEY")})

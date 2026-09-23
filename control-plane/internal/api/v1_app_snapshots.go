@@ -72,7 +72,11 @@ func (s *Server) resolveReadySnapshot(w http.ResponseWriter, r *http.Request, id
 // delegating to the internal create path with template_path set. Returns
 // the inner handler's (code, body).
 func (s *Server) createAppSandboxFromSnapshot(r *http.Request, app *store.App, snap *store.Snapshot) (int, []byte) {
-	if snap.Format == cubeSourceFormat {
+	bound, err := s.Store.AppUsesCube(r.Context(), app.ID)
+	if err != nil {
+		return sourceError(503, "cannot resolve app runtime")
+	}
+	if snap.Format == cubeSourceFormat || bound || s.CubeAllApps || s.CubeApps[app.ID] {
 		return s.createCubeFromSource(r, app, snap)
 	}
 	body, _ := json.Marshal(map[string]any{
@@ -188,13 +192,16 @@ func (s *Server) v1ForkApp(w http.ResponseWriter, r *http.Request) {
 		ExternalUserID:    extUser,
 		ExternalProjectID: extProject,
 	}
-	if snap.Format == cubeSourceFormat {
-		_, preset, err := s.readCubeSource(snap)
+	var cubeArchive []byte
+	var cubePreset string
+	if snap.Format == cubeSourceFormat || s.CubeAllApps {
+		var err error
+		cubeArchive, cubePreset, err = s.readSourceForCube(r.Context(), snap)
 		if err != nil {
 			writeV1Err(w, 422, "source_artifact_invalid", "source artifact unavailable or invalid")
 			return
 		}
-		newApp.RuntimePreset = sql.NullString{String: preset, Valid: true}
+		newApp.RuntimePreset = sql.NullString{String: cubePreset, Valid: true}
 	}
 	if err := s.Store.CreateApp(r.Context(), newApp); err != nil {
 		writeV1Err(w, http.StatusInternalServerError, "internal", err.Error())
@@ -204,7 +211,13 @@ func (s *Server) v1ForkApp(w http.ResponseWriter, r *http.Request) {
 	// Spin the forked app's sandbox from the snapshot. If this fails the
 	// fork still produced a valid app with no sandbox (recoverable), so we
 	// surface the error but keep the new app.
-	code, body := s.createAppSandboxFromSnapshot(r, newApp, snap)
+	var code int
+	var body []byte
+	if cubeArchive != nil {
+		code, body = s.createCubeFromArchive(r, newApp, cubeArchive, cubePreset)
+	} else {
+		code, body = s.createAppSandboxFromSnapshot(r, newApp, snap)
+	}
 	s.auditAction(r, audit.Entry{Action: "app.fork", Target: newApp.ID,
 		Detail: map[string]any{"source_app_id": srcApp.ID, "snapshot_id": snap.ID}})
 	s.recordEvent(r, events.Event{Type: events.SnapshotForked, Severity: events.SeverityInfo,

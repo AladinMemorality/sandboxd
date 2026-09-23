@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -33,7 +34,21 @@ func publishedZip(t *testing.T, files map[string]string) []byte {
 	return b.Bytes()
 }
 func TestCubePublishForkFreshCredentialsAndNoPrivateSource(t *testing.T) {
-	s, appID := newConfigTestServer(t)
+	for _, legacy := range []bool{false, true} {
+		name := "cube-source"
+		if legacy {
+			name = "legacy-source-global"
+		}
+		t.Run(name, func(t *testing.T) { testCubePublishForkFreshCredentialsAndNoPrivateSource(t, legacy) })
+	}
+}
+
+func testCubePublishForkFreshCredentialsAndNoPrivateSource(t *testing.T, legacy bool) {
+	s, _ := newConfigTestServer(t)
+	appID := newULID()
+	if err := s.Store.CreateApp(context.Background(), &store.App{ID: appID, OwnerToken: cfgTenant, Name: "Source", RuntimePreset: sql.NullString{String: "react-vite", Valid: true}}); err != nil {
+		t.Fatal(err)
+	}
 	s.LibraryRoot = t.TempDir()
 	s.CubeTemplates = map[string]string{"react-vite": "tpl-safe"}
 	s.CubeDomain = "cube.test"
@@ -159,6 +174,28 @@ func TestCubePublishForkFreshCredentialsAndNoPrivateSource(t *testing.T) {
 	if len(z.File) != 2 {
 		t.Fatalf("unsafe artifact files %d", len(z.File))
 	}
+	if legacy {
+		s.CubeAllApps = true
+		id := newULID()
+		root := filepath.Join(s.LibraryRoot, id)
+		for name, content := range map[string]string{
+			"workspace/app/package.json": "{}", "workspace/app/src/main.ts": "published code",
+			"workspace/app/.env": "SECRET_APP", "workspace/app/data/customer.json": "SECRET_DATA",
+			".claude/auth.json": "SECRET_PROVIDER", ".runtimed/key": "SECRET_RUNTIME",
+		} {
+			p := filepath.Join(root, name)
+			if err := os.MkdirAll(filepath.Dir(p), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(p, []byte(content), 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		snap = &store.Snapshot{ID: id, Name: "Old published card", OwnerToken: cfgTenant, Status: "ready", Format: "raw", ImagePath: root, SourceAppID: sql.NullString{String: appID, Valid: true}}
+		if err := s.Store.CreateSnapshot(context.Background(), snap); err != nil {
+			t.Fatal(err)
+		}
+	}
 	r = request("POST", "/v1/apps/"+appID+"/fork", `{"snapshot_id":"`+snap.ID+`","external_user_id":"remix-user","external_project_id":"remix-project"}`, cfgTenant)
 	r.SetPathValue("id", appID)
 	out = httptest.NewRecorder()
@@ -177,6 +214,12 @@ func TestCubePublishForkFreshCredentialsAndNoPrivateSource(t *testing.T) {
 	configs, err := s.Store.ListAppConfig(context.Background(), newApp.ID)
 	if err != nil || len(configs) != 0 {
 		t.Fatal("creator config inherited")
+	}
+	if legacy {
+		original, err := s.Store.GetSnapshot(context.Background(), snap.ID)
+		if err != nil || original.Format != "raw" || original.ImagePath != snap.ImagePath {
+			t.Fatal("legacy snapshot/link was mutated")
+		}
 	}
 	r = request("POST", "/v1/apps/"+appID+"/fork", `{"snapshot_id":"`+snap.ID+`"}`, "other-tenant")
 	r.SetPathValue("id", appID)

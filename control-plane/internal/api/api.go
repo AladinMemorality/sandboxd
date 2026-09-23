@@ -42,6 +42,7 @@ type Server struct {
 	Cube                 *cube.Client
 	CubeTemplates        map[string]string
 	CubeApps             map[string]bool
+	CubeAllApps          bool // new app sandboxes only; existing providers remain durable
 	CubeProxyURL         string
 	CubeDomain           string
 

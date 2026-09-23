@@ -370,7 +370,7 @@ func (s *Server) v1CreateAppSandbox(w http.ResponseWriter, r *http.Request) {
 		writeV1Err(w, 503, "runtime_unavailable", "cannot resolve app runtime")
 		return
 	}
-	useCube = useCube || s.CubeApps[id]
+	useCube = useCube || s.CubeAllApps || s.CubeApps[id]
 	if useCube && s.Locks != nil {
 		s.Locks.Lock("cube-app:" + id)
 		defer s.Locks.Unlock("cube-app:" + id)

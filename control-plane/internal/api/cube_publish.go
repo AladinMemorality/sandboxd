@@ -146,11 +146,39 @@ func sourceError(code int, message string) (int, []byte) {
 	data, _ := json.Marshal(map[string]string{"error": message})
 	return code, data
 }
+
+// Old published cards retain their snapshot IDs. Only the frozen app subtree
+// is converted; home data, runtime identity and creator credentials never enter
+// a remix. Unknown legacy presets require operator repair, not a guessed image.
+func (s *Server) readSourceForCube(ctx context.Context, snap *store.Snapshot) ([]byte, string, error) {
+	if snap.Format == cubeSourceFormat {
+		return s.readCubeSource(snap)
+	}
+	if snap.Format != "raw" || !isULID(snap.ID) || !snap.SourceAppID.Valid || s.LibraryRoot == "" ||
+		snap.ImagePath != filepath.Join(s.LibraryRoot, snap.ID) {
+		return nil, "", errors.New("unsupported legacy source artifact")
+	}
+	app, err := s.Store.GetAppForOwner(ctx, snap.SourceAppID.String, snap.OwnerToken)
+	if err != nil {
+		return nil, "", errors.New("legacy source owner unavailable")
+	}
+	preset := app.RuntimePreset.String
+	if s.Cube == nil || preset == "" || s.CubeTemplates[preset] == "" {
+		return nil, "", errors.New("legacy source requires a reviewed Cube preset")
+	}
+	archive, err := runtime.ExportPublishedDirectory(ctx, filepath.Join(snap.ImagePath, "workspace", "app"))
+	return archive, preset, err
+}
+
 func (s *Server) createCubeFromSource(r *http.Request, app *store.App, snap *store.Snapshot) (int, []byte) {
-	archive, preset, err := s.readCubeSource(snap)
+	archive, preset, err := s.readSourceForCube(r.Context(), snap)
 	if err != nil {
 		return sourceError(422, "source artifact unavailable or invalid")
 	}
+	return s.createCubeFromArchive(r, app, archive, preset)
+}
+
+func (s *Server) createCubeFromArchive(r *http.Request, app *store.App, archive []byte, preset string) (int, []byte) {
 	code, body := s.delegate(r, func(w http.ResponseWriter, req *http.Request) {
 		s.createCubeAppSandbox(w, req, app, v1CreateAppSandboxReq{RuntimePreset: preset}, preset)
 	}, http.MethodPost, "/sandbox", nil, nil)
@@ -201,9 +229,17 @@ func (s *Server) createCubeFromSource(r *http.Request, app *store.App, snap *sto
 // contract, while fork always creates a new app and new credentials.
 func (s *Server) restoreCubeSource(w http.ResponseWriter, r *http.Request, app *store.App, snap *store.Snapshot) bool {
 	if snap.Format != cubeSourceFormat {
-		return false
+		bound, err := s.Store.AppUsesCube(r.Context(), app.ID)
+		if err != nil {
+			writeV1Err(w, 503, "runtime_unavailable", "cannot resolve app runtime")
+			return true
+		}
+		if !bound && !s.CubeAllApps && !s.CubeApps[app.ID] {
+			return false
+		}
 	}
-	if _, _, err := s.readCubeSource(snap); err != nil {
+	archive, preset, err := s.readSourceForCube(r.Context(), snap)
+	if err != nil {
 		writeV1Err(w, 422, "source_artifact_invalid", "source artifact unavailable or invalid")
 		return true
 	}
@@ -225,7 +261,7 @@ func (s *Server) restoreCubeSource(w http.ResponseWriter, r *http.Request, app *
 		writeV1Err(w, 503, "runtime_unavailable", "cannot inspect current runtime")
 		return true
 	}
-	code, body := s.createCubeFromSource(r, app, snap)
+	code, body := s.createCubeFromArchive(r, app, archive, preset)
 	if code != 201 {
 		relayV1Error(w, code, body)
 		return true

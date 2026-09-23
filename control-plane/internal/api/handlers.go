@@ -397,7 +397,7 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 503, "cannot resolve app runtime")
 			return
 		}
-		if usesCube || s.CubeApps[req.AppID] {
+		if usesCube || s.CubeAllApps || s.CubeApps[req.AppID] {
 			writeErr(w, 501, "Cube apps must use the Cube creation path")
 			return
 		}
@@ -410,6 +410,10 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 			writeErr(w, 503, "cannot resolve app runtime")
 			return
 		}
+	}
+	if s.CubeAllApps {
+		writeErr(w, 501, "global Cube creation requires the owned app creation API")
+		return
 	}
 	if req.MemoryHigh == "" {
 		req.MemoryHigh = "4G"

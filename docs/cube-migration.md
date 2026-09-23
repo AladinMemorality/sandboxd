@@ -9,6 +9,9 @@ on this branch, with their limits documented below. No production projects were 
 
 ## Implemented
 
+- Explicit global admission mode and legacy published-snapshot remix conversion;
+  see [global rollout scope and acceptance](cube-global-rollout.md). These do not
+  bypass existing-project compatibility or the deployed isolation gate.
 - Pinned Cube v0.7.1 lifecycle client; encrypted, durable runtime bindings and
   provider selection that survives VM deletion and operator allowlist changes.
 - Fresh-token template bootstrap, explicit UID/GID1000, no effective capabilities,

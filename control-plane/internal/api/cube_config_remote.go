@@ -131,7 +131,7 @@ func (s *Server) validateCubeConfigRow(ctx context.Context, appID string, row *s
 		if e != nil {
 			return e
 		}
-		if !bound && !s.CubeApps[appID] {
+		if !bound && !s.CubeAllApps && !s.CubeApps[appID] {
 			return nil
 		}
 	} else if err != nil {
