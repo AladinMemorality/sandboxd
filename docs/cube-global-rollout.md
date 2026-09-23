@@ -79,3 +79,45 @@ The shared capture service is deployed separately from guest migration. Its
 platform runbook defines the protected Unix socket, disposable prewarmed workers,
 host-address exclusions and readiness checks. Never deploy capture callers before
 the service is ready: there is deliberately no browser fallback in the platform.
+
+## Validation of the global migration branch, 2026-09-23
+
+The platform branch includes production's OpenRouter fallback and cold-model
+retry changes. Its production build passed. The complete platform test suite,
+using Node 22 with Python and a colocated disposable PostgreSQL, passed **1,117
+tests**, with **one optional GeoIP fixture skipped** and no failures. A prior run
+over an SSH database tunnel failed a two-second first-byte assertion; the same
+unchanged assertion passed with the colocated database. These are integration
+fixtures, not paid production-model or browser deployment acceptance.
+
+Runtime, supervisor, migration, store and migration CLI suites passed. Focused
+race tests cover global routing and private transfers. The new app transfer
+round-tripped a **270 MiB incompressible file/archive**, exceeding both old
+per-file and compressed-archive limits, with matching canonical checksums.
+Streaming does not allocate a whole archive or whole regular file. Limits are
+4 GiB compressed, 8 GiB expanded, 1 GiB per file, 200,000 app entries and 64 MiB
+ZIP index metadata. ZIP64, cancellation, permissions, malformed metadata,
+authentication and redirect refusal are covered. An actual disposable UID1000
+supervisor test verified authenticated export/import and the restart fence.
+
+Owner-home transfer requires the [explicit manifest](cube-migration/private-home.md).
+The [migration runbook](cube-existing-project-migration.md) describes complete
+fleet preflight, reviewed missing-preset assignments, identity digest fencing,
+home journals and changed-configuration rollback. A real Docker rollback fixture
+verified normal wake with updated app configuration and retained new files; its
+Cube side was a filesystem fixture, so it is not additional real-Cube acceptance.
+
+The shared capture load test passed 65 accepted captures and eleven functional
+fixtures. Eight prepared workers completed eight captures in **585 ms**, but a
+full refill took **14.99 seconds**. A separate single-replacement profile measured
+477 ms capture, 2.46 seconds Docker removal, 3.27 seconds Docker replacement
+startup and approximately one second Node/browser preparation. Warm latency is
+therefore insufficient evidence of sustained capacity. See the platform capture
+benchmark artifacts and [deployment readiness report](../ops/cube/production-readiness.md).
+
+No production project has been switched by this work. Outstanding release gates
+remain safe working guest egress and real model/registry/backend calls, reviewed
+manifests and templates for the entire frozen fleet, disk/backup acceptance,
+production browser/link checks and sustained load. The readiness tool deliberately
+reports `authorizes_rollout: false` while guest egress is unavailable. Neither
+the global routing flag nor passing fixture suites overrides those gates.
