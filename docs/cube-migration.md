@@ -98,6 +98,19 @@ browser/readiness changes, excludes sandbox wake, and is **not** a measurement
 of the new single-use worker pool. The companion platform service retains raw
 reports, source hashes and the reproducible harness.
 
+The central isolated service was then tested against that same complete fixture,
+using the production client, scoped network broker and Unix-socket worker pool.
+Five captures with two seconds between jobs (allowing replenishment) had a695ms
+median, versus1480ms deployed. App/pool startup and sandbox wake are excluded.
+Two immediate followups took564ms and1510ms; the latter waited for replacement,
+so695ms is not a burst-load guarantee. Each new worker had a1CPU/768MiB limit.
+
+The platform's real Chromium harness passed11 fixtures covering render/data
+readiness, gzip HTML, multiple cookies, WebSocket/SSE data, storage reset between
+jobs, unrelated private destination denial, full-page capture and connection
+cleanup. Manager singleton exclusion, SIGKILL recovery and graceful worker
+cleanup were verified on the isolated VM. Production services were unchanged.
+
 A [guest-browser experiment](cube-pilot-results/capture-v7.json) measured5649ms
 first capture,592ms warm median and2597ms after resume. That approach was removed:
 all callers now use the central capture service, and slim app guests carry no
