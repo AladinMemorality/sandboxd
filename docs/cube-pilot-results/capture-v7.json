@@ -1,0 +1,111 @@
+{
+  "template": "tpl-0eaff7ad69ba41079506b36b",
+  "checks": [
+    "capture auth and fixed-target input",
+    "real guest Chromium cover, full image and metadata",
+    "warm browser survives VM pause/resume"
+  ],
+  "timings_ms": {
+    "cold_hero": 5648.79,
+    "warm_hero_0": 679.65,
+    "warm_hero_1": 537.16,
+    "warm_hero_2": 577.01,
+    "warm_hero_3": 592.3,
+    "warm_hero_4": 965.52,
+    "warm_hero_median": 592.3,
+    "full_page": 1117.36,
+    "resume": 828.34,
+    "resumed_hero": 2596.83
+  },
+  "fixture": "prepared React app; real Chromium inside guest",
+  "capture_stages": {
+    "cold_hero": {
+      "timings_ms": {
+        "browser": 12.64,
+        "context": 1749.48,
+        "navigation": 2004.47,
+        "readiness": 749,
+        "hero": 897.55,
+        "full": 0.02
+      },
+      "ready": true
+    },
+    "warm_hero_0": {
+      "timings_ms": {
+        "browser": 0.03,
+        "context": 63.96,
+        "navigation": 134.72,
+        "readiness": 239.33,
+        "hero": 199.92,
+        "full": 0.02
+      },
+      "ready": true
+    },
+    "warm_hero_1": {
+      "timings_ms": {
+        "browser": 0.04,
+        "context": 46.98,
+        "navigation": 113.85,
+        "readiness": 241.17,
+        "hero": 112.28,
+        "full": 0
+      },
+      "ready": true
+    },
+    "warm_hero_2": {
+      "timings_ms": {
+        "browser": 0.03,
+        "context": 48.64,
+        "navigation": 151.34,
+        "readiness": 239.28,
+        "hero": 120.23,
+        "full": 0
+      },
+      "ready": true
+    },
+    "warm_hero_3": {
+      "timings_ms": {
+        "browser": 0.05,
+        "context": 51.22,
+        "navigation": 126.88,
+        "readiness": 241.09,
+        "hero": 155.39,
+        "full": 0.01
+      },
+      "ready": true
+    },
+    "warm_hero_4": {
+      "timings_ms": {
+        "browser": 0.04,
+        "context": 70.84,
+        "navigation": 495.17,
+        "readiness": 254.02,
+        "hero": 119.27,
+        "full": 0.01
+      },
+      "ready": true
+    },
+    "full_page": {
+      "timings_ms": {
+        "browser": 0.05,
+        "context": 52.71,
+        "navigation": 128.44,
+        "readiness": 249.32,
+        "hero": 204.97,
+        "full": 463.87
+      },
+      "ready": true
+    },
+    "resumed_hero": {
+      "timings_ms": {
+        "browser": 5.78,
+        "context": 667.72,
+        "navigation": 692.33,
+        "readiness": 310.01,
+        "hero": 747.07,
+        "full": 0.01
+      },
+      "ready": true
+    }
+  }
+}

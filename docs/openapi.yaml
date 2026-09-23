@@ -1200,8 +1200,7 @@ paths:
         capabilities remain valid until expiry after visibility changes.
         The browser access URL installs a host-only HttpOnly cookie and redirects
         to the clean preview URL. Third-party cookie restrictions may require
-        opening the preview in a top-level tab. The token is for server-side
-        capture and must not be included in normal sandbox responses.
+        opening the preview in a top-level tab. The token must not be included in normal sandbox responses.
       responses:
         "200":
           description: Scoped access; Cache-Control no-store

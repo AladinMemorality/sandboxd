@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/logging"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/maintenance"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
 
@@ -52,14 +53,24 @@ func runBackfillLegacy(args []string) int {
 	}
 	dataDir := envDefault("SANDBOXD_DATA_DIR", defaultDataDir)
 	workspacesRoot := filepath.Join(dataDir, "workspaces")
-	dsn := fmt.Sprintf("file:%s?_journal=WAL&_busy_timeout=5000&_fk=1",
-		envDefault("SANDBOXD_DB", filepath.Join(dataDir, "state", "sandboxd.db")))
+	database := envDefault("SANDBOXD_DB", filepath.Join(dataDir, "state", "sandboxd.db"))
+	lock, err := maintenance.Acquire(database, false)
+	if err != nil {
+		log.Error("backfill-legacy: offline maintenance is active", "err", err.Error())
+		return 1
+	}
+	defer lock.Close()
+	dsn := fmt.Sprintf("file:%s?_journal=WAL&_busy_timeout=5000&_fk=1", database)
 	st, err := store.Open(ctx, dsn, migrations)
 	if err != nil {
 		log.Error("backfill-legacy: store open failed", "err", err.Error())
 		return 1
 	}
 	defer func() { _ = st.Close() }()
+	if pending, e := st.HasIncompleteRuntimeMigrations(ctx); e != nil || pending {
+		log.Error("backfill-legacy: recover incomplete runtime migration first", "err", e)
+		return 1
+	}
 
 	// 1. sentinel external_user_id on every NULL sandbox row.
 	updated, err := st.BackfillLegacySandboxes(ctx, *sentinel)

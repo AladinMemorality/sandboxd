@@ -49,8 +49,23 @@ func (e *ResponseError) Error() string {
 }
 
 func (c *Client) bounded(ctx context.Context, method, path string, body []byte, cap int64) ([]byte, error) {
+	if c.unavailable != nil {
+		return nil, c.unavailable
+	}
 	hc := c.http
-	if method == http.MethodPut || strings.HasPrefix(path, "/export") {
+	if path == "/import/git-workspace" || path == "/import/source" || strings.Contains(path, "private-workspace") || strings.Contains(path, "private-task-history") || strings.HasPrefix(path, "/workspace/") {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 10*time.Minute)
+		defer cancel()
+		copyClient := *c.stream
+		if transport, ok := c.stream.Transport.(*http.Transport); ok {
+			clone := transport.Clone()
+			clone.ResponseHeaderTimeout = 0
+			defer clone.CloseIdleConnections()
+			copyClient.Transport = clone
+		}
+		hc = &copyClient
+	} else if method == http.MethodPut || strings.HasPrefix(path, "/export") {
 		// Transfer operations have bounded payloads and an explicit larger budget.
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, 60*time.Second)

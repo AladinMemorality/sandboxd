@@ -105,8 +105,8 @@ func (s *Server) createCubeAppSandbox(w http.ResponseWriter, r *http.Request, ap
 		writeV1Err(w, 400, "invalid_request", "runtime preset is not enabled for Cube")
 		return
 	}
-	if req.Template != "" || app.GitRepoURL.Valid {
-		writeV1Err(w, 501, "cube_operation_unsupported", "Cube Git import and custom templates are not implemented")
+	if req.Template != "" {
+		writeV1Err(w, 501, "cube_operation_unsupported", "Cube custom templates are not implemented")
 		return
 	}
 	for _, port := range req.Ports {
@@ -114,6 +114,12 @@ func (s *Server) createCubeAppSandbox(w http.ResponseWriter, r *http.Request, ap
 			writeV1Err(w, 400, "invalid_request", "Cube ports are fixed by the trusted template")
 			return
 		}
+	}
+
+	gitArchive, err := s.prepareCubeGit(r.Context(), app, preset)
+	if err != nil {
+		writeV1Err(w, 422, "git_import_failed", err.Error())
+		return
 	}
 	id := newULID()
 	tokenBytes := make([]byte, 32)
@@ -192,6 +198,17 @@ func (s *Server) createCubeAppSandbox(w http.ResponseWriter, r *http.Request, ap
 			return
 		case <-time.After(100 * time.Millisecond):
 		}
+	}
+
+	if len(gitArchive) > 0 {
+		if err = s.importCubeGit(r.Context(), id, gitArchive); err != nil {
+			persist, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			_ = s.Store.MarkError(persist, id, "Git source/dependency import failed; runtime retained")
+			writeV1Err(w, 502, "git_import_failed", "Git source/dependency import failed; runtime binding retained for recovery")
+			return
+		}
+		_ = s.Store.SetAppImported(r.Context(), app.ID, time.Now().Unix())
 	}
 	if err = s.syncCubeAppConfig(r.Context(), id); err != nil {
 		writeV1Err(w, 502, "runtime_unavailable", "Cube app config is pending; runtime binding retained")

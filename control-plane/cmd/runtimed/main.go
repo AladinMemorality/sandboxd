@@ -31,7 +31,9 @@ const version = "0.1.0"
 // probe, and the one active coding task.
 type app struct {
 	requestRestart    func()
-	restartPending    bool // guarded by taskMu
+	workspaceMu       sync.RWMutex // fences in-flight API writes before quiescence
+	workspaceQuiesced bool         // guarded by taskMu; persisted outside workspace
+	restartPending    bool         // guarded by taskMu
 	nextAppConfig     *runtime.AppConfigRequest
 	appConfigRevision string // immutable for this process lifetime
 
@@ -159,6 +161,16 @@ func main() {
 		wp := newProcess(w.Name, "worker", appDir, w.Command, filepath.Join(runtimeDir, w.Name+".log"), log)
 		wp.restartAfterTask = w.RestartAfterTask
 		a.workers = append(a.workers, wp)
+	}
+
+	if _, err := os.Stat(filepath.Join(runtimeDir, "workspace-quiesced")); err == nil {
+		a.workspaceQuiesced = true
+		if a.web != nil {
+			a.web.suspended = true
+		}
+		for _, p := range a.workers {
+			p.suspended = true
+		}
 	}
 
 	// Finalize any task interrupted by a previous stop/crash before

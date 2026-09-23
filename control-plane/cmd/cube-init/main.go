@@ -118,7 +118,7 @@ func main() {
 	exited := make(chan error, 1)
 	b := &bootstrap{start: func(vars map[string]string) error {
 		cmd := exec.CommandContext(ctx, "/usr/local/bin/runtimed")
-		cmd.Env = append(os.Environ(), "RUNTIMED_HTTP_ADDR="+vars["RUNTIMED_HTTP_ADDR"], "RUNTIMED_HTTP_TOKEN="+vars["RUNTIMED_HTTP_TOKEN"])
+		cmd.Env = append(os.Environ(), "RUNTIMED_CUBE_GUEST=1", "RUNTIMED_HTTP_ADDR="+vars["RUNTIMED_HTTP_ADDR"], "RUNTIMED_HTTP_TOKEN="+vars["RUNTIMED_HTTP_TOKEN"])
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Start(); err != nil {

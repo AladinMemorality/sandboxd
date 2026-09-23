@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -96,7 +97,12 @@ func hasPriorTask(tasksRoot, selfID string) bool {
 		return false // first task — tasksRoot doesn't exist yet
 	}
 	for _, e := range entries {
-		if e.IsDir() && e.Name() != selfID {
+		if e.IsDir() && e.Name() != selfID && !strings.HasPrefix(e.Name(), ".") {
+			// Canonical migrated history preserves UI events/checkpoints, but does
+			// not prove the provider's local conversation/session exists here.
+			if _, err := os.Lstat(filepath.Join(tasksRoot, e.Name(), runtime.ImportedTaskHistoryMarker)); err == nil {
+				continue
+			}
 			return true
 		}
 	}
@@ -150,20 +156,31 @@ func (t *task) isDone() bool {
 func (t *task) finish(res runtime.TaskResult) {
 	t.emit(runtime.EventDone, res)
 	t.mu.Lock()
-	t.done = true
-	t.phase = "done"
-	t.result = &res
+	// A task is not quiescent until its terminal history is persisted. Migration
+	// must never observe done=true while result.json is still being written.
+	if b, err := json.MarshalIndent(res, "", "  "); err == nil {
+		if scopedWrite(t.dir, "result.json", b) == nil {
+			if dir, e := openScopedRoot(t.dir); e == nil {
+				if f, e := openChild(dir, "result.json", false); e == nil {
+					_ = f.Sync()
+					_ = f.Close()
+				}
+				_ = dir.Sync()
+				_ = dir.Close()
+			}
+		}
+	}
 	if t.eventsW != nil {
+		_ = t.eventsW.Sync()
 		_ = t.eventsW.Close()
 		t.eventsW = nil
 	}
+	t.done = true
+	t.phase = "done"
+	t.result = &res
 	close(t.updatedCh)
 	t.updatedCh = make(chan struct{})
-	dir := t.dir
 	t.mu.Unlock()
-	if b, err := json.MarshalIndent(res, "", "  "); err == nil {
-		_ = os.WriteFile(filepath.Join(dir, "result.json"), b, 0o644)
-	}
 }
 
 // --- task manager (methods on app) ---------------------------------
@@ -511,7 +528,7 @@ func (a *app) handleListTasks(w http.ResponseWriter, _ *http.Request) {
 	}
 	out := []summary{}
 	for _, e := range entries {
-		if !e.IsDir() {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
 		b, err := os.ReadFile(filepath.Join(root, e.Name(), "result.json"))
@@ -643,7 +660,7 @@ func recoverInterruptedTasks(tasksRoot string, log *slog.Logger) {
 		return
 	}
 	for _, e := range entries {
-		if !e.IsDir() {
+		if !e.IsDir() || strings.HasPrefix(e.Name(), ".") {
 			continue
 		}
 		dir := filepath.Join(tasksRoot, e.Name())

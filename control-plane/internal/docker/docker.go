@@ -136,7 +136,11 @@ func (c *Client) Run(ctx context.Context, spec RunSpec) (string, error) {
 // about. Fields can be added as needed; unknown fields are ignored
 // by encoding/json.
 type ContainerJSON struct {
-	ID    string `json:"Id"`
+	ID     string `json:"Id"`
+	Mounts []struct {
+		Source      string `json:"Source"`
+		Destination string `json:"Destination"`
+	} `json:"Mounts"`
 	State struct {
 		Status    string `json:"Status"`
 		Running   bool   `json:"Running"`

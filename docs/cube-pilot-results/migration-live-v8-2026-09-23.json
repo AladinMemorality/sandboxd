@@ -1,0 +1,77 @@
+{
+  "observed_date": "2026-09-23",
+  "environment": "Marked disposable inner benchmark VM; no production project migration",
+  "result": "PASS",
+  "test": "TestLiveDockerCubeRollback",
+  "go_toolchain": "golang:1.22-bookworm; native Linux amd64 test binary with CGO_ENABLED=1; guest binaries CGO_ENABLED=0",
+  "image": {
+    "reference": "127.0.0.1:5000/cube-pilot:v8-migration",
+    "digest": "sha256:71eb5cbcf042c9cb090a39ae466df618b0633ad4d5f19d4832dc5f41487f3d9a",
+    "size_bytes": 1172838557,
+    "base": "localhost:5000/cube-pilot:v4",
+    "guest_browser_capture_removed": true
+  },
+  "template": {
+    "id": "tpl-e140ebfff39b458f8b37f95c",
+    "job_id": "9d9f6334-97ab-4eba-9626-bcd6ed0d9100",
+    "state": "READY",
+    "cpu_millicores": 1000,
+    "memory_mib": 1024,
+    "writable_layer": "5Gi",
+    "probe_port": 49983,
+    "probe_path": "/health",
+    "exposed_ports": [
+      3000,
+      3001,
+      3031
+    ],
+    "deny_egress": [
+      "0.0.0.0/0"
+    ],
+    "cube_ca_injected": false
+  },
+  "timings_ms": {
+    "offline_migration": 35204,
+    "rollback": 734,
+    "whole_test": 48140
+  },
+  "checks": [
+    "Real disposable UID1000 Docker source with private .env, .git checkpoint, owner app files and selected task artifacts",
+    "Stopped Docker source, durable migration journal and authenticated Cube guest creation",
+    "Private workspace and selected task archive transfer with canonical checksums",
+    "Successful authenticated target export on Cube overlay after strict-first hardlink proof fix",
+    "Original Git checkpoint reverted through guest runtimed API",
+    "New app data written after cutover",
+    "New task started and completed through runtimed using deterministic fake-opencode; checkpoint and terminal SSE event verified",
+    "Rollback exported current Cube workspace and both original/new task histories before provider switch",
+    "New app writes and both task histories preserved in retained Docker workspace",
+    "Stable sandbox/app association and port3000 verified after rollback",
+    "Restored Docker source served HTTP200",
+    "Successful test removed only its newly created Cube guest, Docker container, and temporary data directory"
+  ],
+  "limitations": [
+    "Deterministic fixture agent; no external model call",
+    "One small Node application; not arbitrary database consistency or fleet compatibility proof",
+    "Migration timing is offline data transfer/lifecycle work, not normal preview resume latency",
+    "Existing production owner-home compatibility gate remains blocking; no production project moved"
+  ],
+  "source_sha256": {
+    "control-plane/internal/migration/live_test.go": "77c3f2bea2c9e3bd56ff909c9cbcf31ecb603a40c350fe5b6e5689c7742bd597",
+    "control-plane/internal/migration/backend_linux.go": "4a0062f5a61b998f9b29e64381886eda070dba40b60ab97d257fa8340c23408e",
+    "control-plane/internal/runtime/private_workspace_linux.go": "7dbeebc3a7ac47b969d29103fe3b1dd9a590a56fe9ed95fdbad8af25e1eff32d",
+    "control-plane/internal/runtime/private_task_history_linux.go": "de465d1fa1d889878b0adb4513d7a4371b778b51047f3c98ca8f6738efaecea8",
+    "control-plane/cmd/runtimed/private_workspace_linux.go": "f0633dd344e534be08ee5ca44e885ade9c429578e6e9b5f5fdefbc949b02c7e4",
+    "control-plane/cmd/runtimed/workspace_quiesce_linux.go": "72514a65ba270357b694e20dddf14a7cf2b9ae3c96b028c9b7d171ec051ac72b",
+    "image/cube/Dockerfile": "745e8959b53e7e66413a2149f22b0024e38c18062141fce9fde353ae132ef77d"
+  },
+  "prior_failed_v7_cleanup": {
+    "observed_at": "2026-09-23T09:36:02.591081+00:00",
+    "sandbox_id": "01M36RFYZ7P973SWBERMZTX43S",
+    "cube_runtime_id": "fa0fef2ffcf946fca3ee8abfda215035",
+    "cube_delete_http_status": 204,
+    "docker_container_removed": "cube-migration-fixture-01m36rfyz7p973swbermztx43s",
+    "fixture_data_removed": "/data/cube-migration-roundtrip-3018330617",
+    "diagnosis": "Eager owner-home inode inventory rejected ordinary single-linked files because Cube overlay file device IDs differ from directory IDs. Strict-first export avoids unrelated home inventory; owner proof remains mandatory for hardlinks.",
+    "v8_image_and_template_preserved": true
+  }
+}

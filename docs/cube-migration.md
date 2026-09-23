@@ -1,10 +1,11 @@
 # Cube migration integration and acceptance
 
-2026-09-17, paired `codex/cube-migration` branches. Docker remains the default.
+2026-09-23, paired `codex/cube-migration` branches. Docker remains the default.
 The isolated VPS pilot passes the supported runtime and application contracts.
 **This is not yet a production replacement:** real model/bridge egress,
-dependency preparation, existing-project transfer and operational acceptance
-remain release gates. No production projects were moved.
+production home/tool compatibility, network isolation and operational acceptance
+remain release gates. Dependency preparation and journaled transfer are implemented
+on this branch, with their limits documented below. No production projects were moved.
 
 ## Implemented
 
@@ -28,6 +29,15 @@ remain release gates. No production projects were moved.
 - Immutable sanitized source publication and fresh-template remix. Memory,
   runtime state, owner config, credentials and creator dependencies are not
   copied. Fresh-template dependencies are retained only when manifests/locks match.
+- One platform capture service for Chat, sandbox-agent bridge, publish and card
+  images. It uses prewarmed single-use isolated browser workers and a scoped
+  request broker; application VMs no longer include Chromium. No platform-process
+  browser fallback. The companion platform repository documents deployment and
+  the exact worker isolation boundary under `landing/services/capture`.
+- Private dependency-aware import, reviewed Git import, and journaled offline
+  Docker/Cube transfer with verified archives, stable project IDs, task history
+  and reverse-copy rollback. See [workspace compatibility](cube-migration/workspace-and-dependencies.md)
+  and the [migration runbook](cube-existing-project-migration.md).
 - Scoped model relay with task-bound bridge-token digest, expiry, live task
   validation, streaming and revocation. Tests use a mock upstream; default off.
 
@@ -52,7 +62,8 @@ This is a five-resume sample, not a production latency guarantee.
 Publish excludes screenshot/upload/database work; remix timing ends at the API
 response, with frontend/backend readiness checked subsequently. Resume measures
 the authenticated preview response and preserves process memory and disk. The
-platform screenshot fixtures separately measured authenticated capture at 335 ms.
+September17 platform screenshot fixture measured authenticated shared-browser
+capture at335ms; later measurements below use a different fixture and setup.
 
 The live run verifies actual UI file-query syntax and preview-access URL/cookie
 handoff; two guest identities; wrong-tenant denial; frontend/backend preview;
@@ -65,6 +76,43 @@ sentinels and five denied IPv4/IPv6 endpoints. The task CLI is deliberately a
 Testing found and fixed real deployment differences: Cube ignored OCI `USER`,
 and a thread-local no-new-privileges call did not protect children forked from
 other Go threads. Regression tests exercise actual child processes.
+
+## Capture architecture and September23 measurements
+
+Production capture already caches a shared Chromium browser in each platform
+process after first use. There is no evidence of a separately managed capture
+daemon; a long-running browser found on the VPS belonged to an old backfill job.
+The deployed source still uses fixed settle/poll intervals. The branch removes
+those waits from the Docker/shared-browser path.
+
+The same complete React/Vite + backend fixture was measured with the deployed
+shared-browser code and the revised render-readiness code on the isolated VM:
+
+| Shared-browser operation | Deployed code | Revised readiness |
+| --- | ---: | ---: |
+| First hero | 1718ms | 713ms |
+| Four warm heroes, median | 1480ms | 447ms |
+
+The deployed fixed1200ms settle explains most of this difference. This isolates
+browser/readiness changes, excludes sandbox wake, and is **not** a measurement
+of the new single-use worker pool. The companion platform service retains raw
+reports, source hashes and the reproducible harness.
+
+A [guest-browser experiment](cube-pilot-results/capture-v7.json) measured5649ms
+first capture,592ms warm median and2597ms after resume. That approach was removed:
+all callers now use the central capture service, and slim app guests carry no
+browser. The historical script requires the retired capture-capable template;
+it is not a current runtime acceptance test.
+
+## Existing-workspace roundtrip
+
+The [v8 live test](cube-pilot-results/migration-live-v8-2026-09-23.json) passed real
+Docker→Cube migration, transferred Git checkpoint reversion, new app writes,
+a completed runtimed task/event stream, reverse-copy rollback, and a Docker
+HTTP200 probe. Migration took35.2s and rollback734ms for the disposable fixture.
+These are one-time offline copy operations, not normal Cube resume latency.
+The agent was deterministic fake OpenCode, not a real model call. Test resources
+were removed; no production project was moved.
 
 ## Reproduce
 
@@ -114,19 +162,23 @@ is not sufficient to enable Internet access or claim deployed isolation.
    usage attribution, limits, cancellation and credential revocation. Disabled
    Claude requests currently fail503 before task launch. Package downloads and
    arbitrary external backend APIs are unavailable under deny-all egress.
-3. Prepare dependency-aware source revision templates; changed dependencies
-   currently fail explicitly. Git import, legacy Docker snapshot conversion and
-   some lockfile schemes remain unsupported. Source naming rules cannot detect
-   secrets hardcoded into otherwise publishable code/assets.
-4. Use same-site HTTPS preview domains for reliable browser cookies. Cross-site
-   sslip.io embeds may be blocked by browser privacy settings. Redact capability
+3. Validate dependency preparation with production registry access and supported
+   package managers. Matching dependencies use the prepared fast path; changed
+   supported manifests install in a sterile environment with a bounded deadline.
+   Reviewed Git import is implemented; unsupported lock/config schemes fail
+   explicitly. Source naming rules cannot detect secrets hardcoded into code.
+4. Validate HTTPS preview handoffs under browser privacy settings. Cross-site
+   sslip.io embeds may be blocked. Any move to same-site preview domains needs
+   a platform CSRF and cookie-scope review because previews execute tenant code. Redact capability
    query strings at every outer proxy; sandboxd logs only URL.Path. Already issued
    preview capabilities remain valid up to five minutes after platform access
    is revoked. The public viewer rechecks permission while open.
-5. Implement journaled, resumable existing-workspace migration: quiesce writes,
-   validate copy/config, atomically switch provider, retain stopped source, and
-   reverse-sync new writes before rollback. No existing-project migration tool
-   or production data movement is represented by this pilot.
+5. Complete existing-project compatibility before fleet transfer. The CLI now
+   quiesces writes, verifies private app/history archives and config, atomically
+   switches provider, and reverse-copies new data before rollback. Production
+   inventory found55projects with additional owner-home material requiring
+   explicit handling, plus oversized files. Changed runtime configuration blocks
+   rollback until Docker recreation can apply it safely. No production data moved.
 6. Validate representative project sizes, simultaneous wake/publish/remix load,
    admission quotas, backups/restores, snapshot growth, worker loss and upgrade
    recovery. One pilot creation failed with retained test guests; cleanup resolved

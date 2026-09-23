@@ -3,6 +3,7 @@ package main
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"errors"
@@ -31,6 +32,8 @@ func (a *app) handleSourceExport(w http.ResponseWriter, r *http.Request) {
 // with the app directory, then restart the supervisor to reload sandbox.yaml.
 // No credential/config directory outside the app root is copied or changed.
 func (a *app) handleSourceImport(w http.ResponseWriter, r *http.Request) {
+	a.workspaceMu.Lock()
+	defer a.workspaceMu.Unlock()
 	if a.requestRestart == nil {
 		http.Error(w, "source import requires a restart-capable supervisor", 503)
 		return
@@ -50,8 +53,8 @@ func (a *app) handleSourceImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.taskMu.Lock()
-	defer a.taskMu.Unlock()
 	if a.restartPending {
+		a.taskMu.Unlock()
 		http.Error(w, "supervisor restarting", 409)
 		return
 	}
@@ -60,11 +63,17 @@ func (a *app) handleSourceImport(w http.ResponseWriter, r *http.Request) {
 		running := !a.task.done
 		a.task.mu.Unlock()
 		if running {
+			a.taskMu.Unlock()
 			http.Error(w, "task is running", 409)
 			return
 		}
 	}
-	if err = replaceSource(a.appDir, clean); err != nil {
+	a.restartPending = true
+	a.taskMu.Unlock()
+	if err = replaceSourcePrepared(r.Context(), a.appDir, clean, prepareSourceDependencies); err != nil {
+		a.taskMu.Lock()
+		a.restartPending = false
+		a.taskMu.Unlock()
 		if errors.Is(err, errDependencyMismatch) {
 			http.Error(w, "source dependency manifests differ from the prepared template; rebuild the template dependencies before importing", 409)
 			return
@@ -72,7 +81,6 @@ func (a *app) handleSourceImport(w http.ResponseWriter, r *http.Request) {
 		scopedError(w, err)
 		return
 	}
-	a.restartPending = true
 	writeJSON(w, 200, map[string]bool{"imported": true, "restarting": true})
 	if flush, ok := w.(http.Flusher); ok {
 		flush.Flush()
@@ -82,6 +90,9 @@ func (a *app) handleSourceImport(w http.ResponseWriter, r *http.Request) {
 	go func() { time.Sleep(100 * time.Millisecond); a.requestRestart() }()
 }
 func replaceSource(root string, data []byte) error {
+	return replaceSourcePrepared(context.Background(), root, data, nil)
+}
+func replaceSourcePrepared(ctx context.Context, root string, data []byte, prepare func(context.Context, string, string) error) error {
 	dir, err := openScopedRoot(filepath.Dir(root))
 	if err != nil {
 		return err
@@ -130,6 +141,18 @@ func replaceSource(root string, data []byte) error {
 	}
 	defer stagedDir.Close()
 	movedDependencies := false
+	movedPython := false
+	committed := false
+	defer func() {
+		if !committed {
+			if movedPython {
+				_ = unix.Renameat(int(stagedDir.Fd()), ".venv", int(original.Fd()), ".venv")
+			}
+			if movedDependencies {
+				_ = unix.Renameat(int(stagedDir.Fd()), "node_modules", int(original.Fd()), "node_modules")
+			}
+		}
+	}()
 	var deps unix.Stat_t
 	if e = unix.Fstatat(int(original.Fd()), "node_modules", &deps, unix.AT_SYMLINK_NOFOLLOW); e == nil {
 		if deps.Mode&unix.S_IFMT != unix.S_IFDIR && deps.Mode&unix.S_IFMT != unix.S_IFLNK {
@@ -139,15 +162,43 @@ func replaceSource(root string, data []byte) error {
 		if e != nil {
 			return e
 		}
-		if !same {
+		if !same && prepare == nil {
 			return errDependencyMismatch
 		}
-		if e = unix.Renameat(int(original.Fd()), "node_modules", int(stagedDir.Fd()), "node_modules"); e != nil {
-			return e
+		if same {
+			if e = unix.Renameat(int(original.Fd()), "node_modules", int(stagedDir.Fd()), "node_modules"); e != nil {
+				return e
+			}
+			movedDependencies = true
 		}
-		movedDependencies = true
 	} else if !errors.Is(e, unix.ENOENT) {
 		return e
+	}
+
+	if e = unix.Fstatat(int(original.Fd()), ".venv", &deps, unix.AT_SYMLINK_NOFOLLOW); e == nil {
+		if deps.Mode&unix.S_IFMT != unix.S_IFDIR {
+			return errScopedPath
+		}
+		left, le := dependencyManifest(original, "requirements.txt")
+		right, re := dependencyManifest(stagedDir, "requirements.txt")
+		if le == nil && re == nil && bytes.Equal(left, right) {
+			if e = unix.Renameat(int(original.Fd()), ".venv", int(stagedDir.Fd()), ".venv"); e != nil {
+				return e
+			}
+			movedPython = true
+		}
+	} else if !errors.Is(e, unix.ENOENT) {
+		return e
+	}
+	// Prepare changed dependencies in a fresh destination tree, before exposing
+	// it. Failure preserves the original app and restores any borrowed cache.
+	if prepare != nil {
+		if e = prepare(ctx, staged, root); e != nil {
+			if movedDependencies {
+				_ = unix.Renameat(int(stagedDir.Fd()), "node_modules", int(original.Fd()), "node_modules")
+			}
+			return e
+		}
 	}
 	// Renameat2 exchange never follows a leaf symlink and cannot expose a partial
 	// tree. The old tree remains under the private staging name until cleanup.
@@ -155,6 +206,7 @@ func replaceSource(root string, data []byte) error {
 	if err != nil && movedDependencies {
 		_ = unix.Renameat(int(stagedDir.Fd()), "node_modules", int(original.Fd()), "node_modules")
 	}
+	committed = err == nil
 	return err
 }
 func removeSourceTree(parent *os.File, name string, depth int) error {
@@ -186,6 +238,16 @@ func removeSourceTree(parent *os.File, name string, depth int) error {
 var errDependencyMismatch = errors.New("source dependency manifests differ from the prepared template")
 
 func sameDependencyManifest(original, staged *os.File) (bool, error) {
+	// A root lock is insufficient to prove workspace/local-package manifests
+	// agree. Rebuild these trees instead of treating a root-only cache as valid.
+	b, e := dependencyManifest(staged, "package.json")
+	if e == nil && (bytes.Contains(b, []byte(`"workspaces"`)) || bytes.Contains(b, []byte(`file:`)) || bytes.Contains(b, []byte(`workspace:`)) || bytes.Contains(b, []byte(`link:`))) {
+		return false, nil
+	}
+	if _, e = dependencyManifest(staged, "pnpm-workspace.yaml"); e == nil {
+		return false, nil
+	}
+
 	names := []string{"package.json", "package-lock.json", "npm-shrinkwrap.json", "pnpm-lock.yaml", "yarn.lock", "bun.lock", "bun.lockb", "pnpm-workspace.yaml", ".yarnrc.yml"}
 	for _, name := range names {
 		left, le := dependencyManifest(original, name)

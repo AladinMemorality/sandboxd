@@ -35,10 +35,11 @@ type process struct {
 
 	restartAfterTask bool // bounce this process after each task (manifest restart_after_task)
 
-	mu       sync.Mutex
-	proc     *os.Process
-	running  bool
-	restarts int
+	mu        sync.Mutex
+	proc      *os.Process
+	running   bool
+	suspended bool
+	restarts  int
 }
 
 func newProcess(name, kind, appDir, command, logPath string, log *slog.Logger) *process {
@@ -54,12 +55,28 @@ func (p *process) supervise(ctx context.Context) {
 		if ctx.Err() != nil {
 			return
 		}
+		p.mu.Lock()
+		suspended := p.suspended
+		p.mu.Unlock()
+		if suspended {
+			select {
+			case <-ctx.Done():
+				return
+			case <-time.After(50 * time.Millisecond):
+				continue
+			}
+		}
 		start := time.Now()
 		p.runOnce()
 		if ctx.Err() != nil {
 			return // intentional shutdown — do not restart
 		}
 		p.mu.Lock()
+		if p.suspended {
+			p.mu.Unlock()
+			fastFails = 0
+			continue
+		}
 		p.restarts++
 		restarts := p.restarts
 		p.mu.Unlock()
@@ -95,11 +112,16 @@ func (p *process) runOnce() {
 	} else {
 		p.log.Warn("process log file", "path", p.logPath, "err", err.Error())
 	}
+	p.mu.Lock()
+	if p.suspended {
+		p.mu.Unlock()
+		return
+	}
 	if err := cmd.Start(); err != nil {
+		p.mu.Unlock()
 		p.log.Error("process start failed", "err", err.Error())
 		return
 	}
-	p.mu.Lock()
 	p.proc = cmd.Process
 	p.running = true
 	p.mu.Unlock()
@@ -159,3 +181,6 @@ func backoff(fastFails int) time.Duration {
 	}
 	return d
 }
+
+func (p *process) suspend() { p.mu.Lock(); p.suspended = true; p.mu.Unlock(); p.stop() }
+func (p *process) resume()  { p.mu.Lock(); p.suspended = false; p.mu.Unlock() }

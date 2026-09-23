@@ -30,19 +30,24 @@ func PublishedSourcePath(name string) bool {
 		}
 	}
 	base := strings.ToLower(path.Base(name))
+ ext := strings.ToLower(path.Ext(name))
+ // Authentication/session modules are source code, not automatically runtime
+ // state. Keep the same JSON/data exclusions and explicit secret-file names.
+ authModule := false
+ switch ext { case ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go", ".rb", ".rs", ".php": authModule=true }
 	for _, prefix := range []string{"credentials.", "secrets.", "secret.", "tokens.", "token.", "auth.", "session.", "sessions.", "bench-state.", "runtime-state."} {
 		if strings.HasPrefix(base, prefix) {
-			return false
+ if authModule && (prefix=="auth." || prefix=="session." || prefix=="sessions.") { continue }
+ return false
 		}
 	}
 	if base == "state.json" || base == "database.json" || base == "users.json" {
 		return false
 	}
-	ext := strings.ToLower(path.Ext(name))
 	if ext == ".json" || ext == ".jsonc" {
 		if len(parts) == 1 {
 			switch base {
-			case "package.json", "package-lock.json", "tsconfig.json", "jsconfig.json", "components.json", "vercel.json", "netlify.json", "composer.json", "deno.json", "deno.jsonc", "biome.json", "eslint.config.json":
+			case "package.json", "package-lock.json", "npm-shrinkwrap.json", "tsconfig.json", "jsconfig.json", "components.json", "vercel.json", "netlify.json", "composer.json", "deno.json", "deno.jsonc", "biome.json", "eslint.config.json":
 			default:
 				if !(strings.HasPrefix(base, "tsconfig.") && strings.HasSuffix(base, ".json")) {
 					return false
@@ -193,7 +198,7 @@ func (c *Client) ImportSource(ctx context.Context, data []byte) error {
 
 func sourceAssetTree(root string) bool {
 	switch strings.ToLower(root) {
-	case "src", "public", "assets", "static", "app", "pages", "components", "lib", "server", "api", "config", "configs", "test", "tests", "fixtures":
+	case "src", "public", "assets", "static", "app", "pages", "components", "lib", "server", "api", "config", "configs", "test", "tests", "fixtures", "packages", "apps":
 		return true
 	}
 	return false

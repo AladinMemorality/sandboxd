@@ -111,3 +111,8 @@ func TestSourceArchivePreservesPlatformPublicMediaOnly(t *testing.T) {
 		}
 	}
 }
+
+func TestPublishedAuthenticationSourceSurvivesRemix(t *testing.T) {
+ for _,name:=range []string{"src/auth.ts","backend/auth.py","server/session.js","src/sessions.go"}{if !PublishedSourcePath(name){t.Errorf("source module excluded: %s",name)}}
+ for _,name:=range []string{"src/auth.json","public/session.json","src/credentials.ts","src/secrets.js","private/auth.ts",".env"}{if PublishedSourcePath(name){t.Errorf("private state included: %s",name)}}
+}

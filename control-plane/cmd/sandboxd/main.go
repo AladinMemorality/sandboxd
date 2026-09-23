@@ -48,6 +48,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/instancecfg"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/logging"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/loopback"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/maintenance"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/metrics"
 	nginxwatch "github.com/tastyeffectco/sandboxd/control-plane/internal/nginx"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/reaper"
@@ -183,7 +184,14 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	dsn := fmt.Sprintf("file:%s?_journal=WAL&_busy_timeout=5000&_fk=1", envDefault("SANDBOXD_DB", dbPath))
+	databasePath := envDefault("SANDBOXD_DB", dbPath)
+	maintenanceLock, err := maintenance.Acquire(databasePath, false)
+	if err != nil {
+		log.Error("startup: offline maintenance prevents startup", "err", err.Error())
+		os.Exit(1)
+	}
+	defer maintenanceLock.Close()
+	dsn := fmt.Sprintf("file:%s?_journal=WAL&_busy_timeout=5000&_fk=1", databasePath)
 	st, err := store.Open(ctx, dsn, migrations)
 	if err != nil {
 		log.Error("startup: store open failed", "err", err.Error())
@@ -194,6 +202,10 @@ func main() {
 			log.Error("shutdown: store close failed", "err", err.Error())
 		}
 	}()
+	if pending, e := st.HasIncompleteRuntimeMigrations(ctx); e != nil || pending {
+		log.Error("startup: incomplete runtime migration; resume or abort offline before starting daemon", "err", e)
+		os.Exit(1)
+	}
 
 	// Phase 5 — Backfill last_active_at for legacy running rows where
 	// the migration default (0) would otherwise make every existing

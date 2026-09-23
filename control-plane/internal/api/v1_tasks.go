@@ -253,6 +253,17 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if !remote {
+		fresh, err := s.Store.RollbackNeedsFreshAgentSession(r.Context(), id, agent)
+		if err != nil {
+			writeV1Err(w, 503, "runtime_unavailable", "cannot resolve migrated agent session")
+			return
+		}
+		if fresh {
+			continueSession := false
+			req.Continue = &continueSession
+		}
+	}
 	if err := s.runtimeClientFor(id).StartTask(r.Context(), runtime.StartTaskRequest{
 		TaskID: taskID, Prompt: req.Prompt, Agent: agent, Model: req.Model, TimeoutS: req.TimeoutS, Continue: req.Continue, Env: req.Env,
 	}); err != nil {
@@ -358,16 +369,17 @@ func (s *Server) v1GetTask(w http.ResponseWriter, r *http.Request) {
 
 // v1TaskSummary is one row of the task-history list.
 type v1TaskSummary struct {
-	ID           string   `json:"id"`
-	Prompt       string   `json:"prompt,omitempty"`
-	Agent        string   `json:"agent,omitempty"`
-	Status       string   `json:"status"`
-	AgentMessage string   `json:"agent_message,omitempty"` // the agent's final reply, for the chat history
-	ErrorMessage string   `json:"error_message,omitempty"` // why a task failed (e.g. agent not connected) — surfaced to the user
-	FilesChanged []string `json:"files_changed,omitempty"`
-	CheckpointID string   `json:"checkpoint_id,omitempty"`
-	CanRevert    bool     `json:"can_revert"` // a checkpoint exists to go back to
-	CreatedAt    string   `json:"created_at,omitempty"`
+	ID                      string   `json:"id"`
+	Prompt                  string   `json:"prompt,omitempty"`
+	Agent                   string   `json:"agent,omitempty"`
+	Status                  string   `json:"status"`
+	AgentMessage            string   `json:"agent_message,omitempty"` // the agent's final reply, for the chat history
+	ErrorMessage            string   `json:"error_message,omitempty"` // why a task failed (e.g. agent not connected) — surfaced to the user
+	FilesChanged            []string `json:"files_changed,omitempty"`
+	CheckpointID            string   `json:"checkpoint_id,omitempty"`
+	CanRevert               bool     `json:"can_revert"` // a checkpoint exists to go back to
+	RevertUnavailableReason string   `json:"revert_unavailable_reason,omitempty"`
+	CreatedAt               string   `json:"created_at,omitempty"`
 }
 
 // v1ListTasks returns a sandbox's task history (newest first) from the durable
@@ -381,6 +393,11 @@ func (s *Server) v1ListTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := []v1TaskSummary{}
+	retained, err := s.Store.MigratedDockerTasks(r.Context(), id)
+	if err != nil {
+		writeV1Err(w, 503, "history_unavailable", "cannot resolve retained task checkpoints")
+		return
+	}
 	for _, t := range tasks {
 		sum := v1TaskSummary{ID: t.TaskID, Prompt: t.Prompt, Agent: t.Agent, Status: t.Status, CreatedAt: t.CreatedAt.Format(time.RFC3339)}
 		if t.ResultJSON.Valid {
@@ -397,6 +414,10 @@ func (s *Server) v1ListTasks(w http.ResponseWriter, r *http.Request) {
 				sum.CheckpointID = tr.CheckpointID
 				sum.CanRevert = tr.CheckpointID != ""
 			}
+		}
+		if retained[t.TaskID] && sum.CanRevert {
+			sum.CanRevert = false
+			sum.RevertUnavailableReason = "Historical Docker checkpoints require migration compatibility support."
 		}
 		out = append(out, sum)
 	}
@@ -433,6 +454,15 @@ func (s *Server) v1RevertTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if sb.RuntimeProvider == "cube" {
+		retained, scopeErr := s.Store.MigratedDockerTaskNeedsCompatibility(r.Context(), id, taskID)
+		if scopeErr != nil {
+			writeV1Err(w, 503, "history_unavailable", "cannot resolve retained checkpoint")
+			return
+		}
+		if retained {
+			writeV1Err(w, 409, "retained_checkpoint_unsupported", "This historical Docker checkpoint is retained but cannot yet be reverted from Cube.")
+			return
+		}
 		if s.Locks != nil {
 			s.Locks.Lock(id)
 			defer s.Locks.Unlock(id)
@@ -461,6 +491,9 @@ func (s *Server) v1RevertTask(w http.ResponseWriter, r *http.Request) {
 // --- GET /v1/sandboxes/{id}/tasks/{taskId}/events (SSE) -------------
 
 func (s *Server) v1TaskEvents(w http.ResponseWriter, r *http.Request) {
+	if s.serveMigratedTaskEvents(w, r) {
+		return
+	}
 	id, taskID := r.PathValue("id"), r.PathValue("taskId")
 	if remote, err := s.Store.IsCube(r.Context(), id); err == nil && remote {
 		if err := s.prepareCubeTaskRPC(r.Context(), id); err != nil {

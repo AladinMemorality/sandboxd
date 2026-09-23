@@ -113,6 +113,13 @@ func (a *app) controlHandler() http.Handler {
 	mux.HandleFunc("GET /files/content", a.handleFileRead)
 	mux.HandleFunc("PUT /files", a.handleFileWrite)
 	mux.HandleFunc("GET /export", a.handleFileExport)
+	mux.HandleFunc("POST /export/private-task-history", a.handlePrivateTaskHistory)
+	mux.HandleFunc("PUT /import/private-task-history", a.handlePrivateTaskHistory)
+	mux.HandleFunc("POST /workspace/quiesce", a.handleWorkspaceQuiesce)
+	mux.HandleFunc("POST /workspace/resume", a.handleWorkspaceResume)
+	mux.HandleFunc("GET /export/private-workspace", a.handlePrivateWorkspaceExport)
+	mux.HandleFunc("PUT /import/private-workspace", a.handlePrivateWorkspaceImport)
+	mux.HandleFunc("PUT /import/git-workspace", a.handlePrivateWorkspaceImport)
 	mux.HandleFunc("GET /export/source", a.handleSourceExport)
 	mux.HandleFunc("PUT /import/source", a.handleSourceImport)
 	mux.HandleFunc("GET /processes/{name}/logs", a.handleProcessLogs)
@@ -121,7 +128,7 @@ func (a *app) controlHandler() http.Handler {
 	mux.HandleFunc("POST /tasks/{id}/messages", a.handleTaskMessage)
 	mux.HandleFunc("POST /tasks/{id}/revert", a.handleRevertTask)
 
-	return mux
+	return a.workspaceFence(mux)
 }
 
 func writeJSON(w http.ResponseWriter, code int, body any) {
