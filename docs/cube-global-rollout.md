@@ -125,36 +125,35 @@ home journals and changed-configuration rollback. A real Docker rollback fixture
 verified normal wake with updated app configuration and retained new files; its
 Cube side was a filesystem fixture, so it is not additional real-Cube acceptance.
 
-The disposable shared capture pool is not ready for global deployment. Its earlier
-65 accepted captures and eleven functional fixtures passed, but a later same-fixture
-56-request burst completed only **16 requests and rejected 40**, taking **27.54
-seconds**; the deployed shared browser completed all 56 in **5.01 seconds**.
-The pool entered its protective failed state during final refill after a sustained
-one-request-per-second workload; that group's per-request outcomes were not saved,
-so they remain unknown. A separate profile measured 477 ms capture, 2.46 seconds
-Docker removal, 3.27 seconds replacement startup and about one second Node/browser
-preparation. Warm capture speed does not establish sustained capacity. Single-use
-isolation and confirmed-disposal bounds remain intact. See the platform's
-`fleet-service-incomplete.json`, `replacement.json` and
-[deployment readiness report](../ops/cube/production-readiness.md).
+## Current application acceptance, 2026-09-24
 
-An independent readiness-only release candidate retains the existing shared
-browser architecture and replaces fixed waits with rendered-content checks.
-Its frozen final files passed all **120 captures** in the same-fixture comparison:
-eight-request completion improved from 1.785 to **0.796 seconds**, the 56-request
-burst from 5.008 to **4.066 seconds**, and sustained one-request-per-second p95
-from 1.433 to **0.448 seconds**, with zero failures and byte-identical JPEGs.
-Both shared-browser variants had the same eight-CPU/6-GiB budget. Exact source
-hashes and cleanup evidence are in the platform's `fleet-final.json` and
-`fleet-comparison.md`. This supports that separate capture optimization after its
-release checks; it does not change any full Cube migration or worker-pool gate.
+A bounded actual Cube Claude Code task successfully used the scoped project
+library/file bridge and wrote verified output. The existing platform model route
+recorded two successful usage rows, and completed/cancelled task capabilities
+were revoked. This was an isolated functional relay; forced fallback and a final
+cancelled-credit-ledger assertion remain unverified. See the
+[functional evidence](../ops/cube/functional/2026-09-24/README.md).
 
-No production project has been switched by this work. Outstanding release gates
-remain safe working guest egress and real model/registry/backend calls, reviewed
-manifests and templates for the entire frozen fleet, disk/backup acceptance,
-production browser/link checks and sustained load. The readiness tool deliberately
-reports `authorizes_rollout: false` while guest egress is unavailable. Neither
-the global routing flag nor passing fixture suites overrides those gates.
+All seven reviewed preset images passed actual Cube startup, process-preserving
+pause/resume and strict workspace/home export checks. The
+[preset matrix](cube-pilot-results/reviewed-preset-matrix-2026-09-24.md) pins the
+isolated-cluster images/templates and exact acceptance scope. These checks establish
+preset behavior, not every existing project's native-tool compatibility or a
+comparative speedup. Current full API publish/remix and journaled migration tests
+are separate acceptance work; direct guest lifecycle results do not substitute
+for those control-plane paths.
+
+No production project has been switched. Remaining gates include complete
+control-plane lifecycle and migration/rollback acceptance, fresh fleet manifests,
+independent backup restoration, deployed isolation and HTTPS link checks, and
+representative application load/recovery. The offline inventory continues to
+report `authorizes_rollout: false`. Its diagnostic does not mean the implemented
+pilot reverse broker is absent.
+
+Historical optional capture-worker experiments remain in the platform's
+`services/capture/benchmarks/`. Screenshots retain the separately selected warmed
+shared renderer; its authorization and rendering need functional verification,
+but worker replacement or capture throughput is not an app-runtime migration gate.
 
 ## Merge, deployment and production observation
 
