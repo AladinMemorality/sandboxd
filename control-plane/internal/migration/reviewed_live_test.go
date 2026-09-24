@@ -136,7 +136,10 @@ func TestOperatorReviewedTemplateJournalRoundtrip(t *testing.T) {
 	t.Cleanup(func() {
 		cleanup, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-		if m, e := db.GetRuntimeMigration(cleanup, id); e == nil && m.Binding.RuntimeID != "" {
+		m, e := db.GetRuntimeMigration(cleanup, id)
+		if e != nil && !errors.Is(e, store.ErrNotFound) {
+			t.Errorf("fixture migration lookup during cleanup: %v", e)
+		} else if e == nil && m.Binding.RuntimeID != "" {
 			if e = backend.DeleteTarget(cleanup, m); e != nil {
 				t.Errorf("fixture Cube cleanup: %v", e)
 			}
@@ -218,9 +221,8 @@ func TestOperatorReviewedTemplateJournalRoundtrip(t *testing.T) {
 	if err = backend.Docker.Start(ctx, containerID); err != nil {
 		t.Fatal(err)
 	}
-	probe := exec.CommandContext(ctx, "docker", "exec", containerID, "node", "-e", `require('http').get('http://127.0.0.1:3000',r=>{let b='';r.on('data',v=>b+=v);r.on('end',()=>process.exit(b.includes('Migration fixture')?0:1))}).on('error',()=>process.exit(1))`)
 	if err = wait(ctx, 10*time.Second, func() bool {
-		probe = exec.CommandContext(ctx, "docker", "exec", containerID, "node", "-e", `require('http').get('http://127.0.0.1:3000',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))`)
+		probe := exec.CommandContext(ctx, "docker", "exec", containerID, "node", "-e", `require('http').get('http://127.0.0.1:3000',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))`)
 		return probe.Run() == nil
 	}); err != nil {
 		t.Fatal("restored Docker app unavailable", err)
