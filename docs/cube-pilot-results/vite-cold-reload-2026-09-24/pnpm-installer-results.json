@@ -1,0 +1,127 @@
+{
+  "pnpm": "10.25.0",
+  "node": "22.21.0",
+  "platform": "darwin-arm64",
+  "all_frozen_installs_passed": true,
+  "all_template_builds_passed": true,
+  "react_pro_offline_frozen_reinstall_passed": true,
+  "templates": {
+    "react-pro": {
+      "bundle_sha256": "88f35a22eb6ae9d58e54b94c1544f6c1cc90e3e2eac42542c5ea834179ef24f7",
+      "regression": {
+        "production_accepted": false,
+        "version": "5.4.21",
+        "results": [
+          {
+            "variant": "patched-cold-1",
+            "exit_code": 0,
+            "passed": true,
+            "env_reload_ms": 2126,
+            "restarting": false,
+            "pending_requests": 1,
+            "shutdown_passed": true
+          },
+          {
+            "variant": "patched-cold-2",
+            "exit_code": 0,
+            "passed": true,
+            "env_reload_ms": 2124,
+            "restarting": false,
+            "pending_requests": 1,
+            "shutdown_passed": true
+          },
+          {
+            "variant": "patched-cold-3",
+            "exit_code": 0,
+            "passed": true,
+            "env_reload_ms": 2123,
+            "restarting": false,
+            "pending_requests": 1,
+            "shutdown_passed": true
+          }
+        ],
+        "patch_atomic": null,
+        "patch_application": "preinstalled-pnpm-patch",
+        "complete": true
+      }
+    },
+    "react-standard": {
+      "bundle_sha256": "88f35a22eb6ae9d58e54b94c1544f6c1cc90e3e2eac42542c5ea834179ef24f7",
+      "regression": {
+        "production_accepted": false,
+        "version": "5.4.21",
+        "results": [
+          {
+            "variant": "patched-cold-1",
+            "exit_code": 0,
+            "passed": true,
+            "env_reload_ms": 2124,
+            "restarting": false,
+            "pending_requests": 1,
+            "shutdown_passed": true
+          },
+          {
+            "variant": "patched-cold-2",
+            "exit_code": 0,
+            "passed": true,
+            "env_reload_ms": 2124,
+            "restarting": false,
+            "pending_requests": 1,
+            "shutdown_passed": true
+          },
+          {
+            "variant": "patched-cold-3",
+            "exit_code": 0,
+            "passed": true,
+            "env_reload_ms": 2118,
+            "restarting": false,
+            "pending_requests": 1,
+            "shutdown_passed": true
+          }
+        ],
+        "patch_atomic": null,
+        "patch_application": "preinstalled-pnpm-patch",
+        "complete": true
+      }
+    },
+    "marketplace-starter": {
+      "bundle_sha256": "88f35a22eb6ae9d58e54b94c1544f6c1cc90e3e2eac42542c5ea834179ef24f7",
+      "regression": {
+        "production_accepted": false,
+        "version": "5.4.21",
+        "results": [
+          {
+            "variant": "patched-cold-1",
+            "exit_code": 0,
+            "passed": true,
+            "env_reload_ms": 2189,
+            "restarting": false,
+            "pending_requests": 9,
+            "shutdown_passed": true
+          },
+          {
+            "variant": "patched-cold-2",
+            "exit_code": 0,
+            "passed": true,
+            "env_reload_ms": 2188,
+            "restarting": false,
+            "pending_requests": 9,
+            "shutdown_passed": true
+          },
+          {
+            "variant": "patched-cold-3",
+            "exit_code": 0,
+            "passed": true,
+            "env_reload_ms": 4130,
+            "restarting": false,
+            "pending_requests": 17,
+            "shutdown_passed": true
+          }
+        ],
+        "patch_atomic": null,
+        "patch_application": "preinstalled-pnpm-patch",
+        "complete": true
+      }
+    }
+  }
+}

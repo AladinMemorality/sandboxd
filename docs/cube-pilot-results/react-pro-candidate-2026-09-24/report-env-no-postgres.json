@@ -1,0 +1,116 @@
+{
+  "backend": "cube",
+  "cpu_per_app": 1,
+  "edit_probe": true,
+  "finished_at": "2026-09-24T18:43:18.308076831Z",
+  "image": "sha256:82bcbc1f26582cbe3bcb2119d1d462db7d9920aa7575dc4964c49fc42f6c1a43",
+  "memory_mib_per_app": 1024,
+  "model_calls": false,
+  "owned_sandboxes_deleted": true,
+  "production_mutation": false,
+  "remix_explicitly_skipped": false,
+  "runtime_preset": "react-pro",
+  "samples": [
+    {
+      "create_api_ms": 271,
+      "create_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 138142,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "create_last_failure": {
+        "bytes": 154,
+        "kind": "unexpected_http_status",
+        "path": "/",
+        "status": 502
+      },
+      "create_ready_ms": 5623,
+      "env_edit_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 138154,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 4518,
+          "path": "/src/App.tsx",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "env_edit_last_failure": {
+        "bytes": 0,
+        "kind": "unexpected_http_status",
+        "path": "/src/main.tsx",
+        "status": 504
+      },
+      "env_edit_wait_ms": 887,
+      "iteration": 0,
+      "postgres_data_directory_exists": false,
+      "postgres_process_count": 0,
+      "source_edit_http_checks": [
+        {
+          "bytes": 573,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2620,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 138142,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 4471,
+          "path": "/src/App.tsx",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "source_edit_ready_ms": 232,
+      "started_at": "2026-09-24T18:43:10.962744983Z",
+      "verified_cpu_count": 1,
+      "verified_memory_mb": 1024,
+      "warmup": true
+    }
+  ],
+  "scope": "control-plane handlers plus real HTML and transformed assets; Docker host bridge vs nested Cube preview proxy; not browser rendering",
+  "source_commit": "b74fa7c0286225e6994e6e6b3ecae645b4f903b8-working-tree-d46e78c59fbe",
+  "started_at": "2026-09-24T18:43:10.939599858Z",
+  "template": "tpl-f985e6e704684df4945b989e"
+}

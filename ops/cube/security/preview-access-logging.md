@@ -36,3 +36,25 @@ access logger must omit capability-bearing URIs (or exclude the handoff route)
 and sensitive headers before enabling handoff URLs through it. Audit any CDN,
 load balancer, analytics and tracing collectors as well. No external Caddy or
 production logging configuration was changed by this branch.
+
+## Installed-version isolated checks — 24 September 2026
+
+The actual VPS Caddy2.6.2 binary passed
+`CUBE_CADDY_LOG_TEST=1 python3 test_caddy_preview_logs.py` in a separate
+loopback-only process with its admin API disabled. An intentionally unavailable
+local upstream produced both HTTP access and error entries. The
+`caddy-preview-log-filter.caddy` stanza removed the non-secret query, cookie,
+authorization and referrer sentinels from both kinds of entry and preserved the
+request host. It deliberately omits request URIs/headers and response headers.
+Merge this stanza into the deployment's global block; do not replace the complete
+Caddyfile with the snippet. No production Caddy configuration was changed.
+
+The installed Traefik image also passed the isolated alias/proxy fixture with
+RequestPath dropped and request headers dropped. Non-secret query/cookie
+sentinels were absent, while RequestHost remained available. See
+[alias acceptance](../preview-alias.md). The inspected **running production**
+Traefik configuration still lacks RequestPath dropping; deploying the branch's
+static configuration and accepting the entire HTTPS chain remain cutover gates.
+
+Caddy documents [filtering nested log fields](https://caddyserver.com/docs/caddyfile/directives/log#filter)
+and [default runtime log configuration](https://caddyserver.com/docs/caddyfile/options#log).

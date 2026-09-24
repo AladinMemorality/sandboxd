@@ -1,0 +1,44 @@
+{
+  "production_accepted": false,
+  "version": "5.4.21",
+  "results": [
+    {
+      "variant": "unpatched-cold",
+      "exit_code": 1,
+      "passed": false,
+      "env_reload_ms": 8042,
+      "restarting": true,
+      "pending_requests": 4,
+      "shutdown_passed": false
+    },
+    {
+      "variant": "patched-cold-1",
+      "exit_code": 0,
+      "passed": true,
+      "env_reload_ms": 2214,
+      "restarting": false,
+      "pending_requests": 1,
+      "shutdown_passed": true
+    },
+    {
+      "variant": "patched-cold-2",
+      "exit_code": 0,
+      "passed": true,
+      "env_reload_ms": 2206,
+      "restarting": false,
+      "pending_requests": 1,
+      "shutdown_passed": true
+    },
+    {
+      "variant": "patched-cold-3",
+      "exit_code": 0,
+      "passed": true,
+      "env_reload_ms": 2305,
+      "restarting": false,
+      "pending_requests": 1,
+      "shutdown_passed": true
+    }
+  ],
+  "patch_atomic": true,
+  "complete": true
+}

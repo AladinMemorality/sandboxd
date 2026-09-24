@@ -1,0 +1,5 @@
+=== RUN   TestOperatorIndependentDeploymentRecovery
+    operator_recovery_test.go:428: independent deployment recovered: consistent SQLite, key/config, full owner home, library archive, journal/task history, new Cube writes, original scopes removed, separate restored root and real Docker HTTP200; migrate=37770ms rollback=733ms
+LIVE_INDEPENDENT_DEPLOYMENT_RECOVERY_PASS
+--- PASS: TestOperatorIndependentDeploymentRecovery (53.42s)
+PASS

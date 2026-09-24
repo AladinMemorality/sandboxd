@@ -11,7 +11,7 @@ import stat
 import sys
 from urllib.parse import urlsplit
 
-PRESETS = {'react-pro', 'marketplace', 'react-vite', 'nextjs', 'node-express', 'fastapi', 'worker'}
+PRESETS = {'react-pro', 'marketplace', 'react-vite', 'nextjs', 'node-express', 'node-postgres', 'fastapi', 'worker'}
 EVIDENCE = ('network-isolation', 'claude-model-metering', 'bridge-assets', 'dependency-registry',
             'preview-browser-tls', 'backup-restore', 'worker-recovery', 'concurrent-load', 'template-review')
 CONFIG_KEYS = {

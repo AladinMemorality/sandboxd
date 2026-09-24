@@ -45,6 +45,8 @@ Both providers then received `.env.local` containing a harmless public Vite vari
 
 ## Retained unsuccessful setup attempts
 
+Follow-up: the environment-reload failure above was subsequently reproduced with bounded HTTP diagnostics and traced to Vite's cold dependency-optimizer shutdown. A pinned two-line dependency patch passed deterministic Docker and actual Cube regressions; see [the follow-up evidence](../vite-cold-reload-2026-09-24/README.md). The original benchmark images and failures recorded here remain unchanged, and that follow-up does not imply production adoption.
+
 - `report-docker-fixture-long-socket.json`: original deep staging path made the host Unix socket unusable during a direct guest file call. The fixture work root was shortened. Earlier successful readiness samples are retained but excluded from medians.
 - `report-docker-fixture-legacy-files.json`: the pinned production guest lacks the new guest `PUT /files` endpoint. The harness was corrected to use the existing control-plane file API on both providers. This was a harness mismatch, not a production file-edit failure.
 - `report-cube-fixture-global-gate.json`: the fixture initially requested `CubeAllApps`; startup correctly rejected the fleet-wide reverse-egress gate. It now allowlists only each synthetic fixture app. No runtime gate was bypassed or weakened.

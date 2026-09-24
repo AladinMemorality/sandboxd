@@ -28,12 +28,47 @@ credential rotation, stop/resume and task-capability revocation. These local
 integration results do not replace deployed model/metering or isolation acceptance.
 See [reverse egress](../../docs/cube-reverse-egress.md).
 
-The latest client inventory observed 59 projects, including the separately
-excluded MyHomeTroc project. Its PostgreSQL dependency is excluded with that
-project; the other discovered raw socket call targets a service inside its own
-guest. Bounded follow-up source reviews account for the initial scan limits.
-Custom Java/native tools still need execution against migrated data. The older
-58-project home inventory is not a frozen plan for the changed fleet.
+The historical client inventory observed 59 projects. **MyHomeTroc is now in
+the requested rollout scope**; the user's later instruction supersedes its
+previous in-progress exclusion. Preserve that historical report as evidence of
+what was reviewed then, but do not use its exclusion or eligible count for the
+new migration plan. Current source review finds MyHomeTroc's PostgreSQL uses a
+same-guest Unix socket: the dependency alone does not require outbound database
+access. Its Baileys WebSocket client does require explicit HTTPS proxy support
+and acceptance; database files, process startup and owner data still require
+migration/restore proof. The other previously discovered raw socket call targets
+a service inside its own guest. Bounded follow-up source reviews account for the
+initial scan limits. Custom Java/native tools still need execution against
+migrated data. Neither the older 58-project home inventory nor the historical
+59-project client inventory is a frozen plan for the current fleet.
+
+A fresh read-only inventory at 2026-09-24 17:42 UTC observed **61 current
+sandboxes**, one active coding task, and 13,298,432,400 regular workspace bytes.
+Candidate metadata preflight accepted 59 of 61 and all 31 stored snapshots.
+The two live blockers were MyHomeTroc's running PostgreSQL socket and a project
+with an active task/changing home. The subsequent isolated MyHomeTroc test
+confirmed graceful quiesce removes its socket and permits strict full-home
+export/import; do not interpret a live socket as proof that this app cannot
+migrate. These are changing-fleet observations, not a drained production plan.
+Nine legacy empty-preset candidates and twelve custom-home/tool cases still
+need explicit review in the final plan. All 36 observed home symlinks matched
+the narrowly reviewed contracts; metadata eligibility does not establish ABI
+compatibility or application health.
+
+PostgreSQL is an **opt-in capability**, exposed by the `node-postgres` starter
+or an intentionally added worker. The existing seven starters and the default
+React Pro selection do not start or initialize a database. Runtime support is
+being validated independently of global routing. Owner source restore now
+imports into the existing Cube VM instead of deleting its private home; it
+rejects active tasks and incompatible templates. Remixes retain the separate
+fresh-VM contract and do not inherit private database contents.
+
+The opt-in [public registry fixture](functional/2026-09-24/registry-clients.md)
+passed all seven checks for native Node HTTPS, curl, and fresh npm/pnpm/pip
+installs through the actual broker and reviewed Cube image in the isolated
+nested cluster. It verifies representative public-registry compatibility, not
+all owner dependency graphs or arbitrary native clients. This fixture does not
+exercise protected destinations or replace the outstanding security acceptance.
 
 Optional capture-worker experiments are retained in platform
 `services/capture/benchmarks/2026-09-24/cube/`. They concern a separate renderer
@@ -102,6 +137,14 @@ Memory budgeting includes active plus additional waking guests and an explicit h
 Each `evidence` entry has `{ "path": "relative/artifact.json", "sha256": "64 lowercase hex characters" }`, with paths confined to the plan directory. Required categories are `network-isolation`, `claude-model-metering`, `bridge-assets`, `dependency-registry`, `preview-browser-tls`, `backup-restore`, `worker-recovery`, `concurrent-load`, and `template-review`. A digest only establishes which bytes a reviewer saw. The script does not interpret a document's claims, freshness, signer, deployment identity or completeness.
 
 Backups and restore proof must cover owner workspace/configuration, private history, runtime bindings, database state, snapshots and any owner files outside the workspace. Source publication is not a full backup. Retain an independently restorable Docker rollback until transferred owner data and stable preview/publish/remix identifiers have been verified. Use fresh fleet inventory, not a historical project count.
+
+The [actual independent deployment-file recovery fixture](functional/2026-09-24/deployment-recovery.md)
+passed using real Docker/Cube lifecycle operations, copied SQLite/key/full-home/
+library/archive/config scopes, deletion of original synthetic files and guests,
+and restoration into a separate root with real Docker HTTP readiness. This
+advances the earlier stubbed recovery evidence. It is still synthetic, on the
+same physical host, with fixture-managed path relocation/config delivery; it
+does not establish an off-host production restore or full platform service boot.
 
 ## Independent capture service reference
 

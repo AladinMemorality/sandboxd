@@ -6,6 +6,7 @@ package api
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -132,10 +133,22 @@ func TestOperatorMatchedAppLifecycle(t *testing.T) {
 		s.CubeDomain = "cube.app"
 		s.CubeAgentRelayOrigin = "https://functional.invalid"
 		s.AgentProxyURL = "http://127.0.0.1:1"
-		s.CubeTemplates = map[string]string{"react-pro": "tpl-ce9efc43b71248d9a0adfb90"}
+		template := "tpl-ce9efc43b71248d9a0adfb90"
+		image := "sha256:6bad30fa19584d85f0dafc1680bca5851f1bb05f55a6abe0d6002165227253d0"
+		if reviewed := os.Getenv("APP_BENCH_CUBE_TEMPLATE"); reviewed != "" {
+			candidateImage := os.Getenv("APP_BENCH_CUBE_IMAGE")
+			if !strings.HasPrefix(reviewed, "tpl-") || len(candidateImage) != 71 || !strings.HasPrefix(candidateImage, "sha256:") {
+				t.Fatal("reviewed candidate template and exact image digest required together")
+			}
+			if _, err := hex.DecodeString(strings.TrimPrefix(candidateImage, "sha256:")); err != nil {
+				t.Fatal("invalid candidate image digest")
+			}
+			template, image = reviewed, candidateImage
+		}
+		s.CubeTemplates = map[string]string{"react-pro": template}
 		s.CubeApps = map[string]bool{}
-		report["template"] = "tpl-ce9efc43b71248d9a0adfb90"
-		report["image"] = "sha256:6bad30fa19584d85f0dafc1680bca5851f1bb05f55a6abe0d6002165227253d0"
+		report["template"] = template
+		report["image"] = image
 		if err = s.ConfigureCubeEgress(ctx, CubeEgressConfig{Policy: egress.Policy{ProtectedPrefixes: []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")}}, BridgeURL: "https://functional.invalid/api/bridge"}); err != nil {
 			t.Fatal(err)
 		}
@@ -304,6 +317,18 @@ func TestOperatorMatchedAppLifecycle(t *testing.T) {
 			t.Fatal("create HTTP/asset readiness failed")
 		}
 		sample["create_ready_ms"] = time.Since(started).Milliseconds()
+		if backend == "cube" {
+			binding, e := s.Store.GetRuntimeBinding(ctx, sb.ID)
+			if e != nil {
+				t.Fatal("read benchmark runtime binding failed")
+			}
+			guest, e := s.Cube.Get(ctx, binding.RuntimeID)
+			if e != nil || guest == nil || guest.CPUCount != 1 || guest.MemoryMB != 1024 {
+				t.Fatal("Cube benchmark must use exactly one CPU and 1024 MiB")
+			}
+			sample["verified_cpu_count"] = guest.CPUCount
+			sample["verified_memory_mb"] = guest.MemoryMB
+		}
 		if editProbe {
 			original := request("GET", "/v1/sandboxes/"+sb.ID+"/files/content?path=src/App.tsx", "")
 			if original.Code != 200 {
@@ -328,6 +353,66 @@ func TestOperatorMatchedAppLifecycle(t *testing.T) {
 			sample["env_edit_wait_ms"] = time.Since(envAt).Milliseconds()
 			if !passed {
 				t.Fatal("env restart failed HTTP and transformed env-value readiness")
+			}
+			if os.Getenv("APP_BENCH_POSTGRES_PROBE") == "1" {
+				if backend != "cube" {
+					t.Fatal("optional PostgreSQL acceptance probe requires the reviewed Cube candidate")
+				}
+				cfg := request("GET", "/v1/sandboxes/"+sb.ID+"/files/content?path=vite.config.ts", "")
+				if cfg.Code != 200 || !strings.Contains(cfg.Body.String(), "plugins: [") {
+					t.Fatal("reviewed React Pro Vite config missing")
+				}
+				updated := strings.Replace(cfg.Body.String(), "plugins: [", "plugins: [cubeLifecycleNoPG(),", 1) + `
+function cubeLifecycleNoPG() { return { name: 'disposable-no-postgres-proof', configureServer(server) {
+ server.middlewares.use('/__cube-lifecycle-no-postgres', (_req, res) => {
+  try {
+   let postgres = 0;
+   for (const pid of fs.readdirSync('/proc').filter(name => /^\d+$/.test(name))) {
+    try { if (fs.readFileSync('/proc/' + pid + '/comm', 'utf8').trim() === 'postgres') postgres++; }
+    catch (error) { if (error.code !== 'ENOENT' && error.code !== 'ESRCH') throw error; }
+   }
+   res.setHeader('Content-Type', 'application/json');
+   res.end(JSON.stringify({postgres_process_count: postgres, data_directory_exists: fs.existsSync('/home/sandbox/.baarcha-postgres/data')}));
+  } catch { res.statusCode = 500; res.end('fixture process inspection failed'); }
+ });
+} }; }
+`
+				if request("PUT", "/v1/sandboxes/"+sb.ID+"/files?path=vite.config.ts", updated).Code != 200 {
+					t.Fatal("could not install disposable process probe")
+				}
+				access := request("POST", "/v1/sandboxes/"+sb.ID+"/preview-access", "")
+				var cap struct {
+					Token string `json:"token"`
+				}
+				if access.Code != 200 || json.Unmarshal(access.Body.Bytes(), &cap) != nil || cap.Token == "" {
+					t.Fatal("candidate preview access failed")
+				}
+				verified := false
+				for until := time.Now().Add(30 * time.Second); time.Now().Before(until); {
+					probeCtx, stop := context.WithTimeout(ctx, 3*time.Second)
+					r := httptest.NewRequest("GET", s.previewURL(sb.ID, 3000)+"/__cube-lifecycle-no-postgres", nil).WithContext(probeCtx)
+					r.AddCookie(&http.Cookie{Name: "sandbox_preview", Value: cap.Token})
+					r.Header.Set("Sec-Fetch-Dest", "iframe")
+					w := httptest.NewRecorder()
+					handled := s.TryServeCubePreview(w, r)
+					stop()
+					var proof struct {
+						Processes *int  `json:"postgres_process_count"`
+						Data      *bool `json:"data_directory_exists"`
+					}
+					if handled && w.Code == 200 && json.Unmarshal(w.Body.Bytes(), &proof) == nil && proof.Processes != nil && proof.Data != nil {
+						if *proof.Processes != 0 || *proof.Data {
+							t.Fatal("database-free React Pro started PostgreSQL or created database state")
+						}
+						sample["postgres_process_count"], sample["postgres_data_directory_exists"] = *proof.Processes, *proof.Data
+						verified = true
+						break
+					}
+					time.Sleep(100 * time.Millisecond)
+				}
+				if !verified {
+					t.Fatal("database-free process inspection did not become ready")
+				}
 			}
 			if !cleanup(sb.ID) {
 				t.Fatal("edit fixture cleanup failed")
@@ -413,6 +498,14 @@ func TestOperatorMatchedAppLifecycle(t *testing.T) {
 			t.Fatal("remix lost source marker")
 		}
 		sample["remix_source_verified"] = true
+		if os.Getenv("APP_BENCH_REQUIRE_VITE_PATCH") == "1" {
+			patch := request("GET", "/v1/sandboxes/"+fork.Sandbox.ID+"/files/content?path=patches/vite@5.4.21.patch", "")
+			digest := sha256.Sum256(patch.Body.Bytes())
+			if patch.Code != 200 || hex.EncodeToString(digest[:]) != "56e863247e5b83428c6d258b48fed1409763d933dde105334dd43f26aec779da" {
+				t.Fatal("published/remixed source lost the pinned Vite patch")
+			}
+			sample["remix_vite_patch_verified"] = true
+		}
 		if !cleanup(fork.Sandbox.ID) || !cleanup(sb.ID) {
 			t.Fatal("iteration cleanup failed")
 		}

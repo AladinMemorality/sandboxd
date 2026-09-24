@@ -226,14 +226,18 @@ func TestOperatorCubeAppLifecycle(t *testing.T) {
 		t.Fatalf("restore HTTP %d: %s", restored.Code, restored.Body.String())
 	}
 	current, e := s.Store.CurrentSandboxForApp(ctx, project)
-	if e != nil || current.ID == sb.ID || current.AppID.String != project {
+	if e != nil || current.ID != sb.ID || current.AppID.String != project {
 		t.Fatal("restore identity contract failed")
+	}
+	restoredBinding, e := s.Store.GetRuntimeBinding(ctx, current.ID)
+	if e != nil || restoredBinding.RuntimeID != sourceBinding.RuntimeID || !bytes.Equal(restoredBinding.TokenCiphertext, sourceBinding.TokenCiphertext) || !bytes.Equal(restoredBinding.TokenNonce, sourceBinding.TokenNonce) {
+		t.Fatal("owner restore replaced the VM or its private transport credentials")
 	}
 	ready(current.ID)
 	data, e = s.runtimeClientFor(current.ID).ReadFile(ctx, "migration-marker.md")
 	if e != nil || string(data) != "published source\n" {
 		t.Fatal("restore did not apply frozen source")
 	}
-	report["owner_restore_frozen_source_stable_app"] = true
+	report["owner_restore_frozen_source_stable_app_sandbox_vm_credentials"] = true
 	t.Log("PASS real Cube create, source publish, sanitized remix, pause/resume, owner restore; no model calls")
 }
