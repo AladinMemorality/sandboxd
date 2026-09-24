@@ -10,6 +10,7 @@ import json
 import os
 from pathlib import Path
 import sqlite3
+import stat
 import subprocess
 import tempfile
 import threading
@@ -22,7 +23,7 @@ NEW_CP = "sha256:" + "3" * 64
 NEW_BASE = "sha256:" + "4" * 64
 
 DOCKER = r'''#!/usr/bin/env python3
-import json,os,sys,sqlite3
+import json,os,sys,sqlite3,stat
 from pathlib import Path
 a=sys.argv[1:]; root=Path(os.environ['FAKE_ROOT']); p=root/'docker.json'; s=json.loads(p.read_text())
 with (root/'commands.jsonl').open('a') as f:f.write(json.dumps(a)+'\n')
@@ -72,6 +73,12 @@ elif a[0]=='build':
 elif a[0]=='run':
  assert all(x in a for x in ['--rm','--init','--network','none','--cpus','--memory','1g'])
  assert a[a.index('--name')+1].startswith('sandboxd-deploy-check-')
+ for i,arg in enumerate(a):
+  if arg=='-v':
+   source,target,mode=a[i+1].rsplit(':',2); source=Path(source)
+   assert mode=='ro' and source.is_file()
+   assert source.parent.name=='check-fixtures'
+   assert stat.S_IMODE(source.stat().st_mode)==0o644, 'Remapped sandbox user cannot read private worktree fixture'
  if a[-1]=='version':
   sha=next(x.split(':release-',1)[1] for x in a if x.startswith('sandboxd-control-plane:release-'))
   print('sandboxd '+sha+' ('+sha[:12]+')')
@@ -109,13 +116,15 @@ class DeployTest(unittest.TestCase):
         self.git("init", "-q")
         self.git("config", "user.email", "deploy-test@invalid.example")
         self.git("config", "user.name", "Synthetic deploy test")
-        for directory in ("host", "image", "control-plane", "traefik/dynamic"):
+        for directory in ("host", "image", "control-plane", "traefik/dynamic", "scripts", "image/services/postgres"):
             (self.src / directory).mkdir(parents=True, exist_ok=True)
         (self.src / "host/sandbox-isolation.sh").write_text(ISOLATION)
         (self.src / "host/sandbox-isolation.sh").chmod(0o755)
         (self.src / "docker-compose.yml").write_text("services: {sandboxd: {image: old}}\n")
         (self.src / "image/Dockerfile").write_text("FROM old\n")
         (self.src / "control-plane/Dockerfile").write_text("FROM old\n")
+        for fixture in ("scripts/vite-reload-regression.mjs", "image/services/postgres/paths.test.mjs", "image/services/postgres/worker.test.mjs"):
+            (self.src / fixture).write_text("// Checked-in public fixture: " + fixture + "\n")
         self.git("add", ".")
         self.git("commit", "-qm", "old")
         self.old = self.git("rev-parse", "HEAD")
@@ -187,6 +196,25 @@ class DeployTest(unittest.TestCase):
         self.assertEqual(sum(c[0] == "run" for c in commands), 4)
         self.assertLess(max(i for i, c in enumerate(commands) if c[0] == "run"), next(i for i, c in enumerate(commands) if "up" in c))
         backup = next((self.root / "deploy-state/releases").glob("*/sandboxd.backup.sqlite"))
+        release = backup.parent
+        # Real Git creates the image build context. Source is public and Docker
+        # COPY keeps these modes; a remapped sandbox user needs to read it.
+        # This catches the original 077 umask producing root-owned 0600 image
+        # files even when separately staged test bind mounts were readable.
+        source = release / "source"
+        for tracked in ("image/Dockerfile", "control-plane/Dockerfile", "scripts/vite-reload-regression.mjs", "image/services/postgres/paths.test.mjs"):
+            self.assertEqual(stat.S_IMODE((source / tracked).stat().st_mode), 0o644)
+        self.assertEqual(stat.S_IMODE((source / "host/sandbox-isolation.sh").stat().st_mode), 0o755)
+        self.assertEqual(stat.S_IMODE(source.stat().st_mode), 0o755)
+        fixtures = release / "check-fixtures"
+        self.assertEqual({p.name for p in fixtures.iterdir()}, {"vite-reload-regression.mjs", "paths.test.mjs", "worker.test.mjs"})
+        for copied in fixtures.iterdir():
+            self.assertEqual(stat.S_IMODE(copied.stat().st_mode), 0o644)
+            self.assertTrue(copied.read_text().startswith("// Checked-in public fixture:"))
+        for private_dir in (release, fixtures, self.root / "deploy-state"):
+            self.assertEqual(stat.S_IMODE(private_dir.stat().st_mode), 0o700)
+        for private_file in (release / "env.before", release / "config.json", release / "container.before.json", backup):
+            self.assertEqual(stat.S_IMODE(private_file.stat().st_mode), 0o600)
         with sqlite3.connect(backup) as db:
             self.assertEqual(db.execute("select value from events").fetchall(), [("committed-in-WAL",)])
         self.assertEqual(self.db.execute("select count(*) from events").fetchone()[0], 2)
