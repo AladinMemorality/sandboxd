@@ -1,0 +1,38 @@
+{
+  "create_ready_ms": [
+    7206,
+    7256
+  ],
+  "cross_guest_token_denied": true,
+  "frontend_status": 200,
+  "image_digest": "sha256:88533a511dcc094b8239a3ecb43e8e440edf21289c09e566eb134f426107c53e",
+  "independent_credentials": true,
+  "resume_ready_ms": [
+    939,
+    1587,
+    965
+  ],
+  "same_process_resume": true,
+  "scope": "two fresh guests, authenticated channel, reviewed React frontend, three same-process pause/resume cycles; no model/outbound requests; not complete fleet acceptance",
+  "template": "tpl-816ce9e72cf6479788f5b9bc",
+  "date": "2026-09-24",
+  "source_commit": "1fbeac29cf0ddf5db45f524a3b68145ba8ced8ad",
+  "runtimed_sha256": "1a27b0fff0b404265a01b74b4ecfe83fa4a4780400352b4882dd02cfac312624",
+  "base_image_digest": "sha256:9ec445151344a7baa295b085bebe1a0352ab930601fe0d9ed2bf1283bbaa6678",
+  "template_cpu": 1,
+  "template_memory_mib": 1024,
+  "template_writable_gib": 10,
+  "direct_egress_policy": "deny0.0.0.0/0; noCubeCA; fixedfunctionalbroker refusesalloutbounddials",
+  "guest_cleanup": "Both successful-run guests deleted; no fixtureprocess retained. Earlier failed-run guests also deleted.",
+  "bootstrap_checks": {
+    "uid": 1000,
+    "credential_free_bootstrap": true,
+    "fresh_init": true,
+    "same_init_idempotent": true,
+    "changed_init_rejected": true,
+    "supervisor_requires_bearer": true,
+    "app_waits_for_authenticated_channel": true
+  },
+  "fixture_source_sha256": "2d66721601d73cc9410f558312d7142e08c98f3f63334fb58cb21cfa4349820e",
+  "fixture_binary_sha256": "7f8e5ecb31574073348746f74260db270d7447a15b3b3eeb0ee38ac85ebbb00d"
+}
