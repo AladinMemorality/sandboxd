@@ -1,0 +1,68 @@
+{
+  "backend": "docker",
+  "cpu_per_app": 1,
+  "docker_network": "owned internal bridge; no external egress",
+  "finished_at": "2026-09-24T16:51:13.966792793Z",
+  "image": "sha256:9ec445151344a7baa295b085bebe1a0352ab930601fe0d9ed2bf1283bbaa6678",
+  "memory_mib_per_app": 1024,
+  "model_calls": false,
+  "owned_sandboxes_deleted": true,
+  "production_mutation": false,
+  "runtime_preset": "react-pro",
+  "samples": [
+    {
+      "create_api_ms": 4748,
+      "create_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "create_ready_ms": 7463,
+      "iteration": 0,
+      "resume_api_ms": 609,
+      "resume_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "resume_ready_ms": 2062,
+      "started_at": "2026-09-24T16:51:00.123934381Z",
+      "stop_ms": 2465,
+      "stop_resume_ready_ms": 4527,
+      "warmup": true
+    }
+  ],
+  "scope": "control-plane handlers plus real HTML and transformed assets; Docker host bridge vs nested Cube preview proxy; not browser rendering",
+  "source_commit": "2023423c972b3b8c281a9aa53d124c9bdab3b7f7",
+  "started_at": "2026-09-24T16:51:00.108560545Z"
+}
