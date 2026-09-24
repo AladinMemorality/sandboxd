@@ -139,9 +139,20 @@ pause/resume and strict workspace/home export checks. The
 [preset matrix](cube-pilot-results/reviewed-preset-matrix-2026-09-24.md) pins the
 isolated-cluster images/templates and exact acceptance scope. These checks establish
 preset behavior, not every existing project's native-tool compatibility or a
-comparative speedup. Current full API publish/remix and journaled migration tests
-are separate acceptance work; direct guest lifecycle results do not substitute
-for those control-plane paths.
+comparative speedup. The [actual API lifecycle fixture](../ops/cube/functional/2026-09-24/app-lifecycle.md)
+also passed source publication, fresh-owner remix, stop/start and owner restore,
+with private sentinels excluded from shared source. Single nested observations
+were 6.417 s create-to-supervisor-ready, 4.010 s remix-to-ready and 1.395 s
+pause/resume-to-ready; these are not a matched speedup benchmark. A separate
+`.env.local` reload hang remains under investigation.
+
+The [independent recovery fixture](cube-pilot-results/independent-backup-restore-2026-09-24.md)
+restored a consistent SQLite snapshot, encryption key, source home and recovery
+archives after deleting the original test files. It preserved newer data/task
+history and rejected corrupt archives. Its lifecycle was stubbed; it does not
+establish a real off-host production disaster-recovery rehearsal. Migration and
+source-retirement readiness now require running worker processes and a stable
+observation window, without adding that delay to ordinary app resume.
 
 No production project has been switched. Remaining gates include complete
 control-plane lifecycle and migration/rollback acceptance, fresh fleet manifests,
