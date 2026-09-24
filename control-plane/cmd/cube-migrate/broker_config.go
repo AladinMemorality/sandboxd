@@ -21,9 +21,6 @@ func migrationBrokerPolicy() (egress.Policy, error) {
 	if os.Getenv("SANDBOXD_CUBE_EGRESS_CLIENT_PROFILE") != "proxy-http-v1" {
 		return empty, fmt.Errorf("offline broker requires reviewed proxy-http-v1 client profile")
 	}
-	if os.Getenv("SANDBOXD_CUBE_ROLLOUT") == "global" {
-		return empty, fmt.Errorf("global reverse egress compatibility remains gated")
-	}
 	for _, key := range []string{"SANDBOXD_CUBE_API_URL", "SANDBOXD_CUBE_PROXY_URL"} {
 		u, e := url.Parse(os.Getenv(key))
 		if e != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" || u.User != nil || (u.Path != "" && u.Path != "/") || u.RawPath != "" || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {

@@ -124,7 +124,14 @@ func TestLiveDockerCubeRollback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	backend := &OfflineBackend{Store: db, Docker: docker.NewClient(), Cube: client, Secrets: cipher, ProxyURL: "http://127.0.0.1:80", ArchiveDir: filepath.Join(root, "archives"), WorkspaceRoot: workspaceRoot}
+	resources, err := ReadTemplateResources(os.Getenv("CUBE_MIGRATION_TEMPLATE_RESOURCES"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := resources[template]; !ok {
+		t.Fatal("fixture requires explicit CUBE_MIGRATION_TEMPLATE_RESOURCES map for its tested template")
+	}
+	backend := &OfflineBackend{TemplateResources: resources, Store: db, Docker: docker.NewClient(), Cube: client, Secrets: cipher, ProxyURL: "http://127.0.0.1:80", ArchiveDir: filepath.Join(root, "archives"), WorkspaceRoot: workspaceRoot}
 	t.Cleanup(func() {
 		if t.Failed() {
 			db.Close()

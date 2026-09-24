@@ -28,9 +28,10 @@ var identifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$`)
 var envName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
 type Client struct {
-	base *url.URL
-	key  string
-	http *http.Client
+	base      *url.URL
+	key       string
+	http      *http.Client
+	admission *admissionGuard
 }
 
 // APIError never includes upstream bodies, URLs, credentials or caller values.
@@ -143,6 +144,12 @@ func (c *Client) Create(ctx context.Context, in CreateRequest) (*Sandbox, error)
 	if err != nil {
 		return nil, err
 	}
+	if c.admission != nil {
+		return c.admittedCreate(ctx, in)
+	}
+	return c.createRaw(ctx, in)
+}
+func (c *Client) createRaw(ctx context.Context, in CreateRequest) (*Sandbox, error) {
 	var out Sandbox
 	if err := c.do(ctx, "create", http.MethodPost, "/sandboxes", in, &out, standardTimeout, http.StatusCreated); err != nil {
 		return nil, err
@@ -168,6 +175,20 @@ func (c *Client) Get(ctx context.Context, id string) (*Sandbox, error) {
 	if err := validateID(id); err != nil {
 		return nil, err
 	}
+	if c.admission == nil {
+		return c.getRaw(ctx, id)
+	}
+	old, lookup := c.admission.store.AdmissionLookup(ctx, id)
+	out, err := c.getRaw(ctx, id)
+	var upstream *APIError
+	if lookup == nil && ((old.State == "active" && err == nil && out.State == "paused") || ((old.State == "active" || old.State == "released") && errors.As(err, &upstream) && upstream.StatusCode == 404)) {
+		if releaseErr := c.admission.store.AdmissionObserveReleased(ctx, old, err != nil); releaseErr != nil {
+			return nil, releaseErr
+		}
+	}
+	return out, err
+}
+func (c *Client) getRaw(ctx context.Context, id string) (*Sandbox, error) {
 	var out Sandbox
 	if err := c.do(ctx, "get", http.MethodGet, "/sandboxes/"+id, nil, &out, standardTimeout, http.StatusOK); err != nil {
 		return nil, err
@@ -185,6 +206,12 @@ func (c *Client) Connect(ctx context.Context, id string, in ConnectRequest) (*Sa
 	if err := validateTimeout(in.TimeoutSeconds); err != nil {
 		return nil, err
 	}
+	if c.admission != nil {
+		return c.admittedConnect(ctx, id, in)
+	}
+	return c.connectRaw(ctx, id, in)
+}
+func (c *Client) connectRaw(ctx context.Context, id string, in ConnectRequest) (*Sandbox, error) {
 	var out Sandbox
 	if err := c.do(ctx, "connect", http.MethodPost, "/sandboxes/"+id+"/connect", in, &out, lifecycleTimeout, http.StatusOK); err != nil {
 		return nil, err
@@ -199,6 +226,12 @@ func (c *Client) Pause(ctx context.Context, id string) error {
 	if err := validateID(id); err != nil {
 		return err
 	}
+	if c.admission != nil {
+		return c.admittedRelease(ctx, id, "pause")
+	}
+	return c.pauseRaw(ctx, id)
+}
+func (c *Client) pauseRaw(ctx context.Context, id string) error {
 	return c.do(ctx, "pause", http.MethodPost, "/sandboxes/"+id+"/pause", struct{}{}, nil, lifecycleTimeout, http.StatusNoContent)
 }
 
@@ -206,10 +239,19 @@ func (c *Client) Delete(ctx context.Context, id string) error {
 	if err := validateID(id); err != nil {
 		return err
 	}
+	if c.admission != nil {
+		return c.admittedRelease(ctx, id, "delete")
+	}
+	return c.deleteRaw(ctx, id)
+}
+func (c *Client) deleteRaw(ctx context.Context, id string) error {
 	return c.do(ctx, "delete", http.MethodDelete, "/sandboxes/"+id, nil, nil, standardTimeout, http.StatusNoContent)
 }
 
 func (c *Client) CreateSnapshot(ctx context.Context, id string, in SnapshotRequest) (*Snapshot, error) {
+	if c.admission != nil {
+		return nil, errors.New("Cube memory snapshots are not supported by the bounded admission profile; use scoped source publication")
+	}
 	if err := validateID(id); err != nil {
 		return nil, err
 	}

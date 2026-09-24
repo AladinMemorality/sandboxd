@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
 
@@ -30,7 +31,9 @@ func TestFleetAccountsForProjectsSnapshotsAndMembershipDrift(t *testing.T) {
 	if e := engine.Store.CreateSnapshot(ctx, &store.Snapshot{ID: snapshotID, Name: "published", OwnerToken: "owner", SourceAppID: sql.NullString{String: "durable-app", Valid: true}, BaseImage: "legacy", Format: "raw", Status: "ready", ImagePath: snapshotPath, Visibility: "private"}); e != nil {
 		t.Fatal(e)
 	}
-	options := FleetOptions{Templates: map[string]string{"react-vite": "reviewed"}, LibraryRoot: library}
+	options := FleetOptions{Templates: map[string]string{"react-vite": "reviewed"}, LibraryRoot: library, TemplateResources: map[string]ResourceLimits{"reviewed": {2000, 2 << 30}}, InspectSource: func(context.Context, string) (*docker.ContainerJSON, error) {
+		return resourceFixtureContainer("fixture"), nil
+	}}
 	report, e := FleetPreflight(ctx, engine.Store.DB(), root, options)
 	if e != nil {
 		t.Fatal(e)
@@ -46,6 +49,12 @@ func TestFleetAccountsForProjectsSnapshotsAndMembershipDrift(t *testing.T) {
 	if reviewed.BlockedProjects != 0 || reviewed.BlockedSnapshots != 0 || reviewed.Snapshots[0].State != "conversion_required" {
 		t.Fatalf("reviewed plan: %+v", reviewed)
 	}
+	options.TemplateResources["reviewed"] = ResourceLimits{1000, 1 << 30}
+	undersized, e := FleetPreflight(ctx, engine.Store.DB(), root, options)
+	if e != nil || undersized.BlockedProjects != 1 {
+		t.Fatalf("fleet accepted half-sized target: %+v %v", undersized, e)
+	}
+	options.TemplateResources["reviewed"] = ResourceLimits{2000, 2 << 30}
 	if e = VerifyFleetIdentity(ctx, engine.Store.DB(), report.IdentitySHA256); e != nil {
 		t.Fatal(e)
 	}

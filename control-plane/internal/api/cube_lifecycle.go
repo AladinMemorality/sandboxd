@@ -142,6 +142,9 @@ func (s *Server) createCubeAppSandbox(w http.ResponseWriter, r *http.Request, ap
 		Network:   network,
 	})
 	if err != nil {
+		if writeCubeAdmissionError(w, err) {
+			return
+		}
 		writeV1Err(w, 502, "runtime_unavailable", "Cube creation failed")
 		return
 	}
@@ -357,6 +360,9 @@ func (s *Server) cubeLifecycle(w http.ResponseWriter, r *http.Request, action st
 		err = errors.New("unsupported Cube lifecycle action")
 	}
 	if err != nil {
+		if writeCubeAdmissionError(w, err) {
+			return true
+		}
 		writeV1Err(w, 502, "runtime_unavailable", "Cube lifecycle operation failed")
 		return true
 	}

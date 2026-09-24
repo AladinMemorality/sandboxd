@@ -23,8 +23,9 @@ import (
 // Reverse egress is an explicit deployment option. It adds no guest NIC
 // allowance: public destinations and fixed services use host-initiated channels.
 type CubeEgressConfig struct {
-	Policy    egress.Policy
-	BridgeURL string
+	Policy          egress.Policy
+	BridgeURL       string
+	AppHTTPServices map[string][]egress.HTTPService
 }
 
 type cubeEgressSession struct {
@@ -51,9 +52,6 @@ func (s *Server) ConfigureCubeEgress(ctx context.Context, cfg CubeEgressConfig) 
 		u.RawPath != "" || u.RawQuery != "" || u.ForceQuery || u.Fragment != "" {
 		return errors.New("Cube reverse bridge must be a fixed HTTPS /api/bridge URL")
 	}
-	if s.CubeAllApps {
-		return errors.New("global reverse egress remains gated on fleet client compatibility")
-	}
 	if len(cfg.Policy.ProtectedPrefixes) == 0 || s.Cube == nil || s.CubeAgentRelayOrigin == "" || s.AgentProxyURL == "" {
 		return errors.New("Cube reverse egress requires protected addresses and configured model relay")
 	}
@@ -78,6 +76,16 @@ func (s *Server) ConfigureCubeEgress(ctx context.Context, cfg CubeEgressConfig) 
 		}
 	}
 	if err := cfg.Policy.Validate(); err != nil {
+		return err
+	}
+	// Revalidate after adding the controller's own interface addresses. An
+	// explicit app route must never point back into protected infrastructure.
+	encodedServices, err := json.Marshal(cfg.AppHTTPServices)
+	if err != nil {
+		return err
+	}
+	cfg.AppHTTPServices, err = egress.ParseHTTPServices(string(encodedServices), cfg.Policy)
+	if err != nil {
 		return err
 	}
 	s.cubeEgress = &cubeEgressManager{ctx: ctx, config: cfg, sessions: make(map[string]*cubeEgressSession)}
@@ -195,7 +203,8 @@ func (s *Server) runCubeEgress(ctx context.Context, id, runtimeID string, entry 
 			entry.mu.Unlock()
 			_ = egress.RunHost(channelCtx, conn, egress.HostOptions{
 				Identity: egress.Identity{SandboxID: id, Generation: entry.generation}, Policy: m.config.Policy,
-				Services: map[string]http.Handler{"model": s.cubeEgressModelHandler(), "bridge": http.HandlerFunc(s.cubeEgressBridge)},
+				Services:     map[string]http.Handler{"model": s.cubeEgressModelHandler(), "bridge": http.HandlerFunc(s.cubeEgressBridge)},
+				HTTPServices: s.cubeAppHTTPServices(channelCtx, id, entry.generation),
 			})
 			cancel()
 			entry.mu.Lock()
@@ -209,6 +218,30 @@ func (s *Server) runCubeEgress(ctx context.Context, id, runtimeID string, entry 
 		case <-time.After(250 * time.Millisecond):
 		}
 	}
+}
+
+func (s *Server) cubeAppHTTPServices(ctx context.Context, id, generation string) map[string]http.Handler {
+	row, err := s.Store.Get(ctx, id)
+	if err != nil || !row.AppID.Valid || s.cubeEgress == nil {
+		return nil
+	}
+	appID := row.AppID.String
+	services := make(map[string]http.Handler)
+	for _, service := range s.cubeEgress.config.AppHTTPServices[appID] {
+		handler := service.Handler()
+		services[service.Address()] = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			identity, ok := egress.SourceIdentity(r.Context())
+			current, err := s.Store.Get(r.Context(), id)
+			if !ok || identity.SandboxID != id || identity.Generation != generation || err != nil ||
+				!current.AppID.Valid || current.AppID.String != appID || current.RuntimeProvider != "cube" || current.Status != "running" ||
+				!s.cubeEgressIdentityActive(r.Context(), identity) {
+				http.Error(w, "forbidden", 403)
+				return
+			}
+			handler.ServeHTTP(w, r)
+		})
+	}
+	return services
 }
 
 func (s *Server) cubeEgressModelHandler() http.Handler {

@@ -151,6 +151,9 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 	err = s.ensureCubePreviewLease(ctx, sb)
 	cancel()
 	if err != nil {
+		if writeCubeAdmissionError(w, err) {
+			return true
+		}
 		writeErr(w, 502, "preview resume failed")
 		return true
 	}
@@ -207,6 +210,12 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 			s.cubePreviewLeases.Delete(id)
 			writeErr(w, 502, "preview upstream unavailable")
 		},
+	}
+	// ReverseProxy keeps this call open for WebSockets and streamed responses.
+	// Maintenance must renew their runtime lease while those streams are live.
+	if s.Inflight != nil {
+		s.Inflight.Enter(id)
+		defer s.Inflight.Exit(id)
 	}
 	proxy.ServeHTTP(w, r)
 	return true

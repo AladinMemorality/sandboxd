@@ -24,13 +24,14 @@ import (
 )
 
 type OfflineBackend struct {
-	Broker     *MigrationBroker
-	Store      *store.Store
-	Docker     *docker.Client
-	Cube       *cube.Client
-	Secrets    *secrets.Cipher
-	ProxyURL   string
-	ArchiveDir string
+	TemplateResources map[string]ResourceLimits
+	Broker            *MigrationBroker
+	Store             *store.Store
+	Docker            *docker.Client
+	Cube              *cube.Client
+	Secrets           *secrets.Cipher
+	ProxyURL          string
+	ArchiveDir        string
 	// WorkspaceRoot is the configured host bind-mount root, not a request path.
 	WorkspaceRoot string
 }
@@ -92,6 +93,9 @@ func (b *OfflineBackend) sourceStopped(ctx context.Context, m *store.RuntimeMigr
 	if inspected.State.Running {
 		return errors.New("source Docker container is still running")
 	}
+	if err = b.verifyPinnedSourceIdentity(m, inspected); err != nil {
+		return err
+	}
 	return b.validateSourceContainer(m, inspected)
 }
 
@@ -142,7 +146,10 @@ func (b *OfflineBackend) StopSource(ctx context.Context, m *store.RuntimeMigrati
 	if err = b.validateSourceContainer(m, inspected); err != nil {
 		return err
 	}
-	if err = b.Docker.Stop(ctx, m.Source.ContainerID.String, 30); err != nil {
+	if err = b.preserveSourceResources(m, inspected); err != nil {
+		return err
+	}
+	if err = b.Docker.Stop(ctx, inspected.ID, 30); err != nil {
 		return err
 	}
 	return b.sourceStopped(ctx, m)
@@ -268,6 +275,9 @@ func (b *OfflineBackend) ArchiveSource(ctx context.Context, m *store.RuntimeMigr
 }
 
 func (b *OfflineBackend) StageTarget(ctx context.Context, m *store.RuntimeMigration) error {
+	if _, err := b.readResourceContract(m); err != nil {
+		return err
+	}
 	token := make([]byte, 32)
 	if _, err := rand.Read(token); err != nil {
 		return err
@@ -352,6 +362,9 @@ func wait(ctx context.Context, timeout time.Duration, condition func() bool) err
 }
 
 func (b *OfflineBackend) ImportTarget(ctx context.Context, m *store.RuntimeMigration) error {
+	if err := b.verifyTargetResources(ctx, m); err != nil {
+		return err
+	}
 	data, size, err := b.readWorkspaceArchive(ctx, m, "source", m.ArchiveSHA256)
 	if err != nil {
 		return err
@@ -389,6 +402,9 @@ func (b *OfflineBackend) ImportTarget(ctx context.Context, m *store.RuntimeMigra
 }
 
 func (b *OfflineBackend) VerifyTarget(ctx context.Context, m *store.RuntimeMigration) error {
+	if err := b.verifyTargetResources(ctx, m); err != nil {
+		return err
+	}
 	client, err := b.connect(ctx, m)
 	if err != nil {
 		return err
@@ -446,6 +462,9 @@ func (b *OfflineBackend) VerifyTarget(ctx context.Context, m *store.RuntimeMigra
 }
 
 func (b *OfflineBackend) ReadyTarget(ctx context.Context, m *store.RuntimeMigration) error {
+	if err := b.verifyTargetResources(ctx, m); err != nil {
+		return err
+	}
 	client, err := b.connect(ctx, m)
 	if err != nil {
 		return err
@@ -642,6 +661,9 @@ func (b *OfflineBackend) AdoptTarget(ctx context.Context, m *store.RuntimeMigrat
 	plain, _ = json.Marshal(c)
 	ciphertext, nonce, err := b.Secrets.Seal(plain)
 	if err != nil {
+		return err
+	}
+	if err = b.Cube.AdoptAdmission(ctx, id); err != nil {
 		return err
 	}
 	m.Binding.RuntimeID = id

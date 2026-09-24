@@ -46,8 +46,11 @@ func run(args []string) error {
 	archives := flags.String("archives", filepath.Join(data, "migration-archives"), "private retained recovery archives")
 	keyfile := flags.String("keyfile", filepath.Join(data, "secrets.key"), "existing sandboxd secrets keyfile")
 	id := flags.String("sandbox", "", "stable sandbox ID")
+	admissionKey := flags.String("admission-key", "", "durable app:APP_ID admission identity for fenced recovery")
+	providerDrained := flags.Bool("provider-requests-drained", false, "operator verified all previous provider mutations terminated; required for pending known-runtime recovery")
 	homeManifests := flags.String("home-manifests", "", "reviewed JSON map of sandbox IDs to private owner-home manifests")
 	expectedFleet := flags.String("expected-fleet", "", "identity_sha256 from the reviewed fleet plan; checked before every phase")
+	templateResources := flags.String("template-resources", "", "reviewed JSON map of template IDs to CPU milli and memory bytes; forward migration requires it")
 	fleetPresets := flags.String("fleet-presets", "", "reviewed JSON map of app IDs to target presets")
 	library := flags.String("library", filepath.Join(data, "library"), "snapshot library root for fleet preflight")
 	targetPreset := flags.String("preset", "", "reviewed target runtime preset")
@@ -69,13 +72,20 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
+	resources, err := migration.ReadTemplateResources(*templateResources)
+	if err != nil {
+		return err
+	}
 	uri := url.URL{Scheme: "file", Path: *database}
-	if action == "inventory" || action == "fleet-preflight" || action == "status" || action == "rollback-check" {
+	if action == "inventory" || action == "fleet-preflight" || action == "status" || action == "rollback-check" || action == "admission-status" {
 		db, err := sql.Open("sqlite3", uri.String()+"?mode=ro&_busy_timeout=5000")
 		if err != nil {
 			return err
 		}
 		defer db.Close()
+		if action == "admission-status" {
+			return printAdmissionStatus(ctx, db)
+		}
 		if action == "fleet-preflight" {
 			assignments, e := migration.ReadFleetPresets(*fleetPresets)
 			if e != nil {
@@ -87,7 +97,7 @@ func run(args []string) error {
 					return e
 				}
 			}
-			report, e := migration.FleetPreflight(ctx, db, *workspaces, migration.FleetOptions{Templates: templates, AppPresets: assignments, LibraryRoot: *library, HomeManifests: homes})
+			report, e := migration.FleetPreflight(ctx, db, *workspaces, migration.FleetOptions{TemplateResources: resources, InspectSource: docker.NewClient().Inspect, Templates: templates, AppPresets: assignments, LibraryRoot: *library, HomeManifests: homes})
 			if e != nil {
 				return e
 			}
@@ -160,11 +170,17 @@ func run(args []string) error {
 		}
 		return json.NewEncoder(os.Stdout).Encode(values)
 	}
-	if action != "migrate" && action != "resume" && action != "rollback" && action != "rollback-check" && action != "adopt" && action != "abort" && action != "retire-source" {
-		return errors.New("action must be inventory, fleet-preflight, status, migrate, resume, rollback-check, rollback, adopt, abort or retire-source (flags precede action)")
+	if action != "migrate" && action != "resume" && action != "rollback" && action != "rollback-check" && action != "adopt" && action != "abort" && action != "retire-source" && action != "admission-reconcile" && action != "admission-adopt" {
+		return errors.New("action must be inventory, fleet-preflight, status, migrate, resume, rollback-check, rollback, adopt, abort, retire-source, admission-status, admission-adopt or admission-reconcile (flags precede action)")
 	}
-	if *id == "" {
+	if *id == "" && action != "admission-reconcile" && action != "admission-adopt" {
 		return errors.New("--sandbox is required")
+	}
+	if action == "admission-reconcile" && (!*providerDrained || *admissionKey == "") {
+		return errors.New("--admission-key and verified --provider-requests-drained are required")
+	}
+	if action == "admission-adopt" && *remote == "" {
+		return errors.New("--adopt-runtime is required")
 	}
 	if os.Geteuid() != 0 {
 		return errors.New("offline mutations require native host root")
@@ -198,19 +214,40 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
+	admission, err := cube.ParseAdmissionConfig(os.Getenv("SANDBOXD_CUBE_ADMISSION"))
+	if err != nil {
+		return err
+	}
+	if err = client.ConfigureAdmission(ctx, st, admission); err != nil {
+		return err
+	}
+	if action == "admission-reconcile" || action == "admission-adopt" {
+		if err = maintenance.CheckDatabaseUsers(*database); err != nil {
+			return err
+		}
+		if action == "admission-reconcile" {
+			err = client.ReconcileAdmission(ctx, *admissionKey, *providerDrained)
+		} else {
+			err = client.AdoptAdmission(ctx, *remote)
+		}
+		if err != nil {
+			return err
+		}
+		return printAdmissionStatus(ctx, st.DB())
+	}
 	var broker *migration.MigrationBroker
 	if migrationActionNeedsBroker(action) {
 		policy, e := migrationBrokerPolicy()
 		if e != nil {
 			return e
 		}
-		broker, e = migration.NewMigrationBroker(ctx, policy)
+		broker, e = migration.NewMigrationBroker(ctx, policy, os.Getenv("SANDBOXD_CUBE_APP_HTTP_SERVICES"))
 		if e != nil {
 			return e
 		}
 		defer broker.Close()
 	}
-	backend := &migration.OfflineBackend{Broker: broker, Store: st, Docker: docker.NewClient(), Cube: client, Secrets: cipher, ProxyURL: os.Getenv("SANDBOXD_CUBE_PROXY_URL"), ArchiveDir: *archives, WorkspaceRoot: *workspaces}
+	backend := &migration.OfflineBackend{TemplateResources: resources, Broker: broker, Store: st, Docker: docker.NewClient(), Cube: client, Secrets: cipher, ProxyURL: os.Getenv("SANDBOXD_CUBE_PROXY_URL"), ArchiveDir: *archives, WorkspaceRoot: *workspaces}
 	fence := func() error {
 		if e := maintenance.CheckDatabaseUsers(*database); e != nil {
 			return e
@@ -269,6 +306,13 @@ func run(args []string) error {
 				return e
 			}
 			homeJSON = string(raw)
+		}
+		inspected, e := backend.Docker.Inspect(ctx, source.ContainerID.String)
+		if e != nil {
+			return e
+		}
+		if e = migration.ValidateResourceSelection(templates[*targetPreset], source.ContainerID.String, resources, inspected); e != nil {
+			return e
 		}
 		if err = st.BeginRuntimeMigrationWithHome(ctx, *id, *targetPreset, templates[*targetPreset], domain, homeJSON); err != nil {
 			return err

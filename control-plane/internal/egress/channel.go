@@ -9,6 +9,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/netip"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -35,6 +37,9 @@ type HostOptions struct {
 	// Only fixed, trusted L7 callbacks. They must additionally verify live task /
 	// bridge capabilities and bind them to SourceIdentity before invoking a service.
 	Services map[string]http.Handler
+	// Exact operator-selected private HTTP services for THIS persisted app.
+	// These are parsed HTTP callbacks, never raw TCP or network allow rules.
+	HTTPServices map[string]http.Handler
 	// DialContext is an optional trusted test/transport hook. It receives only the
 	// numeric policy-approved address. Production normally leaves it nil.
 	DialContext func(context.Context, string, string) (net.Conn, error)
@@ -64,6 +69,25 @@ func RunHost(ctx context.Context, conn *websocket.Conn, opts HostOptions) error 
 		services[k] = v
 	}
 	opts.Services = services
+	httpServices := make(map[string]http.Handler, len(opts.HTTPServices))
+	if len(opts.HTTPServices) > 8 {
+		conn.Close()
+		return errors.New("too many scoped HTTP services")
+	}
+	for address, handler := range opts.HTTPServices {
+		ap, err := netip.ParseAddrPort(address)
+		if err != nil || ap.String() != address || !ap.Addr().Is4() || !ap.Addr().IsPrivate() || ap.Port() == 0 || handler == nil {
+			conn.Close()
+			return errors.New("scoped service requires exact private IPv4 and port")
+		}
+		for _, prefix := range opts.Policy.ProtectedPrefixes {
+			if prefix.Contains(ap.Addr()) {
+				conn.Close()
+				return errors.New("scoped HTTP service overlaps protected infrastructure")
+			}
+		}
+		httpServices[address] = handler
+	}
 	s := newSession(ctx, conn, nil)
 	s.onOpen = func(st *stream, f frame) {
 		streamCtx, cancel := context.WithTimeout(st.ctx, 15*time.Minute)
@@ -72,6 +96,19 @@ func RunHost(ctx context.Context, conn *websocket.Conn, opts HostOptions) error 
 		defer stop()
 		reject := func() { _ = s.send(frame{Type: "error", ID: st.id}); st.Close() }
 		if f.Kind == "public" {
+			// Match the literal bytes only. DNS, alternate numeric forms and
+			// guest-selected ports cannot acquire the operator's service route.
+			if handler := httpServices[net.JoinHostPort(f.Host, strconv.Itoa(int(f.Port)))]; handler != nil {
+				if s.send(frame{Type: "opened", ID: st.id}) != nil {
+					return
+				}
+				serveHTTPCallback(streamCtx, st, opts.Identity, handler, func(r *http.Request) bool {
+					return (r.Method == "GET" || r.Method == "POST") && !r.URL.IsAbs() && r.URL.Host == "" &&
+						r.URL.RawPath == "" && r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.Fragment == ""
+				})
+				<-streamCtx.Done()
+				return
+			}
 			dialCtx, cancelDial := context.WithTimeout(streamCtx, 10*time.Second)
 			addr, err := opts.Policy.Destination(dialCtx, f.Host, f.Port)
 			if err != nil {
@@ -289,6 +326,10 @@ func validFixedPath(r *http.Request, kind string, id Identity) bool {
 	return true
 }
 func serveFixed(ctx context.Context, st *stream, kind string, id Identity, h http.Handler) {
+	serveHTTPCallback(ctx, st, id, h, func(r *http.Request) bool { return validFixedPath(r, kind, id) })
+}
+
+func serveHTTPCallback(ctx context.Context, st *stream, id Identity, h http.Handler, valid func(*http.Request) bool) {
 	out := &streamResponse{stream: st, header: make(http.Header)}
 	defer func() {
 		if recover() != nil {
@@ -303,7 +344,7 @@ func serveFixed(ctx context.Context, st *stream, kind string, id Identity, h htt
 		http.Error(out, "invalid service request", 400)
 		return
 	}
-	if !validFixedPath(r, kind, id) {
+	if !valid(r) {
 		http.Error(out, "service request denied", 403)
 		return
 	}

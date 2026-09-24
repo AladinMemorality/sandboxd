@@ -532,6 +532,10 @@ func main() {
 		log.Error("invalid Cube configuration", "err", err)
 		os.Exit(1)
 	}
+	if err := configureCubeAdmission(ctx, cubeConfig, st); err != nil {
+		log.Error("invalid Cube admission configuration", "err", err)
+		os.Exit(1)
+	}
 	server := &api.Server{
 		CubeAgentRelayOrigin: cubeConfig.relayOrigin, Cube: cubeConfig.client, CubeTemplates: cubeConfig.templates, CubeApps: cubeConfig.apps, CubeAllApps: cubeConfig.allApps, CubeProxyURL: cubeConfig.proxyURL, CubeDomain: cubeConfig.domain,
 		Store:             st,

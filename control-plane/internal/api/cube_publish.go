@@ -62,6 +62,9 @@ func (s *Server) createCubeSourceSnapshot(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if err = s.connectCube(r.Context(), src.ID, 0); err != nil {
+		if writeCubeAdmissionError(w, err) {
+			return
+		}
 		writeV1Err(w, 502, "runtime_unavailable", "cannot resume source")
 		return
 	}
@@ -297,6 +300,9 @@ func (s *Server) restoreCubeSourceInPlace(w http.ResponseWriter, r *http.Request
 	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
 	defer cancel()
 	if err = s.connectCube(ctx, current.ID, 3600); err != nil {
+		if writeCubeAdmissionError(w, err) {
+			return
+		}
 		writeV1Err(w, 502, "runtime_unavailable", "existing runtime unavailable; private data retained")
 		return
 	}

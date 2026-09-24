@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"net/http"
 	"sync"
 	"time"
 
@@ -28,30 +29,49 @@ type migrationChannel struct {
 // No model/bridge service is exposed: migration excludes active agent tasks.
 // Public requests use the same reviewed policy as the online control plane.
 type MigrationBroker struct {
-	ctx      context.Context
-	cancel   context.CancelFunc
-	policy   egress.Policy
-	mu       sync.Mutex
-	sessions map[string]*migrationChannel
-	closed   bool
-	wg       sync.WaitGroup
+	ctx          context.Context
+	cancel       context.CancelFunc
+	policy       egress.Policy
+	httpServices map[string]map[string]http.Handler
+	mu           sync.Mutex
+	sessions     map[string]*migrationChannel
+	closed       bool
+	wg           sync.WaitGroup
 }
 
-func NewMigrationBroker(ctx context.Context, policy egress.Policy) (*MigrationBroker, error) {
+func NewMigrationBroker(ctx context.Context, policy egress.Policy, scopedServices ...string) (*MigrationBroker, error) {
 	if err := policy.Validate(); err != nil {
 		return nil, err
 	}
 	policy.ProtectedPrefixes = append(policy.ProtectedPrefixes[:0:0], policy.ProtectedPrefixes...)
 	policy.ProtectedDomains = append([]string(nil), policy.ProtectedDomains...)
 	policy.Ports = append([]uint16(nil), policy.Ports...)
+	if len(scopedServices) > 1 {
+		return nil, errors.New("one scoped HTTP service configuration required")
+	}
+	raw := ""
+	if len(scopedServices) == 1 {
+		raw = scopedServices[0]
+	}
+	services, err := egress.ParseHTTPServices(raw, policy)
+	if err != nil {
+		return nil, err
+	}
+	handlers := make(map[string]map[string]http.Handler, len(services))
+	for appID, selected := range services {
+		handlers[appID] = make(map[string]http.Handler, len(selected))
+		for _, service := range selected {
+			handlers[appID][service.Address()] = service.Handler()
+		}
+	}
 	ctx, cancel := context.WithCancel(ctx)
-	return &MigrationBroker{ctx: ctx, cancel: cancel, policy: policy, sessions: map[string]*migrationChannel{}}, nil
+	return &MigrationBroker{ctx: ctx, cancel: cancel, policy: policy, httpServices: handlers, sessions: map[string]*migrationChannel{}}, nil
 }
 func (b *MigrationBroker) Attach(ctx context.Context, m *store.RuntimeMigration, client *runtime.Client) error {
 	if m == nil || m.SandboxID == "" || m.Binding.RuntimeID == "" || client == nil {
 		return errors.New("migration target identity required")
 	}
-	raw, _ := json.Marshal([]any{m.Binding.RuntimeID, m.Binding.TemplateID, m.Binding.Domain, m.Binding.TokenCiphertext, m.Binding.TokenNonce})
+	raw, _ := json.Marshal([]any{m.Source.AppID, m.Binding.RuntimeID, m.Binding.TemplateID, m.Binding.Domain, m.Binding.TokenCiphertext, m.Binding.TokenNonce})
 	digest := sha256.Sum256(raw)
 	generation := hex.EncodeToString(digest[:])
 	b.mu.Lock()
@@ -77,7 +97,13 @@ func (b *MigrationBroker) Attach(ctx context.Context, m *store.RuntimeMigration,
 		entry = &migrationChannel{ctx: life, generation: generation, cancel: cancel, done: make(chan struct{}), ready: make(chan struct{})}
 		b.sessions[m.SandboxID] = entry
 		b.wg.Add(1)
-		go b.run(life, m.SandboxID, client, entry)
+		services := map[string]http.Handler{}
+		if m.Source.AppID.Valid {
+			for address, handler := range b.httpServices[m.Source.AppID.String] {
+				services[address] = handler
+			}
+		}
+		go b.run(life, m.SandboxID, client, entry, services)
 	}
 	b.mu.Unlock()
 	for {
@@ -105,7 +131,7 @@ func (b *MigrationBroker) Attach(ctx context.Context, m *store.RuntimeMigration,
 		}
 	}
 }
-func (b *MigrationBroker) run(ctx context.Context, id string, client *runtime.Client, entry *migrationChannel) {
+func (b *MigrationBroker) run(ctx context.Context, id string, client *runtime.Client, entry *migrationChannel, services map[string]http.Handler) {
 	defer b.wg.Done()
 	defer close(entry.done)
 	for ctx.Err() == nil {
@@ -115,7 +141,7 @@ func (b *MigrationBroker) run(ctx context.Context, id string, client *runtime.Cl
 			entry.connected = true
 			close(entry.ready)
 			entry.mu.Unlock()
-			_ = egress.RunHost(ctx, conn, egress.HostOptions{Identity: egress.Identity{SandboxID: id, Generation: entry.generation}, Policy: b.policy})
+			_ = egress.RunHost(ctx, conn, egress.HostOptions{Identity: egress.Identity{SandboxID: id, Generation: entry.generation}, Policy: b.policy, HTTPServices: services})
 			entry.mu.Lock()
 			entry.connected = false
 			entry.ready = make(chan struct{})

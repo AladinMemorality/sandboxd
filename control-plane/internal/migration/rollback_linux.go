@@ -64,6 +64,9 @@ func (b *OfflineBackend) rollbackContainer(ctx context.Context, m *store.Runtime
 	if original.State.Running {
 		return nil, errors.New("retained source is running")
 	}
+	if err = b.verifyPinnedSourceIdentity(m, original); err != nil {
+		return nil, err
+	}
 	if err = b.validateSourceContainer(m, original); err != nil {
 		return nil, err
 	}
@@ -206,6 +209,9 @@ func (b *OfflineBackend) RetireSource(ctx context.Context, id string) error {
 	}
 	if original.State.Running || strings.TrimPrefix(original.Name, "/") != m.RetainedDockerName {
 		return errors.New("retained source identity or stopped state changed")
+	}
+	if err = b.verifyPinnedSourceIdentity(m, original); err != nil {
+		return err
 	}
 	if err = b.validateSourceContainer(m, original); err != nil {
 		return err

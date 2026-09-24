@@ -17,17 +17,13 @@ func loadCubeReverseEgressConfig(cfg cubeConfig) (*api.CubeEgressConfig, error) 
 	default:
 		return nil, fmt.Errorf("SANDBOXD_CUBE_REVERSE_EGRESS must be true or false")
 	}
-	// The reviewed Node 22 image opts native fetch into proxy routing. Bun and
-	// raw database sockets still require separate compatibility proof, so this
-	// path remains restricted to reviewed pilot apps; no flag overrides that gate.
-	if cfg.allApps {
-		return nil, fmt.Errorf("global reverse egress requires verified native-client and database compatibility; use reviewed pilot apps")
-	}
+	// Rollout scope does not expand network capabilities. Every preset must use
+	// the reviewed proxy client profile; direct guest NIC egress remains denied.
 	if cfg.relayOrigin == "" || os.Getenv("SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED") != "true" {
 		return nil, fmt.Errorf("reverse egress retains the model relay network isolation acceptance requirement")
 	}
 	if os.Getenv("SANDBOXD_CUBE_EGRESS_CLIENT_PROFILE") != "proxy-http-v1" {
-		return nil, fmt.Errorf("SANDBOXD_CUBE_EGRESS_CLIENT_PROFILE must acknowledge the reviewed proxy-http-v1 pilot client limitations")
+		return nil, fmt.Errorf("SANDBOXD_CUBE_EGRESS_CLIENT_PROFILE must acknowledge the reviewed proxy-http-v1 client limitations")
 	}
 	policy, err := egress.OperatorPolicy(os.Getenv("SANDBOXD_CUBE_EGRESS_PROTECTED_CIDRS"), os.Getenv("SANDBOXD_CUBE_EGRESS_PROTECTED_DOMAINS"), os.Getenv("SANDBOXD_CUBE_API_URL"), cfg.proxyURL, cfg.relayOrigin, "https://"+cfg.domain)
 	if err != nil {
@@ -41,5 +37,9 @@ func loadCubeReverseEgressConfig(cfg cubeConfig) (*api.CubeEgressConfig, error) 
 	if err = policy.Validate(); err != nil {
 		return nil, err
 	}
-	return &api.CubeEgressConfig{Policy: policy, BridgeURL: bridge}, nil
+	services, err := egress.ParseHTTPServices(os.Getenv("SANDBOXD_CUBE_APP_HTTP_SERVICES"), policy)
+	if err != nil {
+		return nil, err
+	}
+	return &api.CubeEgressConfig{Policy: policy, BridgeURL: bridge, AppHTTPServices: services}, nil
 }

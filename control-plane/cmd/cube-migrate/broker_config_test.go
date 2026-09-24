@@ -21,8 +21,12 @@ func TestMigrationBrokerRequiresExplicitReviewedSettings(t *testing.T) {
 		})
 	}
 	t.Setenv("SANDBOXD_CUBE_ROLLOUT", "global")
+	if _, e := migrationBrokerPolicy(); e != nil {
+		t.Fatalf("reviewed global policy unavailable: %v", e)
+	}
+	t.Setenv("SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED", "false")
 	if _, e := migrationBrokerPolicy(); e == nil {
-		t.Fatal("global gate bypassed")
+		t.Fatal("global rollout bypassed network acceptance")
 	}
 }
 

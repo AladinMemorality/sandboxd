@@ -59,6 +59,9 @@ func (s *Server) serveCubeFiles(w http.ResponseWriter, r *http.Request, operatio
 	cancel()
 	if sb.Status != "running" || statusErr != nil {
 		if err = s.connectCube(r.Context(), id, 0); err != nil {
+			if writeCubeAdmissionError(w, err) {
+				return true
+			}
 			writeV1Err(w, 502, "runtime_unavailable", "cannot resume guest workspace")
 			return true
 		}
