@@ -1,0 +1,7 @@
+=== RUN   TestOperatorCubeAppLifecycle
+    cube_lifecycle_acceptance_test.go:125: source ready
+    cube_lifecycle_acceptance_test.go:182: remix ready
+    cube_lifecycle_acceptance_test.go:220: source resumed ready
+    cube_lifecycle_acceptance_test.go:238: PASS real Cube create, source publish, sanitized remix, pause/resume, owner restore; no model calls
+--- PASS: TestOperatorCubeAppLifecycle (20.41s)
+PASS

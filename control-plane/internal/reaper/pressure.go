@@ -136,6 +136,10 @@ func (p *Pressure) stopOldestIdle(ctx context.Context, band string, availPct flo
 		return
 	}
 	for _, sb := range candidates {
+		// Remote runtimes must never enter Docker or host workspace maintenance.
+		if sb.RuntimeProvider != "" && sb.RuntimeProvider != "docker" {
+			continue
+		}
 		if p.Inflight != nil && p.Inflight.Active(sb.ID) {
 			continue
 		}
@@ -195,6 +199,10 @@ func (p *Pressure) stopHeaviestRSS(ctx context.Context, band string, availPct fl
 		rss        uint64
 	}
 	for _, sb := range runs {
+		// Remote runtimes must never enter Docker or host workspace maintenance.
+		if sb.RuntimeProvider != "" && sb.RuntimeProvider != "docker" {
+			continue
+		}
 		if !sb.CgroupPath.Valid {
 			continue
 		}

@@ -1,0 +1,530 @@
+{
+  "program_id": 177,
+  "interface": 515,
+  "method": "BPF_PROG_TEST_RUN of actually attached program with live maps; no real packet transmission",
+  "cases": [
+    {
+      "name": "10.0.2.15-34001-syn",
+      "return_value": 7,
+      "dropped": true,
+      "reset_to_guest": true
+    },
+    {
+      "name": "10.0.2.15-34001-ack",
+      "return_value": 7,
+      "dropped": true,
+      "reset_to_guest": true
+    },
+    {
+      "name": "10.0.2.15-34001-synack",
+      "return_value": 7,
+      "dropped": true,
+      "reset_to_guest": true
+    },
+    {
+      "name": "10.0.2.15-34001-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "10.0.2.15-3000-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "10.0.2.15-3000-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "10.0.2.15-3000-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "10.0.2.15-3000-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "10.0.2.15-3031-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "10.0.2.15-3031-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "10.0.2.15-3031-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "10.0.2.15-3031-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "10.0.2.15-49983-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "10.0.2.15-49983-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "10.0.2.15-49983-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "10.0.2.15-49983-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-34001-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-34001-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-34001-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-34001-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-3000-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-3000-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-3000-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-3000-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-3031-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-3031-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-3031-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-3031-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-49983-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-49983-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-49983-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.68.5-49983-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.169.254-34001-syn",
+      "return_value": 7,
+      "dropped": true,
+      "reset_to_guest": true
+    },
+    {
+      "name": "169.254.169.254-34001-ack",
+      "return_value": 7,
+      "dropped": true,
+      "reset_to_guest": true
+    },
+    {
+      "name": "169.254.169.254-34001-synack",
+      "return_value": 7,
+      "dropped": true,
+      "reset_to_guest": true
+    },
+    {
+      "name": "169.254.169.254-34001-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.169.254-3000-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.169.254-3000-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.169.254-3000-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.169.254-3000-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.169.254-3031-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.169.254-3031-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.169.254-3031-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.169.254-3031-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.169.254-49983-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.169.254-49983-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.169.254-49983-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "169.254.169.254-49983-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "65.108.225.153-34001-syn",
+      "return_value": 7,
+      "dropped": true,
+      "reset_to_guest": true
+    },
+    {
+      "name": "65.108.225.153-34001-ack",
+      "return_value": 7,
+      "dropped": true,
+      "reset_to_guest": true
+    },
+    {
+      "name": "65.108.225.153-34001-synack",
+      "return_value": 7,
+      "dropped": true,
+      "reset_to_guest": true
+    },
+    {
+      "name": "65.108.225.153-34001-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "65.108.225.153-3000-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "65.108.225.153-3000-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "65.108.225.153-3000-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "65.108.225.153-3000-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "65.108.225.153-3031-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "65.108.225.153-3031-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "65.108.225.153-3031-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "65.108.225.153-3031-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "65.108.225.153-49983-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "65.108.225.153-49983-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "65.108.225.153-49983-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "65.108.225.153-49983-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "192.168.1.247-34001-syn",
+      "return_value": 7,
+      "dropped": true,
+      "reset_to_guest": true
+    },
+    {
+      "name": "192.168.1.247-34001-ack",
+      "return_value": 7,
+      "dropped": true,
+      "reset_to_guest": true
+    },
+    {
+      "name": "192.168.1.247-34001-synack",
+      "return_value": 7,
+      "dropped": true,
+      "reset_to_guest": true
+    },
+    {
+      "name": "192.168.1.247-34001-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "192.168.1.247-3000-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "192.168.1.247-3000-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "192.168.1.247-3000-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "192.168.1.247-3000-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "192.168.1.247-3031-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "192.168.1.247-3031-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "192.168.1.247-3031-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "192.168.1.247-3031-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "192.168.1.247-49983-syn",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "192.168.1.247-49983-ack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "192.168.1.247-49983-synack",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "192.168.1.247-49983-rst",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "fragment-8192",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "fragment-1",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "protocol-4",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "protocol-41",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "protocol-47",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "protocol-50",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    },
+    {
+      "name": "native-ipv6",
+      "return_value": 2,
+      "dropped": true,
+      "reset_to_guest": false
+    }
+  ],
+  "passed": true
+}

@@ -13,6 +13,7 @@
 /control-plane/runtimed
 *.test
 *.out
+**/node_modules/
 
 # Editor / OS
 .DS_Store
@@ -34,3 +35,11 @@ docs/internal/
 .env.bak*
 *.env.bak*
 .env.*.bak
+
+# Local Cube pilot binaries
+/image/cube/cube-init
+/image/cube/runtimed
+
+/scripts/cube-pilot/__pycache__/
+
+/ops/cube/security/**/__pycache__/

@@ -1,0 +1,4 @@
+=== RUN   TestOperatorCubeRegistryClients
+    operator_registry_test.go:139: pip_fresh_install: python3 exit 1
+--- FAIL: TestOperatorCubeRegistryClients (8.22s)
+FAIL

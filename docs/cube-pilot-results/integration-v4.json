@@ -1,0 +1,75 @@
+{
+  "template": "tpl-48b1b0299abe47ada25fa914",
+  "checks": [
+    "two guests create and authenticate their supervisors",
+    "actual UI file query and scoped preview link/cookie handoff",
+    "wrong tenant and unsafe file paths rejected",
+    "private frontend and backend preview",
+    "workspace write/read/export and cross-guest independence",
+    "five authenticated wake cycles preserve process memory and disk",
+    "Claude tasks fail clearly while scoped model relay is disabled",
+    "deterministic OpenCode transport fixture result and workspace survive control-plane restart; no AI request",
+    "source publication/remix omits runtime data and owner config",
+    "runtime config application and deletion",
+    "guest identity, proc credential denial, host-file and listed-network probes"
+  ],
+  "timings": {
+    "create_01M2R18GGKN75A4MFECQVD9MHG": 344.04,
+    "create_01M2R18GGRV5HJ6W5RQNAPMZ9J": 429.55,
+    "resume_ms": [
+      1523.2064299998456,
+      384.14245800049684,
+      421.52725599953556,
+      508.9314890010428,
+      462.6087520009605
+    ],
+    "resume_median_ms": 462.6087520009605,
+    "publish_ms": 48.16424599994207,
+    "remix_ms": 799.8109970012592
+  },
+  "task_fixture": "deterministic fake OpenCode, zero model tokens and no external model call",
+  "isolation": {
+    "supervisorTokenReadableFromProc": false,
+    "noNewPrivileges": true,
+    "effectiveCapabilitiesZero": true,
+    "supplementaryGroups": [
+      1000
+    ],
+    "supervisorTokenInherited": false,
+    "hostDockerSocket": false,
+    "hostCanary": false,
+    "uid": 1000,
+    "configuredSecret": false,
+    "ipv6Routes": "fe800000000000000000000000000000 40 00000000000000000000000000000000 00 00000000000000000000000000000000 00000100 00000001 00000000 00000001     eth0\n00000000000000000000000000000000 00 00000000000000000000000000000000 00 00000000000000000000000000000000 ffffffff 00000001 00000000 00200200       lo\n00000000000000000000000000000001 80 00000000000000000000000000000000 00 00000000000000000000000000000000 00000000 00000002 00000000 80200001       lo\nfe8000000000000022906ffffefcfcfc 80 00000000000000000000000000000000 00 00000000000000000000000000000000 00000000 00000002 00000000 80200001     eth0\nff000000000000000000000000000000 08 00000000000000000000000000000000 00 00000000000000000000000000000000 00000100 00000002 00000000 00000001     eth0\n00000000000000000000000000000000 00 00000000000000000000000000000000 00 00000000000000000000000000000000 ffffffff 00000001 00000000 00200200       lo\n",
+    "networks": [
+      {
+        "host": "169.254.169.254",
+        "port": 80,
+        "accessible": false
+      },
+      {
+        "host": "172.17.0.1",
+        "port": 3000,
+        "accessible": false
+      },
+      {
+        "host": "10.0.2.2",
+        "port": 22,
+        "accessible": false
+      },
+      {
+        "host": "1.1.1.1",
+        "port": 443,
+        "accessible": false
+      },
+      {
+        "host": "2606:4700:4700::1111",
+        "port": 443,
+        "accessible": false
+      }
+    ]
+  },
+  "isolation_scope": "UID/capabilities/no-new-privileges, process environment/proc, two host paths and five denied network endpoints; not exhaustive isolation certification",
+  "passed": true,
+  "retained_sandboxes": []
+}

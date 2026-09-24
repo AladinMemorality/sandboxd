@@ -24,11 +24,12 @@ import (
 // decrypts it (owner-scoped) and never logs it; gitimport keeps it only in a
 // 0600 temp file for the lifetime of the clone.
 type Spec struct {
-	RepoURL  string // validated HTTPS, tokenless
-	Branch   string // validated ref name
-	Username string // optional; defaults to x-access-token
-	Token    string // decrypted PAT (never logged)
-	DestDir  string // control-plane-derived host path to clone INTO (never user input)
+	reviewedResolve string // set only by CloneReviewed after DNS validation
+	RepoURL         string // validated HTTPS, tokenless
+	Branch          string // validated ref name
+	Username        string // optional; defaults to x-access-token
+	Token           string // decrypted PAT (never logged)
+	DestDir         string // control-plane-derived host path to clone INTO (never user input)
 }
 
 var (
@@ -90,6 +91,19 @@ func Clone(ctx context.Context, spec Spec) error {
 		"GIT_LFS_SKIP_SMUDGE=1",
 	)
 
+	if spec.reviewedResolve != "" {
+		// Git's CURLOPT_RESOLVE mapping pins the validated IP across the entire
+		// clone. TLS still authenticates the original hostname. No redirect can
+		// forward the owner PAT or request a control-plane/internal destination.
+		env = []string{"PATH=/usr/local/bin:/usr/bin:/bin", "HOME=/nonexistent", "GIT_TERMINAL_PROMPT=0", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_LFS_SKIP_SMUDGE=1",
+			"GIT_CONFIG_COUNT=7", "GIT_CONFIG_KEY_0=http.curloptResolve", "GIT_CONFIG_VALUE_0=" + spec.reviewedResolve,
+			"GIT_CONFIG_KEY_1=http.followRedirects", "GIT_CONFIG_VALUE_1=false",
+			"GIT_CONFIG_KEY_2=credential.helper", "GIT_CONFIG_VALUE_2=",
+			"GIT_CONFIG_KEY_3=protocol.file.allow", "GIT_CONFIG_VALUE_3=never",
+			"GIT_CONFIG_KEY_4=core.hooksPath", "GIT_CONFIG_VALUE_4=/dev/null",
+			"GIT_CONFIG_KEY_5=http.proxy", "GIT_CONFIG_VALUE_5=",
+			"GIT_CONFIG_KEY_6=http.sslVerify", "GIT_CONFIG_VALUE_6=true"}
+	}
 	// A token is OPTIONAL: public starters/repos clone tokenless (the URL is
 	// already tokenless — creds only ever come from askpass). When a token IS
 	// given, it + the askpass helper live in a 0700 control-plane-only temp dir,
@@ -131,6 +145,9 @@ func Clone(ctx context.Context, spec Spec) error {
 		"--branch", spec.Branch, spec.RepoURL, spec.DestDir)
 	clone.Env = env
 	if out, err := clone.CombinedOutput(); err != nil {
+		if spec.reviewedResolve != "" {
+			return fmt.Errorf("reviewed git clone failed")
+		}
 		return fmt.Errorf("git clone failed: %s", sanitize(string(out), spec.Token))
 	}
 

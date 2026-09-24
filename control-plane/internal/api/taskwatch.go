@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/events"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
 
 const (
@@ -61,6 +63,11 @@ func (s *Server) watchTask(sandboxID, taskID string, taskTimeoutS int) {
 // watchTaskWindow is watchTask with an explicit streaming window. Split
 // out so tests can inject a short window instead of waiting minutes.
 func (s *Server) watchTaskWindow(sandboxID, taskID string, window time.Duration) {
+	if remote, err := s.Store.IsCube(context.Background(), sandboxID); err == nil && remote {
+		s.watchCubeTask(sandboxID, taskID, window)
+		return
+	}
+
 	log := s.Log.With("component", "taskwatch", "task", taskID)
 	ctx, cancel := context.WithTimeout(context.Background(), window)
 	defer cancel()
@@ -187,6 +194,24 @@ func (s *Server) ReconcileTasks(ctx context.Context) {
 		return
 	}
 	for _, t := range tasks {
+		// Cube task recovery needs guest result retrieval; do not read a host path.
+		if sb, err := s.Store.Get(ctx, t.SandboxID); err == nil {
+			if sb.RuntimeProvider == "cube" {
+				s.recoverCubeTask(ctx, t)
+				continue
+			}
+			if sb.RuntimeProvider != "" && sb.RuntimeProvider != "docker" {
+				continue
+			}
+		} else if errors.Is(err, store.ErrNotFound) {
+			if _, scopeErr := s.Store.CubeTaskOwner(ctx, t.SandboxID); scopeErr == nil {
+				s.finishWatchedTask(t.SandboxID, t.TaskID, failedResult(t.TaskID, "sandbox_unavailable", "Cube sandbox was deleted"))
+				continue
+			}
+		} else if !errors.Is(err, store.ErrNotFound) {
+			s.Log.Warn("task reconcile: cannot resolve sandbox runtime", "task", t.TaskID)
+			continue
+		}
 		_, mnt := s.Loopback.Paths(t.SandboxID)
 		resultPath := filepath.Join(mnt, ".runtimed", "tasks", t.TaskID, "result.json")
 		if raw, rerr := os.ReadFile(resultPath); rerr == nil {

@@ -1,0 +1,121 @@
+{
+  "scope": "one disposable guest before/after pause; check canary log and raw/fragment kernel probes separately",
+  "before": {
+    "timestamp": 1790152096933,
+    "uid": 1000,
+    "registry": {
+      "succeeded": true,
+      "status": 200
+    },
+    "targets": [
+      {
+        "ip": "10.0.2.15",
+        "domain": "worker.cube-isolation.test",
+        "port": 18081,
+        "answers": [],
+        "dnsError": "timeout",
+        "direct": {
+          "connected": false,
+          "error": "ECONNREFUSED"
+        },
+        "rebound": {
+          "connected": false,
+          "error": "missing_dns_answer"
+        }
+      },
+      {
+        "ip": "169.254.169.254",
+        "domain": "metadata.cube-isolation.test",
+        "port": 18081,
+        "answers": [],
+        "dnsError": "timeout",
+        "direct": {
+          "connected": false,
+          "error": "ECONNREFUSED"
+        },
+        "rebound": {
+          "connected": false,
+          "error": "missing_dns_answer"
+        }
+      },
+      {
+        "ip": "169.254.68.5",
+        "domain": "gateway.cube-isolation.test",
+        "port": 18081,
+        "answers": [],
+        "dnsError": "timeout",
+        "direct": {
+          "connected": false,
+          "error": "timeout"
+        },
+        "rebound": {
+          "connected": false,
+          "error": "missing_dns_answer"
+        }
+      },
+      {
+        "ip": "172.17.0.1",
+        "domain": "docker.cube-isolation.test",
+        "port": 18081,
+        "answers": [],
+        "dnsError": "timeout",
+        "direct": {
+          "connected": false,
+          "error": "ECONNREFUSED"
+        },
+        "rebound": {
+          "connected": false,
+          "error": "missing_dns_answer"
+        }
+      },
+      {
+        "ip": "65.108.225.153",
+        "domain": "public-worker.cube-isolation.test",
+        "port": 22,
+        "answers": [],
+        "dnsError": "timeout",
+        "direct": {
+          "connected": false,
+          "error": "ECONNREFUSED"
+        },
+        "rebound": {
+          "connected": false,
+          "error": "missing_dns_answer"
+        }
+      },
+      {
+        "ip": "192.168.1.247",
+        "domain": "sibling.cube-isolation.test",
+        "port": 3000,
+        "answers": [],
+        "dnsError": "timeout",
+        "direct": {
+          "connected": false,
+          "error": "ECONNREFUSED"
+        },
+        "rebound": {
+          "connected": false,
+          "error": "missing_dns_answer"
+        }
+      }
+    ],
+    "unapprovedDomain": {
+      "connected": false,
+      "error": "ECONNREFUSED"
+    },
+    "ipv6": {
+      "connected": false,
+      "error": "ENETUNREACH"
+    },
+    "forgedUDPSourcePort": {
+      "received": false,
+      "error": "timeout"
+    },
+    "forgedTCPSourcePort": {
+      "connected": false,
+      "error": "timeout"
+    },
+    "rawPacketCreationDenied": true,
+    "rawPacketProbeRan": true
+  }
+}

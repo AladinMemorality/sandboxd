@@ -1,0 +1,13 @@
+{
+  "cancel_status": "cancelled",
+  "cancellation_scope_revoked": true,
+  "completed_relay_denied": true,
+  "completion_scope_revoked": true,
+  "create_ms": 297,
+  "network_isolation_accepted": false,
+  "production_startup_accepted": false,
+  "synthetic_file_verified": true,
+  "task_status": "succeeded",
+  "template": "tpl-ce9efc43b71248d9a0adfb90",
+  "vm_deleted": true
+}

@@ -1,0 +1,147 @@
+--- a/CubeNet/src/mvmtap.bpf.c
++++ b/CubeNet/src/mvmtap.bpf.c
+@@ -15,6 +15,7 @@
+ #include "skb.h"
+ #include "tcp.h"
+ #include "tcp_reset.h"
++#include "baarcha_reply.h"
+ #include "udp.h"
+ #include "dns_query.h"
+ 
+@@ -989,6 +990,9 @@
+ 	if (ret != TC_ACT_OK)
+ 		return ret;
+ 
++	if (l3->frag_off & bpf_htons(0x3fff))
++		return TC_ACT_SHOT;
++
+ 	daddr = l3->daddr;
+ 	proto = l3->protocol;
+ 
+@@ -1006,7 +1010,8 @@
+ 		case IPPROTO_TCP:
+ 			if (!__pull_headers(skb, &l2, &l3, &l4))
+ 				return TC_ACT_SHOT;
+-			if (l4->syn && !l4->ack)
++			if ((l4->syn && !l4->ack) ||
++			    !baarcha_reply_allowed(ifindex, daddr, l4->dest, l4->source))
+ 				return TC_ACT_SHOT;
+ 			break;
+ 		default:
+@@ -1032,6 +1037,8 @@
+ 		mvm_port.listen_port = l4->source;
+ 		host_port = bpf_map_lookup_elem(&local_port_mapping, &mvm_port);
+ 		if (host_port) {
++			if (!baarcha_reply_allowed(ifindex, daddr, l4->dest, l4->source))
++				return TC_ACT_SHOT;
+ 			if (l4->syn && !l4->ack)
+ 				return TC_ACT_SHOT;
+ 
+--- a/CubeNet/src/nodenic.bpf.c
++++ b/CubeNet/src/nodenic.bpf.c
+@@ -14,6 +14,7 @@
+ #include "skb.h"
+ #include "tcp.h"
+ #include "tcp_reset.h"
++#include "baarcha_reply.h"
+ #include "udp.h"
+ #include "dns_query.h"
+ #include "dns_response.h"
+@@ -62,6 +63,10 @@
+ 	__u64 now;
+ 	__u64 flags;
+ 	long err;
++
++	if (!baarcha_track_reply(mvm_port->ifindex, l3->saddr, l4->source,
++				mvm_port->listen_port, l4->syn, l4->ack))
++		return TC_ACT_SHOT;
+ 
+ 	/* Track the port_mapping connection's generation so a rollback can reset
+ 	 * it while an aged (reaped) one is rebuilt. */
+--- a/CubeNet/src/localgw.bpf.c
++++ b/CubeNet/src/localgw.bpf.c
+@@ -12,6 +12,7 @@
+ #include "skb.h"
+ #include "tcp.h"
+ #include "tcp_reset.h"
++#include "baarcha_reply.h"
+ 
+ /* Update a CubeEgress TCP session from the original reply tuple before DNAT
+  * rewrites the sandbox-assigned destination address to mvm_inner_ip. A missing
+@@ -87,6 +88,19 @@
+ 		return ret;
+ 
+ 	daddr = l3->daddr;
++    /* Only an actual gateway-originated SYN grants guest reply permission. */
++    if (l3->saddr == cubegw0_ip) {
++        struct tcphdr *tcp;
++        ifindex = bpf_map_lookup_elem(&mvmip_to_ifindex, &daddr);
++        if (!ifindex || l3->protocol != IPPROTO_TCP ||
++            (l3->frag_off & bpf_htons(0x3fff)))
++            return TC_ACT_SHOT;
++        if (!__pull_headers(skb, &l2, &l3, &tcp))
++            return TC_ACT_SHOT;
++        if (!baarcha_track_reply(*ifindex, mvm_gateway_ip, tcp->source,
++                                 tcp->dest, tcp->syn, tcp->ack))
++            return TC_ACT_SHOT;
++    }
+ 
+ 	/* NAT and redirect */
+ 	err = dnat(skb, l3, mvm_inner_ip);
+--- /dev/null
++++ b/CubeNet/src/baarcha_reply.h
+@@ -0,0 +1,54 @@
++/* Worker-owned permissions for responses to real inbound TCP connections. */
++#ifndef BAARCHA_REPLY_H
++#define BAARCHA_REPLY_H
++struct baarcha_reply_key {
++    __u32 ifindex;
++    __u32 peer_ip;
++    __u16 peer_port;
++    __u16 guest_port;
++};
++struct baarcha_reply_value {
++    __u64 last_seen;
++    __u32 generation;
++    __u32 pad;
++};
++struct {
++    __uint(type, BPF_MAP_TYPE_LRU_HASH);
++    __uint(max_entries, 65536);
++    __type(key, struct baarcha_reply_key);
++    __type(value, struct baarcha_reply_value);
++    __uint(pinning, LIBBPF_PIN_BY_NAME);
++} baarcha_replies SEC(".maps");
++#define BAARCHA_REPLY_IDLE_NS (3600ULL * 1000000000ULL)
++static __always_inline bool baarcha_reply_allowed(__u32 ifindex, __u32 peer,
++                                                  __u16 peer_port, __u16 guest_port)
++{
++    struct baarcha_reply_key key = {.ifindex=ifindex, .peer_ip=peer,
++        .peer_port=peer_port, .guest_port=guest_port};
++    struct baarcha_reply_value *value = bpf_map_lookup_elem(&baarcha_replies, &key);
++    struct mvm_meta *meta = bpf_map_lookup_elem(&ifindex_to_mvmmeta, &ifindex);
++    __u64 now = bpf_ktime_get_ns();
++    if (!value || !meta || value->generation != meta->version ||
++        now - value->last_seen > BAARCHA_REPLY_IDLE_NS)
++        return false;
++    value->last_seen = now;
++    return true;
++}
++static __always_inline bool baarcha_track_reply(__u32 ifindex, __u32 peer,
++                                                __u16 peer_port, __u16 guest_port,
++                                                bool syn, bool ack)
++{
++    struct baarcha_reply_key key = {.ifindex=ifindex, .peer_ip=peer,
++        .peer_port=peer_port, .guest_port=guest_port};
++    struct mvm_meta *meta;
++    struct baarcha_reply_value value = {};
++    if (!syn || ack)
++        return baarcha_reply_allowed(ifindex, peer, peer_port, guest_port);
++    meta = bpf_map_lookup_elem(&ifindex_to_mvmmeta, &ifindex);
++    if (!meta)
++        return false;
++    value.generation = meta->version;
++    value.last_seen = bpf_ktime_get_ns();
++    return bpf_map_update_elem(&baarcha_replies, &key, &value, BPF_ANY) == 0;
++}
++#endif

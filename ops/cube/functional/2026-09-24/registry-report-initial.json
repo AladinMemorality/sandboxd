@@ -1,0 +1,42 @@
+{
+  "direct_nic_egress_enabled": false,
+  "guest": {
+    "node": "v22.23.2",
+    "checks": [
+      {
+        "name": "proxy_environment",
+        "passed": true
+      },
+      {
+        "name": "native_fetch_https",
+        "passed": true
+      },
+      {
+        "name": "native_https_agent",
+        "passed": true
+      },
+      {
+        "name": "curl_pypi_https",
+        "passed": true
+      },
+      {
+        "name": "npm_fresh_install",
+        "passed": true
+      },
+      {
+        "name": "pnpm_fresh_install",
+        "passed": true
+      },
+      {
+        "name": "pip_fresh_install",
+        "passed": false,
+        "error": "python3 exit 1"
+      }
+    ],
+    "complete": true
+  },
+  "network_isolation_accepted": false,
+  "production_accepted": false,
+  "template": "tpl-ce9efc43b71248d9a0adfb90",
+  "vm_deleted": true
+}

@@ -1,0 +1,314 @@
+{
+  "backend": "docker",
+  "cpu_per_app": 1,
+  "docker_network": "owned internal bridge; no external egress",
+  "finished_at": "2026-09-24T16:57:08.432891115Z",
+  "image": "sha256:9ec445151344a7baa295b085bebe1a0352ab930601fe0d9ed2bf1283bbaa6678",
+  "memory_mib_per_app": 1024,
+  "model_calls": false,
+  "owned_sandboxes_deleted": true,
+  "production_mutation": false,
+  "remix_explicitly_skipped": true,
+  "runtime_preset": "react-pro",
+  "samples": [
+    {
+      "create_api_ms": 4480,
+      "create_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137962,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "create_ready_ms": 6883,
+      "iteration": 0,
+      "publish_handler_ms": 465,
+      "publish_source_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "publish_source_ready_ms": 3517,
+      "publish_stopped_source": true,
+      "resume_api_ms": 609,
+      "resume_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137962,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "resume_ready_ms": 1846,
+      "started_at": "2026-09-24T16:56:01.470297554Z",
+      "stop_ms": 2134,
+      "stop_resume_ready_ms": 3981,
+      "warmup": true
+    },
+    {
+      "create_api_ms": 4289,
+      "create_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "create_ready_ms": 7162,
+      "iteration": 1,
+      "publish_handler_ms": 290,
+      "publish_source_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "publish_source_ready_ms": 4000,
+      "publish_stopped_source": true,
+      "resume_api_ms": 599,
+      "resume_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "resume_ready_ms": 2039,
+      "started_at": "2026-09-24T16:56:17.950834928Z",
+      "stop_ms": 2395,
+      "stop_resume_ready_ms": 4434,
+      "warmup": false
+    },
+    {
+      "create_api_ms": 4131,
+      "create_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "create_ready_ms": 6616,
+      "iteration": 2,
+      "publish_handler_ms": 213,
+      "publish_source_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "publish_source_ready_ms": 3190,
+      "publish_stopped_source": true,
+      "resume_api_ms": 637,
+      "resume_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "resume_ready_ms": 1700,
+      "started_at": "2026-09-24T16:56:35.590146474Z",
+      "stop_ms": 2590,
+      "stop_resume_ready_ms": 4290,
+      "warmup": false
+    },
+    {
+      "create_api_ms": 4106,
+      "create_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "create_ready_ms": 6522,
+      "iteration": 3,
+      "publish_handler_ms": 356,
+      "publish_source_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "publish_source_ready_ms": 3581,
+      "publish_stopped_source": true,
+      "resume_api_ms": 592,
+      "resume_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "resume_ready_ms": 1966,
+      "started_at": "2026-09-24T16:56:51.867925774Z",
+      "stop_ms": 2477,
+      "stop_resume_ready_ms": 4443,
+      "warmup": false
+    }
+  ],
+  "scope": "control-plane handlers plus real HTML and transformed assets; Docker host bridge vs nested Cube preview proxy; not browser rendering",
+  "source_commit": "2023423c972b3b8c281a9aa53d124c9bdab3b7f7",
+  "started_at": "2026-09-24T16:56:01.455298313Z"
+}

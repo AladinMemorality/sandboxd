@@ -136,7 +136,13 @@ func (c *Client) Run(ctx context.Context, spec RunSpec) (string, error) {
 // about. Fields can be added as needed; unknown fields are ignored
 // by encoding/json.
 type ContainerJSON struct {
-	ID    string `json:"Id"`
+	ID     string `json:"Id"`
+	Image  string `json:"Image"`
+	Name   string `json:"Name"`
+	Mounts []struct {
+		Source      string `json:"Source"`
+		Destination string `json:"Destination"`
+	} `json:"Mounts"`
 	State struct {
 		Status    string `json:"Status"`
 		Running   bool   `json:"Running"`
@@ -145,6 +151,7 @@ type ContainerJSON struct {
 	} `json:"State"`
 	Config struct {
 		Image  string            `json:"Image"`
+		Env    []string          `json:"Env"`
 		Labels map[string]string `json:"Labels"`
 	} `json:"Config"`
 	// NetworkSettings is the subset Phase 5's wake-readiness probe
@@ -216,6 +223,19 @@ func (c *Client) Inspect(ctx context.Context, name string) (*ContainerJSON, erro
 		return nil, fmt.Errorf("inspect: parse json: %w", err)
 	}
 	return &cj, nil
+}
+
+// ImageID resolves a local image reference to its immutable content identity.
+func (c *Client) ImageID(ctx context.Context, ref string) (string, error) {
+	out, err := c.run(ctx, "image", "inspect", "--format", "{{.Id}}", ref)
+	if err != nil {
+		return "", err
+	}
+	id := strings.TrimSpace(string(out))
+	if !strings.HasPrefix(id, "sha256:") || len(id) != 71 {
+		return "", errors.New("invalid image identity")
+	}
+	return id, nil
 }
 
 // Remove forces removal. Idempotent — returns nil on "no such container".
@@ -368,4 +388,11 @@ func (c *Client) run(ctx context.Context, args ...string) ([]byte, error) {
 		return stdout.Bytes(), fmt.Errorf("docker %s: %w (%s)", args[0], err, stderr.String())
 	}
 	return stdout.Bytes(), nil
+}
+
+// Rename changes only a stopped container's name; callers validate identity and
+// ownership before this operation. It does not remove the recovery container.
+func (c *Client) Rename(ctx context.Context, id, name string) error {
+	_, err := c.run(ctx, "rename", id, name)
+	return err
 }

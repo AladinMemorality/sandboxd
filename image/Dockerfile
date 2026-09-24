@@ -149,12 +149,20 @@ RUN chmod 700 /opt/sandbox-skel
 # Add a template = drop a new dir here; the registry is additive.
 COPY --chown=1000:1000 image/templates/ /opt/templates/
 
+# Optional per-project PostgreSQL uses a shared pinned worker and client. Nothing
+# starts until the project's existing sandbox.yaml workers list opts into it.
+COPY image/services/postgres/package.json image/services/postgres/pnpm-lock.yaml /opt/services/postgres/
+RUN cd /opt/services/postgres \
+ && pnpm install --frozen-lockfile --config.package-import-method=copy
+COPY image/services/postgres/worker.mjs image/services/postgres/connection.mjs image/services/postgres/paths.mjs /opt/services/postgres/
+COPY docs/project-postgres.md /opt/services/postgres/README.md
+
 # The shared agent skill pack (taste, web design guidelines, self-screenshot
 # et al) — single-sourced here and copied into every FRONTEND template's
 # .claude/skills so agents discover them natively. Backend/worker templates
 # skip it: the pack is design-work tooling. See image/templates/README.md.
 COPY --chown=1000:1000 image/agent-skills/ /opt/agent-skills/
-RUN for t in react-standard react-pro marketplace-starter nextjs-standard; do       mkdir -p /opt/templates/$t/.claude       && rm -rf /opt/templates/$t/.claude/skills       && cp -r /opt/agent-skills /opt/templates/$t/.claude/skills       && chown -R 1000:1000 /opt/templates/$t/.claude;     done
+RUN for t in react-standard react-pro marketplace-starter nextjs-standard node-postgres-standard; do       mkdir -p /opt/templates/$t/.claude       && rm -rf /opt/templates/$t/.claude/skills       && cp -r /opt/agent-skills /opt/templates/$t/.claude/skills       && chown -R 1000:1000 /opt/templates/$t/.claude;     done
 
 # Pre-installed dependencies for the JS templates. A fresh sandbox's preview
 # must answer within seconds of creation; a cold `pnpm install` on first boot
@@ -172,6 +180,8 @@ RUN cd /opt/templates/react-standard \
  && pnpm install --config.package-import-method=copy \
  && cd /opt/templates/node-express-standard \
  && pnpm install --config.package-import-method=copy \
+ && cd /opt/templates/node-postgres-standard \
+ && pnpm install --frozen-lockfile --config.package-import-method=copy \
  && pnpm store prune \
  && rm -rf /root/.cache /root/.local/share/pnpm/store \
  && chown -R 1000:1000 /opt/templates

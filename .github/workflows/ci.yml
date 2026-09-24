@@ -14,6 +14,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: staged deployment and rollback contract
+        working-directory: .
+        run: |
+          bash -n ops/deploy-project-x.sh
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s ops -p test_deploy_project_x.py -v
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: control-plane/go.mod
@@ -64,6 +70,36 @@ jobs:
 
       - name: build base image
         run: docker build -f image/Dockerfile -t sandboxd-base:ci .
+
+      - name: cold Vite environment reload and shutdown
+        run: |
+          docker run --rm --init --network none --cpus 1 --memory 1g \
+            --entrypoint bash \
+            -v "$PWD/scripts/vite-reload-regression.mjs:/opt/reload-regression.mjs:ro" \
+            -e RELOAD_USE_INSTALLED_PATCH=1 -e RELOAD_EXIT_AFTER_REPORT=1 \
+            sandboxd-base:ci -lc '
+              set -eu
+              mkdir -p /tmp/reload-app
+              cp -a /opt/templates/react-pro/. /tmp/reload-app/
+              cd /tmp/reload-app
+              cp /opt/reload-regression.mjs reload-regression.mjs
+              echo DISPOSABLE_COLD_RELOAD_ONLY > README.reload-fixture.txt
+              node reload-regression.mjs
+              cat reload-results.json
+            '
+
+      - name: optional PostgreSQL persistence and cold recovery
+        run: |
+          docker run --rm --init --network none --cpus 2 --memory 1g \
+            --entrypoint node sandboxd-base:ci -e '
+              const fs = require("fs"), os = require("os"), path = require("path");
+              if (fs.existsSync(path.join(os.homedir(), ".baarcha-postgres"))) throw Error("Database initialized without project opt-in");
+            '
+          docker run --rm --init --network none --cpus 2 --memory 1g \
+            --entrypoint node \
+            -v "$PWD/image/services/postgres/paths.test.mjs:/opt/services/postgres/paths.test.mjs:ro" \
+            -v "$PWD/image/services/postgres/worker.test.mjs:/opt/services/postgres/worker.test.mjs:ro" \
+            sandboxd-base:ci --test /opt/services/postgres/paths.test.mjs /opt/services/postgres/worker.test.mjs
 
       - name: e2e
         env:

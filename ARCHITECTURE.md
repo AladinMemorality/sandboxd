@@ -1,19 +1,22 @@
 # Architecture
 
-sandboxd is a small Go **control plane** (`sandboxd`) that drives the Docker
-daemon, fronted by Traefik, with an optional **web console** (a pure `/v1` API
+sandboxd is a small Go **control plane** (`sandboxd`), fronted by Traefik,
+with an optional **web console** (a pure `/v1` API
 client) on top. It's a self-hosted engine for AI app-builder products: isolated
 sandboxes, live preview URLs, coding agents, app-scoped config/secrets,
-snapshots/fork/restore, runtime presets, and process logs/events. Everything
-runs as containers on one host.
+snapshots/fork/restore, runtime presets, and process logs/events. Docker remains
+the default runtime. This branch adds Cube execution for explicitly selected
+projects and journaled migration of existing data; it has not completed a
+production-wide cutover.
 
 High level:
 
 - **Control plane** (`sandboxd`, Go) — sandbox/app lifecycle, the `/v1` API.
 - **SQLite** (WAL) — the single source of truth for apps, sandboxes, config,
   events, snapshots.
-- **Docker runtime provider** — the only backend today; sandboxd shells the
-  `docker` CLI. (A second provider is a future concern.)
+- **Runtime providers** — Docker uses the `docker` CLI; Cube uses its API and
+  authenticated guest supervisor. A durable binding selects each sandbox's
+  provider without changing its app ID, task API or canonical preview URL.
 - **Traefik** — edge router; publishes a preview URL per running sandbox.
 - **runtimed** — in-sandbox supervisor + task runner, baked into the base image.
 - **sandbox.yaml** — the per-app runtime manifest runtimed reads (web/workers/
@@ -26,6 +29,13 @@ High level:
   through it, so **no credential ever enters a sandbox** (see `docs/agent-auth.md`).
 - **App config/secrets**, an **event timeline**, and **snapshots/fork/restore**
   are first-class app subsystems (below).
+
+The following diagram and component details describe the default Docker path.
+The [Cube migration architecture](docs/cube-migration.md) and
+[application rollout runbook](docs/cube-global-rollout.md) describe the additional
+provider, scoped previews, reverse broker and data migration. Retaining sandboxd
+as the API/control plane does not retain Docker execution for a migrated app.
+Platform screenshots are an independent service and do not select the app runtime.
 
 ```
                          ┌── host (Docker daemon) ─────────────────────────┐

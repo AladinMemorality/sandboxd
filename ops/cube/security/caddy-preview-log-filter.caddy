@@ -1,0 +1,13 @@
+# Merge this log stanza into the existing Caddy global options block; if none
+# exists, create that block first. It applies to default access AND error logs.
+# Do not install this standalone file as the complete production Caddyfile.
+log default {
+    format filter {
+        wrap json
+        fields {
+            request>uri delete
+            request>headers delete
+            resp_headers delete
+        }
+    }
+}

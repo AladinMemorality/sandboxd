@@ -17,6 +17,9 @@ const dummyKey = "sandboxd-proxy-injected"
 func agentEnv(agentName string, specEnv map[string]string) []string {
 	overlay := make(map[string]string, len(specEnv)+8)
 	for k, v := range specEnv {
+		if strings.HasPrefix(strings.ToUpper(k), "RUNTIMED_CUBE_") {
+			continue
+		}
 		overlay[k] = v
 	}
 	// EVERY agent reaches its provider through the credential-injecting proxy:
@@ -43,6 +46,19 @@ func agentEnv(agentName string, specEnv map[string]string) []string {
 			// codex is parked (its ChatGPT-subscription auth can't be proxied yet);
 			// the API-key path would set model_providers.openai.base_url in the
 			// adapter. No env credential either way.
+		}
+	}
+	// Cube's authenticated task relay is supplied only by the trusted task
+	// submit handler. It wins over global Docker routing and caller provider
+	// overrides. The scoped relay token is not an upstream provider credential.
+	if agentName == "claude-code" && (specEnv["RUNTIMED_CUBE_AGENT_BASE_URL"] != "" || specEnv["RUNTIMED_CUBE_AGENT_TOKEN"] != "") {
+		overlay["ANTHROPIC_BASE_URL"] = specEnv["RUNTIMED_CUBE_AGENT_BASE_URL"]
+		overlay["ANTHROPIC_API_KEY"] = specEnv["RUNTIMED_CUBE_AGENT_TOKEN"]
+		for _, key := range []string{"ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY", "ANTHROPIC_CUSTOM_HEADERS"} {
+			overlay[key] = ""
+		}
+		if token := specEnv["BRIDGE_TOKEN"]; token != "" && !strings.ContainsAny(token, "\r\n") {
+			overlay["ANTHROPIC_CUSTOM_HEADERS"] = "x-baarcha-bridge: " + token
 		}
 	}
 	return buildAgentEnv(os.Environ(), overlay)

@@ -1,0 +1,22 @@
+{
+  "reason": "explicit cleanup after test relay aborted stream without error listener",
+  "metered": true,
+  "usage": [
+    {
+      "endpoint": "agent.messages",
+      "model": "claude-sonnet-4-6",
+      "outcome": "ok",
+      "input_tokens": 30702,
+      "output_tokens": 219
+    },
+    {
+      "endpoint": "agent.messages",
+      "model": "claude-sonnet-4-6",
+      "outcome": "ok",
+      "input_tokens": 32982,
+      "output_tokens": 0
+    }
+  ],
+  "temporary_owner_removed": true,
+  "isolated_schema_removed": true
+}

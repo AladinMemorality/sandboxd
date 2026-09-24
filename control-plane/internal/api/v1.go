@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/audit"
-	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/events"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
@@ -39,14 +38,15 @@ type v1Preview struct {
 }
 
 type v1Sandbox struct {
-	ID           string      `json:"id"`
-	Status       string      `json:"status"`
-	Preview      v1Preview   `json:"preview"`
-	Processes    []v1Process `json:"processes"`
-	ActiveTaskID string      `json:"active_task_id,omitempty"`
-	Template     string      `json:"template"`
-	CreatedAt    string      `json:"created_at"`
-	UpdatedAt    string      `json:"updated_at,omitempty"`
+	RuntimeProvider string      `json:"runtime_provider"`
+	ID              string      `json:"id"`
+	Status          string      `json:"status"`
+	Preview         v1Preview   `json:"preview"`
+	Processes       []v1Process `json:"processes"`
+	ActiveTaskID    string      `json:"active_task_id,omitempty"`
+	Template        string      `json:"template"`
+	CreatedAt       string      `json:"created_at"`
+	UpdatedAt       string      `json:"updated_at,omitempty"`
 }
 
 // v1Process is one supervised process (the web dev server or a worker) from the
@@ -163,18 +163,22 @@ func (s *Server) previewURL(id string, webPort int) string {
 // in the live runtime/preview state from runtimed when reachable.
 func (s *Server) v1SandboxFromRow(r *http.Request, sb *store.Sandbox) v1Sandbox {
 	out := v1Sandbox{
-		ID:        sb.ID,
-		Status:    sb.Status,
-		Template:  defaultTemplate,
-		CreatedAt: sb.CreatedAt.UTC().Format(time.RFC3339),
-		UpdatedAt: sb.UpdatedAt.UTC().Format(time.RFC3339),
+		RuntimeProvider: runtimeProviderName(sb),
+		ID:              sb.ID,
+		Status:          sb.Status,
+		Template:        defaultTemplate,
+		CreatedAt:       sb.CreatedAt.UTC().Format(time.RFC3339),
+		UpdatedAt:       sb.UpdatedAt.UTC().Format(time.RFC3339),
 	}
-	_, mnt := s.Loopback.Paths(sb.ID)
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 	var rs *runtime.Status
-	if got, err := runtime.NewClient(filepath.Join(mnt, ".runtimed", "sock")).Status(ctx); err == nil {
-		rs = got
+	// Paused Cube VMs cannot answer; status polling must not spend the
+	// remote timeout (or wake them) just to rediscover the durable stopped state.
+	if sb.RuntimeProvider != "cube" || sb.Status != "stopped" {
+		if got, err := s.runtimeClientFor(sb.ID).Status(ctx); err == nil {
+			rs = got
+		}
 	}
 	out.Preview, out.Processes = s.v1RuntimeView(sb.ID, sb.Status, rs, webPortOf(sb))
 	if rs != nil && rs.ActiveTask != nil {
@@ -255,6 +259,16 @@ func (s *Server) v1CreateSandbox(w http.ResponseWriter, r *http.Request) {
 	// project is returned as-is (one durable sandbox per project).
 	if rows, err := s.Store.ListFiltered(r.Context(), "", req.Project.ID); err == nil {
 		for _, sb := range rows {
+			if sb.RuntimeProvider == "cube" {
+				if !s.canReadCubeSandbox(r, sb) {
+					writeV1Err(w, 404, "not_found", "no such project")
+					return
+				}
+				if sb.Status == "error" {
+					writeV1Err(w, 409, "conflict", "existing Cube sandbox requires recovery or deletion")
+					return
+				}
+			}
 			if sb.Status != "error" {
 				writeJSON(w, http.StatusOK, s.v1SandboxFromRow(r, sb))
 				return
@@ -290,6 +304,10 @@ func (s *Server) v1CreateSandbox(w http.ResponseWriter, r *http.Request) {
 		}
 		if snap.Status != "ready" {
 			writeV1Err(w, http.StatusBadRequest, "invalid_request", "snapshot is not ready")
+			return
+		}
+		if snap.Format == cubeSourceFormat {
+			writeV1Err(w, 501, "cube_operation_unsupported", "Cube source artifacts require the owned app fork or restore API")
 			return
 		}
 		createBody["template_path"] = snap.ImagePath
@@ -349,6 +367,9 @@ func (s *Server) v1GetSandbox(w http.ResponseWriter, r *http.Request) {
 // --- POST /v1/sandboxes/{id}/stop -----------------------------------
 
 func (s *Server) v1StopSandbox(w http.ResponseWriter, r *http.Request) {
+	if s.cubeLifecycle(w, r, "pause") {
+		return
+	}
 	id := r.PathValue("id")
 	sb, err := s.Store.Get(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
@@ -396,6 +417,9 @@ func (s *Server) v1StopSandbox(w http.ResponseWriter, r *http.Request) {
 // of /stop, so a console (API-only) need not reach the internal wake
 // path. Idempotent when already running.
 func (s *Server) v1StartSandbox(w http.ResponseWriter, r *http.Request) {
+	if s.cubeLifecycle(w, r, "connect") {
+		return
+	}
 	id := r.PathValue("id")
 	sb, err := s.Store.Get(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
@@ -436,6 +460,9 @@ func (s *Server) v1StartSandbox(w http.ResponseWriter, r *http.Request) {
 // DELETE — the soft DELETE preserves the .img for id-reuse, which is
 // not the v1 "destroy the project's sandbox" contract.
 func (s *Server) v1DeleteSandbox(w http.ResponseWriter, r *http.Request) {
+	if s.cubeLifecycle(w, r, "delete") {
+		return
+	}
 	id := r.PathValue("id")
 	code, body := s.delegate(r, s.handlePurgeSandbox, http.MethodPost, "/sandbox/"+id+"/purge",
 		map[string]string{"id": id}, nil)
@@ -454,53 +481,8 @@ func (s *Server) v1DeleteSandbox(w http.ResponseWriter, r *http.Request) {
 // takes an environment once, at create.
 func (s *Server) v1RecreateSandbox(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	sb, err := s.Store.Get(r.Context(), id)
-	if errors.Is(err, store.ErrNotFound) {
-		writeV1Err(w, http.StatusNotFound, "not_found", "no such sandbox")
+	if s.cubeRecreateSandbox(w, r, id) {
 		return
 	}
-	if err != nil {
-		writeV1Err(w, http.StatusInternalServerError, "internal", err.Error())
-		return
-	}
-	if sb.Status == "running" {
-		_, mnt := s.Loopback.Paths(id)
-		rctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-		defer cancel()
-		if rs, rerr := runtime.NewClient(filepath.Join(mnt, ".runtimed", "sock")).Status(rctx); rerr == nil && rs.ActiveTask != nil {
-			writeV1Err(w, http.StatusConflict, "task_in_progress",
-				"a task is in progress; cancel it before recreating")
-			return
-		}
-		if err := s.Docker.Stop(r.Context(), "s-"+id, 10); err != nil {
-			writeV1Err(w, http.StatusInternalServerError, "internal", "docker stop: "+err.Error())
-			return
-		}
-		if err := s.Store.MarkStoppedAt(r.Context(), id, time.Now().UTC()); err != nil {
-			s.loggerFor(r, id).Warn("v1 recreate: MarkStoppedAt failed", "err", err.Error())
-		}
-	} else if sb.Status != "stopped" {
-		writeV1Err(w, http.StatusConflict, "conflict", "sandbox is "+sb.Status+" — cannot recreate")
-		return
-	}
-	// Gone container = the wake handler's "missing" branch, which recreates
-	// from the row. A not-found here is the idempotent case.
-	if err := s.Docker.Remove(r.Context(), "s-"+id); err != nil && !errors.Is(err, docker.ErrNotFound) {
-		writeV1Err(w, http.StatusInternalServerError, "internal", "docker rm: "+err.Error())
-		return
-	}
-	s.auditAction(r, audit.Entry{Action: "sandbox.recreate", Target: id})
-	code, body := s.delegate(r, s.handleWakeJSON, http.MethodPost, "/wake/"+id,
-		map[string]string{"id": id}, nil)
-	if code != http.StatusOK {
-		relayV1Error(w, code, body)
-		return
-	}
-	if sb, err = s.Store.Get(r.Context(), id); err != nil {
-		writeV1Err(w, http.StatusInternalServerError, "internal", err.Error())
-		return
-	}
-	s.recordEvent(r, events.Event{Type: events.SandboxStarted, Severity: events.SeverityInfo,
-		Message: "Sandbox recreated", AppID: sb.AppID.String, SandboxID: id})
-	writeJSON(w, http.StatusOK, s.v1SandboxFromRow(r, sb))
+	s.recreateDockerSandbox(w, r, id)
 }

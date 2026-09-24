@@ -1,0 +1,3 @@
+=== RUN   TestOperatorCubeRegistryClients
+--- PASS: TestOperatorCubeRegistryClients (10.67s)
+PASS

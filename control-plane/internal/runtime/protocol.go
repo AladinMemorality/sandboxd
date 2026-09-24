@@ -41,8 +41,10 @@ const (
 
 // Status is the GET /status response — the whole runtimed snapshot.
 type Status struct {
-	Runtimed RuntimedInfo `json:"runtimed"`
-	Preview  PreviewState `json:"preview"`
+	ManifestSHA256    string       `json:"manifest_sha256,omitempty"`
+	AppConfigRevision string       `json:"app_config_revision,omitempty"`
+	Runtimed          RuntimedInfo `json:"runtimed"`
+	Preview           PreviewState `json:"preview"`
 	// Processes lists every supervised process (the web process and any
 	// workers from sandbox.yaml). Empty on older runtimed builds. The web
 	// process's preview health is also surfaced in Preview for compatibility.

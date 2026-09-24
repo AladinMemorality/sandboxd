@@ -1,0 +1,3 @@
+PASS preset nextjs startup/resume; checking exports
+PASS preset nextjs home export
+PASS preset nextjs all functional checks

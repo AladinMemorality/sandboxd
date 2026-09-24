@@ -1,0 +1,23 @@
+2026/09/24 18:58:46 [3/7] BUILDING_EXT4 progress=40% template_id=tpl-919e10431fe6403bb55628e6 job_id=906cacdf-75b6-47f7-86c0-daa64b33632d artifact_id=rfs-b95827cbd30de78634847c89-0c4f7dcc
+2026/09/24 18:58:48 [3/7] BUILDING_EXT4 progress=100% template_id=tpl-919e10431fe6403bb55628e6 job_id=906cacdf-75b6-47f7-86c0-daa64b33632d artifact_id=rfs-b95827cbd30de78634847c89-0c4f7dcc error=build ext4 fail: insufficient disk space: available=14 GiB, estimated_required=14 GiB (image_size_estimate * 1.5x safety_margin)
+2026/09/24 18:58:48 template image job failed template_id=tpl-919e10431fe6403bb55628e6 job_id=906cacdf-75b6-47f7-86c0-daa64b33632d artifact_id=rfs-b95827cbd30de78634847c89-0c4f7dcc error=build ext4 fail: insufficient disk space: available=14 GiB, estimated_required=14 GiB (image_size_estimate * 1.5x safety_margin)
+{
+    "ret": {
+        "ret_code": 200,
+        "ret_msg": "success"
+    },
+    "job": {
+        "job_id": "906cacdf-75b6-47f7-86c0-daa64b33632d",
+        "template_id": "tpl-919e10431fe6403bb55628e6",
+        "request_id": "f11f94c0-6c0a-460d-83dd-382f10f62a78",
+        "attempt_no": 1,
+        "operation": "CREATE",
+        "artifact_id": "rfs-b95827cbd30de78634847c89-0c4f7dcc",
+        "template_spec_fingerprint": "b95827cbd30de78634847c890193e1464515906e4af9405aa82fea6eccf998ac",
+        "status": "FAILED",
+        "phase": "BUILDING_EXT4",
+        "progress": 100,
+        "error_message": "build ext4 fail: insufficient disk space: available=14 GiB, estimated_required=14 GiB (image_size_estimate * 1.5x safety_margin)"
+    }
+}
+cubemastercli run fail: build ext4 fail: insufficient disk space: available=14 GiB, estimated_required=14 GiB (image_size_estimate * 1.5x safety_margin)

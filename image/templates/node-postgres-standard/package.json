@@ -1,0 +1,7 @@
+{
+  "name": "project-postgres-app",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {"express": "5.1.0"}
+}

@@ -1,0 +1,12 @@
+ARG REVIEWED_BASE=baarcha-reviewed-base:20260924-v4
+FROM ${REVIEWED_BASE}
+USER root
+RUN mkdir -p /home/sandbox/workspace/app && chown sandbox:sandbox /home/sandbox/workspace /home/sandbox/workspace/app
+USER sandbox
+WORKDIR /home/sandbox/workspace
+ARG RUNTIME_PRESET
+ENV RUNTIMED_RUNTIME_PRESET=${RUNTIME_PRESET} RUNTIMED_CUBE_REVERSE_EGRESS=1
+RUN /usr/local/bin/cube-template "${RUNTIME_PRESET}" \
+ && if [ "${RUNTIME_PRESET}" = fastapi ]; then cd /home/sandbox/workspace/app && python3 -m venv .venv && .venv/bin/pip install --no-cache-dir -r requirements.txt; fi
+ENTRYPOINT ["/usr/bin/tini","--"]
+CMD ["/usr/local/bin/cube-init"]

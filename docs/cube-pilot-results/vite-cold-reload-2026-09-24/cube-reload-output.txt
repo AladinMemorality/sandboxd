@@ -1,0 +1,3 @@
+=== RUN   TestOperatorCubeViteReload
+--- PASS: TestOperatorCubeViteReload (33.64s)
+PASS

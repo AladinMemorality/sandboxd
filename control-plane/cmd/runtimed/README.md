@@ -85,3 +85,117 @@ automatically — there is no `docker exec`-started dev server.
   surfaced; `files_changed` is always computed from git.
 - **Dev-server restart on dependency changes** — a task that edits `package.json`
   does not yet trigger a dev-server restart.
+
+## Optional authenticated guest HTTP transport
+
+The default remains the Unix socket (`RUNTIMED_SOCKET`). To supervise a Cube
+microVM without a shared host filesystem, set `RUNTIMED_HTTP_ADDR=:3031` and
+`RUNTIMED_HTTP_TOKEN` to a unique cryptographically random token for that sandbox.
+Generate at least 32 random bytes and encode as hex or unpadded base64url. The
+process fails at startup if HTTP is enabled with a missing or malformed token.
+Unix and HTTP listeners then serve the same status/task/event/cancel/message/
+revert protocol. All HTTP routes, including unknown paths, require
+`Authorization: Bearer <token>` before routing. No token is logged.
+
+Keep the management port on private, restricted ingress; it must not be listed
+among public application preview ports. For a local CubeProxy route, the control
+plane can use a private proxy origin with HTTP Host `3031-<cube-id>.cube.app`.
+If the proxy itself has public ingress, block management-port hostnames there.
+Use Cube private ingress and its per-sandbox `cube-traffic-access-token` header
+when available; this is a different credential from the Cube management API key.
+A Host header is routing, not access control. Across an untrusted network, use
+HTTPS (or a private encrypted transport); a bearer token over plain HTTP alone
+is insufficient.
+
+The control-plane constructor is:
+
+```go
+client, err := runtime.NewRemoteClient(runtime.RemoteConfig{
+    BaseURL: "http://127.0.0.1:80", // trusted/private proxy origin
+    Host:    "3031-<cube-id>.cube.app",
+    Token:   token,
+    TrafficAccessToken: trafficToken, // private ingress token returned at creation
+})
+```
+
+Redirects and environment proxy discovery are disabled for remote clients.
+Ordinary RPCs retain their five-second timeout. Task events stream immediately,
+with no overall client/server write timeout; cancellation or closing the response
+body closes the stream. This protocol is newline-delimited JSON, not SSE.
+
+The supervisor removes its HTTP token from the inherited environment before
+launching web/worker processes; agent environment filtering also excludes all
+`RUNTIMED_*` variables. HTTP-mode startup also sets `PR_SET_DUMPABLE=0`, including
+after self-exec, preventing same-UID application processes from reading the
+supervisor's original environment or memory through proc/ptrace. Cube bootstrap
+sets no-new-privileges before dropping to UID/GID1000, verifies supplementary
+groups, and protects its own process from dumps. No-new-privileges is applied
+to every Go runtime thread with `syscall.AllThreadsSyscall6`, so children inherit
+it regardless of which thread forks them. Cube guest binaries require
+`CGO_ENABLED=0`; a CGO build fails closed because Go cannot secure foreign threads.
+This prevents setuid/file-capability privilege gain. These flags
+do not create a complete app-versus-supervisor boundary: same-UID signals and
+writable runtime files remain possible. The security boundary between tenants
+and the host remains the microVM plus authenticated private ingress/network
+policy. Tokens grant access only to their own sandbox and must
+never authorize a host operation or another tenant. Never bake a live token into
+a reusable image/template. Publishing/remixing a guest memory snapshot requires
+credential sanitization and a new token binding; changing boot environment alone
+does not rotate a token already retained in a restored process's memory.
+
+This transport does not add host filesystem mounts or generic command execution.
+The scoped workspace, export and log APIs described below provide guest
+operations without falling back to host paths.
+
+## Scoped guest workspace and source publishing
+
+The authenticated HTTP/Unix protocol now includes app-relative `GET /files`,
+`GET /files/content?path=...`, `PUT /files?path=...`, `GET /export`,
+`GET /processes/{name}/logs?tail=N`, and `GET /tasks/{id}/result`.
+Every filesystem component is opened with descriptor-relative `openat` and
+`O_NOFOLLOW`. Absolute paths, traversal, links (including multi-link regular
+files), devices and FIFOs are refused. Bounds are 2 MiB per read, 25 MiB per
+write/file export, 64 MiB per ZIP/expanded export, 10,000 visited entries, depth32,
+and 256 KiB of process-log tail. Paths are relative to the app directory, matching
+the current product editor. Cube API access resumes a paused guest under its
+lifecycle lock; ownership is checked before connecting or reading anything.
+
+`GET /export/source` and `PUT /import/source` are separate publication primitives.
+Publication uses a source/asset extension allowlist and excludes credential files,
+all `.env` variants, hidden control/config directories, databases, logs, caches,
+private/data/storage/uploads directories, and dependency/build directories. The
+control plane independently validates and filters the ZIP before storing it as
+an immutable `cube-source-v1` snapshot. ZIP traversal, duplicates, special files,
+and decompression bounds are checked again at import. This is a source release:
+**hardcoded secrets inside an allowed source file cannot be detected by filename
+rules; an author must only publish source they intend recipients to receive.**
+Root JSON files are limited to known dependency/build manifests (including
+package.json and tsconfig variants); JSON assets must live in recognized source
+or static asset trees. Public video/audio/PDF uploads are retained only under
+`public`, `assets`, or `static`; private document/recording locations remain
+excluded. Common credential/runtime-state basenames are rejected at
+any depth. Other legitimate files may need an explicitly reviewed publication
+rule; arbitrary private data stored inside allowed source cannot be identified
+automatically. Excluded database/upload state is deliberately not a source backup.
+
+Import builds a clean sibling app directory and atomically exchanges it with the
+old tree before removing the old files. It never imports the creator's memory,
+runtime home, task history or app config. A fork starts from an enabled trusted
+Cube template with new per-instance credentials. Runtimed self-execs after import
+to reload the manifest and restart processes; it carries its own transport token
+only in the new process environment, and immediately scrubs it before launching
+children. Its PID stays the same, preserving cube-init supervision. New requests
+cannot start tasks during this restart window. Only the fresh destination template's node_modules may be retained, and only
+when package.json and every supported lockfile/workspace manifest match exactly.
+A mismatch is rejected before replacing source; it requires a reviewed template
+dependency build. Creator dependencies are never copied. This path does not claim
+the performance of a prepared full-memory clone.
+
+`POST /config` accepts `{env, revision}` to replace runtime-visible app config.
+It rejects supervisor/process-control variable names and active tasks, removes
+keys from the previous applied config, then self-execs. It never persists secrets
+to workspace files or logs. The old process keeps reporting its old
+`app_config_revision`; the control plane must wait for the new revision before
+recording success. Repeating an already-applied revision is a no-op. Pause/resume
+retains the process environment naturally; cross-owner source forks receive none
+of the source app's config.

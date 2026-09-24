@@ -1,0 +1,283 @@
+{
+  "results": [
+    {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "react_html_and_transformed_entrypoint",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "preset": "react-pro",
+      "scope": "single fresh authenticated Cube starter, ordinary frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; not real-owner ABI or performance benchmark",
+      "template": "tpl-ce9efc43b71248d9a0adfb90",
+      "workspace_archive_bytes": 43470409,
+      "workspace_digest": "971469b3c495640af6d71b0950ea7de042d98d455c1fb78bbc0fe58b7ee37c81",
+      "image_digest": "sha256:6bad30fa19584d85f0dafc1680bca5851f1bb05f55a6abe0d6002165227253d0",
+      "image_tag": "baarcha-cube-reviewed-react-pro:20260924-v3",
+      "free_bytes_before": {
+        "/": 79971565568,
+        "/data": 51101818880
+      },
+      "image_checks": [
+        "bootstrap",
+        "home",
+        "offline_starter"
+      ],
+      "docker_offline_starter_sample": {
+        "ready_ms": 935,
+        "uid": 1000,
+        "network": "none",
+        "scope": "single Docker image functional sample; not Cube startup/resume or performance benchmark"
+      }
+    },
+    {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "backend_health_and_root_routes",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "preset": "fastapi",
+      "scope": "single fresh authenticated Cube starter, ordinary frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; not real-owner ABI or performance benchmark",
+      "template": "tpl-16690c3572a04e88a662a8fb",
+      "workspace_archive_bytes": 10165684,
+      "workspace_digest": "932559e23ec8bbae0aa77e4536f4e74c39122278d1639962048d33d4ac273446",
+      "image_digest": "sha256:ba0bf0c064fb6a2e3ce6bc7c5c3a15b864f9187eacb9b06c93c9beef646f9c8d",
+      "image_tag": "baarcha-cube-reviewed-fastapi:20260924",
+      "free_bytes_before": {
+        "/": 79971258368,
+        "/data": 51101384704
+      },
+      "image_checks": [
+        "bootstrap",
+        "home",
+        "offline_starter"
+      ],
+      "docker_offline_starter_sample": {
+        "ready_ms": 422,
+        "uid": 1000,
+        "network": "none",
+        "scope": "single Docker image functional sample; not Cube startup/resume or performance benchmark"
+      }
+    },
+    {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "react_html_and_transformed_entrypoint",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "preset": "marketplace",
+      "scope": "single fresh authenticated Cube starter, ordinary frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; not real-owner ABI or performance benchmark",
+      "template": "tpl-d2187254ca8d4ea89910c0d1",
+      "workspace_archive_bytes": 42867253,
+      "workspace_digest": "b158342799a998b4d9b5ce69df1d0b675b50bccaa8e780b3cd653c21339ce3c9",
+      "image_digest": "sha256:d0332e9a4f9d87d69e55b16a558c5611c4c230ceb02a74f18948b4658512285e",
+      "image_tag": "baarcha-cube-reviewed-marketplace:20260924",
+      "free_bytes_before": {
+        "/": 75842711552,
+        "/data": 47642906624
+      },
+      "image_checks": [
+        "bootstrap",
+        "home",
+        "offline_starter"
+      ],
+      "docker_offline_starter_sample": {
+        "ready_ms": 735,
+        "uid": 1000,
+        "network": "none",
+        "scope": "single Docker image functional sample; not Cube startup/resume or performance benchmark"
+      }
+    },
+    {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "react_html_and_transformed_entrypoint",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "preset": "react-vite",
+      "scope": "single fresh authenticated Cube starter, ordinary frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; not real-owner ABI or performance benchmark",
+      "template": "tpl-c78fd90bc05b42a5a66bd4ed",
+      "workspace_archive_bytes": 18118208,
+      "workspace_digest": "a0446930f03d67d7b517ca0074bb43476bc23f2688b4b8b80eab6fc625dac7bc",
+      "image_digest": "sha256:451b2e89b337d75b196f2b10044ee64f8e48919bb0522c5bbca2e1b678c1af8b",
+      "image_tag": "baarcha-cube-reviewed-react-vite:20260924",
+      "free_bytes_before": {
+        "/": 71505223680,
+        "/data": 44024397824
+      },
+      "image_checks": [
+        "bootstrap",
+        "home",
+        "offline_starter"
+      ],
+      "docker_offline_starter_sample": {
+        "ready_ms": 732,
+        "uid": 1000,
+        "network": "none",
+        "scope": "single Docker image functional sample; not Cube startup/resume or performance benchmark"
+      }
+    },
+    {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "next_server_rendered_html",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "home_archive_bytes": 3031,
+      "home_digest": "5afe101d68e6e1764013d95b8345e3058bbdd7abe024af210919830beed0c80b",
+      "preset": "nextjs",
+      "scope": "single fresh authenticated Cube starter, ordinary frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; not real-owner ABI or performance benchmark",
+      "template": "tpl-7a7173c461ba4846a75c8c3b",
+      "workspace_archive_bytes": 73275081,
+      "workspace_digest": "bdf4f5292c994e7756dfa7e68b9c66d6a13d8435977bd5632fe45f7fb1680c62",
+      "image_digest": "sha256:d517e5c5446709e460a04eba06fbab3cbfa73d1d4387ce9fb2bca18691465a4c",
+      "image_tag": "baarcha-cube-reviewed-nextjs:20260924",
+      "free_bytes_before": {
+        "/": 62572486656,
+        "/data": 36835835904
+      },
+      "image_checks": [
+        "bootstrap",
+        "home",
+        "offline_starter"
+      ],
+      "docker_offline_starter_sample": {
+        "ready_ms": 5273,
+        "uid": 1000,
+        "network": "none",
+        "scope": "single Docker image functional sample; not Cube startup/resume or performance benchmark"
+      }
+    },
+    {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "backend_health_and_root_routes",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "preset": "node-express",
+      "scope": "single fresh authenticated Cube starter, ordinary frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; not real-owner ABI or performance benchmark",
+      "template": "tpl-849724091697474a97258914",
+      "workspace_archive_bytes": 1123627,
+      "workspace_digest": "94fd0936624652a34f15ca4075e2ec63397f5d0fc59aff6a6ebbc0a963eb8099",
+      "image_digest": "sha256:76916149858fcf5d320b0eae9bec7d7a5d0757bbbf6e29eddbff450114c8677a",
+      "image_tag": "baarcha-cube-reviewed-node-express:20260924",
+      "free_bytes_before": {
+        "/": 62572244992,
+        "/data": 36835610624
+      },
+      "image_checks": [
+        "bootstrap",
+        "home",
+        "offline_starter"
+      ],
+      "docker_offline_starter_sample": {
+        "ready_ms": 218,
+        "uid": 1000,
+        "network": "none",
+        "scope": "single Docker image functional sample; not Cube startup/resume or performance benchmark"
+      }
+    },
+    {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "worker_only_no_preview",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "preset": "worker",
+      "scope": "single fresh authenticated Cube starter, ordinary frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; not real-owner ABI or performance benchmark",
+      "template": "tpl-6a2b2e0d60da4217bccae0a7",
+      "workspace_archive_bytes": 3353,
+      "workspace_digest": "2ffe2e6ef343c63c2e0e6168d16dfd35d22709b5e0b2a2f21125fe016054e7d0",
+      "image_digest": "sha256:a76d04a37246bc0be10f2d9aeb1a9f457ae0d6cad0a649e6c984c1dcf725637e",
+      "image_tag": "baarcha-cube-reviewed-worker:20260924",
+      "free_bytes_before": {
+        "/": 58478534656,
+        "/data": 33171939328
+      },
+      "image_checks": [
+        "bootstrap",
+        "home",
+        "offline_starter"
+      ],
+      "docker_offline_starter_sample": {
+        "ready_ms": 2002,
+        "uid": 1000,
+        "network": "none",
+        "scope": "single Docker image functional sample; not Cube startup/resume or performance benchmark"
+      }
+    }
+  ],
+  "scope": "functional only; shared host load; no performance benchmark",
+  "date": "2026-09-24",
+  "isolated_cluster_only": true,
+  "production_configuration_changed": false,
+  "global_migration_attestations": false,
+  "base_image": "sha256:9ec445151344a7baa295b085bebe1a0352ab930601fe0d9ed2bf1283bbaa6678",
+  "runtimed_source_commit": "1fbeac29cf0ddf5db45f524a3b68145ba8ced8ad",
+  "runtimed_sha256": "1a27b0fff0b404265a01b74b4ecfe83fa4a4780400352b4882dd02cfac312624",
+  "template_resources": {
+    "vcpu": 1,
+    "memory_mib": 1024,
+    "writable_layer_gib": 10,
+    "direct_egress": "deny all IPv4",
+    "reverse_broker": "authenticated channel; all outbound dial attempts refused by fixture"
+  },
+  "artifact_root": "/opt/baarcha-bench/cube-global-20260924/template-review/preset-matrix-20260924",
+  "final_fixture_artifact_sha256": {
+    "main.go": "8e44e4d5c9fb302be450144130ecf1e11c5be552d54e2611b20358696a4b6373",
+    "home.go": "bae73beec1136f84cb5620274605b97d2312a986beff82413d7ffd7eb2024cda",
+    "presets.go": "693bf2ce44d2e86638aa3e16273fb7ef3ec0d886747491dd769783981082a798",
+    "run-reviewed-preset-matrix.py": "89730f4df3e0c77165e5a78689069b4c520c458821a430fb53c1e3e7ae09fec5",
+    "build-reviewed-presets.py": "d3a38ecff51e8b6ece3ab18bc6fc7d6a021913b169c4937a83557e6a7401a938",
+    "reviewed-preset-pilot": "4aff24b8c4796028000b6b1a518e98877cf271679c0d8ed38ea11ddc08c48b33"
+  },
+  "cleanup": {
+    "owned_fixture_guests_deleted": true,
+    "owned_image_check_containers_remaining": []
+  },
+  "cube_ready_resume_timings": "Not instrumented in this functional matrix; no estimates inferred from export or template-build durations.",
+  "nextjs_manifest_addition": {
+    "path": ".config/nextjs-nodejs",
+    "disposition": "preserve",
+    "reason": "Next startup generates telemetry settings; initial unclassified path correctly rejected with422; clean rerun passed exact scope."
+  }
+}

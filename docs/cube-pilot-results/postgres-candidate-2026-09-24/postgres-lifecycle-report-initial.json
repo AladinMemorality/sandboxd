@@ -1,0 +1,21 @@
+{
+  "all_vms_deleted": true,
+  "create_ms": 1213,
+  "create_ready_ms": 7328,
+  "database_survives_owner_source_restore": true,
+  "database_survives_pause_resume": true,
+  "database_survives_supervisor_reexec": true,
+  "database_write_read": true,
+  "fresh_remix_database_empty": true,
+  "network_isolation_accepted": false,
+  "owner_restore_frozen_source_stable_app_sandbox_vm_credentials": true,
+  "pause_resume_ready_ms": 2545,
+  "pause_resume_stable_identity": true,
+  "production_startup_accepted": false,
+  "publish_ms": 58,
+  "remix_ms": 1153,
+  "remix_ready_ms": 7102,
+  "remix_ready_new_identity": true,
+  "source_archive_private_data_excluded": true,
+  "template": "tpl-2aa3ca52b0d84b3c8e49085d"
+}

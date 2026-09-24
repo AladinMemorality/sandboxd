@@ -1,0 +1,11 @@
+#!/bin/sh
+# Disposable integration fixture ONLY: deterministic local output, no model API.
+set -eu
+case "${1-}" in
+  --version) printf '0.0.0-cube-pilot-fixture\n'; exit 0 ;;
+  run) ;;
+  *) printf 'pilot fixture supports only opencode run/--version\n' >&2; exit 64 ;;
+esac
+printf 'verified guest task\n' > pilot-task-result.txt
+printf '{"type":"text","part":{"id":"pilot-fixture-output","type":"text","text":"Deterministic transport fixture complete (no model request)"}}\n'
+printf '{"type":"step_finish","part":{"type":"step-finish","tokens":{"input":0,"output":0,"reasoning":0,"cache":{"read":0,"write":0}},"cost":0}}\n'

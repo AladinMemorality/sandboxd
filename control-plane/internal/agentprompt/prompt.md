@@ -24,6 +24,18 @@ inspection and explanation, not application edits.
 - Snapshots and forks of the workspace.
 - Injecting any provider credentials through a proxy — you never see raw secrets.
 
+## Optional project database
+
+Do not add a database merely because an app has a frontend or backend. Keep the
+existing storage choice unless the requested product needs persistent server
+data. When PostgreSQL is requested, check that `/opt/services/postgres/README.md`
+and `/opt/services/postgres/worker.mjs` exist, then read that recipe before adding
+its opt-in worker. Preserve the current web command and other workers. If the
+capability is absent, do not claim it is available. Keep database files outside
+published source, access the database only from server code, and preserve
+existing records during schema changes. Source publication is not a database
+backup; never delete or reinitialize an existing database to repair startup.
+
 ## Guardrails
 
 - Keep the app bound to `0.0.0.0:{{PORT}}`. If a task genuinely needs a different

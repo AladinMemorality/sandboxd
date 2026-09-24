@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,6 +10,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/agentauth"
@@ -16,10 +18,14 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/events"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/wake"
 )
 
 // runtimeClientFor builds a runtime.Client for a sandbox's runtimed.
 func (s *Server) runtimeClientFor(id string) *runtime.Client {
+	if client, remote := s.cubeRuntimeClient(id); remote {
+		return client
+	}
 	_, mnt := s.Loopback.Paths(id)
 	return runtime.NewClient(filepath.Join(mnt, ".runtimed", "sock"))
 }
@@ -85,11 +91,23 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	remote := sb.RuntimeProvider == "cube"
+	if s.Locks != nil {
+		s.Locks.Lock(id)
+		defer s.Locks.Unlock(id)
+		r = r.WithContext(wake.WithLifecycleLockHeld(r.Context(), id))
+		sb, err = s.Store.Get(r.Context(), id)
+		if err != nil {
+			writeV1Err(w, 404, "not_found", "no such sandbox")
+			return
+		}
+	}
+
 	// B1 — wake-on-task-submit: a stopped sandbox is woken first by
 	// delegating to the proven internal wake path. (A private sandbox
 	// whose wake path expects a preview-token cookie is not covered —
 	// see the runtimed README "NOT implemented yet".)
-	if sb.Status == "stopped" {
+	if sb.Status == "stopped" && !remote {
 		code, body := s.delegate(r, s.handleWakeJSON, http.MethodPost, "/wake/"+id,
 			map[string]string{"id": id}, nil)
 		if code != http.StatusOK {
@@ -101,7 +119,7 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	if sb.Status != "running" {
+	if sb.Status != "running" && !remote {
 		writeV1Err(w, http.StatusConflict, "conflict",
 			"sandbox is "+sb.Status+" — cannot run a task")
 		return
@@ -154,6 +172,10 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for k, v := range req.Env {
+		if strings.HasPrefix(k, "RUNTIMED_CUBE_AGENT_") {
+			writeV1Err(w, 400, "invalid_request", "model relay environment is server controlled")
+			return
+		}
 		if !validTaskEnvKey.MatchString(k) {
 			writeV1Err(w, http.StatusBadRequest, "invalid_request",
 				"env: invalid variable name "+strconv.Quote(k))
@@ -184,12 +206,87 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 		req.Model = opencodeFreeModel()
 	}
 
+	if remote && agent == "claude-code" && s.CubeAgentRelayOrigin == "" {
+		writeV1Err(w, 503, "model_relay_disabled", "Cube Claude tasks require the operator-configured scoped model relay; it is currently disabled")
+		return
+	}
+	if remote && s.CubeAgentRelayOrigin != "" {
+		if s.AgentProxyURL == "" {
+			writeV1Err(w, 503, "runtime_unavailable", "Cube model credential proxy is unavailable")
+			return
+		}
+		if agent != "claude-code" {
+			writeV1Err(w, 400, "unsupported_agent", "Cube model relay currently supports claude-code only")
+			return
+		}
+		if !validCubeBridgeToken(req.Env["BRIDGE_TOKEN"]) {
+			writeV1Err(w, 400, "invalid_request", "Cube model relay requires the project bridge token")
+			return
+		}
+	}
+	if remote {
+		active, err := s.Store.SandboxHasRunningTask(r.Context(), id)
+		if err != nil {
+			writeV1Err(w, 503, "runtime_unavailable", "cannot resolve active task")
+			return
+		}
+		if active {
+			writeV1Err(w, 409, "task_in_progress", "a task is already in progress")
+			return
+		}
+	}
+	if remote {
+		if err := s.connectCube(r.Context(), id, int(watchWindowFor(req.TimeoutS).Seconds())+600); err != nil {
+			writeV1Err(w, 502, "sandbox_unavailable", "Cube task lease/readiness failed")
+			return
+		}
+	}
 	taskID := newULID()
+	if remote {
+		if err := s.Store.CreateTask(r.Context(), &store.Task{TaskID: taskID, SandboxID: id, Agent: agent, Prompt: req.Prompt, TimeoutS: req.TimeoutS, ExternalUserID: sb.ExternalUserID, ExternalProjectID: sb.ExternalProjectID}); err != nil {
+			writeV1Err(w, 503, "runtime_unavailable", "cannot persist task before submission")
+			return
+		}
+	}
+	if remote {
+		if err := s.prepareCubeModelScope(r.Context(), id, taskID, &req); err != nil {
+			s.finishWatchedTask(id, taskID, failedResult(taskID, "internal", "model relay scope could not be prepared"))
+			writeV1Err(w, 503, "runtime_unavailable", "model relay scope unavailable")
+			return
+		}
+	}
+	if !remote {
+		fresh, err := s.Store.RollbackNeedsFreshAgentSession(r.Context(), id, agent)
+		if err != nil {
+			writeV1Err(w, 503, "runtime_unavailable", "cannot resolve migrated agent session")
+			return
+		}
+		if fresh {
+			continueSession := false
+			req.Continue = &continueSession
+		}
+	}
 	if err := s.runtimeClientFor(id).StartTask(r.Context(), runtime.StartTaskRequest{
 		TaskID: taskID, Prompt: req.Prompt, Agent: agent, Model: req.Model, TimeoutS: req.TimeoutS, Continue: req.Continue, Env: req.Env,
 	}); err != nil {
+		if remote {
+			if errors.Is(err, runtime.ErrTaskInProgress) {
+				s.finishWatchedTask(id, taskID, failedResult(taskID, "internal", "another task is already active"))
+			} else {
+				go s.watchTask(id, taskID, req.TimeoutS)
+			}
+		}
 		if errors.Is(err, runtime.ErrTaskInProgress) {
 			writeV1Err(w, http.StatusConflict, "task_in_progress", "a task is already in progress")
+			return
+		}
+		if remote {
+			persist, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			_ = s.Store.BumpLastActive(persist, id, time.Now().UTC())
+			// The durable task is accepted even if the guest response was lost.
+			// Return its stable ID so clients never retry this non-idempotent submit.
+			writeJSON(w, http.StatusAccepted, map[string]any{"id": taskID, "sandbox_id": id, "status": "running", "agent": agent, "events_url": fmt.Sprintf("/v1/sandboxes/%s/tasks/%s/events", id, taskID), "submission_pending": true})
 			return
 		}
 		writeV1Err(w, http.StatusBadGateway, "sandbox_unavailable", "runtimed: "+err.Error())
@@ -197,7 +294,9 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// B2 — persist the durable task row; B3 — start the result watcher.
-	if err := s.Store.CreateTask(r.Context(), &store.Task{
+	if remote {
+		go s.watchTask(id, taskID, req.TimeoutS)
+	} else if err := s.Store.CreateTask(r.Context(), &store.Task{
 		TaskID: taskID, SandboxID: id, Agent: agent, Prompt: req.Prompt,
 		Status:         "running",
 		TimeoutS:       req.TimeoutS,
@@ -272,16 +371,17 @@ func (s *Server) v1GetTask(w http.ResponseWriter, r *http.Request) {
 
 // v1TaskSummary is one row of the task-history list.
 type v1TaskSummary struct {
-	ID           string   `json:"id"`
-	Prompt       string   `json:"prompt,omitempty"`
-	Agent        string   `json:"agent,omitempty"`
-	Status       string   `json:"status"`
-	AgentMessage string   `json:"agent_message,omitempty"` // the agent's final reply, for the chat history
-	ErrorMessage string   `json:"error_message,omitempty"` // why a task failed (e.g. agent not connected) — surfaced to the user
-	FilesChanged []string `json:"files_changed,omitempty"`
-	CheckpointID string   `json:"checkpoint_id,omitempty"`
-	CanRevert    bool     `json:"can_revert"` // a checkpoint exists to go back to
-	CreatedAt    string   `json:"created_at,omitempty"`
+	ID                      string   `json:"id"`
+	Prompt                  string   `json:"prompt,omitempty"`
+	Agent                   string   `json:"agent,omitempty"`
+	Status                  string   `json:"status"`
+	AgentMessage            string   `json:"agent_message,omitempty"` // the agent's final reply, for the chat history
+	ErrorMessage            string   `json:"error_message,omitempty"` // why a task failed (e.g. agent not connected) — surfaced to the user
+	FilesChanged            []string `json:"files_changed,omitempty"`
+	CheckpointID            string   `json:"checkpoint_id,omitempty"`
+	CanRevert               bool     `json:"can_revert"` // a checkpoint exists to go back to
+	RevertUnavailableReason string   `json:"revert_unavailable_reason,omitempty"`
+	CreatedAt               string   `json:"created_at,omitempty"`
 }
 
 // v1ListTasks returns a sandbox's task history (newest first) from the durable
@@ -295,6 +395,11 @@ func (s *Server) v1ListTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := []v1TaskSummary{}
+	retained, err := s.Store.MigratedDockerTasks(r.Context(), id)
+	if err != nil {
+		writeV1Err(w, 503, "history_unavailable", "cannot resolve retained task checkpoints")
+		return
+	}
 	for _, t := range tasks {
 		sum := v1TaskSummary{ID: t.TaskID, Prompt: t.Prompt, Agent: t.Agent, Status: t.Status, CreatedAt: t.CreatedAt.Format(time.RFC3339)}
 		if t.ResultJSON.Valid {
@@ -311,6 +416,10 @@ func (s *Server) v1ListTasks(w http.ResponseWriter, r *http.Request) {
 				sum.CheckpointID = tr.CheckpointID
 				sum.CanRevert = tr.CheckpointID != ""
 			}
+		}
+		if retained[t.TaskID] && sum.CanRevert {
+			sum.CanRevert = false
+			sum.RevertUnavailableReason = "Historical Docker checkpoints require migration compatibility support."
 		}
 		out = append(out, sum)
 	}
@@ -346,6 +455,30 @@ func (s *Server) v1RevertTask(w http.ResponseWriter, r *http.Request) {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no such task for that sandbox")
 		return
 	}
+	if sb.RuntimeProvider == "cube" {
+		retained, scopeErr := s.Store.MigratedDockerTaskNeedsCompatibility(r.Context(), id, taskID)
+		if scopeErr != nil {
+			writeV1Err(w, 503, "history_unavailable", "cannot resolve retained checkpoint")
+			return
+		}
+		if retained {
+			writeV1Err(w, 409, "retained_checkpoint_unsupported", "This historical Docker checkpoint is retained but cannot yet be reverted from Cube.")
+			return
+		}
+		if s.Locks != nil {
+			s.Locks.Lock(id)
+			defer s.Locks.Unlock(id)
+		}
+		if err := s.connectCube(r.Context(), id, 3600); err != nil {
+			writeV1Err(w, 502, "sandbox_unavailable", "Cube revert runtime unavailable")
+			return
+		}
+		sb, err = s.Store.Get(r.Context(), id)
+		if err != nil {
+			writeV1Err(w, 404, "not_found", "no such sandbox")
+			return
+		}
+	}
 	if sb.Status != "running" {
 		writeV1Err(w, http.StatusConflict, "conflict", "start the sandbox to revert (the restore runs in the workspace)")
 		return
@@ -360,7 +493,17 @@ func (s *Server) v1RevertTask(w http.ResponseWriter, r *http.Request) {
 // --- GET /v1/sandboxes/{id}/tasks/{taskId}/events (SSE) -------------
 
 func (s *Server) v1TaskEvents(w http.ResponseWriter, r *http.Request) {
+	if s.serveMigratedTaskEvents(w, r) {
+		return
+	}
 	id, taskID := r.PathValue("id"), r.PathValue("taskId")
+	if remote, err := s.Store.IsCube(r.Context(), id); err == nil && remote {
+		if err := s.prepareCubeTaskRPC(r.Context(), id); err != nil {
+			writeV1Err(w, 502, "sandbox_unavailable", "Cube task runtime unavailable")
+			return
+		}
+	}
+
 	since := 0
 	if leid := r.Header.Get("Last-Event-ID"); leid != "" {
 		if n, err := strconv.Atoi(leid); err == nil {
@@ -399,6 +542,13 @@ func (s *Server) v1TaskEvents(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) v1CancelTask(w http.ResponseWriter, r *http.Request) {
 	id, taskID := r.PathValue("id"), r.PathValue("taskId")
+	if remote, err := s.Store.IsCube(r.Context(), id); err == nil && remote {
+		if err := s.prepareCubeTaskRPC(r.Context(), id); err != nil {
+			writeV1Err(w, 502, "sandbox_unavailable", "Cube task runtime unavailable")
+			return
+		}
+	}
+
 	if err := s.runtimeClientFor(id).CancelTask(r.Context(), taskID); err != nil {
 		writeV1Err(w, http.StatusBadGateway, "sandbox_unavailable", "runtimed: "+err.Error())
 		return

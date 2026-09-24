@@ -1,0 +1,75 @@
+{
+  "backend": "cube",
+  "cpu_per_app": 1,
+  "edit_probe": true,
+  "finished_at": "2026-09-24T17:01:46.545251208Z",
+  "image": "sha256:6bad30fa19584d85f0dafc1680bca5851f1bb05f55a6abe0d6002165227253d0",
+  "memory_mib_per_app": 1024,
+  "model_calls": false,
+  "owned_sandboxes_deleted": true,
+  "production_mutation": false,
+  "remix_explicitly_skipped": false,
+  "runtime_preset": "react-pro",
+  "samples": [
+    {
+      "create_api_ms": 338,
+      "create_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "create_ready_ms": 4551,
+      "env_edit_failed": true,
+      "env_edit_wait_ms": 90017,
+      "iteration": 0,
+      "source_edit_http_checks": [
+        {
+          "bytes": 573,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2620,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 4471,
+          "path": "/src/App.tsx",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "source_edit_ready_ms": 185,
+      "started_at": "2026-09-24T17:00:11.550254012Z",
+      "warmup": true
+    }
+  ],
+  "scope": "control-plane handlers plus real HTML and transformed assets; Docker host bridge vs nested Cube preview proxy; not browser rendering",
+  "source_commit": "2023423c972b3b8c281a9aa53d124c9bdab3b7f7",
+  "started_at": "2026-09-24T17:00:11.528469645Z",
+  "template": "tpl-ce9efc43b71248d9a0adfb90"
+}

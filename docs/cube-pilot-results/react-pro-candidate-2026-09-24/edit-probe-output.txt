@@ -1,0 +1,3 @@
+=== RUN   TestOperatorMatchedAppLifecycle
+--- PASS: TestOperatorMatchedAppLifecycle (7.44s)
+PASS

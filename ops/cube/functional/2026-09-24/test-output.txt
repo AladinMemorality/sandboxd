@@ -1,0 +1,5 @@
+=== RUN   TestOperatorCubeClaudeFunctional
+2026/09/24 16:22:09 suppressing panic for copyResponse error in test; copy error: context canceled
+    cube_paid_acceptance_test.go:185: PASS real Cube Claude task, synthetic file, completed relay denial, cancellation and scope revocation; check host report for actual metering and bridge counts
+--- PASS: TestOperatorCubeClaudeFunctional (30.45s)
+PASS

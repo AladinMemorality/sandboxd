@@ -1,0 +1,43 @@
+{
+  "canonical_forward_digests": true,
+  "canonical_reverse_digests": true,
+  "config_reexec_same_binding": true,
+  "home_archive_bytes": 4656,
+  "home_final_digest": "d067fedbaa969f9d12240e1a87ce6ef5da16ece2cc062e5f6b6b60b80b325d23",
+  "home_v2": true,
+  "idempotent_home_import": true,
+  "new_cube_writes_preserved": true,
+  "pause_resume_same_process": true,
+  "retained_provider_and_control_identity": true,
+  "reviewed_symlink_and_literal_filename": true,
+  "scope": "actual authenticated Cube workspace/home-v2/config transport plus host synthetic-source reverse-copy; not full migration journal/Docker recreation or real owner data",
+  "template": "tpl-ce9efc43b71248d9a0adfb90",
+  "workspace_archive_bytes": 1421,
+  "workspace_final_digest": "fb638b3f97ef6edb2cb5a68015dd41f2c8aaadc3d3db2f95f22618dfe1a1516f",
+  "workspace_v2": true,
+  "date": "2026-09-24",
+  "react_image": "sha256:6bad30fa19584d85f0dafc1680bca5851f1bb05f55a6abe0d6002165227253d0",
+  "runtimed_source_commit": "1fbeac29cf0ddf5db45f524a3b68145ba8ced8ad",
+  "runtimed_sha256": "1a27b0fff0b404265a01b74b4ecfe83fa4a4780400352b4882dd02cfac312624",
+  "base_image": "sha256:9ec445151344a7baa295b085bebe1a0352ab930601fe0d9ed2bf1283bbaa6678",
+  "react_dependency_links_resolved_inside_app": 986,
+  "react_offline_docker_ready_ms": 832,
+  "fastapi": {
+    "image": "sha256:ba0bf0c064fb6a2e3ce6bc7c5c3a15b864f9187eacb9b06c93c9beef646f9c8d",
+    "offline_docker_ready_ms": 421,
+    "uid": 1000,
+    "versions": {
+      "python": "3.13.5",
+      "fastapi": "0.141.1",
+      "uvicorn": "0.53.0",
+      "watchfiles": "1.3.0"
+    },
+    "scope": "reviewed final image, network-none Docker /health; no FastAPI Cube template was built"
+  },
+  "cleanup": "all owned test guests and Docker fixtures deleted; synthetic source temp directory deleted; reusable images/templates and sanitized evidence retained",
+  "fixture": {
+    "home_main_sha256": "fffa37177dfd2969f87045bd35ec48b5c008d3303416e1d14d1be6a98162f48d",
+    "home_go_sha256": "59d06e86ca2a3dbff98e35d081fe0a76db7291af95ce2370e95d048f75e18af7",
+    "binary_sha256": "72882192623c75018f8d46b98d893826ac7e82e2d1c49ca32e88f39c921ae478"
+  }
+}

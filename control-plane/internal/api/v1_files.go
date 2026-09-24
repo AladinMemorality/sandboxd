@@ -75,6 +75,9 @@ type fileEntry struct {
 // --- GET /v1/sandboxes/{id}/files -----------------------------------
 
 func (s *Server) v1ListFiles(w http.ResponseWriter, r *http.Request) {
+	if s.serveCubeFiles(w, r, "v1ListFiles") {
+		return
+	}
 	id := r.PathValue("id")
 	if !isULID(id) {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no such directory")
@@ -147,6 +150,9 @@ func (s *Server) v1ListFiles(w http.ResponseWriter, r *http.Request) {
 // --- GET /v1/sandboxes/{id}/files/content ---------------------------
 
 func (s *Server) v1FileContent(w http.ResponseWriter, r *http.Request) {
+	if s.serveCubeFiles(w, r, "v1FileContent") {
+		return
+	}
 	id := r.PathValue("id")
 	if !isULID(id) {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no such file")
@@ -187,6 +193,9 @@ func (s *Server) v1FileContent(w http.ResponseWriter, r *http.Request) {
 // --- GET /v1/sandboxes/{id}/export ----------------------------------
 
 func (s *Server) v1Export(w http.ResponseWriter, r *http.Request) {
+	if s.serveCubeFiles(w, r, "v1Export") {
+		return
+	}
 	id := r.PathValue("id")
 	if !isULID(id) {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no workspace for that sandbox")

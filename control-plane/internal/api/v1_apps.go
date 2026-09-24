@@ -267,6 +267,10 @@ func (s *Server) v1PatchApp(w http.ResponseWriter, r *http.Request) {
 // A missing or cross-tenant app is 404 (no existence leak).
 func (s *Server) v1DeleteApp(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	if s.Locks != nil {
+		s.Locks.Lock("cube-app:" + id)
+		defer s.Locks.Unlock("cube-app:" + id)
+	}
 	app, err := s.Store.GetAppForOwner(r.Context(), id, tenantToken(r))
 	if errors.Is(err, store.ErrNotFound) {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no such app")
@@ -286,6 +290,27 @@ func (s *Server) v1DeleteApp(w http.ResponseWriter, r *http.Request) {
 	}
 	var freed int64
 	for _, sid := range sbIDs {
+		sb, lookupErr := s.Store.Get(r.Context(), sid)
+		if lookupErr == nil && sb.RuntimeProvider == "cube" {
+			code, body := s.delegate(r, func(w http.ResponseWriter, req *http.Request) { s.cubeLifecycle(w, req, "delete") }, http.MethodDelete, "/v1/sandboxes/"+sid, map[string]string{"id": sid}, nil)
+			if code != http.StatusNoContent {
+				relayV1Error(w, code, body)
+				return
+			}
+			continue
+		}
+		if errors.Is(lookupErr, store.ErrNotFound) {
+			if _, scopeErr := s.Store.CubeTaskOwner(r.Context(), sid); scopeErr == nil {
+				continue
+			} else if !errors.Is(scopeErr, store.ErrNotFound) {
+				writeV1Err(w, 503, "runtime_unavailable", "cannot resolve archived runtime")
+				return
+			}
+		}
+		if lookupErr != nil && !errors.Is(lookupErr, store.ErrNotFound) {
+			writeV1Err(w, 503, "runtime_unavailable", "cannot resolve runtime for deletion")
+			return
+		}
 		f, _, perr := s.purgeOne(r.Context(), sid)
 		if perr != nil {
 			writeV1Err(w, http.StatusInternalServerError, "internal",
@@ -340,9 +365,22 @@ func (s *Server) v1CreateAppSandbox(w http.ResponseWriter, r *http.Request) {
 		writeV1Err(w, http.StatusInternalServerError, "internal", err.Error())
 		return
 	}
+	useCube, providerErr := s.Store.AppUsesCube(r.Context(), id)
+	if providerErr != nil {
+		writeV1Err(w, 503, "runtime_unavailable", "cannot resolve app runtime")
+		return
+	}
+	useCube = useCube || s.CubeAllApps || s.CubeApps[id]
+	if useCube && s.Locks != nil {
+		s.Locks.Lock("cube-app:" + id)
+		defer s.Locks.Unlock("cube-app:" + id)
+	}
 	if cur, cerr := s.Store.CurrentSandboxForApp(r.Context(), id); cerr == nil {
 		writeV1Err(w, http.StatusConflict, "conflict",
 			"app already has a sandbox ("+cur.ID+"); delete it first")
+		return
+	} else if !errors.Is(cerr, store.ErrNotFound) {
+		writeV1Err(w, 503, "runtime_unavailable", "cannot resolve current sandbox")
 		return
 	}
 
@@ -390,6 +428,10 @@ func (s *Server) v1CreateAppSandbox(w http.ResponseWriter, r *http.Request) {
 		createBody["runtime_preset"] = rp
 	} else if req.Template != "" {
 		createBody["template"] = req.Template
+	}
+	if useCube {
+		s.createCubeAppSandbox(w, r, app, req, rp)
+		return
 	}
 	internal, _ := json.Marshal(createBody)
 	code, body := s.delegate(r, s.handleCreate, http.MethodPost, "/sandbox", nil, internal)

@@ -28,13 +28,14 @@ var validAccessPolicies = map[string]bool{
 }
 
 type v1ConfigItem struct {
-	Key          string  `json:"key"`
-	Sensitive    bool    `json:"sensitive"`
-	AccessPolicy string  `json:"access_policy"`
-	ValueSet     bool    `json:"value_set"`
-	Value        *string `json:"value,omitempty"` // non-sensitive only
-	CreatedAt    string  `json:"created_at"`
-	UpdatedAt    string  `json:"updated_at"`
+	RuntimeApplyStatus string  `json:"runtime_apply_status,omitempty"`
+	Key                string  `json:"key"`
+	Sensitive          bool    `json:"sensitive"`
+	AccessPolicy       string  `json:"access_policy"`
+	ValueSet           bool    `json:"value_set"`
+	Value              *string `json:"value,omitempty"` // non-sensitive only
+	CreatedAt          string  `json:"created_at"`
+	UpdatedAt          string  `json:"updated_at"`
 }
 
 // redactConfig builds the API view. A sensitive value is never returned.
@@ -114,6 +115,10 @@ func (s *Server) v1CreateAppConfig(w http.ResponseWriter, r *http.Request) {
 		writeV1Err(w, http.StatusServiceUnavailable, "internal", err.Error())
 		return
 	}
+	if err := s.validateCubeConfigRow(r.Context(), app.ID, c); err != nil {
+		writeV1Err(w, 400, "invalid_request", "unsupported Cube runtime config key or value")
+		return
+	}
 	if err := s.Store.CreateAppConfig(r.Context(), c); err != nil {
 		if errors.Is(err, store.ErrConflict) {
 			writeV1Err(w, http.StatusConflict, "conflict", "config key already exists; PATCH to update")
@@ -126,7 +131,9 @@ func (s *Server) v1CreateAppConfig(w http.ResponseWriter, r *http.Request) {
 	s.recordEvent(r, events.Event{Type: events.ConfigCreated, Severity: events.SeverityInfo,
 		Message: "Config key created: " + c.Key, AppID: app.ID,
 		Payload: map[string]any{"key": c.Key, "sensitive": c.Sensitive}})
-	writeJSON(w, http.StatusCreated, redactConfig(c))
+	out := redactConfig(c)
+	out.RuntimeApplyStatus = s.noteCubeConfigApply(w, r, app.ID)
+	writeJSON(w, http.StatusCreated, out)
 }
 
 // v1ListAppConfig — GET /v1/apps/{id}/config (metadata; redacted).
@@ -144,7 +151,11 @@ func (s *Server) v1ListAppConfig(w http.ResponseWriter, r *http.Request) {
 	for _, c := range rows {
 		out = append(out, redactConfig(c))
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"config": out})
+	body := map[string]any{"config": out}
+	if state := s.cubeConfigState(r.Context(), app.ID); state != "" {
+		body["runtime_apply_status"] = state
+	}
+	writeJSON(w, http.StatusOK, body)
 }
 
 type v1PatchConfigReq struct {
@@ -234,16 +245,26 @@ func (s *Server) v1PatchAppConfig(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if err := s.validateCubeConfigRow(r.Context(), app.ID, &updated); err != nil {
+		writeV1Err(w, 400, "invalid_request", "unsupported Cube runtime config key or value")
+		return
+	}
 	if err := s.Store.UpdateAppConfig(r.Context(), app.ID, key, &updated); err != nil {
 		writeV1Err(w, http.StatusInternalServerError, "internal", err.Error())
 		return
 	}
-	got, _ := s.Store.GetAppConfig(r.Context(), app.ID, key)
+	got, err := s.Store.GetAppConfig(r.Context(), app.ID, key)
+	if err != nil {
+		writeV1Err(w, 503, "runtime_unavailable", "config saved but could not be read")
+		return
+	}
 	s.auditConfig(r, "app_config.update", app.ID, key)
 	s.recordEvent(r, events.Event{Type: events.ConfigUpdated, Severity: events.SeverityInfo,
 		Message: "Config key updated: " + key, AppID: app.ID,
 		Payload: map[string]any{"key": key}})
-	writeJSON(w, http.StatusOK, redactConfig(got))
+	out := redactConfig(got)
+	out.RuntimeApplyStatus = s.noteCubeConfigApply(w, r, app.ID)
+	writeJSON(w, http.StatusOK, out)
 }
 
 // v1DeleteAppConfig — DELETE /v1/apps/{id}/config/{key}.
@@ -265,6 +286,7 @@ func (s *Server) v1DeleteAppConfig(w http.ResponseWriter, r *http.Request) {
 	s.recordEvent(r, events.Event{Type: events.ConfigDeleted, Severity: events.SeverityInfo,
 		Message: "Config key deleted: " + key, AppID: app.ID,
 		Payload: map[string]any{"key": key}})
+	s.noteCubeConfigApply(w, r, app.ID)
 	w.WriteHeader(http.StatusNoContent)
 }
 

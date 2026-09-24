@@ -109,3 +109,47 @@ func TestIsSecretEnvKey(t *testing.T) {
 		}
 	}
 }
+
+func TestAgentEnvironmentExcludesRemoteSupervisorToken(t *testing.T) {
+	const token = "remote-supervisor-token-must-not-be-inherited"
+	for _, kv := range buildAgentEnv([]string{"PATH=/usr/bin", "RUNTIMED_HTTP_TOKEN=" + token}, nil) {
+		if strings.Contains(kv, token) || strings.HasPrefix(kv, "RUNTIMED_HTTP_TOKEN=") {
+			t.Fatal("remote supervisor token leaked to agent environment")
+		}
+	}
+}
+
+func TestCubeTaskRelayOverridesCallerAndGlobalProviderSettings(t *testing.T) {
+	t.Setenv("RUNTIMED_ANTHROPIC_PROXY", "http://docker-proxy")
+	t.Setenv("ANTHROPIC_API_KEY", "GLOBAL_PROVIDER_SECRET")
+	t.Setenv("CLAUDE_CODE_USE_VERTEX", "1")
+	t.Setenv("ANTHROPIC_CUSTOM_HEADERS", "Authorization: inherited-secret")
+	spec := map[string]string{
+		"RUNTIMED_CUBE_AGENT_BASE_URL": "https://platform.test/v1/cube-model/sandbox/task",
+		"RUNTIMED_CUBE_AGENT_TOKEN":    "scoped-relay-token",
+		"BRIDGE_TOKEN":                 "own-project-bridge-token",
+		"ANTHROPIC_BASE_URL":           "https://caller-override.invalid",
+		"ANTHROPIC_API_KEY":            "caller-provider-key",
+		"ANTHROPIC_AUTH_TOKEN":         "caller-oauth-key",
+		"ANTHROPIC_CUSTOM_HEADERS":     "Authorization: caller-secret",
+		"CLAUDE_CODE_USE_VERTEX":       "1",
+	}
+	got := envMap(agentEnv("claude-code", spec))
+	if got["ANTHROPIC_BASE_URL"] != spec["RUNTIMED_CUBE_AGENT_BASE_URL"] || got["ANTHROPIC_API_KEY"] != "scoped-relay-token" {
+		t.Fatal("trusted relay not selected")
+	}
+	if got["ANTHROPIC_CUSTOM_HEADERS"] != "x-baarcha-bridge: own-project-bridge-token" {
+		t.Fatal("bridge auth lost")
+	}
+	for key, value := range got {
+		if strings.HasPrefix(key, "RUNTIMED_CUBE_") || strings.Contains(value, "GLOBAL_PROVIDER_SECRET") || strings.Contains(value, "inherited-secret") || strings.Contains(value, "caller-secret") || strings.Contains(value, "caller-provider-key") {
+			t.Fatal("control/upstream/caller secret leaked")
+		}
+	}
+	if got["ANTHROPIC_AUTH_TOKEN"] != "" || got["CLAUDE_CODE_USE_VERTEX"] != "" {
+		t.Fatal("alternate auth/provider override retained")
+	}
+	if spec["ANTHROPIC_API_KEY"] != "caller-provider-key" {
+		t.Fatal("task spec mutated")
+	}
+}

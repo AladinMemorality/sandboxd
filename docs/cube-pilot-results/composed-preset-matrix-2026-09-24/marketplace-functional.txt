@@ -1,0 +1,3 @@
+PASS preset marketplace startup/resume; checking exports
+PASS preset marketplace home export
+PASS preset marketplace all functional checks

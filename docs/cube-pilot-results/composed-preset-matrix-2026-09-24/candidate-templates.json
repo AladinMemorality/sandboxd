@@ -1,0 +1,82 @@
+[
+  {
+    "preset": "node-postgres",
+    "template": "tpl-2aa3ca52b0d84b3c8e49085d",
+    "image": "baarcha-cube-reviewed-node-postgres:20260924-v4-final",
+    "image_digest": "sha256:b72798aaa51aa770dc9c950eefb1f0ea5fd17fc9454e6b94c1b8bf4be7f40e85",
+    "free_bytes_before": {
+      "/": 54062501888,
+      "/data": 29963390976
+    }
+  },
+  {
+    "preset": "react-pro",
+    "template": "tpl-f985e6e704684df4945b989e",
+    "image": "baarcha-cube-reviewed-react-pro:20260924-v4-final",
+    "image_digest": "sha256:82bcbc1f26582cbe3bcb2119d1d462db7d9920aa7575dc4964c49fc42f6c1a43",
+    "free_bytes_before": {
+      "/": 54062501888,
+      "/data": 29963390976
+    }
+  },
+  {
+    "preset": "marketplace",
+    "template": "tpl-ea87516417594bcbba062802",
+    "image": "baarcha-cube-reviewed-marketplace:20260924-v4-final",
+    "image_digest": "sha256:8ae36753b770bac06b49ef75d266ff5074fd30e567ebc1857e281e4ae9b566d4",
+    "free_bytes_before": {
+      "/": 44904099840,
+      "/data": 22423175168
+    }
+  },
+  {
+    "preset": "react-vite",
+    "template": "tpl-225b69b14f544892b5f23e6b",
+    "image": "baarcha-cube-reviewed-react-vite:20260924-v4-final",
+    "image_digest": "sha256:b8ece62881111a7c1b6ce3efaaf13960818a53b54cf03c10454dba8938a68c96",
+    "free_bytes_before": {
+      "/": 44904099840,
+      "/data": 22423175168
+    }
+  },
+  {
+    "preset": "nextjs",
+    "template": "tpl-3d684e8c416049289685319e",
+    "image": "baarcha-cube-reviewed-nextjs:20260924-v4-final",
+    "image_digest": "sha256:a6026ccaf642bdf82d8d94aed3681c6d6b34a2e6d46d259f52a0a860ecfd233a",
+    "free_bytes_before": {
+      "/": 64484032512,
+      "/data": 40238600192
+    }
+  },
+  {
+    "preset": "node-express",
+    "template": "tpl-45e214308a344823b19f8555",
+    "image": "baarcha-cube-reviewed-node-express:20260924-v4-final",
+    "image_digest": "sha256:25b6a882d49edd2a52843d17a6510229890dfa836dbc9db7199deb21134061fb",
+    "free_bytes_before": {
+      "/": 64484032512,
+      "/data": 40238600192
+    }
+  },
+  {
+    "preset": "fastapi",
+    "template": "tpl-43b96d1e5b9441f48c0a15f1",
+    "image": "baarcha-cube-reviewed-fastapi:20260924-v4-final",
+    "image_digest": "sha256:bbc7fe7dab61546df715c1253c816ca3ab96a3259e2c3a92132068ef2bd16613",
+    "free_bytes_before": {
+      "/": 64484032512,
+      "/data": 40238600192
+    }
+  },
+  {
+    "preset": "worker",
+    "template": "tpl-9592dcb244f24e21bf82119b",
+    "image": "baarcha-cube-reviewed-worker:20260924-v4-final",
+    "image_digest": "sha256:d6947de9c563fbc408e1115dbe5d1d118672b7ef9bb792ac8925e575e96367b7",
+    "free_bytes_before": {
+      "/": 64484032512,
+      "/data": 40238600192
+    }
+  }
+]

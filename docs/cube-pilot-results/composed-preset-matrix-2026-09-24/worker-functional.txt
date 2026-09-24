@@ -1,0 +1,3 @@
+PASS preset worker startup/resume; checking exports
+PASS preset worker home export
+PASS preset worker all functional checks

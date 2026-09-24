@@ -44,9 +44,20 @@ func (c *Client) SendTaskMessage(ctx context.Context, taskID string, req TaskMes
 // sandboxd constructs a Client per sandbox from the host-side socket
 // path (<workspaces>/<id>.mnt/.runtimed/sock).
 type Client struct {
-	socketPath string
-	http       *http.Client // short-timeout: status, start, cancel
-	stream     *http.Client // no timeout: the task event stream
+	socketPath  string
+	remote      *RemoteConfig
+	unavailable error
+	http        *http.Client // short-timeout: status, start, cancel
+	stream      *http.Client // no timeout: the task event stream
+}
+
+// NewUnavailableClient preserves the client interface while failing closed
+// when a remote binding or credential cannot be resolved. It never dials.
+func NewUnavailableClient(err error) *Client {
+	if err == nil {
+		err = errors.New("runtimed unavailable")
+	}
+	return &Client{unavailable: err}
 }
 
 // NewClient builds a Client for the runtimed listening at socketPath.
@@ -160,6 +171,18 @@ func (c *Client) TaskEvents(ctx context.Context, taskID string, since int) (io.R
 }
 
 func (c *Client) do(ctx context.Context, hc *http.Client, method, u string, body []byte) (*http.Response, error) {
+	if c.unavailable != nil {
+		return nil, c.unavailable
+	}
+	if c.remote != nil {
+		// Call sites use the same synthetic origin for both transports. Preserve
+		// escaped paths and query strings while routing only to the configured origin.
+		endpoint, err := url.Parse(u)
+		if err != nil {
+			return nil, err
+		}
+		u = c.remote.BaseURL + endpoint.RequestURI()
+	}
 	var rdr io.Reader
 	if body != nil {
 		rdr = bytes.NewReader(body)
@@ -170,6 +193,13 @@ func (c *Client) do(ctx context.Context, hc *http.Client, method, u string, body
 	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if c.remote != nil {
+		req.Header.Set("Authorization", "Bearer "+c.remote.Token)
+		if c.remote.TrafficAccessToken != "" {
+			req.Header.Set("cube-traffic-access-token", c.remote.TrafficAccessToken)
+		}
+		req.Host = c.remote.Host
 	}
 	return hc.Do(req)
 }

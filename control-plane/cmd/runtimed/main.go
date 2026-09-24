@@ -16,9 +16,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"syscall"
 	"time"
 
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/egress"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 )
@@ -29,6 +31,15 @@ const version = "0.1.0"
 // server and any workers from sandbox.yaml), the most recent preview health
 // probe, and the one active coding task.
 type app struct {
+	cubeEgress        *egress.Guest
+	requestRestart    func()
+	workspaceMu       sync.RWMutex // fences in-flight API writes before quiescence
+	workspaceQuiesced bool         // guarded by taskMu; persisted outside workspace
+	restartPending    bool         // guarded by taskMu
+	nextAppConfig     *runtime.AppConfigRequest
+	manifestSHA256    string // parsed manifest identity, immutable for this boot
+	appConfigRevision string // immutable for this process lifetime
+
 	web           *process   // the previewed process; nil for a worker-only app
 	workers       []*process // background processes, no preview
 	previewPort   int        // web process's HTTP port
@@ -56,6 +67,30 @@ func main() {
 	runtimeDir := envOr("RUNTIMED_DIR", "/home/sandbox/.runtimed")
 	socketPath := envOr("RUNTIMED_SOCKET", filepath.Join(runtimeDir, "sock"))
 	probeInterval := time.Duration(envOrInt("RUNTIMED_PROBE_INTERVAL_SECONDS", 3)) * time.Second
+
+	remote := remoteControl{Address: os.Getenv("RUNTIMED_HTTP_ADDR"), Token: os.Getenv("RUNTIMED_HTTP_TOKEN")}
+	if remote.Address != "" {
+		if err := runtime.ProtectSupervisorProcess(); err != nil {
+			log.Error("cannot protect remote supervisor process")
+			os.Exit(1)
+		}
+	}
+
+	// Remove the transport credential before spawning web, worker or agent
+	// processes. The token is specific to this sandbox, never a host credential.
+	_ = os.Unsetenv("RUNTIMED_HTTP_TOKEN")
+	if err := remote.validate(); err != nil {
+		log.Error("invalid remote control configuration", "err", err.Error())
+		os.Exit(1)
+	}
+	reverseEgress, err := reverseEgressGuest(remote)
+	if err != nil {
+		log.Error("reverse egress initialization failed")
+		os.Exit(1)
+	}
+	if reverseEgress != nil {
+		defer reverseEgress.Close()
+	}
 
 	// Manifest defaults preserve the pre-manifest Vite behavior. The
 	// long-standing RUNTIMED_* env vars remain the source of each default, so
@@ -119,11 +154,14 @@ func main() {
 	}
 
 	a := &app{
-		build:      m.Build,
-		appDir:     appDir,
-		runtimeDir: runtimeDir,
-		log:        log,
-		bootedAt:   time.Now(),
+		cubeEgress:        reverseEgress,
+		build:             m.Build,
+		appDir:            appDir,
+		runtimeDir:        runtimeDir,
+		log:               log,
+		bootedAt:          time.Now(),
+		appConfigRevision: os.Getenv("RUNTIMED_APP_CONFIG_REVISION"),
+		manifestSHA256:    m.SourceDigest,
 	}
 	if m.Web != nil {
 		a.web = newProcess("web", "web", appDir, m.Web.Command, filepath.Join(runtimeDir, "web.log"), log)
@@ -138,26 +176,46 @@ func main() {
 		a.workers = append(a.workers, wp)
 	}
 
+	if _, err := os.Stat(filepath.Join(runtimeDir, "workspace-quiesced")); err == nil {
+		a.workspaceQuiesced = true
+		if a.web != nil {
+			a.web.suspended = true
+		}
+		for _, p := range a.workers {
+			p.suspended = true
+		}
+	}
+
 	// Finalize any task interrupted by a previous stop/crash before
 	// accepting new work — an interrupted task is failed, never resumed.
 	recoverInterruptedTasks(filepath.Join(runtimeDir, "tasks"), log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGTERM, syscall.SIGINT)
 	defer stop()
+	var restarting atomic.Bool
+	a.requestRestart = func() { restarting.Store(true); stop() }
+	closeProxy, err := startCubeProxy(ctx, reverseEgress)
+	if err != nil {
+		log.Error("reverse egress listener unavailable")
+		os.Exit(1)
+	}
+	defer closeProxy()
 
 	if a.web != nil {
-		go a.web.supervise(ctx)
+		go superviseAfterCubeEgress(ctx, reverseEgress, a.web.supervise)
 		go a.probeLoop(ctx, probeInterval)
 	}
 	for _, w := range a.workers {
-		go w.supervise(ctx)
+		go superviseAfterCubeEgress(ctx, reverseEgress, w.supervise)
 	}
 
 	log.Info("runtimed started", "version", version, "app_dir", appDir, "socket", socketPath,
 		"web", a.web != nil, "workers", len(a.workers))
-	if err := serve(ctx, socketPath, a); err != nil {
+	if err := serveControl(ctx, socketPath, a, remote); err != nil {
 		log.Error("control server", "err", err.Error())
 	}
+
+	stop()
 
 	// ctx is done — stop all supervised processes cleanly before exiting.
 	log.Info("runtimed shutting down — stopping processes")
@@ -168,6 +226,21 @@ func main() {
 		w.stop()
 	}
 	log.Info("runtimed stopped")
+	if restarting.Load() {
+		executable, err := os.Executable()
+		env := a.restartEnvironment()
+		if remote.Address != "" {
+			env = append(env, "RUNTIMED_HTTP_TOKEN="+remote.Token)
+		}
+		if err == nil {
+			err = syscall.Exec(executable, os.Args, env)
+		}
+		if err != nil {
+			log.Error("supervisor restart failed", "err", err.Error())
+			os.Exit(1)
+		}
+	}
+
 }
 
 // seedTemplateApp copies a baked app scaffold from /opt/templates/<name>
@@ -277,6 +350,8 @@ func (a *app) status() runtime.Status {
 	}
 
 	return runtime.Status{
+		AppConfigRevision: a.appConfigRevision,
+		ManifestSHA256:    a.manifestSHA256,
 		Runtimed: runtime.RuntimedInfo{
 			Version:  version,
 			BootedAt: a.bootedAt,

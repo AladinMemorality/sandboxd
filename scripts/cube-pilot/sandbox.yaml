@@ -1,0 +1,12 @@
+version: 1
+web:
+  command: "node node_modules/vite/bin/vite.js --host 0.0.0.0 --port 3000"
+  port: 3000
+  health_path: "/__bench/ready"
+workers:
+  - name: backend
+    command: "node backend.mjs"
+  - name: pilot-probe
+    command: "node pilot-probe.mjs"
+build:
+  command: ""

@@ -55,6 +55,10 @@ func (s *Snapshotter) tick(ctx context.Context) {
 	today := now.Format("2006-01-02")
 
 	for _, sb := range rows {
+		// Remote runtimes must never enter Docker or host workspace maintenance.
+		if sb.RuntimeProvider != "" && sb.RuntimeProvider != "docker" {
+			continue
+		}
 		// Idle long enough? last_active_at zero-value means "never
 		// observed" — treat that as eligible (it has been stopped a
 		// while; created_at is older still).

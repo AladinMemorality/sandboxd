@@ -22,6 +22,47 @@ tags:
   - name: snapshots
 
 paths:
+  /v1/cube-model/{sandboxID}/{taskID}/v1/messages:
+    post:
+      operationId: relayCubeMessages
+      tags: [tasks]
+      summary: Task-scoped private Anthropic relay (disabled by default)
+      description: Requires a Cube sandbox with this active task, a derived sandbox capability, and the matching project bridge token. Forwards only to the operator-configured credential proxy; no arbitrary upstream URLs are accepted.
+      security:
+        - cubeRelayKey: []
+          cubeBridgeToken: []
+      parameters:
+        - {in: path, name: sandboxID, required: true, schema: {type: string}}
+        - {in: path, name: taskID, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Anthropic response or streamed model events}
+        '403': {description: Invalid or inactive task capability}
+        '502': {description: Fixed upstream unavailable or redirect rejected}
+  /v1/cube-model/{sandboxID}/{taskID}/v1/messages/count_tokens:
+    post:
+      operationId: relayCubeCountTokens
+      tags: [tasks]
+      summary: Count tokens using the same private task-scoped relay
+      security:
+        - cubeRelayKey: []
+          cubeBridgeToken: []
+      parameters:
+        - {in: path, name: sandboxID, required: true, schema: {type: string}}
+        - {in: path, name: taskID, required: true, schema: {type: string}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {type: object, additionalProperties: true}
+      responses:
+        '200': {description: Anthropic token-count response}
+        '403': {description: Invalid or inactive task capability}
+        '502': {description: Fixed upstream unavailable or redirect rejected}
   /v1/settings:
     get:
       operationId: getSettings
@@ -573,11 +614,15 @@ paths:
     post:
       operationId: restoreApp
       tags: [apps]
-      summary: Restore the app from a snapshot (REPLACES its current sandbox)
+      summary: Restore the app source from a snapshot
       description: >
-        Destructive: purges the app's current sandbox (container + workspace)
-        and creates a fresh one cloned from the snapshot. Un-snapshotted work
-        is lost, so the console confirms before calling.
+        Un-snapshotted source changes are lost, so the console confirms before
+        calling. Cube imports source inside the existing VM and retains its
+        private home, databases, credentials and sandbox ID. A different runtime
+        template requires explicit migration first. Docker retains its legacy
+        destructive replacement behavior (container and workspace). The response
+        reports current preview/process readiness; source acknowledgement alone
+        does not mean application or database startup has completed.
       requestBody:
         required: true
         content:
@@ -589,7 +634,7 @@ paths:
                 snapshot_id: { type: string }
       responses:
         "201":
-          description: New sandbox created from the snapshot
+          description: Source restored; existing Cube sandbox retained or new sandbox created
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Sandbox" }
@@ -1146,6 +1191,37 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
 
+  /v1/sandboxes/{id}/preview-access:
+    parameters: [ { $ref: "#/components/parameters/Id" } ]
+    post:
+      operationId: issueCubePreviewAccess
+      tags: [sandboxes]
+      summary: Issue a scoped five-minute Cube preview capability
+      description: >-
+        Requires the sandbox owner's service tenant. The calling platform must
+        authorize its viewer before requesting or returning this capability.
+        Does not wake the sandbox. Responses must not be cached. Existing
+        capabilities remain valid until expiry after visibility changes.
+        The browser access URL installs a host-only HttpOnly cookie and redirects
+        to the clean preview URL. Third-party cookie restrictions may require
+        opening the preview in a top-level tab. The token must not be included in normal sandbox responses.
+      responses:
+        "200":
+          description: Scoped access; Cache-Control no-store
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url, access_url, token, expires_at]
+                properties:
+                  url: { type: string, format: uri }
+                  access_url: { type: string, format: uri }
+                  token: { type: string }
+                  expires_at: { type: string, format: date-time }
+        "404": { $ref: "#/components/responses/Error" }
+        "409": { $ref: "#/components/responses/Error" }
+        "503": { $ref: "#/components/responses/Error" }
+
   /v1/sandboxes/{id}/recreate:
     parameters: [ { $ref: "#/components/parameters/Id" } ]
     post:
@@ -1155,9 +1231,22 @@ paths:
         Stop, remove and rebuild the container from the stored row with the
         current image and the app's current config (delivered as environment).
         The workspace is untouched. Use after changing app config values.
+        Cube applies the current config in the existing VM; an already applied
+        revision is an idempotent success without another restart. With
+        reload_manifest=true, Cube validates sandbox.yaml and activates its
+        current worker/web commands in the same VM. Repeating an identical
+        manifest/config is idempotent. The exposed web port cannot change here.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reload_manifest: { type: boolean, default: false }
       responses:
         "200":
-          description: Running again, on a fresh container
+          description: Configuration acknowledged; preview may still be starting
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Sandbox" }
@@ -1166,6 +1255,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Manifest invalid or exposed web port changed
         "503":
           description: Capacity pushback (Retry-After).
           content:
@@ -1561,6 +1652,14 @@ paths:
 
 components:
   securitySchemes:
+    cubeRelayKey:
+      type: apiKey
+      in: header
+      name: x-api-key
+    cubeBridgeToken:
+      type: apiKey
+      in: header
+      name: x-baarcha-bridge
     bearerAuth:
       type: http
       scheme: bearer

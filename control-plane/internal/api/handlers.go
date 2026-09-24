@@ -152,18 +152,19 @@ func ensurePort(ports []int, p int) []int {
 }
 
 type sandboxResp struct {
-	ID           string `json:"id"`
-	Status       string `json:"status"`
-	Image        string `json:"image"`
-	WorkspaceImg string `json:"workspace_img"`
-	WorkspaceMnt string `json:"workspace_mnt"`
-	ContainerID  string `json:"container_id,omitempty"`
-	CgroupPath   string `json:"cgroup_path,omitempty"`
-	MemoryHigh   string `json:"memory_high"`
-	ErrorMessage string `json:"error_message,omitempty"`
-	Ports        []int  `json:"ports"`
-	CreatedAt    string `json:"created_at"`
-	UpdatedAt    string `json:"updated_at"`
+	RuntimeProvider string `json:"runtime_provider"`
+	ID              string `json:"id"`
+	Status          string `json:"status"`
+	Image           string `json:"image"`
+	WorkspaceImg    string `json:"workspace_img"`
+	WorkspaceMnt    string `json:"workspace_mnt"`
+	ContainerID     string `json:"container_id,omitempty"`
+	CgroupPath      string `json:"cgroup_path,omitempty"`
+	MemoryHigh      string `json:"memory_high"`
+	ErrorMessage    string `json:"error_message,omitempty"`
+	Ports           []int  `json:"ports"`
+	CreatedAt       string `json:"created_at"`
+	UpdatedAt       string `json:"updated_at"`
 	// Phase 5 — surface the activity columns so the V2/V3 validation
 	// expressions (`jq .row.last_active_at`, `jq .row.status`)
 	// work directly. last_active_at and stopped_at are unix seconds;
@@ -205,15 +206,16 @@ type execResp struct {
 
 func toRespRow(sb *store.Sandbox) sandboxResp {
 	r := sandboxResp{
-		ID:           sb.ID,
-		Status:       sb.Status,
-		Image:        sb.Image,
-		WorkspaceImg: sb.WorkspaceImg,
-		WorkspaceMnt: sb.WorkspaceMnt,
-		MemoryHigh:   sb.MemoryHigh,
-		Ports:        sb.Ports,
-		CreatedAt:    sb.CreatedAt.Format(time.RFC3339),
-		UpdatedAt:    sb.UpdatedAt.Format(time.RFC3339),
+		RuntimeProvider: runtimeProviderName(sb),
+		ID:              sb.ID,
+		Status:          sb.Status,
+		Image:           sb.Image,
+		WorkspaceImg:    sb.WorkspaceImg,
+		WorkspaceMnt:    sb.WorkspaceMnt,
+		MemoryHigh:      sb.MemoryHigh,
+		Ports:           sb.Ports,
+		CreatedAt:       sb.CreatedAt.Format(time.RFC3339),
+		UpdatedAt:       sb.UpdatedAt.Format(time.RFC3339),
 	}
 	if sb.ContainerID.Valid {
 		r.ContainerID = sb.ContainerID.String
@@ -381,6 +383,36 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Image != nil {
 		writeErr(w, http.StatusBadRequest, errPerAppImage)
+		return
+	}
+	// App-linked creates must preserve owner and provider identity even through
+	// the internal legacy endpoint; app configuration contains owner secrets.
+	if req.AppID != "" {
+		if _, err := s.Store.GetAppForOwner(r.Context(), req.AppID, tenantToken(r)); err != nil {
+			writeErr(w, 404, "no such app")
+			return
+		}
+		usesCube, err := s.Store.AppUsesCube(r.Context(), req.AppID)
+		if err != nil {
+			writeErr(w, 503, "cannot resolve app runtime")
+			return
+		}
+		if usesCube || s.CubeAllApps || s.CubeApps[req.AppID] {
+			writeErr(w, 501, "Cube apps must use the Cube creation path")
+			return
+		}
+		if current, err := s.Store.CurrentSandboxForApp(r.Context(), req.AppID); err == nil {
+			if current.RuntimeProvider == "cube" {
+				writeErr(w, 409, "app already has a Cube sandbox")
+				return
+			}
+		} else if !errors.Is(err, store.ErrNotFound) {
+			writeErr(w, 503, "cannot resolve app runtime")
+			return
+		}
+	}
+	if s.CubeAllApps {
+		writeErr(w, 501, "global Cube creation requires the owned app creation API")
 		return
 	}
 	if req.MemoryHigh == "" {
@@ -743,7 +775,9 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	// The app's stored config, for the runtime: keys the owner entered
 	// through /v1/apps/{id}/config ride in as environment (internal/appenv).
-	envFlags = append(envFlags, appenv.Best(r.Context(), s.Store, s.Secrets, req.AppID, s.Log)...)
+	appEnvironment := appenv.Best(r.Context(), s.Store, s.Secrets, req.AppID, s.Log)
+	envFlags = append(envFlags, appEnvironment...)
+	envFlags = append(envFlags, "RUNTIMED_APP_CONFIG_REVISION="+runtime.DockerConfigRevision(appEnvironment))
 	limits := s.Limits
 	if limits.Memory == "" {
 		limits = sandboxspec.DefaultLimits
@@ -921,6 +955,9 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]sandboxResp, 0, len(rows))
 	for _, sb := range rows {
+		if sb.RuntimeProvider == "cube" && !s.canReadCubeSandbox(r, sb) {
+			continue
+		}
 		out = append(out, toRespRow(sb))
 	}
 	writeJSON(w, http.StatusOK, out)

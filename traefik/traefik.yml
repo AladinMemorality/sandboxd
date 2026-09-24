@@ -49,6 +49,11 @@ accessLog:
   format: json
   bufferingSize: 0
   fields:
+    # Preview login carries a short-lived signed capability in its query.
+    # Never persist request paths/queries; activity tracking needs only host.
+    names:
+      RequestPath: drop
+      RequestHost: keep
     headers:
       defaultMode: drop
       names:

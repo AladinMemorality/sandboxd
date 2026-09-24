@@ -1,0 +1,9 @@
+{
+  "tag": "v0.7.1",
+  "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+  "source_sha256": {
+    "CubeNet/src/session.h": "e08331e8f9b6ea0374f20daeed9e54202679a801c5189b3f9337e0a464f88640",
+    "CubeNet/src/dns_response.h": "0f3206d48bf902c86bd4106a36b93d5eca8fe423d03480edbc2ea2aed7c9fd10",
+    "CubeNet/src/mvmtap.bpf.c": "a4951aec55ba906d6ae2b7ff2259175d9ae1d61b2e0db8138fae02fc67dd7a14"
+  }
+}

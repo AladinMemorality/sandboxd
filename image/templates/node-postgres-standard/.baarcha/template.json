@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "slug": "node-postgres-standard",
+  "version": "1.0.0",
+  "skills": true,
+  "name": "Full-stack app + PostgreSQL",
+  "stack": "node-postgres",
+  "kind": "starter",
+  "description": "A frontend, Express API and private persistent PostgreSQL database in one project sandbox."
+}

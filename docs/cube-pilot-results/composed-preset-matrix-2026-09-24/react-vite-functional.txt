@@ -1,0 +1,3 @@
+PASS preset react-vite startup/resume; checking exports
+PASS preset react-vite home export
+PASS preset react-vite all functional checks

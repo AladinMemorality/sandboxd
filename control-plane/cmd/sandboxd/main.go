@@ -48,6 +48,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/instancecfg"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/logging"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/loopback"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/maintenance"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/metrics"
 	nginxwatch "github.com/tastyeffectco/sandboxd/control-plane/internal/nginx"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/reaper"
@@ -183,7 +184,14 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	dsn := fmt.Sprintf("file:%s?_journal=WAL&_busy_timeout=5000&_fk=1", envDefault("SANDBOXD_DB", dbPath))
+	databasePath := envDefault("SANDBOXD_DB", dbPath)
+	maintenanceLock, err := maintenance.Acquire(databasePath, false)
+	if err != nil {
+		log.Error("startup: offline maintenance prevents startup", "err", err.Error())
+		os.Exit(1)
+	}
+	defer maintenanceLock.Close()
+	dsn := fmt.Sprintf("file:%s?_journal=WAL&_busy_timeout=5000&_fk=1", databasePath)
 	st, err := store.Open(ctx, dsn, migrations)
 	if err != nil {
 		log.Error("startup: store open failed", "err", err.Error())
@@ -194,6 +202,10 @@ func main() {
 			log.Error("shutdown: store close failed", "err", err.Error())
 		}
 	}()
+	if pending, e := st.HasIncompleteRuntimeMigrations(ctx); e != nil || pending {
+		log.Error("startup: incomplete runtime migration; resume or abort offline before starting daemon", "err", e)
+		os.Exit(1)
+	}
 
 	// Phase 5 — Backfill last_active_at for legacy running rows where
 	// the migration default (0) would otherwise make every existing
@@ -515,7 +527,13 @@ func main() {
 		return err
 	}
 
+	cubeConfig, err := loadCubeConfig()
+	if err != nil {
+		log.Error("invalid Cube configuration", "err", err)
+		os.Exit(1)
+	}
 	server := &api.Server{
+		CubeAgentRelayOrigin: cubeConfig.relayOrigin, Cube: cubeConfig.client, CubeTemplates: cubeConfig.templates, CubeApps: cubeConfig.apps, CubeAllApps: cubeConfig.allApps, CubeProxyURL: cubeConfig.proxyURL, CubeDomain: cubeConfig.domain,
 		Store:             st,
 		Secrets:           secretsCipher,
 		Update:            updateChecker,
@@ -575,9 +593,19 @@ func main() {
 		Live: live,
 	}
 
+	if cubeConfig.reverseEgress != nil {
+		if err := server.ConfigureCubeEgress(ctx, *cubeConfig.reverseEgress); err != nil {
+			log.Error("invalid Cube reverse egress configuration", "err", err)
+			os.Exit(1)
+		}
+	}
+	wakeHandler.CubePreview = server.TryServeCubePreview
+
 	// Finalize any coding task left `running` by a previous sandboxd
 	// run before the idle reaper (which trusts the task table) starts.
+	server.ReconcileCube(ctx)
 	server.ReconcileTasks(ctx)
+	go server.RunCubeMaintenance(ctx)
 
 	// Phase 5 — after reconcile, if MemAvailable is
 	// already below the healthy floor, run one synchronous pressure

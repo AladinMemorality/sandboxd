@@ -1,0 +1,5 @@
+=== RUN   TestOperatorReviewedTemplateJournalRoundtrip
+    reviewed_live_test.go:231: real Docker→Cube→write→Docker passed: migrate=37779ms rollback=756ms; verified-phase interruption recovery, checkpoint/history preservation; no model call
+LIVE_MIGRATION_ROUNDTRIP_PASS
+--- PASS: TestOperatorReviewedTemplateJournalRoundtrip (50.70s)
+PASS

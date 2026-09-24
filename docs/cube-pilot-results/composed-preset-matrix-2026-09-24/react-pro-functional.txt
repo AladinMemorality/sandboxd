@@ -1,0 +1,3 @@
+PASS preset react-pro startup/resume; checking exports
+PASS preset react-pro home export
+PASS preset react-pro all functional checks

@@ -35,6 +35,8 @@ import (
 //     The path-value provides the id; Accept: application/json (or
 //     no Host that matches preview shape) → JSON.
 type Handler struct {
+	// CubePreview handles bound remote previews before Docker wake locking.
+	CubePreview   func(http.ResponseWriter, *http.Request) bool
 	Store         *store.Store
 	Docker        *docker.Client
 	PreviewDomain string
@@ -144,6 +146,9 @@ func New(s *store.Store, d *docker.Client, previewDomain string, cfg Config, adm
 // the gate; this handler does not double-check (returns 400 if the
 // shape doesn't match anyway).
 func (h *Handler) ServeCatchAll(w http.ResponseWriter, r *http.Request) {
+	if h.CubePreview != nil && h.CubePreview(w, r) {
+		return
+	}
 	host := r.Host
 	m := h.hostRE.FindStringSubmatch(host)
 	if m == nil {
@@ -176,6 +181,13 @@ func (h *Handler) serve(r *http.Request, w http.ResponseWriter, id, port string,
 	log := h.Log.With("sandbox_id", id, "shape", shapeOf(isHTML))
 	start := time.Now()
 
+	// Lock before registering inflight work: a lifecycle caller already holding
+	// this mutex must never wait behind a wake that is waiting for that mutex.
+	if h.Locks != nil && !lifecycleLockHeld(ctx, id) {
+		h.Locks.Lock(id)
+		defer h.Locks.Unlock(id)
+	}
+
 	// Per-id mutex to dedup concurrent wakes. Roadmap §7 idempotency
 	// rule: "two concurrent wake requests must not double-start.
 	// Guard per-id with an in-memory mutex; the second caller waits
@@ -205,18 +217,6 @@ func (h *Handler) serve(r *http.Request, w http.ResponseWriter, id, port string,
 		close(wf.done)
 	}()
 
-	// Phase 7 — hold the shared per-id lock for the whole wake. The
-	// inflight map above already dedups concurrent *wakes*; this lock
-	// additionally excludes a concurrent snapshot / restore / destroy
-	// of the same id (roadmap phase-7 §9: snapshot must not race a
-	// wake that is starting the container and writing the loopback).
-	// nil-safe — pre-Phase-7 callers that build a Handler without a
-	// lock registry still work.
-	if h.Locks != nil {
-		h.Locks.Lock(id)
-		defer h.Locks.Unlock(id)
-	}
-
 	// 1. Look up the row.
 	sb, err := h.Store.Get(ctx, id)
 	if err != nil {
@@ -230,6 +230,12 @@ func (h *Handler) serve(r *http.Request, w http.ResponseWriter, id, port string,
 		log.Warn("wake: store.Get failed", "err", err.Error())
 		h.respondError(w, id, "internal_error", isHTML)
 		metrics.Wakes.WithLabelValues("error").Inc()
+		return
+	}
+
+	// Cube preview routing is not implemented in the Docker catch-all.
+	if sb.RuntimeProvider != "" && sb.RuntimeProvider != "docker" {
+		h.respondNotFound(w, id, isHTML)
 		return
 	}
 

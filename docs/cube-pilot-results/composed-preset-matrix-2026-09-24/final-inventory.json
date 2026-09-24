@@ -1,0 +1,7 @@
+{
+  "guest_inventory": "NODE_SCOPE       all\nNODES_SCANNED    1/1\nSANDBOX_COUNT    1\n\nsandbox_id                          status    backend    remote    pause_snap                       host_id      create_at    pause_at               template_id    namespace    host_ip      labels\n6d96feb3819a41aabbcb04e3058b056b    paused    xfs        -         snap-4d5641643a124f35b70f66dc    10.0.2.15    -            2026-09-17 12:13:03                                10.0.2.15    null\n",
+  "disk_free_bytes": {
+    "/": 47881842688,
+    "/data": 25952313344
+  }
+}

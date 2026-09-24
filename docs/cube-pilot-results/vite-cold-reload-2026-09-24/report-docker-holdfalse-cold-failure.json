@@ -1,0 +1,113 @@
+{
+  "backend": "docker",
+  "cpu_per_app": 1,
+  "docker_network": "owned internal bridge; no external egress",
+  "edit_probe": true,
+  "finished_at": "2026-09-24T17:47:20.149508629Z",
+  "image": "sha256:9ec445151344a7baa295b085bebe1a0352ab930601fe0d9ed2bf1283bbaa6678",
+  "memory_mib_per_app": 1024,
+  "model_calls": false,
+  "owned_sandboxes_deleted": true,
+  "production_mutation": false,
+  "remix_explicitly_skipped": false,
+  "runtime_preset": "react-pro",
+  "samples": [
+    {
+      "create_api_ms": 5048,
+      "create_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "create_last_failure": {
+        "bytes": 0,
+        "kind": "transport_error",
+        "path": "/",
+        "status": 0
+      },
+      "create_ready_ms": 7543,
+      "diagnostic_restart_http_checks": [
+        {
+          "bytes": 557,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2588,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "diagnostic_restart_last_failure": {
+        "bytes": 0,
+        "kind": "transport_error",
+        "path": "/",
+        "status": 0
+      },
+      "env_edit_failed": true,
+      "env_edit_last_failure": {
+        "bytes": 0,
+        "kind": "transport_error",
+        "path": "/",
+        "status": 0
+      },
+      "env_edit_wait_ms": 90087,
+      "iteration": 0,
+      "source_edit_http_checks": [
+        {
+          "bytes": 573,
+          "path": "/",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 2620,
+          "path": "/src/main.tsx",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 137946,
+          "path": "/@vite/client",
+          "status": 200,
+          "validated": true
+        },
+        {
+          "bytes": 4471,
+          "path": "/src/App.tsx",
+          "status": 200,
+          "validated": true
+        }
+      ],
+      "source_edit_ready_ms": 117,
+      "started_at": "2026-09-24T17:45:34.40391772Z",
+      "warmup": true
+    }
+  ],
+  "scope": "control-plane handlers plus real HTML and transformed assets; Docker host bridge vs nested Cube preview proxy; not browser rendering",
+  "source_commit": "2023423c972b3b8c281a9aa53d124c9bdab3b7f7",
+  "started_at": "2026-09-24T17:45:34.387355411Z"
+}

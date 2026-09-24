@@ -17,6 +17,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/agentauth"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/audit"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/egress"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/events"
@@ -35,6 +36,17 @@ import (
 
 // Server bundles the collaborators the handlers need.
 type Server struct {
+	cubeEgress           *cubeEgressManager
+	CubeAgentRelayOrigin string   // trusted HTTPS public origin; disabled by default
+	cubePreviewLeases    sync.Map // sandbox ID -> short verified running lease (time.Time)
+	cubeTaskWatches      sync.Map // task ID -> active watcher; restart-safe recovery is durable in SQLite
+	Cube                 *cube.Client
+	CubeTemplates        map[string]string
+	CubeApps             map[string]bool
+	CubeAllApps          bool // new app sandboxes only; existing providers remain durable
+	CubeProxyURL         string
+	CubeDomain           string
+
 	Store  *store.Store
 	Docker *docker.Client
 	// Upgrade runs in-place upgrades via a detached upgrader container
@@ -226,6 +238,8 @@ func (s *Server) agentAuthMounts() []string {
 // Wraps every route in the metric-recording middleware.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("POST /v1/cube-model/{sandboxID}/{taskID}/v1/messages", s.cubeModelRelay)
+	mux.HandleFunc("POST /v1/cube-model/{sandboxID}/{taskID}/v1/messages/count_tokens", s.cubeModelRelay)
 
 	mux.HandleFunc("POST /sandbox", s.observe("POST /sandbox", s.handleCreate))
 	mux.HandleFunc("GET /sandboxes", s.observe("GET /sandboxes", s.handleList))
@@ -256,6 +270,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /v1/sandboxes/{id}", s.observe("GET /v1/sandboxes/{id}", s.v1GetSandbox))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/stop", s.observe("POST /v1/sandboxes/{id}/stop", s.v1StopSandbox))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/start", s.observe("POST /v1/sandboxes/{id}/start", s.v1StartSandbox))
+	mux.HandleFunc("POST /v1/sandboxes/{id}/preview-access", s.observe("POST /v1/sandboxes/{id}/preview-access", s.v1CubePreviewAccess))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/recreate", s.observe("POST /v1/sandboxes/{id}/recreate", s.v1RecreateSandbox))
 	mux.HandleFunc("DELETE /v1/sandboxes/{id}", s.observe("DELETE /v1/sandboxes/{id}", s.v1DeleteSandbox))
 	mux.HandleFunc("POST /v1/sandboxes/{id}/tasks", s.observe("POST /v1/sandboxes/{id}/tasks", s.v1SubmitTask))
@@ -338,7 +353,9 @@ func (s *Server) observe(endpoint string, h http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		sw := &statusWriter{ResponseWriter: w, status: 200}
-		h(sw, r)
+		if !s.guardCubeRoute(sw, r, endpoint) {
+			h(sw, r)
+		}
 		metrics.APIDuration.WithLabelValues(endpoint, r.Method).Observe(time.Since(start).Seconds())
 		metrics.APIRequests.WithLabelValues(endpoint, r.Method, statusBucket(sw.status)).Inc()
 	}
