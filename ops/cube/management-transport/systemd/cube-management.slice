@@ -1,0 +1,7 @@
+[Unit]
+Description=Aggregate limits for private Cube management relays
+
+[Slice]
+MemoryMax=256M
+CPUQuota=100%
+TasksMax=550

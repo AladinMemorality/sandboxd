@@ -186,7 +186,7 @@ if enabled=='true':
   service=config['services'].get(name,{})
   assert service.get('network_mode')=='service:sandboxd', 'Cube relay must share the controller network namespace'
   assert not service.get('ports'), 'Cube relay must not publish host ports'
-  assert re.fullmatch(r'[^\s]+@sha256:[0-9a-f]{64}',service.get('image','')), 'Cube relay requires an immutable image digest'
+  assert re.fullmatch(r'(?:[^\s]+@)?sha256:[0-9a-f]{64}',service.get('image','')), 'Cube relay requires an immutable image digest or local image ID'
  print('cube')
 else:
  assert str(e.get('SANDBOXD_CUBE_REVERSE_EGRESS','false'))=='false', 'Reverse egress requires Cube enabled'

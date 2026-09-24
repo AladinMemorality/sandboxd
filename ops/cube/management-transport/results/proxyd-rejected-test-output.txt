@@ -1,0 +1,18 @@
+test_actual_socket_activation_half_close (__main__.HostProxyTests.test_actual_socket_activation_half_close) ... FAIL
+test_bidirectional_upgrade_stream (__main__.SidecarTests.test_bidirectional_upgrade_stream) ... skipped 'actual socat required; this is not an acceptance pass'
+test_http_bytes_headers_and_half_close (__main__.SidecarTests.test_http_bytes_headers_and_half_close) ... skipped 'actual socat required; this is not an acceptance pass'
+test_reconnect_after_upstream_disappears (__main__.SidecarTests.test_reconnect_after_upstream_disappears) ... skipped 'actual socat required; this is not an acceptance pass'
+test_fixed_addresses_and_no_payload_logging (__main__.WiringTests.test_fixed_addresses_and_no_payload_logging) ... ok
+
+======================================================================
+FAIL: test_actual_socket_activation_half_close (__main__.HostProxyTests.test_actual_socket_activation_half_close)
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/opt/baarcha-bench/cube-management-transport-20260924/test_transport.py", line 219, in test_actual_socket_activation_half_close
+    self.assertEqual(read_all(client), expected)
+AssertionError: b'' != b'HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok'
+
+----------------------------------------------------------------------
+Ran 5 tests in 0.847s
+
+FAILED (failures=1, skipped=3)

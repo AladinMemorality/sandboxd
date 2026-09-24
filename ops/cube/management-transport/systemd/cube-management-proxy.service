@@ -1,0 +1,38 @@
+[Unit]
+Description=Persistent private Cube proxy management transport
+After=systemd-tmpfiles-setup.service
+
+[Service]
+User=cube-management-relay
+Group=cube-management
+RuntimeDirectory=cube-management/proxy
+RuntimeDirectoryMode=0750
+ExecStart=/usr/bin/socat -t 30 -T 300 UNIX-LISTEN:/run/cube-management/proxy/channel.sock,unlink-early,mode=0660,fork,max-children=256,backlog=32 TCP4:127.0.0.1:20080,connect-timeout=5
+Slice=cube-management.slice
+NoNewPrivileges=yes
+CapabilityBoundingSet=
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectSystem=strict
+ProtectHome=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+LockPersonality=yes
+RestrictAddressFamilies=AF_UNIX AF_INET
+IPAddressDeny=any
+IPAddressAllow=127.0.0.1/32
+MemoryMax=128M
+CPUQuota=50%
+TasksMax=270
+LimitNOFILE=1100
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=2s
+KillMode=control-group
+TimeoutStopSec=10s
+
+[Install]
+WantedBy=multi-user.target
