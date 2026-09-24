@@ -22,7 +22,7 @@ const cfgTenant = "tenant-1"
 
 func newConfigTestServer(t *testing.T) (*Server, string) {
 	t.Helper()
-	st, err := store.Open(context.Background(), "file::memory:?_fk=1", "../../migrations")
+	st, err := store.Open(context.Background(), "file:"+filepath.Join(t.TempDir(), "sandboxd.db")+"?_fk=1", "../../migrations")
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}
@@ -228,7 +228,7 @@ func TestAppConfigAuditRecordsKeyNotValue(t *testing.T) {
 func TestAppConfigSecretDoesNotLeak(t *testing.T) {
 	const secret = "sk-test-secret-ci"
 
-	st, err := store.Open(context.Background(), "file::memory:?_fk=1", "../../migrations")
+	st, err := store.Open(context.Background(), "file:"+filepath.Join(t.TempDir(), "sandboxd.db")+"?_fk=1", "../../migrations")
 	if err != nil {
 		t.Fatalf("open store: %v", err)
 	}

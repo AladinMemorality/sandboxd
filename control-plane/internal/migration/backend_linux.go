@@ -24,6 +24,7 @@ import (
 )
 
 type OfflineBackend struct {
+	Broker     *MigrationBroker
 	Store      *store.Store
 	Docker     *docker.Client
 	Cube       *cube.Client
@@ -323,6 +324,11 @@ func (b *OfflineBackend) connect(ctx context.Context, m *store.RuntimeMigration)
 		return nil, err
 	}
 	err = wait(ctx, 30*time.Second, func() bool { status, e := client.Status(ctx); return e == nil && status.ActiveTask == nil })
+	if err == nil && b.Broker != nil {
+		attach, cancel := context.WithTimeout(ctx, 15*time.Second)
+		defer cancel()
+		err = b.Broker.Attach(attach, m, client)
+	}
 	return client, err
 }
 
@@ -447,9 +453,14 @@ func (b *OfflineBackend) ReadyTarget(ctx context.Context, m *store.RuntimeMigrat
 	if err = client.ResumeWorkspace(ctx); err != nil {
 		return err
 	}
+	probe := migrationReadiness{Window: 2 * time.Second}
 	return wait(ctx, 90*time.Second, func() bool {
 		status, e := client.Status(ctx)
-		return e == nil && status.ActiveTask == nil && (status.Preview.Status == runtime.PreviewReady || status.Preview.Status == runtime.PreviewNone)
+		if e != nil {
+			probe.Observe(nil, time.Now())
+			return false
+		}
+		return probe.Observe(status, time.Now())
 	})
 }
 
@@ -596,7 +607,11 @@ func (b *OfflineBackend) RestoreSource(ctx context.Context, m *store.RuntimeMigr
 }
 
 func (b *OfflineBackend) PauseTarget(ctx context.Context, m *store.RuntimeMigration) error {
-	return b.Cube.Pause(ctx, m.Binding.RuntimeID)
+	err := b.Cube.Pause(ctx, m.Binding.RuntimeID)
+	if err == nil {
+		b.Broker.Detach(m.SandboxID)
+	}
+	return err
 }
 
 // AdoptTarget recovers a lost create response without minting a new token or
@@ -657,11 +672,22 @@ func (b *OfflineBackend) Abort(ctx context.Context, id string) error {
 		return errors.New("cannot abort this phase; recover uncertain create or use data-preserving rollback")
 	}
 	if m.Binding.RuntimeID != "" {
-		err = b.Cube.Delete(ctx, m.Binding.RuntimeID)
+		err = b.DeleteTarget(ctx, m)
 		var upstream *cube.APIError
 		if err != nil && !(errors.As(err, &upstream) && upstream.StatusCode == 404) {
 			return err
 		}
 	}
 	return b.Store.AbortRuntimeMigration(ctx, id)
+}
+
+// DeleteTarget revokes its owned channel even when deletion needs operator recovery.
+func (b *OfflineBackend) DeleteTarget(ctx context.Context, m *store.RuntimeMigration) error {
+	b.Broker.Detach(m.SandboxID)
+	err := b.Cube.Delete(ctx, m.Binding.RuntimeID)
+	var upstream *cube.APIError
+	if errors.As(err, &upstream) && upstream.StatusCode == 404 {
+		return nil
+	}
+	return err
 }

@@ -198,7 +198,19 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
-	backend := &migration.OfflineBackend{Store: st, Docker: docker.NewClient(), Cube: client, Secrets: cipher, ProxyURL: os.Getenv("SANDBOXD_CUBE_PROXY_URL"), ArchiveDir: *archives, WorkspaceRoot: *workspaces}
+	var broker *migration.MigrationBroker
+	if migrationActionNeedsBroker(action) {
+		policy, e := migrationBrokerPolicy()
+		if e != nil {
+			return e
+		}
+		broker, e = migration.NewMigrationBroker(ctx, policy)
+		if e != nil {
+			return e
+		}
+		defer broker.Close()
+	}
+	backend := &migration.OfflineBackend{Broker: broker, Store: st, Docker: docker.NewClient(), Cube: client, Secrets: cipher, ProxyURL: os.Getenv("SANDBOXD_CUBE_PROXY_URL"), ArchiveDir: *archives, WorkspaceRoot: *workspaces}
 	fence := func() error {
 		if e := maintenance.CheckDatabaseUsers(*database); e != nil {
 			return e
