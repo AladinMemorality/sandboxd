@@ -67,3 +67,25 @@ counts UID 1000 threads across Docker containers, and an attempted limit of 256
 prevented Go itself from starting. The fixture retains its actual cgroup process
 limit. Actual Cube guest process enforcement must be established during the pilot,
 along with pristine snapshot restore, deny-all egress and VM overhead.
+
+## Current prepared-page pilot
+
+The worker now prepares empty pages for DPR 1 and DPR 2 before pristine readiness.
+Their HTTP/WebSocket callbacks deny requests until the sole job is selected;
+the unused context is closed and the chosen page brought to the foreground before
+navigation. No tenant URL, credential or host broker connection exists in these
+prepared contexts. The consumed worker remains ineligible for reuse.
+
+The exact current-source image tested on 2026-09-24 is
+`sha256:b749065c8731d005f95fb8f795e35bafe6968e9380dda70e7a3b2bc3c7f776d6`,
+template `tpl-b59bceac5b8a48708a6e219c`. All 18 real browser cases passed on both
+Docker and restored Cube guests. The platform repository retains the scripts,
+source hashes and every final timing sample under
+`landing/services/capture/benchmarks/2026-09-24/cube/`.
+
+Two-worker/eight-job comparison at 1 CPU/768 MiB per worker: Docker 6.53 s, Cube 10.48 s.
+Cube pool preparation was 204 ms versus Docker 1770 ms, but median screenshot execution
+was 2010 ms versus 323 ms. Cube adds a KVM layer inside this disposable benchmark VM;
+this is not bare-metal production timing. **Keep the Docker capture backend as
+default.** Successful restoration and browser compatibility do not establish a
+capture throughput improvement or complete network-isolation enforcement.
