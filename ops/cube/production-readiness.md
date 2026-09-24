@@ -4,6 +4,38 @@
 
 The current runtime always denies guest outbound traffic; nonempty operator domain allowances are rejected. Therefore this version always reports `guest_egress_unavailable` and `authorizes_rollout: false`. Neither `SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED=true` nor a correctly hashed document changes that result. Keep the established Docker admission path until a separately reviewed connectivity implementation and deployment acceptance exist. Global creation routing does not transfer existing project data.
 
+## Integration progress, 2026-09-24
+
+The migration branch now implements an opt-in host-initiated reverse connection
+for reviewed pilot apps. Public HTTP/TLS destinations are resolved and pinned by
+the host; model and platform bridge calls use fixed scoped handlers. The guest
+NIC still denies outbound traffic. Native Node 22.21 `fetch` and default HTTP/HTTPS
+agents passed actual proxy fixtures with `NODE_USE_ENV_PROXY=1`; the inspected
+production base is Node 22.23.2. Runtime/API race suites cover reconnection,
+credential rotation, stop/resume and task-capability revocation. These local
+integration results do not replace deployed model/metering or isolation acceptance.
+See [reverse egress](../../docs/cube-reverse-egress.md).
+
+The latest client inventory observed 59 projects, including the separately
+excluded MyHomeTroc project. Its PostgreSQL dependency is excluded with that
+project; the other discovered raw socket call targets a service inside its own
+guest. Bounded follow-up source reviews account for the initial scan limits.
+Custom Java/native tools still need execution against migrated data. The older
+58-project home inventory is not a frozen plan for the changed fleet.
+
+A dedicated single-use Cube capture template now restores warmed Chromium and
+passes authenticated capture/cleanup. Eight sequential samples passed, with
+median create-to-health 186 ms and confirmed deletion 319 ms. A paired two-worker,
+eight-job comparison nevertheless took approximately 10.1 seconds on Cube versus
+6.1 seconds on Docker: browser page preparation after restoration currently
+dominates. Preparing unused blank pages before snapshotting is under test. Do not
+enable the Cube capture backend or claim a sustained speedup from restore time
+alone. Platform evidence is under `services/capture/benchmarks/2026-09-24/cube/`.
+
+Global admission remains disabled in the configuration loader. The offline
+inventory deliberately continues to report blocked rather than interpreting the
+new implementation or a boolean operator flag as deployment acceptance.
+
 ## Observed production configuration, 2026-09-23
 
 A read-only inspection of the running `baarcha-landing` Next process found `SANDBOXD_AGENT` and `SANDBOXD_MODEL` unset. The deployed client defaults therefore select `claude-code` and `glm-5.3-flash[1m]`. Other agent implementations are not a prerequisite unless the actual product/configuration selects them. OpenRouter credentials were present (presence only was inspected); the merged fallback remains behind the existing owner-authenticated and metered Anthropic Messages route. The Cube relay forwards to that same host-side agent proxy, so fallback adds no guest destination. A real Claude task through the deployed relay, with primary/fallback accounting and cancellation, is still unverified.
