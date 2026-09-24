@@ -26,7 +26,7 @@ type Preset struct {
 }
 
 // order fixes the display order of List().
-var order = []string{"react-pro", "marketplace", "react-vite", "nextjs", "node-express", "fastapi", "worker"}
+var order = []string{"react-pro", "marketplace", "react-vite", "nextjs", "node-express", "node-postgres", "fastapi", "worker"}
 
 var registry = map[string]Preset{
 	"react-pro": {
@@ -112,6 +112,26 @@ build:
   command: ""
 `,
 		Capabilities: []string{"node"},
+	},
+	"node-postgres": {
+		ID: "node-postgres", Label: "Full-stack app + PostgreSQL",
+		Description: "A frontend and Node.js API with a private persistent PostgreSQL database in the project sandbox.",
+		Template:    "node-postgres-standard",
+		Manifest: `version: 1
+web:
+  command: >-
+    (node --input-type=module -e "import('express')" >/dev/null 2>&1 || pnpm install --frozen-lockfile) && exec node server.mjs
+  port: 3000
+  health_path: "/health"
+  restart_after_task: true
+workers:
+  - name: postgres
+    command: "node /opt/services/postgres/worker.mjs"
+    restart_after_task: false
+build:
+  command: ""
+`,
+		Capabilities: []string{"node", "pnpm", "postgresql-18.4"},
 	},
 	"fastapi": {
 		ID: "fastapi", Label: "Python / FastAPI",

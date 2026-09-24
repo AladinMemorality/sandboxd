@@ -1,5 +1,9 @@
 # App templates for Cube
 
+The `node-postgres` template adds an opt-in database starter. Include its reviewed
+template mapping when offering that preset; other presets do not initialize or
+start PostgreSQL. See [project PostgreSQL](../../docs/project-postgres.md).
+
 Build one credential-free image per runtime preset. Use an immutable reviewed
 base identity that matches the source fleet's Node, Python and system libraries;
 never export a running owner's container into a shared template.

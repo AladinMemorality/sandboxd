@@ -48,6 +48,9 @@ operations and use focused edits to existing files.
   sandbox.
 - Dependencies: the supervisor runs `pnpm install` on boot when needed. Run
   `pnpm install` yourself after editing `package.json`.
+- Vite 5.4.21 carries a pinned pnpm patch for cold environment-reload
+  deadlocks. Keep `patches/vite@5.4.21.patch` and the package/lock patch
+  metadata together; verify environment reload before removing it in an upgrade.
 - Verify before finishing: `curl -s http://127.0.0.1:3000/` responds and
   `pnpm exec tsc --noEmit` is clean. Do not run `pnpm build` yourself; the
   platform runs it as the post-task check.

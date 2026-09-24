@@ -30,8 +30,18 @@ func importTestZip(t *testing.T, files map[string]string) []byte {
 	return b.Bytes()
 }
 func TestImportAtomicallyReplacesAppAndKeepsRuntimeSecretsOutside(t *testing.T) {
-	root := filepath.Join(t.TempDir(), "app")
-	os.Mkdir(root, 0755)
+	home := t.TempDir()
+	root := filepath.Join(home, "workspace", "app")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		t.Fatal(err)
+	}
+	database := filepath.Join(home, ".baarcha-postgres", "data", "owner-data")
+	if err := os.MkdirAll(filepath.Dir(database), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(database, []byte("OWNER_DATABASE_BYTES"), 0600); err != nil {
+		t.Fatal(err)
+	}
 	os.WriteFile(filepath.Join(root, "old.txt"), []byte("old"), 0644)
 	runtimeDir := t.TempDir()
 	os.WriteFile(filepath.Join(runtimeDir, "credential"), []byte("OWN_GUEST_TOKEN"), 0600)
@@ -54,6 +64,9 @@ func TestImportAtomicallyReplacesAppAndKeepsRuntimeSecretsOutside(t *testing.T) 
 	}
 	if b, _ := os.ReadFile(filepath.Join(runtimeDir, "credential")); string(b) != "OWN_GUEST_TOKEN" {
 		t.Fatal("guest identity changed")
+	}
+	if b, err := os.ReadFile(database); err != nil || string(b) != "OWNER_DATABASE_BYTES" {
+		t.Fatal("source restore changed the persistent owner database")
 	}
 	select {
 	case <-restart:

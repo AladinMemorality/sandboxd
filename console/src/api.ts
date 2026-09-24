@@ -241,6 +241,7 @@ export interface Process {
 export interface Sandbox {
   id: string
   status: string
+  runtime_provider?: 'docker' | 'cube'
   preview?: Preview
   processes?: Process[]
 }

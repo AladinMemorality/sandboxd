@@ -65,6 +65,12 @@ func PublishedSourcePath(name string) bool {
 	if ext == ".txt" && len(parts) == 1 && !strings.HasPrefix(base, "readme") && !strings.HasPrefix(base, "license") && !strings.HasPrefix(base, "requirements") && base != "robots.txt" && base != "cmakelists.txt" {
 		return false
 	}
+	// pnpm's pinned dependency patches are source needed by frozen installs.
+	// Restrict this exception to the conventional root patches directory; all
+	// private-path and credential-name exclusions above still apply.
+	if ext == ".patch" {
+		return len(parts) == 2 && parts[0] == "patches"
+	}
 
 	switch ext {
 	case ".db", ".sqlite", ".sqlite3", ".db3", ".wal", ".shm", ".log", ".pem", ".key", ".p12", ".pfx", ".keystore", ".sql", ".dump", ".bak":

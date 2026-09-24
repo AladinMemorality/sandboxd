@@ -217,6 +217,7 @@ const PRESET_META: Record<string, { short: string; tag: string }> = {
   'react-vite': { short: 'React', tag: 'Vite SPA · hot reload' },
   nextjs: { short: 'Next.js', tag: 'App Router · SSR' },
   'node-express': { short: 'Express', tag: 'Node REST API' },
+  'node-postgres': { short: 'App + PostgreSQL', tag: 'Frontend · API · private database' },
   fastapi: { short: 'FastAPI', tag: 'Python REST API' },
   worker: { short: 'Worker', tag: 'Background · no preview' },
 }

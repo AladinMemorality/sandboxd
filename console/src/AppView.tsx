@@ -1062,17 +1062,20 @@ function ConfigTab({ appId, onError }: { appId: string; onError: (m: string) => 
 // ---------- SNAPSHOTS ----------
 function SnapshotsTab({ appId, appName, onError, toast, refresh, sb }: { appId: string; appName: string; onError: (m: string) => void; toast: (m: string) => void; refresh: () => void; sb: Sandbox | null }) {
   const [snaps, setSnaps] = useState<Snapshot[]>([])
+  const sourceOnly = sb?.runtime_provider === 'cube'
   const load = useCallback(() => api.listAppSnapshots(appId).then(setSnaps).catch((e) => onError((e as Error).message)), [appId, onError])
   useEffect(() => { load() }, [load])
   return (
     <div style={{ maxWidth: 760 }}>
       <Card style={{ padding: 16, marginBottom: 16 }}>
-        <H style={{ marginBottom: 6 }}>Snapshots — save the whole environment</H>
-        <div style={{ color: c.muted, fontSize: 12.5 }}>A snapshot freezes the <b style={{ color: c.fg }}>entire workspace</b> — your code plus installed packages, build output, and data — so you can roll back or clone the exact running setup in seconds.</div>
+        <H style={{ marginBottom: 6 }}>Snapshots — saved versions</H>
+        <div style={{ color: c.muted, fontSize: 12.5 }}>{sourceOnly
+          ? 'Snapshots save source code and publishable assets. Restoring one preserves databases and files stored outside the source folder; duplicating creates a fresh app without that data. Back up your database separately.'
+          : 'Snapshots save the workspace, including installed packages, build output and data. Restoring replaces the current sandbox and workspace. Stop the sandbox before taking a consistent snapshot.'}</div>
       </Card>
       {snaps.length === 0 ? (
         <div style={{ border: `1px dashed ${c.border2}`, borderRadius: 10, padding: 28, textAlign: 'center', color: c.muted2, fontSize: 12.5 }}>
-          No snapshots yet. <a onClick={() => { if (sb) api.createSnapshot(sb.id, `${appName}-${Date.now()}`).then(() => { toast('Snapshot captured'); load() }).catch((e) => onError((e as Error).message)) }} style={{ color: c.link, cursor: 'pointer' }}>Take one now</a> — stop the sandbox first for a consistent capture.
+          No snapshots yet. <a onClick={() => { if (sb) api.createSnapshot(sb.id, `${appName}-${Date.now()}`).then(() => { toast('Snapshot captured'); load() }).catch((e) => onError((e as Error).message)) }} style={{ color: c.link, cursor: 'pointer' }}>Take one now</a>{sourceOnly ? ' — no stop is needed to save source.' : ' — stop the sandbox first for a consistent capture.'}
         </div>
       ) : snaps.map((s) => (
         <Card key={s.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '13px 16px', marginBottom: 8 }}>
@@ -1081,7 +1084,7 @@ function SnapshotsTab({ appId, appName, onError, toast, refresh, sb }: { appId: 
             <div style={{ color: c.muted2, fontSize: 11.5 }}>{new Date(s.created_at).toLocaleString()} · {s.size_bytes ? `${Math.round(s.size_bytes / 1024)} KB` : '—'}</div>
           </div>
           <div style={{ marginLeft: 'auto', display: 'flex', gap: 6 }}>
-            <Btn sm onClick={() => { if (window.confirm(`Roll back to "${s.name}"? Replaces the current sandbox.`)) api.restoreApp(appId, s.id).then(() => { toast('Rolled back'); refresh() }).catch((e) => onError((e as Error).message)) }}>Roll back</Btn>
+            <Btn sm onClick={() => { if (window.confirm(`Roll back to "${s.name}"? ${sourceOnly ? 'Replaces current source changes. Private data outside the source folder is preserved, not rolled back.' : 'Replaces the current sandbox and workspace, including unsaved data.'}`)) api.restoreApp(appId, s.id).then(() => { toast('Rolled back'); refresh() }).catch((e) => onError((e as Error).message)) }}>Roll back</Btn>
             <Btn sm onClick={() => { const name = window.prompt('Duplicate into a new app named:', `${appName} copy`); if (name) api.forkApp(appId, s.id, name.trim()).then(() => toast('Duplicated')).catch((e) => onError((e as Error).message)) }}>Duplicate</Btn>
           </div>
         </Card>

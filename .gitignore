@@ -13,6 +13,7 @@
 /control-plane/runtimed
 *.test
 *.out
+**/node_modules/
 
 # Editor / OS
 .DS_Store

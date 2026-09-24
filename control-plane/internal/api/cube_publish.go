@@ -224,9 +224,10 @@ func (s *Server) createCubeFromArchive(r *http.Request, app *store.App, archive 
 	}
 }
 
-// Dispatch before the Docker restore path. Validate the source before deleting
-// the current runtime; restore retains the existing destructive-replacement
-// contract, while fork always creates a new app and new credentials.
+// Restore published source inside the existing owner's VM. The private home
+// can contain a persistent database, uploads and owner tools: replacing the VM
+// with a source-only artifact would silently destroy all of them. Fork still
+// creates a fresh VM and never inherits this private data.
 func (s *Server) restoreCubeSource(w http.ResponseWriter, r *http.Request, app *store.App, snap *store.Snapshot) bool {
 	if snap.Format != cubeSourceFormat {
 		bound, err := s.Store.AppUsesCube(r.Context(), app.ID)
@@ -252,11 +253,8 @@ func (s *Server) restoreCubeSource(w http.ResponseWriter, r *http.Request, app *
 			writeV1Err(w, 409, "runtime_mismatch", "Cube source restore cannot replace a Docker runtime")
 			return true
 		}
-		code, body := s.delegate(r, func(w http.ResponseWriter, req *http.Request) { s.cubeLifecycle(w, req, "delete") }, http.MethodDelete, "/v1/sandboxes/"+current.ID, map[string]string{"id": current.ID}, nil)
-		if code != 204 {
-			relayV1Error(w, code, body)
-			return true
-		}
+		s.restoreCubeSourceInPlace(w, r, app, snap, current, archive, s.CubeTemplates[preset])
+		return true
 	} else if !errors.Is(err, store.ErrNotFound) {
 		writeV1Err(w, 503, "runtime_unavailable", "cannot inspect current runtime")
 		return true
@@ -271,4 +269,71 @@ func (s *Server) restoreCubeSource(w http.ResponseWriter, r *http.Request, app *
 	w.WriteHeader(code)
 	w.Write(body)
 	return true
+}
+
+func (s *Server) restoreCubeSourceInPlace(w http.ResponseWriter, r *http.Request, app *store.App, snap *store.Snapshot, current *store.Sandbox, archive []byte, template string) {
+	if s.Locks != nil {
+		s.Locks.Lock(current.ID)
+		defer s.Locks.Unlock(current.ID)
+	}
+	binding, err := s.Store.GetRuntimeBinding(r.Context(), current.ID)
+	if err != nil {
+		writeV1Err(w, 503, "runtime_unavailable", "cannot inspect current runtime template")
+		return
+	}
+	if binding.TemplateID != template {
+		writeV1Err(w, 409, "source_template_mismatch", "source requires a different runtime template; migrate the runtime while preserving private data first")
+		return
+	}
+	active, err := s.Store.SandboxHasRunningTask(r.Context(), current.ID)
+	if err != nil {
+		writeV1Err(w, 503, "runtime_unavailable", "cannot inspect active tasks")
+		return
+	}
+	if active {
+		writeV1Err(w, 409, "task_in_progress", "finish the active task before restoring source")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 2*time.Minute)
+	defer cancel()
+	if err = s.connectCube(ctx, current.ID, 3600); err != nil {
+		writeV1Err(w, 502, "runtime_unavailable", "existing runtime unavailable; private data retained")
+		return
+	}
+	client := s.runtimeClientFor(current.ID)
+	before, err := client.Status(ctx)
+	if err != nil {
+		writeV1Err(w, 502, "runtime_unavailable", "existing supervisor unavailable; private data retained")
+		return
+	}
+	if before.ActiveTask != nil {
+		writeV1Err(w, 409, "task_in_progress", "finish the active task before restoring source")
+		return
+	}
+	// The authenticated supervisor validates/prepares a separate source tree,
+	// exchanges only workspace/app, and self-execs with the same credentials.
+	// Failure never falls back to deleting the VM or creating an empty home.
+	if err = client.ImportSource(ctx, archive); err != nil {
+		writeV1Err(w, 502, "source_import_failed", "source import failed; existing runtime retained for recovery")
+		return
+	}
+	for {
+		status, e := client.Status(ctx)
+		if e == nil && status.Runtimed.BootedAt.After(before.Runtimed.BootedAt) {
+			updated, e := s.Store.Get(ctx, current.ID)
+			if e != nil {
+				writeV1Err(w, 503, "runtime_unavailable", "source imported; runtime status unavailable")
+				return
+			}
+			s.auditAction(r, audit.Entry{Action: "app.restore", Target: app.ID, Detail: map[string]any{"snapshot_id": snap.ID, "private_home_preserved": true}})
+			writeJSON(w, http.StatusCreated, s.v1SandboxFromRow(r, updated))
+			return
+		}
+		select {
+		case <-ctx.Done():
+			writeV1Err(w, 502, "runtime_unavailable", "source imported; supervisor readiness pending; private data retained")
+			return
+		case <-time.After(100 * time.Millisecond):
+		}
+	}
 }

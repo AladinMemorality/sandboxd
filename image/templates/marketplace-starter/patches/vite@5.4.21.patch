@@ -1,0 +1,12 @@
+diff --git a/dist/node/chunks/dep-BK3b2jBa.js b/dist/node/chunks/dep-BK3b2jBa.js
+--- a/dist/node/chunks/dep-BK3b2jBa.js
++++ b/dist/node/chunks/dep-BK3b2jBa.js
+@@ -50145,6 +50145,8 @@
+       depsOptimizer.scanProcessing,
+       optimizationResult?.cancel()
+     ]);
++    depOptimizationProcessing.resolve();
++    resolveEnqueuedProcessingPromises();
+   }
+   if (!cachedMetadata) {
+     currentlyProcessing = true;

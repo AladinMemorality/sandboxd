@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Your notes</title>
+  <style>
+    :root{font-family:system-ui,sans-serif;color:#16312a;background:#f3f5ef}body{margin:0}main{max-width:38rem;margin:9vh auto;padding:2rem}h1{font-size:3rem;letter-spacing:-.05em;margin-bottom:.5rem}p{line-height:1.6;color:#52665e}form{display:flex;gap:.7rem;margin:2rem 0}input,button{font:inherit;border-radius:.7rem;padding:.9rem 1rem}input{min-width:0;flex:1;border:1px solid #b9c8be;background:white}button{border:0;background:#205442;color:white;cursor:pointer}button:disabled{opacity:.6}ul{padding:0;list-style:none}li{background:white;border:1px solid #dde4da;padding:1rem;border-radius:.7rem;margin:.7rem 0;overflow-wrap:anywhere}#status{min-height:1.6em}
+  </style>
+</head>
+<body><main>
+  <h1>A little space for ideas.</h1>
+  <p>Add a note. Come back later. Your ideas stay here.</p>
+  <form><input name="body" aria-label="Your note" placeholder="What’s on your mind?" required maxlength="500"><button>Save note</button></form>
+  <p id="status" role="status"></p><ul aria-label="Saved notes"></ul>
+</main>
+<script type="module">
+  const form=document.querySelector('form'),list=document.querySelector('ul'),status=document.querySelector('#status');
+  async function load(){const response=await fetch('/api/notes');if(!response.ok)throw Error('Could not load your notes.');const notes=await response.json();list.replaceChildren(...notes.map(note=>{const item=document.createElement('li');item.textContent=note.body;return item}));status.textContent=notes.length?'':'Your first idea goes here.'}
+  form.addEventListener('submit',async event=>{event.preventDefault();const button=form.querySelector('button');button.disabled=true;try{const response=await fetch('/api/notes',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({body:new FormData(form).get('body')})});if(!response.ok)throw Error('Could not save your note.');form.reset();await load();status.textContent='Saved.'}catch(error){status.textContent=error.message}finally{button.disabled=false}});
+  load().catch(error=>status.textContent=error.message);
+</script></body></html>

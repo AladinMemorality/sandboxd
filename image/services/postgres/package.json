@@ -1,0 +1,24 @@
+{
+  "name": "baarcha-project-postgres",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "dependencies": {
+    "embedded-postgres": "18.4.0-beta.17",
+    "postgres": "3.4.7"
+  },
+  "pnpm": {
+    "overrides": {
+      "@embedded-postgres/linux-x64": "18.4.0-beta.17",
+      "@embedded-postgres/linux-arm64": "18.4.0-beta.17",
+      "@embedded-postgres/darwin-arm64": "18.4.0-beta.17",
+      "@embedded-postgres/darwin-x64": "18.4.0-beta.17"
+    },
+    "onlyBuiltDependencies": [
+      "@embedded-postgres/linux-x64",
+      "@embedded-postgres/linux-arm64",
+      "@embedded-postgres/darwin-arm64",
+      "@embedded-postgres/darwin-x64"
+    ]
+  }
+}

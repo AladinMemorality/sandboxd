@@ -56,8 +56,10 @@ The source app must still belong to the snapshot owner and have a reviewed
 preset/template mapping. Missing or unknown presets are reported for review;
 they are never guessed from file names. Private migration's target-preset update
 can supply the reviewed mapping for legacy apps. An old snapshot can also restore
-an already-migrated Cube app. Restore validates and retains the source archive
-before deleting the current Cube guest, avoiding a second filesystem export.
+an already-migrated Cube app. Restore validates the source archive and imports
+it into the same guest, preserving the private home, databases and sandbox ID.
+A snapshot requiring a different template must first use an explicit runtime
+migration that preserves private data. Forks still create a fresh private home.
 Restore cannot implicitly replace an unmigrated Docker guest with Cube.
 
 The 2026-09-23 read-only refresh found **56 sandboxes**, no active coding tasks at

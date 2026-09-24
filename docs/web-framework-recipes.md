@@ -27,6 +27,10 @@ edit), then **restart the sandbox** so runtimed re-reads the new `sandbox.yaml`.
 See [`sandbox-manifest.md`](./sandbox-manifest.md) for the full schema and
 [`git-workflow.md`](./git-workflow.md) for the import flow.
 
+For optional persistent PostgreSQL, see [`project-postgres.md`](./project-postgres.md).
+Selecting a web framework does not start a database. Use the `node-postgres`
+starter or deliberately add its worker when the project needs PostgreSQL.
+
 ## Recipe ≠ preset
 
 - A **preset** scaffolds a *new* app: starter files baked into an image template +

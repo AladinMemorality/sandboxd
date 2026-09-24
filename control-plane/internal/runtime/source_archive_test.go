@@ -124,3 +124,28 @@ func TestPublishedAuthenticationSourceSurvivesRemix(t *testing.T) {
 		}
 	}
 }
+
+func TestSourceArchivePreservesDependencyPatchesOnly(t *testing.T) {
+	patch := "diff --git a/dist/node/index.js b/dist/node/index.js\n"
+	files := map[string]string{"patches/vite@5.4.21.patch": patch}
+	for _, name := range []string{"owner.patch", "private/change.patch", "src/change.patch", "patches/private/change.patch", "patches/secrets.patch", "patches/credentials.patch", "patches/.hidden.patch", "patches/data.sql"} {
+		files[name] = "PRIVATE_FIXTURE"
+	}
+	data, err := SanitizeSourceArchive(testSourceZip(t, files))
+	if err != nil {
+		t.Fatal(err)
+	}
+	z, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil || len(z.File) != 1 || z.File[0].Name != "patches/vite@5.4.21.patch" {
+		t.Fatal("dependency patch missing or private patch published")
+	}
+	r, err := z.File[0].Open()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close()
+	content, err := io.ReadAll(r)
+	if err != nil || string(content) != patch {
+		t.Fatal("dependency patch bytes changed")
+	}
+}

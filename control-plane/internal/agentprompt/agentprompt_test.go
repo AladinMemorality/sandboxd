@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
 )
 
 // The platform briefing must carry the Project-brain convention: agents are
@@ -35,11 +37,20 @@ func TestRenderIncludesProjectBrain(t *testing.T) {
 // only the parent chat otherwise leaves the old write-first rules active.
 func TestDecisionWorkflowAcrossTemplates(t *testing.T) {
 	paths, err := filepath.Glob("../../../image/templates/*/AGENTS.md")
-	if err != nil || len(paths) != 7 {
+	expected := map[string]bool{}
+	for _, p := range preset.List() {
+		expected[p.Template] = true
+	}
+	if err != nil || len(paths) != len(expected) {
 		t.Fatalf("template inventory: %v, %d guides", err, len(paths))
 	}
 	texts := map[string]string{"runtime": Raw()}
 	for _, path := range paths {
+		template := filepath.Base(filepath.Dir(path))
+		if !expected[template] {
+			t.Errorf("unexpected or duplicate template guide %s", path)
+		}
+		delete(expected, template)
 		data, err := os.ReadFile(path)
 		if err != nil {
 			t.Fatal(err)
@@ -49,6 +60,9 @@ func TestDecisionWorkflowAcrossTemplates(t *testing.T) {
 		if err != nil || strings.TrimSpace(string(claude)) != "@AGENTS.md" {
 			t.Errorf("%s must retain the shared guide import", path)
 		}
+	}
+	if len(expected) != 0 {
+		t.Errorf("preset templates missing guides: %v", expected)
 	}
 	for name, text := range texts {
 		normalized := strings.Join(strings.Fields(text), " ")

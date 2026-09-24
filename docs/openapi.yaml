@@ -614,11 +614,15 @@ paths:
     post:
       operationId: restoreApp
       tags: [apps]
-      summary: Restore the app from a snapshot (REPLACES its current sandbox)
+      summary: Restore the app source from a snapshot
       description: >
-        Destructive: purges the app's current sandbox (container + workspace)
-        and creates a fresh one cloned from the snapshot. Un-snapshotted work
-        is lost, so the console confirms before calling.
+        Un-snapshotted source changes are lost, so the console confirms before
+        calling. Cube imports source inside the existing VM and retains its
+        private home, databases, credentials and sandbox ID. A different runtime
+        template requires explicit migration first. Docker retains its legacy
+        destructive replacement behavior (container and workspace). The response
+        reports current preview/process readiness; source acknowledgement alone
+        does not mean application or database startup has completed.
       requestBody:
         required: true
         content:
@@ -630,7 +634,7 @@ paths:
                 snapshot_id: { type: string }
       responses:
         "201":
-          description: New sandbox created from the snapshot
+          description: Source restored; existing Cube sandbox retained or new sandbox created
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Sandbox" }

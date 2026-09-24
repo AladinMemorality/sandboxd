@@ -43,6 +43,35 @@ func TestNodeExpressRestartsAfterTask(t *testing.T) {
 	}
 }
 
+func TestNodePostgresPresetKeepsDatabaseWorkerAcrossCodeEdits(t *testing.T) {
+	p, ok := Get("node-postgres")
+	if !ok || p.Template != "node-postgres-standard" {
+		t.Fatal("persistent full-stack preset missing")
+	}
+	for _, want := range []string{"node server.mjs", "node /opt/services/postgres/worker.mjs", "health_path: \"/health\"", "restart_after_task: false"} {
+		if !strings.Contains(p.Manifest, want) {
+			t.Errorf("PostgreSQL preset missing %q", want)
+		}
+	}
+	if strings.Contains(p.Manifest, "5432") {
+		t.Fatal("database port must not become a public preview port")
+	}
+}
+
+func TestPostgresIsExplicitlyOptIn(t *testing.T) {
+	for _, id := range []string{"react-pro", "marketplace", "react-vite", "nextjs", "node-express", "fastapi", "worker"} {
+		p, ok := Get(id)
+		if !ok || strings.Contains(p.Manifest, "/opt/services/postgres") || strings.Contains(p.Manifest, "initdb") {
+			t.Errorf("existing preset %s must not initialize/start PostgreSQL", id)
+		}
+		for _, capability := range p.Capabilities {
+			if strings.HasPrefix(capability, "postgresql") {
+				t.Errorf("existing preset %s unexpectedly requires PostgreSQL", id)
+			}
+		}
+	}
+}
+
 // worker preset ships an editable worker.sh and restarts the worker after each
 // task so code edits take effect without a manual restart.
 func TestWorkerPresetRestartsAfterTask(t *testing.T) {
