@@ -54,7 +54,7 @@ func TestAdoptRecoveryAuthenticatesWithoutImportReadyOrCutover(t *testing.T) {
 					}
 					_ = json.NewEncoder(w).Encode(map[string]any{"sandboxID": "known", "templateID": "trusted-template", "trafficAccessToken": "fixture-traffic", "metadata": map[string]string{"sandboxd_id": owner, "sandboxd_app_id": "durable-app", "sandboxd_migration": "offline-v1"}})
 				case "POST /sandboxes/known/connect":
-					_ = json.NewEncoder(w).Encode(map[string]string{"sandboxID": "known"})
+					_ = json.NewEncoder(w).Encode(map[string]string{"sandboxID": "known", "templateID": "trusted-template"})
 				case "GET /status":
 					statusCalls++
 					if r.Header.Get("Authorization") != "Bearer "+token || r.Header.Get("cube-traffic-access-token") != "fixture-traffic" {
