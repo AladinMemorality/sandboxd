@@ -64,7 +64,9 @@ and the same pnpm-cache cleanup. Under UID 1000 with Docker networking disabled,
 its declared `/health` endpoint returned successfully in 421 ms. Image identity
 and Python/FastAPI/uvicorn/watchfiles versions are recorded in the JSON. This
 validates the prepared image's offline starter; no FastAPI Cube template or
-production Python application was tested in this run.
+production Python application was tested in this run. The later
+[seven-preset matrix](reviewed-preset-matrix-2026-09-24.md) adds actual Cube
+FastAPI startup, pause/resume and private export checks.
 
 ## Evidence and limits
 
