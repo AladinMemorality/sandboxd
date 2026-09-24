@@ -1,0 +1,212 @@
+--- a/CubeMaster/pkg/service/sandbox/sandbox_info.go
++++ b/CubeMaster/pkg/service/sandbox/sandbox_info.go
+@@ -18,6 +18,7 @@
+ 	"github.com/tencentcloud/CubeSandbox/CubeMaster/pkg/errorcode"
+ 	"github.com/tencentcloud/CubeSandbox/CubeMaster/pkg/localcache"
+ 	"github.com/tencentcloud/CubeSandbox/CubeMaster/pkg/pausesnap"
++	"github.com/tencentcloud/CubeSandbox/CubeMaster/pkg/sandboxspec"
+ 	"github.com/tencentcloud/CubeSandbox/CubeMaster/pkg/service/sandbox/types"
+ 	"github.com/tencentcloud/CubeSandbox/pkgs/CubeLog"
+ 	"github.com/tencentcloud/CubeSandbox/pkgs/proto/services/cubebox/v1"
+@@ -290,19 +291,22 @@
+ 	default:
+ 		return false
+ 	}
+-	one := &types.SandboxData{
+-		SandboxID:   req.SandboxID,
+-		Status:      st,
+-		HostIP:      proxyMap.HostIP,
+-		SandboxIP:   proxyMap.SandboxIP,
+-		Annotations: ann,
+-		Containers: []*types.ContainerInfo{
+-			{
+-				ContainerID: req.SandboxID,
+-				Status:      st,
+-			},
+-		},
+-	}
++	// A pause binding proves lifecycle state, not template identity, ownership,
++	// or allocated resources. Preserve the authoritative node summary instead
++	// of replacing it with an empty synthetic container.
++	one := clonePausedSandboxData(rsp.Data, req.SandboxID)
++	if one == nil {
++		spec, specErr := sandboxspec.Get(ctx, req.SandboxID)
++		if specErr == nil && spec != nil {
++			one = pausedDataFromSpec(req.SandboxID, spec)
++		}
++	}
++	if one == nil {
++		one = &types.SandboxData{SandboxID: req.SandboxID}
++	}
++	applyPausedSandboxState(one, st, ann)
++	one.HostIP = proxyMap.HostIP
++	one.SandboxIP = proxyMap.SandboxIP
+ 	if n, exist := localcache.GetNodesByIp(proxyMap.HostIP); exist {
+ 		one.HostID = n.ID()
+ 	}
+--- /dev/null
++++ b/CubeMaster/pkg/service/sandbox/sandbox_info_paused.go
+@@ -0,0 +1,81 @@
++// Copyright (c) 2026 Tencent Inc.
++// SPDX-License-Identifier: Apache-2.0
++
++package sandbox
++
++import (
++	"github.com/tencentcloud/CubeSandbox/CubeMaster/pkg/base/constants"
++	"github.com/tencentcloud/CubeSandbox/CubeMaster/pkg/service/sandbox/types"
++)
++
++// clonePausedSandboxData only accepts the requested node record. A pause
++// binding must not borrow another sandbox's identity or resource allocation.
++func clonePausedSandboxData(rows []*types.SandboxData, id string) *types.SandboxData {
++	for _, row := range rows {
++		if row == nil || row.SandboxID != id {
++			continue
++		}
++		out := *row
++		out.Annotations = cloneStringMap(row.Annotations)
++		out.Labels = cloneStringMap(row.Labels)
++		out.Containers = nil
++		for _, c := range row.Containers {
++			if c != nil {
++				copy := *c
++				out.Containers = append(out.Containers, &copy)
++			}
++		}
++		return &out
++	}
++	return nil
++}
++
++func applyPausedSandboxState(row *types.SandboxData, state int32, annotations map[string]string) {
++	row.Status = state
++	if row.Annotations == nil {
++		row.Annotations = make(map[string]string)
++	}
++	for key, value := range annotations {
++		row.Annotations[key] = value
++	}
++	for _, c := range row.Containers {
++		c.Status = state
++	}
++}
++
++// pausedDataFromSpec is a fallback only when no node summary exists. Do not
++// resolve current template defaults: those need not match this sandbox's
++// allocation. Missing canonical fields stay unknown for callers to reject.
++// Never expose private create annotations (including env bootstrap tokens).
++func pausedDataFromSpec(id string, spec *types.CreateCubeSandboxReq) *types.SandboxData {
++	row := &types.SandboxData{
++		SandboxID:   id,
++		NameSpace:   spec.Namespace,
++		Labels:      cloneStringMap(spec.Labels),
++		Annotations: buildAnnotationsFromLabels(spec.Labels),
++		TemplateID:  templateIDFromLabels(spec.Labels),
++	}
++	if row.TemplateID == "" {
++		row.TemplateID = spec.Annotations[constants.CubeAnnotationAppSnapshotTemplateID]
++	}
++	for i, c := range spec.Containers {
++		if c == nil {
++			continue
++		}
++		info := &types.ContainerInfo{Name: c.Name, ContainerID: c.Id}
++		if i == 0 {
++			info.ContainerID = id
++		}
++		if c.Image != nil {
++			info.Image = c.Image.Image
++		}
++		if c.Resources != nil {
++			info.Cpu = c.Resources.Cpu
++			info.Mem = c.Resources.Mem
++			info.CpuMilli = parseCPUMilli(c.Resources.Cpu)
++			info.MemoryMiB = parseMemoryMiB(c.Resources.Mem)
++		}
++		row.Containers = append(row.Containers, info)
++	}
++	return row
++}
+--- /dev/null
++++ b/CubeMaster/pkg/service/sandbox/sandbox_info_paused_test.go
+@@ -0,0 +1,79 @@
++// Copyright (c) 2026 Tencent Inc.
++// SPDX-License-Identifier: Apache-2.0
++
++package sandbox
++
++import (
++	"testing"
++
++	"github.com/stretchr/testify/require"
++	"github.com/tencentcloud/CubeSandbox/CubeMaster/pkg/base/constants"
++	"github.com/tencentcloud/CubeSandbox/CubeMaster/pkg/service/sandbox/types"
++	"github.com/tencentcloud/CubeSandbox/pkgs/proto/services/cubebox/v1"
++)
++
++func TestPausedInfoRetainsActualAllocationAndIdentity(t *testing.T) {
++	original := &types.SandboxData{
++		SandboxID: "owned", TemplateID: "tpl-original", NameSpace: "default", EndAt: 123,
++		Labels:      map[string]string{"owner": "alice", "fixture": "restart"},
++		Annotations: map[string]string{"existing": "preserve"},
++		Containers:  []*types.ContainerInfo{{ContainerID: "owned", Cpu: "1500m", Mem: "3Gi", CpuMilli: 1500, MemoryMiB: 3072, CreateAt: 42, Status: 2}},
++	}
++	row := clonePausedSandboxData([]*types.SandboxData{nil, {SandboxID: "other"}, original}, "owned")
++	require.NotNil(t, row)
++	applyPausedSandboxState(row, int32(cubebox.ContainerState_CONTAINER_PAUSED), map[string]string{constants.CubeAnnotationPauseSnapshotID: "snap-owned"})
++	require.Equal(t, "tpl-original", row.TemplateID)
++	require.Equal(t, original.Labels, row.Labels)
++	require.Equal(t, "preserve", row.Annotations["existing"])
++	require.EqualValues(t, 1500, row.Containers[0].CpuMilli)
++	require.EqualValues(t, 3072, row.Containers[0].MemoryMiB)
++	require.EqualValues(t, 42, row.Containers[0].CreateAt)
++	require.EqualValues(t, 123, row.EndAt)
++	require.EqualValues(t, cubebox.ContainerState_CONTAINER_PAUSED, row.Status)
++	require.EqualValues(t, cubebox.ContainerState_CONTAINER_PAUSED, row.Containers[0].Status)
++	row.Labels["owner"] = "modified"
++	row.Annotations["existing"] = "modified"
++	row.Containers[0].CpuMilli = 99
++	require.Equal(t, "alice", original.Labels["owner"])
++	require.Equal(t, "preserve", original.Annotations["existing"])
++	require.EqualValues(t, 1500, original.Containers[0].CpuMilli)
++	require.EqualValues(t, 2, original.Containers[0].Status)
++}
++
++func TestPausedInfoDoesNotBorrowAnotherSandbox(t *testing.T) {
++	require.Nil(t, clonePausedSandboxData([]*types.SandboxData{{SandboxID: "other", TemplateID: "wrong", Labels: map[string]string{"owner": "bob"}}}, "owned"))
++}
++
++func TestPausedInfoCanonicalFallbackKeepsOnlyPublicIdentity(t *testing.T) {
++	spec := &types.CreateCubeSandboxReq{
++		Namespace: "default", Labels: map[string]string{"owner": "alice"},
++		Annotations:       map[string]string{constants.CubeAnnotationAppSnapshotTemplateID: "tpl-original", "cube.master.create_time_env_vars": "private-token"},
++		CreateTimeEnvVars: map[string]string{"RUNTIMED_HTTP_TOKEN": "private-token"},
++		Containers:        []*types.Container{{Name: "main", Resources: &types.Resource{Cpu: "2500m", Mem: "1536Mi"}}},
++	}
++	row := pausedDataFromSpec("owned", spec)
++	require.Equal(t, "tpl-original", row.TemplateID)
++	require.Equal(t, "owned", row.Containers[0].ContainerID)
++	require.EqualValues(t, 2500, row.Containers[0].CpuMilli)
++	require.EqualValues(t, 1536, row.Containers[0].MemoryMiB)
++	require.Equal(t, "alice", row.Labels["owner"])
++	require.NotContains(t, row.Annotations, "cube.master.create_time_env_vars")
++	row.Labels["owner"] = "changed"
++	require.Equal(t, "alice", spec.Labels["owner"])
++}
++
++func TestPausedInfoMissingCanonicalFieldsRemainUnknown(t *testing.T) {
++	row := pausedDataFromSpec("owned", &types.CreateCubeSandboxReq{})
++	applyPausedSandboxState(row, int32(cubebox.ContainerState_CONTAINER_PAUSED), nil)
++	require.Empty(t, row.TemplateID)
++	require.Empty(t, row.Labels)
++	require.Empty(t, row.Containers)
++	require.EqualValues(t, cubebox.ContainerState_CONTAINER_PAUSED, row.Status)
++}
++
++func TestPauseFailureDoesNotReportRunning(t *testing.T) {
++	row := clonePausedSandboxData([]*types.SandboxData{{SandboxID: "owned", Containers: []*types.ContainerInfo{{ContainerID: "owned", Status: 1}}}}, "owned")
++	applyPausedSandboxState(row, int32(cubebox.ContainerState_CONTAINER_UNKNOWN), map[string]string{constants.CubeAnnotationPauseError: "failed"})
++	require.EqualValues(t, cubebox.ContainerState_CONTAINER_UNKNOWN, row.Status)
++	require.EqualValues(t, cubebox.ContainerState_CONTAINER_UNKNOWN, row.Containers[0].Status)
++}

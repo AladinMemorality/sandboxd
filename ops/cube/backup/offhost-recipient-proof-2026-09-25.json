@@ -1,0 +1,19 @@
+{
+  "purpose": "synthetic encrypted off-host backup storage verification",
+  "object_key": "baarcha_db_backups/cube/recipient-verification-20260925-5C595C2637931730.gpg",
+  "customer_data": false,
+  "private_key_uploaded": false,
+  "ciphertext_sha256": "4bc9b80a6cdd5ce7e68e0c34fe2a0c9ade2028aa983da45404925a348ceaa361",
+  "ciphertext_bytes": 768,
+  "put_verified": true,
+  "get_verified": true,
+  "retained": true,
+  "cleanup_attempted": false,
+  "full_backup": false,
+  "recipient_fingerprint": "25017F865BE80AA7E7E8C8925C595C2637931730",
+  "public_key_sha256": "8f6f9e8c9f77ab0675ee43682fc5f9af9c552cabd551de17054c5002494e1d31",
+  "offhost_private_key_decryption_verified": true,
+  "original_plaintext_hash_verified": true,
+  "production_backup_created": false,
+  "redundant_key_custody_verified": false
+}

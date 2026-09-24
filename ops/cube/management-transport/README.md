@@ -158,3 +158,38 @@ Staging must retain exact image/package/unit hashes, socket owner/group/modes,
 namespace/recreation results, latency samples and cleanup counts. Synthetic
 transport latency excludes real Cube application startup and does not prove
 production isolation or fleet concurrency. No packet-isolation test is included.
+
+## Fresh-worker boundary acceptance
+
+The real fresh-worker API exposed a limit absent from the synthetic transport
+fixture: QEMU user networking drops the response when a client sends an early
+TCP write half-close. A direct socket to the host forward reproduced this
+without either relay: an ordinary request returned401; the same request followed
+by `SHUT_WR` returned no HTTP response. The relay half-close test remains valid
+for the relay itself, not for the complete QEMU path. Ordinary HTTP clients read
+the response before closing and are unaffected.
+
+The health probe now uses socat `STDIO,ignoreeof` to keep its request side open,
+with the same finite inactivity limit. The corrected immutable relay image is
+`sha256:0b0c246afeb8d343d25890bfe62d5f8af8aee528cb034a596733c3b338408327`.
+This changes only healthcheck behavior; the relay command, package and unit
+limits are unchanged. `accept-fresh-api.py` uses a separate controller namespace
+with no network interfaces beyond loopback, the real private sockets, and the
+actual fresh Cube API. Credentials travel through stdin only; response bodies
+are discarded. It verifies anonymous rejection, authenticated200, both actual
+sidecar health checks, no published ports and exact namespace sharing, then
+removes its containers and restores prior service activation. It never creates
+or changes a Cube guest or the production controller.
+
+### Actual Cube endpoint half-close limitation
+
+A later direct check of the installed worker endpoint found that QEMU SLIRP
+returns EOF without the HTTP response if the client sends the request and then
+immediately calls `SHUT_WR`; the same ordinary request without an early
+half-close returns the expected HTTP401. The synthetic fixture proves the two
+socat legs preserve half-close behavior against its owned listener. It does
+**not** establish half-close correctness through QEMU SLIRP or the full Cube API
+path. Production clients use ordinary HTTP. The health probe must retain its
+write side until the response completes, with a finite timeout; root is updating
+and testing that probe against the actual endpoint. No broader full-path
+half-close claim should be made from the synthetic transport results.

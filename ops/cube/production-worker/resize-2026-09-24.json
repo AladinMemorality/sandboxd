@@ -1,0 +1,14 @@
+{
+  "date": "2026-09-24",
+  "old_vm_process_absent": true,
+  "new_vm_service": "active",
+  "new_vm_boot_autostart": "disabled",
+  "host_mem_available_kib": 32512200,
+  "unit": [
+    "CPUQuotaPerSecUSec=10s",
+    "MemoryHigh=45097156608",
+    "MemoryMax=47244640256"
+  ],
+  "old_backup_path": "/opt/baarcha-bench/cube-20260917/retirement-20260924",
+  "old_disks_retained": true
+}

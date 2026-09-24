@@ -1,0 +1,6 @@
+/root/cube-production/retention-native-candidate/cubelet-candidate: mvmtap_x86_bpfel.o exact bytes present
+/root/cube-production/retention-native-candidate/cubelet-candidate: nodenic_x86_bpfel.o exact bytes present
+/root/cube-production/retention-native-candidate/cubelet-candidate: localgw_x86_bpfel.o exact bytes present
+/usr/local/services/cubetoolbox/Cubelet/bin/cubelet: mvmtap_x86_bpfel.o exact bytes present
+/usr/local/services/cubetoolbox/Cubelet/bin/cubelet: nodenic_x86_bpfel.o exact bytes present
+/usr/local/services/cubetoolbox/Cubelet/bin/cubelet: localgw_x86_bpfel.o exact bytes present

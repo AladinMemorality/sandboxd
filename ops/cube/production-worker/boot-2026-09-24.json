@@ -1,0 +1,229 @@
+{
+  "observed_at_utc": "2026-09-24T21:35:36Z",
+  "scope": "fresh dedicated VM boot only; no Cube/tenant/production-routing activation",
+  "plan": {
+    "status": "outer_vm_booted_cube_uninstalled",
+    "production_activation": false,
+    "name": "worker-01",
+    "release": {
+      "version": "v0.7.1",
+      "source_commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "url": "https://github.com/TencentCloud/CubeSandbox/releases/download/v0.7.1/cube-sandbox-one-click-v0.7.1-amd64.tar.gz",
+      "sha256": "a516ed71e90e273d03f053a26bbbf3932e0d747387fbccd25ec76f89b20bc0a1"
+    },
+    "vm_root": "/opt/baarcha-cube/worker-01",
+    "vm_data": "/mnt/nvme/baarcha-cube/worker-01",
+    "root_disk_gib": 120,
+    "data_disk_gib": 240,
+    "memory_mib": 24576,
+    "vcpus": 6,
+    "ports": {
+      "ssh": 20222,
+      "api": 20300,
+      "proxy": 20080
+    },
+    "listener_address": "127.0.0.1",
+    "guest_ipv4": "10.0.2.15",
+    "guest_direct_egress": "deny_all",
+    "worker_binary": "UNSELECTED",
+    "ubuntu_cloud_image_sha256": "612b2c0cc1bc413a6cb8c38fd611794caf0f2b436c50013d8b3794db12ad7354",
+    "dependency_image_digests": "UNSELECTED",
+    "fresh_template_ids": "UNREGISTERED",
+    "platform_transport": "UNCONFIGURED",
+    "capacity": {
+      "observed_fleet_projects": 61,
+      "observed_running_projects": 24,
+      "planned_active_guests": 7,
+      "additional_waking_guests": 2,
+      "guest_memory_mib": 2048,
+      "guest_cpu_millicores": 2000,
+      "controller_and_margin_mib": 6144,
+      "is_enforced_admission_limit": false
+    },
+    "ubuntu_cloud_image_url": "https://cloud-images.ubuntu.com/noble/20260911/noble-server-cloudimg-amd64.img"
+  },
+  "unit": {
+    "MainPID": "2118747",
+    "MemoryMax": "30064771072",
+    "MemorySwapMax": "0",
+    "ActiveState": "active",
+    "SubState": "running"
+  },
+  "autostart_enabled": false,
+  "guest": {
+    "hostname": "baarcha-cube-worker-01",
+    "kernel": "6.8.0-139-generic",
+    "cpus": 6,
+    "kvm": true,
+    "cube_installed": false,
+    "data_bytes": 257698037760,
+    "data_signatures": {
+      "signatures": []
+    },
+    "disk_layout": {
+      "blockdevices": [
+        {
+          "name": "sr0",
+          "size": 1073741312,
+          "type": "rom",
+          "fstype": null,
+          "mountpoints": [
+            null
+          ]
+        },
+        {
+          "name": "vda",
+          "size": 128849018880,
+          "type": "disk",
+          "fstype": null,
+          "mountpoints": [
+            null
+          ],
+          "children": [
+            {
+              "name": "vda1",
+              "size": 127774211584,
+              "type": "part",
+              "fstype": "ext4",
+              "mountpoints": [
+                "/"
+              ]
+            },
+            {
+              "name": "vda14",
+              "size": 4194304,
+              "type": "part",
+              "fstype": null,
+              "mountpoints": [
+                null
+              ]
+            },
+            {
+              "name": "vda15",
+              "size": 111149056,
+              "type": "part",
+              "fstype": "vfat",
+              "mountpoints": [
+                "/boot/efi"
+              ]
+            },
+            {
+              "name": "vda16",
+              "size": 957350400,
+              "type": "part",
+              "fstype": "ext4",
+              "mountpoints": [
+                "/boot"
+              ]
+            }
+          ]
+        },
+        {
+          "name": "vdb",
+          "size": 257698037760,
+          "type": "disk",
+          "fstype": null,
+          "mountpoints": [
+            null
+          ]
+        },
+        {
+          "name": "vdc",
+          "size": 374784,
+          "type": "disk",
+          "fstype": "iso9660",
+          "mountpoints": [
+            null
+          ]
+        }
+      ]
+    }
+  },
+  "image_signature": {
+    "keyring": "/usr/share/keyrings/ubuntu-cloudimage-keyring.gpg",
+    "signer_fingerprint": "D2EB44626FDDC30B513D5BB71A5D6C4C7DB87C81",
+    "status": "VALIDSIG; image digest matched signed SHA256SUMS"
+  },
+  "ssh": {
+    "private_key_path": "/opt/baarcha-cube/worker-01/operator-key",
+    "known_hosts_path": "/opt/baarcha-cube/worker-01/known_hosts",
+    "host_ed25519_fingerprint": "SHA256:iZh3Ua0tG0GSocR/ydJI57cnb9w27Q83c+xPPsNHpTA",
+    "trust_source": "matched ssh-keyscan against QEMU serial console before first authenticated login"
+  },
+  "root_disk_before_boot": {
+    "children": [
+      {
+        "name": "file",
+        "info": {
+          "children": [],
+          "virtual-size": 1884555264,
+          "filename": "root.qcow2",
+          "format": "file",
+          "actual-size": 1884512256,
+          "format-specific": {
+            "type": "file",
+            "data": {}
+          },
+          "dirty-flag": false
+        }
+      }
+    ],
+    "virtual-size": 128849018880,
+    "filename": "root.qcow2",
+    "cluster-size": 65536,
+    "format": "qcow2",
+    "actual-size": 1884512256,
+    "format-specific": {
+      "type": "qcow2",
+      "data": {
+        "compat": "1.1",
+        "compression-type": "zlib",
+        "lazy-refcounts": false,
+        "refcount-bits": 16,
+        "corrupt": false,
+        "extended-l2": false
+      }
+    },
+    "dirty-flag": false
+  },
+  "data_disk_before_boot": {
+    "children": [
+      {
+        "name": "file",
+        "info": {
+          "children": [],
+          "virtual-size": 200704,
+          "filename": "/mnt/nvme/baarcha-cube/worker-01/data.qcow2",
+          "format": "file",
+          "actual-size": 200704,
+          "format-specific": {
+            "type": "file",
+            "data": {}
+          },
+          "dirty-flag": false
+        }
+      }
+    ],
+    "virtual-size": 257698037760,
+    "filename": "/mnt/nvme/baarcha-cube/worker-01/data.qcow2",
+    "cluster-size": 65536,
+    "format": "qcow2",
+    "actual-size": 200704,
+    "format-specific": {
+      "type": "qcow2",
+      "data": {
+        "compat": "1.1",
+        "compression-type": "zlib",
+        "lazy-refcounts": false,
+        "refcount-bits": 16,
+        "corrupt": false,
+        "extended-l2": false
+      }
+    },
+    "dirty-flag": false
+  },
+  "production_routes_changed": false,
+  "host_firewall_changed": false,
+  "benchmark_vm_changed": false,
+  "data_disk_formatted": false
+}

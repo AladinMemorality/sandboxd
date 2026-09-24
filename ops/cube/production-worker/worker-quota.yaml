@@ -1,0 +1,11 @@
+# Apply these fields to Cubelet/dynamicconf/conf.yaml. Not a full configuration.
+# Requires durable controller admission: combined creating/waking/running <=12.
+# Count128 is a ceiling, not a storage-capacity claim. Require >=48GiB real free
+# space before allocations/imports; logical guest writable allowance stays10GiB.
+host:
+  quota:
+    mcpu_limit: 28000
+    mem_limit: "30Gi"
+    mvm_limit: 128
+    creation_concurrent_num: 1
+    paused_resource_release_ratio: 1.0

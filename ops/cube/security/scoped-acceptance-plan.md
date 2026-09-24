@@ -1,6 +1,14 @@
 # Proposed bounded isolation acceptance — not executed
 
-Status: preparation only, 2026-09-24. No acceptance attestation or deployment
+Update, 2026-09-24: the separately reviewed finite anonymous-map stage has now
+completed: 20 kernel cases passed, expiry was inconclusive on the fresh clock,
+and map-write failure retains separate userspace-only proof. See
+[exact fixture and evidence](anonymous/README.md). No attached/raw-packet trial
+was repeated. The ordinary owned-listener stage is separately authorized and
+being prepared; its results are not yet acceptance. The proposal below is
+retained as historical scope, including its original no-execution wording.
+
+Original status: preparation only, 2026-09-24. No acceptance attestation or deployment
 permission is conveyed by this document. An earlier automatic review rejected
 extended/raw-packet isolation trials; the original rejection text and rationale
 are unavailable. This proposal does **not** authorize retrying those scripts or

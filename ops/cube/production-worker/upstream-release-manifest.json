@@ -1,0 +1,102 @@
+{
+  "release_version": "v0.7.1-amd64",
+  "built_at": "2026-09-11T09:58:48Z",
+  "built_by": "github-actions",
+  "git_commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+  "components": {
+    "cubemaster": {
+      "version": "v0.7.1",
+      "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "build_time": "2026-09-11T09:58:48Z",
+      "digest_sha256": "sha256:6045a96ea76df0c40c9b669bbd873838a0749fe9e3ed1ca4f79ab095e72aeef7"
+    },
+    "cubemastercli": {
+      "version": "v0.7.1",
+      "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "build_time": "2026-09-11T09:58:48Z",
+      "digest_sha256": "sha256:0565f8d941a6ffda9f95f89968e031d16dbd92b490bd4367b635031425fc30ce"
+    },
+    "templatecenter": {
+      "version": "v0.7.1",
+      "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "build_time": "2026-09-11T09:58:48Z",
+      "digest_sha256": "sha256:8a18b2f3e485f4b5734536a9382c0ee88b193c86f20a5dbc713cc7b96cf3ded3"
+    },
+    "cubelet": {
+      "version": "v0.7.1",
+      "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "build_time": "2026-09-11T09:58:48Z",
+      "digest_sha256": "sha256:594a4d8c68395d0af744b6e86d43456889c0a6800bfed475779b5ecb1a7b8f00"
+    },
+    "cubecli": {
+      "version": "v0.7.1",
+      "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "build_time": "2026-09-11T09:58:48Z",
+      "digest_sha256": "sha256:3944214bf7fe5f17ed3b39ed7754ac3332acee9a70564e236d46d31929fda860"
+    },
+    "cube-api": {
+      "version": "v0.7.1",
+      "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "build_time": "2026-09-11T09:58:48Z",
+      "digest_sha256": "sha256:9bafe4e0702b2014bf81a837ed0cf385c0102f3f4b82efd646ed5a01c955f6a7"
+    },
+    "cubeops": {
+      "version": "v0.7.1",
+      "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "build_time": "2026-09-11T09:58:48Z",
+      "digest_sha256": "sha256:4a0637d279b35776135fb8ae4ad23b39f08cda52473d4cea3c5a190e663ed974"
+    },
+    "cubeopscli": {
+      "version": "v0.7.1",
+      "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "build_time": "2026-09-11T09:58:48Z",
+      "digest_sha256": "sha256:d5b733a06ec98987433337a58303165432ab3821b34871b08ff2ca712142f8bb"
+    },
+    "cube-agent": {
+      "version": "v0.7.1",
+      "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "build_time": "2026-09-11T09:58:48Z",
+      "digest_sha256": "sha256:deb7abfb9003f6b7d7de803ef2086c984ea8d8be0ea6dc7ff96c8ff7b0057df3"
+    },
+    "containerd-shim-cube-rs": {
+      "version": "v0.7.1",
+      "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "build_time": "2026-09-11T09:58:48Z",
+      "digest_sha256": "sha256:d72fa20dfc78c81e46ac3db3ee45b3216d9ad68e7627f4685ecd1f73e9cb13a1"
+    },
+    "cube-runtime": {
+      "version": "v0.7.1",
+      "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "build_time": "2026-09-11T09:58:48Z",
+      "digest_sha256": "sha256:8676d2a1a1cd79c46f22d3b4b8519e23b0d5800aec42fde8b4a98e011ef527e3"
+    },
+    "cube-egress": {
+      "version": "v0.7.1",
+      "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "build_time": "2026-09-11T09:58:48Z"
+    },
+    "cube-lifecycle-manager": {
+      "version": "v0.7.1",
+      "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "build_time": "2026-09-11T09:58:48Z"
+    },
+    "s3lvol": {
+      "version": "v0.7.1",
+      "commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+      "build_time": "2026-09-11T09:58:48Z",
+      "digest_sha256": "sha256:2578dbd9794ce42d9b73e34129b5297d07f969f85b4addf448392c7963e564ce"
+    }
+  },
+  "guest_image": {
+    "version": "guest-image-260820-1",
+    "digest_sha256": "sha256:8262a7eb9cacf423ea9c03f6bf3ae8921b00684f4a18022fe11792b37ea69228",
+    "base_image": "cube-sandbox-guest-image:one-click",
+    "agent_version": "v0.7.1"
+  },
+  "kernel": {
+    "version": "sha256-3ea4a05e2b74",
+    "vmlinux_digest_sha256": "sha256:3ea4a05e2b74e1b4baaafb21875c9ce0dde8fdfc435723f6c39a98735a64a5a4",
+    "pvm_version": "sha256-f9ecd86a05dd",
+    "vmlinux_pvm_digest_sha256": "sha256:f9ecd86a05ddefc56dc6ae4b5c3448bb6c96c46ccc82fe344c5199560d7adb71"
+  }
+}

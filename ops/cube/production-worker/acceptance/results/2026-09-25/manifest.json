@@ -1,0 +1,24 @@
+{
+  "api_binary_sha256": "ea7532f21f80fbde26ed1b9e8114b9147bf4b6be1d10bc0917597b2058da20cb",
+  "base_git_commit": "3b9f502b13b8cb323dd48121d049e3fe43cbd0c8",
+  "uncommitted_fixture_and_integration_changes": true,
+  "source_sha256": {
+    "ops/cube/production-worker/acceptance/postgres_acceptance_test.go": "78f7cc25e00a54a58c99f76f8c01e521efd9f54f20821bb259f3b9e602c480b1",
+    "ops/cube/production-worker/acceptance/reload_acceptance_test.go": "eb84f237f561adb2ee58c2d97bc780f285530578fed79eeb96991f00f1857093",
+    "scripts/vite-reload-regression.mjs": "67b4be8f54c5520ecaa3c3adf3bf32498da3f13bd3bdb8d33b068a3a06588448",
+    "ops/cube/production-worker/acceptance/run-api.sh": "4c3eba49a019b1e53d09cdf9ff3f5b67ef6d1942d550e8c3aa5f519cfb0371fd",
+    "ops/cube/production-worker/acceptance/api_preflight.py": "a97739d7ec4a35d67857ea2ad41f48dd2094000aa69400948f724f72e45a99d7"
+  },
+  "final_inventory": {
+    "nodes_scanned": 1,
+    "nodes_total": 1,
+    "sandbox_count": 0
+  },
+  "scope": "ordinary owned synthetic application functional tests; no power-loss execution or network attestation",
+  "api_test_command": "go test -c -o api-acceptance.test ./internal/api",
+  "build_limits": {
+    "cpu": 2,
+    "memory": "2GiB",
+    "network": "none"
+  }
+}

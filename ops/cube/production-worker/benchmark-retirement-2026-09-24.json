@@ -1,0 +1,144 @@
+{
+  "date": "2026-09-24",
+  "preserved_guest_id": "6d96feb3819a41aabbcb04e3058b056b",
+  "snapshot_id": "snap-4d5641643a124f35b70f66dc",
+  "paused_since": "2026-09-17T12:13:03Z",
+  "resumed": false,
+  "deleted": false,
+  "graceful_vm_shutdown": true,
+  "consistent_backup_files_verified": 9,
+  "private_backup_directory": "/opt/baarcha-bench/cube-20260917/retirement-20260924",
+  "paused_artifacts": [
+    {
+      "path": "/data/cubelet/storage/xfs/pause-snapshots/snap-4d5641643a124f35b70f66dc/metadata/metadata.json",
+      "bytes": 425,
+      "blocks": 8,
+      "sha256": "874192eb2ff4d191e4fa1cc5343d85dc9b9aac6f4a3a097c2829035ff1ec9b5a"
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/pause-snapshots/snap-4d5641643a124f35b70f66dc/metadata/sandbox_spec.json",
+      "bytes": 7161,
+      "blocks": 16,
+      "sha256": "a1a5ee295a7926d1cafe171fcce866c61bb479d708e96a1cbbdc10208b8ebd0f"
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/pause-snapshots/snap-4d5641643a124f35b70f66dc/metadata/catalog.json",
+      "bytes": 600,
+      "blocks": 8,
+      "sha256": "12b9b137b062aad271c10467100ef230c816b8dc74c2679df712ce3990607db9"
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/pause-snapshots/snap-4d5641643a124f35b70f66dc/metadata/snapshot/config.json",
+      "bytes": 3896,
+      "blocks": 8,
+      "sha256": "f4a0f4b1090e5c8feb77f2ab6a2bf4fc00a3e347eaf330d325533ca1870c489a"
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/pause-snapshots/snap-4d5641643a124f35b70f66dc/metadata/snapshot/state.json",
+      "bytes": 111997,
+      "blocks": 224,
+      "sha256": "704a0a85b533f5488953f218d03b0886bc7c8fab66ecf47c6d09f5187869da3d"
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-24179622d1114ce78b8f1b7f-build-rootfs/tpl-snap-4d5641643a124f35b70f66dc-rootfs",
+      "bytes": 2000000000,
+      "blocks": 8568,
+      "sha256": "00a7569c273b7e04629b78e41f26215d9af869634d53ff8310985f3afefa155a"
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-24179622d1114ce78b8f1b7f-memory/tpl-snap-4d5641643a124f35b70f66dc-memory",
+      "bytes": 2147483648,
+      "blocks": 676320,
+      "sha256": "e14b1960aaf20a70772c44bee153e92cfce5339758fe5c5c08ec178c47619dd3"
+    }
+  ],
+  "retained_disks": [
+    {
+      "path": "/mnt/nvme/baarcha-bench/cube-20260917/root.qcow2",
+      "inode": 1572868,
+      "size": 150727360512,
+      "blocks": 292108200,
+      "qemu": {
+        "children": [
+          {
+            "name": "file",
+            "info": {
+              "children": [],
+              "virtual-size": 150727360512,
+              "filename": "/mnt/nvme/baarcha-bench/cube-20260917/root.qcow2",
+              "format": "file",
+              "actual-size": 149559398400,
+              "format-specific": {
+                "type": "file",
+                "data": {}
+              },
+              "dirty-flag": false
+            }
+          }
+        ],
+        "backing-filename-format": "qcow2",
+        "virtual-size": 171798691840,
+        "filename": "/mnt/nvme/baarcha-bench/cube-20260917/root.qcow2",
+        "cluster-size": 65536,
+        "format": "qcow2",
+        "actual-size": 149559398400,
+        "format-specific": {
+          "type": "qcow2",
+          "data": {
+            "compat": "1.1",
+            "compression-type": "zlib",
+            "lazy-refcounts": false,
+            "refcount-bits": 16,
+            "corrupt": false,
+            "extended-l2": false
+          }
+        },
+        "full-backing-filename": "/mnt/nvme/baarcha-bench/cube-20260917/ubuntu-noble.img",
+        "backing-filename": "/mnt/nvme/baarcha-bench/cube-20260917/ubuntu-noble.img",
+        "dirty-flag": false
+      }
+    },
+    {
+      "path": "/mnt/nvme/baarcha-bench/cube-20260917/data.qcow2",
+      "inode": 1572869,
+      "size": 98319335424,
+      "blocks": 191799888,
+      "qemu": {
+        "children": [
+          {
+            "name": "file",
+            "info": {
+              "children": [],
+              "virtual-size": 98319335424,
+              "filename": "/mnt/nvme/baarcha-bench/cube-20260917/data.qcow2",
+              "format": "file",
+              "actual-size": 98201542656,
+              "format-specific": {
+                "type": "file",
+                "data": {}
+              },
+              "dirty-flag": false
+            }
+          }
+        ],
+        "virtual-size": 107374182400,
+        "filename": "/mnt/nvme/baarcha-bench/cube-20260917/data.qcow2",
+        "cluster-size": 65536,
+        "format": "qcow2",
+        "actual-size": 98201542656,
+        "format-specific": {
+          "type": "qcow2",
+          "data": {
+            "compat": "1.1",
+            "compression-type": "zlib",
+            "lazy-refcounts": false,
+            "refcount-bits": 16,
+            "corrupt": false,
+            "extended-l2": false
+          }
+        },
+        "dirty-flag": false
+      }
+    }
+  ]
+}

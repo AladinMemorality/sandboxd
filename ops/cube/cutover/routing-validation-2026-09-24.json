@@ -1,0 +1,24 @@
+{
+  "source_sha256": "cd880ebf57e3e17e9f021c00c2979320501a0087f7086767c6d5b13bb6b97b81",
+  "candidates": [
+    {
+      "phase": "drain",
+      "candidate_sha256": "6146bc183c073ead6a5e43f64b25b459b9bfa3394427c2f04cdb8624b43c8d73",
+      "adapted": true,
+      "validated": true,
+      "activated": false
+    },
+    {
+      "phase": "offline",
+      "candidate_sha256": "6a0bec797bb1dd0fc6de0e054153173b4a3727f030371d9e3d46df8ee1565a78",
+      "adapted": true,
+      "validated": true,
+      "activated": false
+    }
+  ],
+  "ports": {
+    "runtime": "127.0.0.1:9090",
+    "traefik": "127.0.0.1:8091"
+  },
+  "isolated_routing_tests": "3/3 passed (52 HTTP assertions, named and fallback handles)"
+}

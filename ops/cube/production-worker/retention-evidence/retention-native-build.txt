@@ -1,0 +1,4 @@
+go: downloading github.com/stretchr/testify v1.11.1
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/storage	5.098s
+254b5e7b11c7c6f865e3e1816c3737a4041424b7e84b5aba7dc406e596eecbed  cubelet-candidate
+Candidate built and tested only; running service and original source unchanged.

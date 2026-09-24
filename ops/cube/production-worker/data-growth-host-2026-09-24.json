@@ -1,0 +1,318 @@
+{
+  "before": {
+    "query_block": {
+      "return": [
+        {
+          "io-status": "ok",
+          "device": "virtio0",
+          "locked": false,
+          "removable": false,
+          "inserted": {
+            "iops_rd": 0,
+            "detect_zeroes": "off",
+            "image": {
+              "virtual-size": 128849018880,
+              "filename": "/opt/baarcha-cube/worker-01/root.qcow2",
+              "cluster-size": 65536,
+              "format": "qcow2",
+              "actual-size": 51883630592,
+              "format-specific": {
+                "type": "qcow2",
+                "data": {
+                  "compat": "1.1",
+                  "compression-type": "zlib",
+                  "lazy-refcounts": false,
+                  "refcount-bits": 16,
+                  "corrupt": false,
+                  "extended-l2": false
+                }
+              },
+              "dirty-flag": false
+            },
+            "iops_wr": 0,
+            "ro": false,
+            "node-name": "#block164",
+            "backing_file_depth": 0,
+            "drv": "qcow2",
+            "iops": 0,
+            "bps_wr": 0,
+            "write_threshold": 0,
+            "encrypted": false,
+            "bps": 0,
+            "bps_rd": 0,
+            "cache": {
+              "no-flush": false,
+              "direct": false,
+              "writeback": true
+            },
+            "file": "/opt/baarcha-cube/worker-01/root.qcow2"
+          },
+          "qdev": "/machine/peripheral-anon/device[1]/virtio-backend",
+          "type": "unknown"
+        },
+        {
+          "io-status": "ok",
+          "device": "virtio1",
+          "locked": false,
+          "removable": false,
+          "inserted": {
+            "iops_rd": 0,
+            "detect_zeroes": "off",
+            "image": {
+              "virtual-size": 257698037760,
+              "filename": "/mnt/nvme/baarcha-cube/worker-01/data.qcow2",
+              "cluster-size": 65536,
+              "format": "qcow2",
+              "actual-size": 34853408768,
+              "format-specific": {
+                "type": "qcow2",
+                "data": {
+                  "compat": "1.1",
+                  "compression-type": "zlib",
+                  "lazy-refcounts": false,
+                  "refcount-bits": 16,
+                  "corrupt": false,
+                  "extended-l2": false
+                }
+              },
+              "dirty-flag": false
+            },
+            "iops_wr": 0,
+            "ro": false,
+            "node-name": "#block354",
+            "backing_file_depth": 0,
+            "drv": "qcow2",
+            "iops": 0,
+            "bps_wr": 0,
+            "write_threshold": 0,
+            "encrypted": false,
+            "bps": 0,
+            "bps_rd": 0,
+            "cache": {
+              "no-flush": false,
+              "direct": false,
+              "writeback": true
+            },
+            "file": "/mnt/nvme/baarcha-cube/worker-01/data.qcow2"
+          },
+          "qdev": "/machine/peripheral-anon/device[2]/virtio-backend",
+          "type": "unknown"
+        },
+        {
+          "io-status": "ok",
+          "device": "virtio2",
+          "locked": false,
+          "removable": false,
+          "inserted": {
+            "iops_rd": 0,
+            "detect_zeroes": "off",
+            "image": {
+              "virtual-size": 374784,
+              "filename": "/opt/baarcha-cube/worker-01/seed.img",
+              "format": "raw",
+              "actual-size": 376832,
+              "dirty-flag": false
+            },
+            "iops_wr": 0,
+            "ro": true,
+            "node-name": "#block523",
+            "backing_file_depth": 0,
+            "drv": "raw",
+            "iops": 0,
+            "bps_wr": 0,
+            "write_threshold": 0,
+            "encrypted": false,
+            "bps": 0,
+            "bps_rd": 0,
+            "cache": {
+              "no-flush": false,
+              "direct": false,
+              "writeback": true
+            },
+            "file": "/opt/baarcha-cube/worker-01/seed.img"
+          },
+          "qdev": "/machine/peripheral-anon/device[3]/virtio-backend",
+          "type": "unknown"
+        },
+        {
+          "io-status": "ok",
+          "device": "ide2-cd0",
+          "locked": false,
+          "removable": true,
+          "qdev": "/machine/unattached/device[29]",
+          "tray_open": false,
+          "type": "unknown"
+        },
+        {
+          "device": "sd0",
+          "locked": false,
+          "removable": true,
+          "type": "unknown"
+        }
+      ]
+    },
+    "file": "/mnt/nvme/baarcha-cube/worker-01/data.qcow2",
+    "inode": 3932163,
+    "bytes": 34853224448,
+    "allocated_bytes": 34853408768,
+    "outer_free_bytes": 514732539904
+  },
+  "after": {
+    "query_block": {
+      "return": [
+        {
+          "io-status": "ok",
+          "device": "virtio0",
+          "locked": false,
+          "removable": false,
+          "inserted": {
+            "iops_rd": 0,
+            "detect_zeroes": "off",
+            "image": {
+              "virtual-size": 128849018880,
+              "filename": "/opt/baarcha-cube/worker-01/root.qcow2",
+              "cluster-size": 65536,
+              "format": "qcow2",
+              "actual-size": 51883761664,
+              "format-specific": {
+                "type": "qcow2",
+                "data": {
+                  "compat": "1.1",
+                  "compression-type": "zlib",
+                  "lazy-refcounts": false,
+                  "refcount-bits": 16,
+                  "corrupt": false,
+                  "extended-l2": false
+                }
+              },
+              "dirty-flag": false
+            },
+            "iops_wr": 0,
+            "ro": false,
+            "node-name": "#block164",
+            "backing_file_depth": 0,
+            "drv": "qcow2",
+            "iops": 0,
+            "bps_wr": 0,
+            "write_threshold": 0,
+            "encrypted": false,
+            "bps": 0,
+            "bps_rd": 0,
+            "cache": {
+              "no-flush": false,
+              "direct": false,
+              "writeback": true
+            },
+            "file": "/opt/baarcha-cube/worker-01/root.qcow2"
+          },
+          "qdev": "/machine/peripheral-anon/device[1]/virtio-backend",
+          "type": "unknown"
+        },
+        {
+          "io-status": "ok",
+          "device": "virtio1",
+          "locked": false,
+          "removable": false,
+          "inserted": {
+            "iops_rd": 0,
+            "detect_zeroes": "off",
+            "image": {
+              "virtual-size": 343597383680,
+              "filename": "/mnt/nvme/baarcha-cube/worker-01/data.qcow2",
+              "cluster-size": 65536,
+              "format": "qcow2",
+              "actual-size": 34853416960,
+              "format-specific": {
+                "type": "qcow2",
+                "data": {
+                  "compat": "1.1",
+                  "compression-type": "zlib",
+                  "lazy-refcounts": false,
+                  "refcount-bits": 16,
+                  "corrupt": false,
+                  "extended-l2": false
+                }
+              },
+              "dirty-flag": false
+            },
+            "iops_wr": 0,
+            "ro": false,
+            "node-name": "#block354",
+            "backing_file_depth": 0,
+            "drv": "qcow2",
+            "iops": 0,
+            "bps_wr": 0,
+            "write_threshold": 0,
+            "encrypted": false,
+            "bps": 0,
+            "bps_rd": 0,
+            "cache": {
+              "no-flush": false,
+              "direct": false,
+              "writeback": true
+            },
+            "file": "/mnt/nvme/baarcha-cube/worker-01/data.qcow2"
+          },
+          "qdev": "/machine/peripheral-anon/device[2]/virtio-backend",
+          "type": "unknown"
+        },
+        {
+          "io-status": "ok",
+          "device": "virtio2",
+          "locked": false,
+          "removable": false,
+          "inserted": {
+            "iops_rd": 0,
+            "detect_zeroes": "off",
+            "image": {
+              "virtual-size": 374784,
+              "filename": "/opt/baarcha-cube/worker-01/seed.img",
+              "format": "raw",
+              "actual-size": 376832,
+              "dirty-flag": false
+            },
+            "iops_wr": 0,
+            "ro": true,
+            "node-name": "#block523",
+            "backing_file_depth": 0,
+            "drv": "raw",
+            "iops": 0,
+            "bps_wr": 0,
+            "write_threshold": 0,
+            "encrypted": false,
+            "bps": 0,
+            "bps_rd": 0,
+            "cache": {
+              "no-flush": false,
+              "direct": false,
+              "writeback": true
+            },
+            "file": "/opt/baarcha-cube/worker-01/seed.img"
+          },
+          "qdev": "/machine/peripheral-anon/device[3]/virtio-backend",
+          "type": "unknown"
+        },
+        {
+          "io-status": "ok",
+          "device": "ide2-cd0",
+          "locked": false,
+          "removable": true,
+          "qdev": "/machine/unattached/device[29]",
+          "tray_open": false,
+          "type": "unknown"
+        },
+        {
+          "device": "sd0",
+          "locked": false,
+          "removable": true,
+          "type": "unknown"
+        }
+      ]
+    },
+    "file": "/mnt/nvme/baarcha-cube/worker-01/data.qcow2",
+    "inode": 3932163,
+    "bytes": 34853486592,
+    "allocated_bytes": 34853675008,
+    "outer_free_bytes": 514742448128
+  }
+}

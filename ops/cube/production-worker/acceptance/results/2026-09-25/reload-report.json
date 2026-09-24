@@ -1,0 +1,43 @@
+{
+  "direct_nic_egress_enabled": false,
+  "guest": {
+    "complete": true,
+    "patch_application": "preinstalled-pnpm-patch",
+    "patch_atomic": null,
+    "production_accepted": false,
+    "results": [
+      {
+        "env_reload_ms": 2283,
+        "exit_code": 0,
+        "passed": true,
+        "pending_requests": 1,
+        "restarting": false,
+        "shutdown_passed": true,
+        "variant": "patched-cold-1"
+      },
+      {
+        "env_reload_ms": 2266,
+        "exit_code": 0,
+        "passed": true,
+        "pending_requests": 1,
+        "restarting": false,
+        "shutdown_passed": true,
+        "variant": "patched-cold-2"
+      },
+      {
+        "env_reload_ms": 2159,
+        "exit_code": 0,
+        "passed": true,
+        "pending_requests": 1,
+        "restarting": false,
+        "shutdown_passed": true,
+        "variant": "patched-cold-3"
+      }
+    ],
+    "version": "5.4.21"
+  },
+  "network_isolation_accepted": false,
+  "production_accepted": false,
+  "template": "tpl-98b45d63cfcc48c5b6ba9104",
+  "vm_deleted": true
+}

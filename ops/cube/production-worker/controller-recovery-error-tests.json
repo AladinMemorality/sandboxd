@@ -1,0 +1,44 @@
+{
+  "change": "Typed fail-closed runtime recovery error; preserve charged admission and never create a replacement implicitly",
+  "files": {
+    "control-plane/internal/cube/client.go": "aa5895f91a57a680d6a73a5ec7a0b59ec9f7d9d021ce988239bf94f47a6a60aa",
+    "control-plane/internal/cube/recovery_test.go": "0105bded656b69c2ebb6b24080b5bae188e62d40593e30571a69a6be908d3b96",
+    "control-plane/internal/store/cube_recovery_test.go": "9823be1fb29fdb7f6deda206233e76b524b35359dad0a4a6ef474114f1dd33b6",
+    "control-plane/internal/api/cube_admission_errors.go": "2315ba97840101f8a8ba38fbac8bdb6f0bd447b6844a62fb08d9b967591910c1",
+    "control-plane/internal/api/cube_recovery_errors_test.go": "bc33a1459358eb4b45415276b38f783f3dfd6b6830399eb981a54146b7bb1f66"
+  },
+  "toolchain": "Go 1.22, Docker golang:1.22-bookworm",
+  "tests": [
+    {
+      "command": "go test -race ./internal/cube -count=1",
+      "result": "pass",
+      "seconds": 1.2
+    },
+    {
+      "command": "go test -race ./internal/store -count=1",
+      "result": "pass",
+      "seconds": 2.332
+    },
+    {
+      "command": "go test -race ./internal/api -count=1",
+      "result": "pass",
+      "seconds": 33.943
+    }
+  ],
+  "environment": {
+    "cpu_limit": 2,
+    "memory_limit": "4 GiB",
+    "api_TMPDIR": "512 MiB executable tmpfs",
+    "source_copy": "/opt/baarcha-cube/worker-01/controller-state-candidate"
+  },
+  "reruns": [
+    "Initial API run on RAID-backed /tmp stopped after slow fsync; no code failure observed",
+    "First tmpfs run failed two existing contract tests because copied source lacked docs/openapi.yaml; supplied exact fixture and full API rerun passed"
+  ],
+  "coverage": [
+    "stopped/unknown response produces typed error, including absent template metadata",
+    "wrong sandbox ID still rejected",
+    "unavailable connect performs no POST, retains unchanged charged reservation, and prevents excess admission",
+    "public API maps wrapped private error to generic 503 runtime_recovery_required without secret details"
+  ]
+}

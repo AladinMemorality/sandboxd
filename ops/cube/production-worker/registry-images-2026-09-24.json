@@ -1,0 +1,66 @@
+[
+  {
+    "preset": "node-postgres",
+    "tag": "127.0.0.1:5000/baarcha/node-postgres:20260924-v4-final",
+    "image_id": "sha256:b72798aaa51aa770dc9c950eefb1f0ea5fd17fc9454e6b94c1b8bf4be7f40e85",
+    "digest": "127.0.0.1:5000/baarcha/node-postgres@sha256:b72798aaa51aa770dc9c950eefb1f0ea5fd17fc9454e6b94c1b8bf4be7f40e85",
+    "cpu": 2,
+    "memory_mb": 2048
+  },
+  {
+    "preset": "react-pro",
+    "tag": "127.0.0.1:5000/baarcha/react-pro:20260924-v4-final",
+    "image_id": "sha256:82bcbc1f26582cbe3bcb2119d1d462db7d9920aa7575dc4964c49fc42f6c1a43",
+    "digest": "127.0.0.1:5000/baarcha/react-pro@sha256:82bcbc1f26582cbe3bcb2119d1d462db7d9920aa7575dc4964c49fc42f6c1a43",
+    "cpu": 2,
+    "memory_mb": 2048
+  },
+  {
+    "preset": "marketplace",
+    "tag": "127.0.0.1:5000/baarcha/marketplace:20260924-v4-final",
+    "image_id": "sha256:8ae36753b770bac06b49ef75d266ff5074fd30e567ebc1857e281e4ae9b566d4",
+    "digest": "127.0.0.1:5000/baarcha/marketplace@sha256:8ae36753b770bac06b49ef75d266ff5074fd30e567ebc1857e281e4ae9b566d4",
+    "cpu": 2,
+    "memory_mb": 2048
+  },
+  {
+    "preset": "react-vite",
+    "tag": "127.0.0.1:5000/baarcha/react-vite:20260924-v4-final",
+    "image_id": "sha256:b8ece62881111a7c1b6ce3efaaf13960818a53b54cf03c10454dba8938a68c96",
+    "digest": "127.0.0.1:5000/baarcha/react-vite@sha256:b8ece62881111a7c1b6ce3efaaf13960818a53b54cf03c10454dba8938a68c96",
+    "cpu": 2,
+    "memory_mb": 2048
+  },
+  {
+    "preset": "nextjs",
+    "tag": "127.0.0.1:5000/baarcha/nextjs:20260924-v4-final",
+    "image_id": "sha256:a6026ccaf642bdf82d8d94aed3681c6d6b34a2e6d46d259f52a0a860ecfd233a",
+    "digest": "127.0.0.1:5000/baarcha/nextjs@sha256:a6026ccaf642bdf82d8d94aed3681c6d6b34a2e6d46d259f52a0a860ecfd233a",
+    "cpu": 2,
+    "memory_mb": 2048
+  },
+  {
+    "preset": "node-express",
+    "tag": "127.0.0.1:5000/baarcha/node-express:20260924-v4-final",
+    "image_id": "sha256:25b6a882d49edd2a52843d17a6510229890dfa836dbc9db7199deb21134061fb",
+    "digest": "127.0.0.1:5000/baarcha/node-express@sha256:25b6a882d49edd2a52843d17a6510229890dfa836dbc9db7199deb21134061fb",
+    "cpu": 2,
+    "memory_mb": 2048
+  },
+  {
+    "preset": "fastapi",
+    "tag": "127.0.0.1:5000/baarcha/fastapi:20260924-v4-final",
+    "image_id": "sha256:bbc7fe7dab61546df715c1253c816ca3ab96a3259e2c3a92132068ef2bd16613",
+    "digest": "127.0.0.1:5000/baarcha/fastapi@sha256:bbc7fe7dab61546df715c1253c816ca3ab96a3259e2c3a92132068ef2bd16613",
+    "cpu": 2,
+    "memory_mb": 2048
+  },
+  {
+    "preset": "worker",
+    "tag": "127.0.0.1:5000/baarcha/worker:20260924-v4-final",
+    "image_id": "sha256:d6947de9c563fbc408e1115dbe5d1d118672b7ef9bb792ac8925e575e96367b7",
+    "digest": "127.0.0.1:5000/baarcha/worker@sha256:d6947de9c563fbc408e1115dbe5d1d118672b7ef9bb792ac8925e575e96367b7",
+    "cpu": 2,
+    "memory_mb": 2048
+  }
+]

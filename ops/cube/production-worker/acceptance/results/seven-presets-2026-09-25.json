@@ -1,0 +1,215 @@
+{
+  "binary_sha256": "ff785b3b35984b1c9c306c31d8794733013a13b07902a70dfb4b16fa8b6b3d3f",
+  "results": [
+    {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "react_html_and_transformed_entrypoint",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "cpu_count": 2,
+      "delete_verified_http404": true,
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "memory_mb": 2048,
+      "preset": "react-pro",
+      "sandbox_id": "4e810c52b78d40bca1886bae52d2779e",
+      "scope": "single fresh authenticated Cube starter, frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; timing is a single sample, not a percentile or owner-workload claim",
+      "template": "tpl-98b45d63cfcc48c5b6ba9104",
+      "timings": {
+        "connect_ms": 830,
+        "create_ms": 537,
+        "create_to_ready_ms": 6815,
+        "pause_ms": 454,
+        "resume_to_page_ms": 975,
+        "resume_to_ready_ms": 878
+      },
+      "workspace_archive_bytes": 43485069,
+      "workspace_digest": "0c876f127ecabc3d189f8af03c2f97416c5e6f61050481fc4e3ddb94fff1071a"
+    },
+    {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "react_html_and_transformed_entrypoint",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "cpu_count": 2,
+      "delete_verified_http404": true,
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "memory_mb": 2048,
+      "preset": "marketplace",
+      "sandbox_id": "c7c82fd1c71b46c1a6f5a9633bf80aab",
+      "scope": "single fresh authenticated Cube starter, frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; timing is a single sample, not a percentile or owner-workload claim",
+      "template": "tpl-af77de3e32d742d6946d729c",
+      "timings": {
+        "connect_ms": 870,
+        "create_ms": 945,
+        "create_to_ready_ms": 10701,
+        "pause_ms": 270,
+        "resume_to_page_ms": 1481,
+        "resume_to_ready_ms": 937
+      },
+      "workspace_archive_bytes": 42881908,
+      "workspace_digest": "82e27e51038cc607e9eb1e1100e2459f8d654757d9ba4470105b1d236049028c"
+    },
+    {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "react_html_and_transformed_entrypoint",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "cpu_count": 2,
+      "delete_verified_http404": true,
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "memory_mb": 2048,
+      "preset": "react-vite",
+      "sandbox_id": "bfd7aa6dadfe4b1685985a4c921a3f3c",
+      "scope": "single fresh authenticated Cube starter, frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; timing is a single sample, not a percentile or owner-workload claim",
+      "template": "tpl-5abec4cb4fcc41cc8e611f69",
+      "timings": {
+        "connect_ms": 826,
+        "create_ms": 1025,
+        "create_to_ready_ms": 7859,
+        "pause_ms": 233,
+        "resume_to_page_ms": 966,
+        "resume_to_ready_ms": 885
+      },
+      "workspace_archive_bytes": 18131050,
+      "workspace_digest": "37a502c5f83b369d1f0fde57a876e0d884197364ad7518d9ee45bcca3415d46c"
+    },
+    {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "next_server_rendered_html",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "cpu_count": 2,
+      "delete_verified_http404": true,
+      "home_archive_bytes": 3031,
+      "home_digest": "f7f4eb93b9f734503ffb6db8e170425043531d3526b7deb675a7bae3cc7950de",
+      "memory_mb": 2048,
+      "preset": "nextjs",
+      "sandbox_id": "b077c124ef13422e9da84b2657976364",
+      "scope": "single fresh authenticated Cube starter, frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; timing is a single sample, not a percentile or owner-workload claim",
+      "template": "tpl-1e84e515952f4ef996dcb546",
+      "timings": {
+        "connect_ms": 889,
+        "create_ms": 1046,
+        "create_to_ready_ms": 22172,
+        "pause_ms": 322,
+        "resume_to_page_ms": 3455,
+        "resume_to_ready_ms": 962
+      },
+      "workspace_archive_bytes": 73373357,
+      "workspace_digest": "c973cbee1fe28014f8294efe12f60206f0b9f7faee07f3e3691fe942f04944c2"
+    },
+    {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "backend_health_and_root_routes",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "cpu_count": 2,
+      "delete_verified_http404": true,
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "memory_mb": 2048,
+      "preset": "node-express",
+      "sandbox_id": "0e67a1789b524e1091550a65c864c411",
+      "scope": "single fresh authenticated Cube starter, frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; timing is a single sample, not a percentile or owner-workload claim",
+      "template": "tpl-54737fedc9074c0f887c6ac5",
+      "timings": {
+        "connect_ms": 745,
+        "create_ms": 1124,
+        "create_to_ready_ms": 7918,
+        "pause_ms": 224,
+        "resume_to_page_ms": 812,
+        "resume_to_ready_ms": 769
+      },
+      "workspace_archive_bytes": 1123627,
+      "workspace_digest": "94fd0936624652a34f15ca4075e2ec63397f5d0fc59aff6a6ebbc0a963eb8099"
+    },
+    {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "backend_health_and_root_routes",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "cpu_count": 2,
+      "delete_verified_http404": true,
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "memory_mb": 2048,
+      "preset": "fastapi",
+      "sandbox_id": "36963b99b62745f5a37abb0097b95509",
+      "scope": "single fresh authenticated Cube starter, frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; timing is a single sample, not a percentile or owner-workload claim",
+      "template": "tpl-d1d9d24fe26641f7812e1287",
+      "timings": {
+        "connect_ms": 784,
+        "create_ms": 1069,
+        "create_to_ready_ms": 7992,
+        "pause_ms": 316,
+        "resume_to_page_ms": 903,
+        "resume_to_ready_ms": 809
+      },
+      "workspace_archive_bytes": 10166531,
+      "workspace_digest": "efa65c9861c2a5c73ac0151b0b9581869451a66bd4fff785f1cde6895b0c2117"
+    },
+    {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "worker_only_no_preview",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "cpu_count": 2,
+      "delete_verified_http404": true,
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "memory_mb": 2048,
+      "preset": "worker",
+      "sandbox_id": "439e0063ab7b48fab4d17a1cbb8bce8c",
+      "scope": "single fresh authenticated Cube starter, frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; timing is a single sample, not a percentile or owner-workload claim",
+      "template": "tpl-47a3d334cd8d4003859d7813",
+      "timings": {
+        "connect_ms": 774,
+        "create_ms": 1155,
+        "create_to_ready_ms": 1765,
+        "pause_ms": 152,
+        "resume_to_page_ms": 806,
+        "resume_to_ready_ms": 806
+      },
+      "workspace_archive_bytes": 3353,
+      "workspace_digest": "2ffe2e6ef343c63c2e0e6168d16dfd35d22709b5e0b2a2f21125fe016054e7d0"
+    }
+  ]
+}
