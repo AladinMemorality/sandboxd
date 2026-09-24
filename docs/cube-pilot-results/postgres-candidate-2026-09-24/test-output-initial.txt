@@ -1,0 +1,7 @@
+=== RUN   TestOperatorCubePostgresLifecycle
+    operator_postgres_test.go:182: source ready
+    operator_postgres_test.go:244: remix ready
+    operator_postgres_test.go:284: source resumed ready
+    operator_postgres_test.go:351: notes HTTP502 expected1 entries
+--- FAIL: TestOperatorCubePostgresLifecycle (27.91s)
+FAIL

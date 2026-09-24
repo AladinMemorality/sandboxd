@@ -1,0 +1,7 @@
+=== RUN   TestOperatorCubePostgresLifecycle
+    operator_postgres_test.go:187: source ready
+    operator_postgres_test.go:249: remix ready
+    operator_postgres_test.go:289: source resumed ready
+    operator_postgres_test.go:406: PASS optional PostgreSQL: write/read, pause/resume, reexec, private source restore, fresh source remix, cold fullhome roundtrip; no model calls
+--- PASS: TestOperatorCubePostgresLifecycle (32.92s)
+PASS

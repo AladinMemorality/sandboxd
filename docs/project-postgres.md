@@ -36,6 +36,16 @@ use an image containing `/opt/services/postgres`; the older production base does
 not provide this optional capability. Preserve that image reference in backups
 and migration plans rather than silently falling back to an incompatible base.
 
+For an existing Cube project, editing `sandbox.yaml` alone does not activate a
+new worker: pause/resume deliberately retains the running supervisor and its
+loaded manifest. Once the agent task has finished, request the authenticated
+`POST /v1/sandboxes/{id}/recreate` operation with `{"reload_manifest":true}`.
+The control plane reexecutes the supervisor in the same VM using current app
+configuration and the reviewed manifest revision. Identical repeated requests
+are idempotent. This preserves private PostgreSQL data; deleting the sandbox to
+reload its manifest is not equivalent. New `node-postgres` projects already load
+their database worker on first startup and do not need this activation step.
+
 Server code can use:
 
 ```js

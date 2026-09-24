@@ -57,8 +57,13 @@ compatibility or application health.
 
 PostgreSQL is an **opt-in capability**, exposed by the `node-postgres` starter
 or an intentionally added worker. The existing seven starters and the default
-React Pro selection do not start or initialize a database. Runtime support is
-being validated independently of global routing. Owner source restore now
+React Pro selection do not start or initialize a database. The actual v4
+[PostgreSQL candidate fixture](../../docs/cube-pilot-results/postgres-candidate-2026-09-24/README.md)
+passed SQL persistence across pause/resume, supervisor reexec, explicit manifest
+activation, source restore, and quiesced full-home export/import. A fresh source
+remix had an empty database, and repeated identical manifest activation did not
+restart the app. This synthetic acceptance is independent of global routing.
+Owner source restore now
 imports into the existing Cube VM instead of deleting its private home; it
 rejects active tasks and incompatible templates. Remixes retain the separate
 fresh-VM contract and do not inherit private database contents.
