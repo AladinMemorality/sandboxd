@@ -35,21 +35,37 @@ def image(name):
  return s['images'][name]
 def env():
  return dict(line.split('=',1) for line in (root/'src/.env').read_text().splitlines() if '=' in line)
+def config():
+ e=env(); services={'sandboxd':{'environment':e,'ports':[{'target':9000,'published':e['TEST_PORT'],'host_ip':'127.0.0.1'}]}}
+ for name in ('runtime-compose.json','active-images.json'):
+  p=root/'deploy-state'/name
+  if not p.exists():continue
+  for service, fields in json.loads(p.read_text())['services'].items():
+   target=services.setdefault(service,{})
+   for key,value in fields.items():
+    if key=='environment':target.setdefault(key,{}).update(value)
+    else:target[key]=value
+ return {'services':services}
 def inspect():
- e=env();e['SANDBOXD_CUBE_ENABLED']=s.get('cube','false')
- return [{'Image':s['current'],'State':{'Running':s['running']},'Config':{'Env':[k+'='+v for k,v in e.items()],'Labels':{'com.docker.compose.project':'src'}}}]
+ e=dict(config()['services']['sandboxd']['environment'])
+ if 'cube' in s:e['SANDBOXD_CUBE_ENABLED']=s['cube']
+ return [{'Id':'controller','Image':s['current'],'State':{'Running':s['running']},'Config':{'Env':[k+'='+v for k,v in e.items()],'Labels':{'com.docker.compose.project':'src'}}}]
 if a[0]=='compose':
  command=next(x for x in a if x in ['ps','config','up','stop'])
- if command=='ps':print('controller')
+ if command=='ps':print(a[-1] if a[-1].startswith('cube-management-') else 'controller')
  elif command=='config':
-  e=env();print(json.dumps({'services':{'sandboxd':{'environment':e,'ports':[{'target':9000,'published':e['TEST_PORT'],'host_ip':'127.0.0.1'}]}}}))
+  print(json.dumps(config()))
  elif command=='stop':
   if fail=='stop':sys.exit(1)
   s['running']=False;s['phase']='stopped';save()
  elif command=='up':
+  if a[-2:]==['cube-management-api','cube-management-proxy']:
+   assert '--force-recreate' in a and '--no-deps' in a
+   if fail=='relay' and s['phase']=='candidate':sys.exit(1)
+   sys.exit(0)
   assert a[-1]=='sandboxd' and all(x in a for x in ['--no-deps','--no-build','--pull','never'])
   files=[a[i+1] for i,x in enumerate(a) if x=='-f']; active=json.load(open(files[-1]))['services']['sandboxd']
-  assert active['environment']['SANDBOXD_CUBE_ENABLED']=='false'
+  assert config()['services']['sandboxd']['environment'].get('SANDBOXD_CUBE_ENABLED','false')==env().get('SANDBOXD_CUBE_ENABLED','false')
   s['current']=image(active['image']);s['running']=True;s['phase']='candidate' if ':release-' in active['image'] else 'rollback';save()
   if s['phase']=='candidate':
    with sqlite3.connect(root/'data/state/sandboxd.db') as db:db.execute("insert into events values ('accepted-during-release')")
@@ -57,6 +73,10 @@ if a[0]=='compose':
    if fail=='image':s['current']='sha256:'+'9'*64;save()
 elif a[0]=='inspect':
  if '-f' in a:print(s['current'])
+ elif a[-2:]==['cube-management-api','cube-management-proxy']:
+  namespace='container:obsolete' if fail=='namespace' and s['phase']=='candidate' else 'container:controller'
+  relay={'HostConfig':{'NetworkMode':namespace},'State':{'Running':True,'Health':{'Status':'healthy'}}}
+  print(json.dumps(inspect()+[relay,relay]))
  else:print(json.dumps(inspect()))
 elif a[:2]==['image','inspect']:
  name=a[-1];ident=image(name)
@@ -85,6 +105,11 @@ elif a[0]=='run':
  elif fail=='acceptance':sys.exit(1)
 elif a[:2]==['rm','-f']:
  assert a[-1].startswith('sandboxd-deploy-check-')
+elif a[0]=='exec':
+ assert a[1:4]==['-i','controller','curl'] and a[-2:]==['--config','-']
+ request=sys.stdin.read()
+ assert 'url = ' in request and '/sandboxes?limit=1' in request
+ print('503' if fail=='cube_api' and s['phase']=='candidate' else ('200' if 'X-API-Key:' in request else '401'),end='')
 else:raise Exception('unexpected Docker command '+repr(a))
 '''
 
@@ -277,6 +302,100 @@ class DeployTest(unittest.TestCase):
         self.db.commit()
         self.assertNotEqual(self.deploy().returncode, 0)
         self.assertFalse(any(c[0] == "build" or "up" in c for c in self.commands()))
+
+    def enable_existing_cube(self):
+        cube = {
+            "SANDBOXD_CUBE_ENABLED": "true", "SANDBOXD_CUBE_ROLLOUT": "global",
+            "SANDBOXD_CUBE_REVERSE_EGRESS": "true", "SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED": "true",
+            "SANDBOXD_CUBE_EGRESS_CLIENT_PROFILE": "proxy-http-v1", "SANDBOXD_CUBE_API_KEY": "synthetic-cube-key",
+            "SANDBOXD_CUBE_API_URL": "http://127.0.0.1:20300",
+            "SANDBOXD_CUBE_TEMPLATES": '{"react-pro":"synthetic-template"}',
+        }
+        self.env_text += "".join(k + "=" + v + "\n" for k, v in cube.items())
+        (self.src / ".env").write_text(self.env_text)
+        state = self.root / "deploy-state"
+        state.mkdir()
+        relay = {"network_mode": "service:sandboxd", "image": "relay@sha256:" + "5" * 64}
+        (state / "runtime-compose.json").write_text(json.dumps({"services": {
+            "sandboxd": {"environment": cube}, "cube-management-api": relay, "cube-management-proxy": relay,
+        }}))
+        (state / "active-images.json").write_text(json.dumps({"services": {"sandboxd": {
+            "image": OLD_CP, "environment": cube, "volumes": ["/synthetic/accepted:/synthetic/accepted:ro"],
+        }}}))
+        self.db.execute("create table app_runtime (provider text)")
+        self.db.execute("insert into app_runtime values ('cube')")
+        self.db.commit()
+        return cube
+
+    def test_cube_release_preserves_configuration_and_reconnects_relays(self):
+        cube = self.enable_existing_cube()
+        result = self.deploy()
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        override = json.loads((self.root / "deploy-state/active-images.json").read_text())["services"]["sandboxd"]
+        self.assertEqual(override["environment"], cube)
+        self.assertEqual(override["volumes"], ["/synthetic/accepted:/synthetic/accepted:ro"])
+        ups = [c for c in self.commands() if "up" in c]
+        self.assertEqual(len(ups), 2)
+        self.assertEqual(ups[0][-1], "sandboxd")
+        self.assertEqual(ups[1][-2:], ["cube-management-api", "cube-management-proxy"])
+        self.assertEqual(self.db.execute("select provider from app_runtime").fetchall(), [("cube",)])
+        self.assert_preserved()
+
+    def test_cube_relay_failure_rolls_back_code_and_reconnects_old_controller(self):
+        cube = self.enable_existing_cube()
+        result = self.deploy("relay")
+        self.assertNotEqual(result.returncode, 0)
+        state = json.loads((self.root / "docker.json").read_text())
+        self.assertEqual(state["current"], OLD_CP, result.stderr)
+        self.assertTrue(state["running"])
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.old)
+        override = json.loads((self.root / "deploy-state/active-images.json").read_text())["services"]["sandboxd"]
+        self.assertEqual(override["environment"], cube)
+        relays = [c for c in self.commands() if "up" in c and c[-2:] == ["cube-management-api", "cube-management-proxy"]]
+        self.assertEqual(len(relays), 2)
+        self.assertEqual(self.db.execute("select count(*) from events").fetchone()[0], 2)
+
+    def test_cube_release_rejects_public_or_mutable_management_relays(self):
+        self.enable_existing_cube()
+        path = self.root / "deploy-state/runtime-compose.json"
+        config = json.loads(path.read_text())
+        config["services"]["cube-management-api"]["ports"] = [{"target": 20300, "published": "20300"}]
+        path.write_text(json.dumps(config))
+        self.assertNotEqual(self.deploy().returncode, 0)
+        self.assertFalse(any(c[0] == "build" or "up" in c for c in self.commands()))
+
+    def test_cube_relay_old_namespace_triggers_rollback(self):
+        self.enable_existing_cube()
+        result = self.deploy("namespace")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("obsolete controller namespace", result.stderr)
+        self.assertEqual(json.loads((self.root / "docker.json").read_text())["current"], OLD_CP)
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.old)
+
+    def test_cube_api_failure_after_relay_health_triggers_rollback(self):
+        self.enable_existing_cube()
+        result = self.deploy("cube_api")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("Cube API authentication/readiness failed", result.stderr)
+        self.assertEqual(json.loads((self.root / "docker.json").read_text())["current"], OLD_CP)
+        self.assertEqual(self.git("rev-parse", "HEAD"), self.old)
+        self.assertNotIn("synthetic-cube-key", result.stdout + result.stderr)
+
+    def test_cube_without_prior_image_override_preserves_runtime_on_success_and_rollback(self):
+        for mode in ("", "relay"):
+            with self.subTest(mode=mode):
+                if mode:
+                    self.doCleanups()
+                    self.setUp()
+                self.enable_existing_cube()
+                path = self.root / "deploy-state/active-images.json"
+                path.unlink()
+                result = self.deploy(mode)
+                self.assertEqual(result.returncode == 0, not mode, result.stdout + result.stderr)
+                override = json.loads(path.read_text())["services"]["sandboxd"]
+                self.assertNotIn("environment", override)
+                expected = OLD_CP if mode else NEW_CP
+                self.assertEqual(json.loads((self.root / "docker.json").read_text())["current"], expected)
 
     def test_exact_image_acceptance_failure_leaves_live_release_unchanged(self):
         self.assertNotEqual(self.deploy("acceptance").returncode, 0)

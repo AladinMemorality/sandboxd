@@ -56,5 +56,30 @@ sentinels were absent, while RequestHost remained available. See
 Traefik configuration still lacks RequestPath dropping; deploying the branch's
 static configuration and accepting the entire HTTPS chain remain cutover gates.
 
+## Production activation — 24 September 2026
+
+The outer Caddy global filter and Traefik static redaction are now deployed.
+Before activation, adapted Caddy JSON was compared with the running file and
+only logging differed. Caddy validation passed. The existing Traefik image
+(`sha256:ef751c695afd26e2be41009047f651153dc1e61ace03e6d13f299d8c4be842b8`)
+was recreated with only the reviewed path-redaction configuration change.
+Platform and MyHomeTroc HTTPS requests returned200 after activation.
+
+The [production probe](results/2026-09-24-production-log-redaction.json) sent
+invalid, non-secret query, authorization, cookie and referrer sentinels through
+the public HTTPS MyHomeTroc preview endpoint. The corresponding Traefik access
+entry retained its host, omitted its path, and none of the four sentinels
+appeared in new access entries, Traefik runtime logs or Caddy journal entries.
+Caddy access logging is not enabled; its error filter is active. The earlier
+isolated error fixture covers filter behavior on an upstream failure; this
+production probe did not induce an outage. External CDN logging configuration
+has not been attested by this origin-side check.
+
+The first automated post-change public-platform request used Python urllib and
+received403; its guard restored Caddy's previous file. Public curl and direct
+TLS-origin checks returned200. The validated filter was then reapplied and the
+sentinel probe passed. The private backup and complete activation record remain
+under `/opt/baarcha-release/20260924T200338Z/preview-log-cutover`.
+
 Caddy documents [filtering nested log fields](https://caddyserver.com/docs/caddyfile/directives/log#filter)
 and [default runtime log configuration](https://caddyserver.com/docs/caddyfile/options#log).

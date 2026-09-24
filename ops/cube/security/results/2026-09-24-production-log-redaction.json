@@ -1,0 +1,11 @@
+{
+  "full_https_probe": true,
+  "access_rows": 1,
+  "matching_host_rows": 1,
+  "query_auth_cookie_referrer_absent": true,
+  "request_host_retained": true,
+  "request_path_absent": true,
+  "caddy_access_logging_enabled": false,
+  "caddy_error_filter_active": true,
+  "traefik_runtime_log_checked": true
+}
