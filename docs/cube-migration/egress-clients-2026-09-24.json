@@ -1,0 +1,86 @@
+{
+  "capability_counts": {
+    "bridge": 2,
+    "custom_http_agent": 1,
+    "native_fetch": 58,
+    "raw_tcp_module": 1,
+    "websocket": 1
+  },
+  "eligible_count_at_observation": 58,
+  "evidence_sha256": {
+    "initial-capability-inventory": "7522e824a60b08b3601f5527f7eeba178ab6bf9f1e7572a98c2829bc0b03e711",
+    "targeted-followup": "a9355171f8d13ff7a7e04ea78099a2d8cb69adbeaa2cd8dfde07517fba4cf79a"
+  },
+  "excluded_in_progress_sandbox_id": "01M37PPK85JN1K0WEMP4ZYER6C",
+  "global_compatibility_accepted": false,
+  "observed_at": "2026-09-24T15:08:53.979356+00:00",
+  "pending": [
+    "real Cube Claude task with metering and bridge",
+    "custom Java/SDK/Bun runtime client behavior",
+    "worker isolation acceptance remains required",
+    "repeat inventory after admission drain; in-progress exclusion remains"
+  ],
+  "raw_tcp_dependency_counts": {
+    "postgres": 1
+  },
+  "review": {
+    "bounded_followup": [
+      {
+        "reviewed_non_source_exclusions": [],
+        "sandbox_id": "01M1HH74TCHSB8JX4MP456KN2N",
+        "targeted_source_subtrees": [
+          {
+            "files_read": 2,
+            "incomplete_reasons": [],
+            "path": "src/routes/api/public/cron",
+            "source_capabilities": []
+          }
+        ]
+      },
+      {
+        "reviewed_non_source_exclusions": [
+          "server/sessions"
+        ],
+        "sandbox_id": "01M1HJ4EXF1GS6GE3BS9G3ANF3",
+        "targeted_source_subtrees": []
+      },
+      {
+        "reviewed_non_source_exclusions": [
+          "jre",
+          "jdk",
+          "server/libraries",
+          "server/world",
+          "backups"
+        ],
+        "sandbox_id": "01M2P1KJ8086W06ANFAV50KA93",
+        "targeted_source_subtrees": [
+          {
+            "files_read": 1,
+            "incomplete_reasons": [],
+            "path": "scripts/onjoinspawn/src/com/baarcha",
+            "source_capabilities": []
+          }
+        ]
+      },
+      {
+        "reviewed_non_source_exclusions": [
+          "public/media"
+        ],
+        "sandbox_id": "01M36Y40QAN8DKB0GJHWR6W5Y1",
+        "targeted_source_subtrees": []
+      }
+    ],
+    "custom_agent_marker": {
+      "finding": "Matched source has no connection/Agent/Dispatcher/request/fetch call; marker is not an instantiated custom transport.",
+      "sandbox_id": "01M1HH74TCHSB8JX4MP456KN2N"
+    },
+    "initial_incomplete_scans": 4,
+    "postgres_dependency": "Present only in excluded in-progress project; does not establish an eligible-fleet DB requirement",
+    "raw_net_module": {
+      "finding": "One net.connect call; TypeScript AST resolves host to loopback. Own-guest connection needs no egress exception.",
+      "sandbox_id": "01M2P1KJ8086W06ANFAV50KA93"
+    }
+  },
+  "sandbox_count": 59,
+  "scope": "bounded read-only static client inventory; no tenant code executed; no URLs/source/credentials included"
+}

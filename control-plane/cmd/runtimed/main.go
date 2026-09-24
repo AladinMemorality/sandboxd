@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/egress"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 )
@@ -30,6 +31,7 @@ const version = "0.1.0"
 // server and any workers from sandbox.yaml), the most recent preview health
 // probe, and the one active coding task.
 type app struct {
+	cubeEgress        *egress.Guest
 	requestRestart    func()
 	workspaceMu       sync.RWMutex // fences in-flight API writes before quiescence
 	workspaceQuiesced bool         // guarded by taskMu; persisted outside workspace
@@ -79,6 +81,14 @@ func main() {
 	if err := remote.validate(); err != nil {
 		log.Error("invalid remote control configuration", "err", err.Error())
 		os.Exit(1)
+	}
+	reverseEgress, err := reverseEgressGuest(remote)
+	if err != nil {
+		log.Error("reverse egress initialization failed")
+		os.Exit(1)
+	}
+	if reverseEgress != nil {
+		defer reverseEgress.Close()
 	}
 
 	// Manifest defaults preserve the pre-manifest Vite behavior. The
@@ -143,6 +153,7 @@ func main() {
 	}
 
 	a := &app{
+		cubeEgress:        reverseEgress,
 		build:             m.Build,
 		appDir:            appDir,
 		runtimeDir:        runtimeDir,
@@ -181,13 +192,19 @@ func main() {
 	defer stop()
 	var restarting atomic.Bool
 	a.requestRestart = func() { restarting.Store(true); stop() }
+	closeProxy, err := startCubeProxy(ctx, reverseEgress)
+	if err != nil {
+		log.Error("reverse egress listener unavailable")
+		os.Exit(1)
+	}
+	defer closeProxy()
 
 	if a.web != nil {
-		go a.web.supervise(ctx)
+		go superviseAfterCubeEgress(ctx, reverseEgress, a.web.supervise)
 		go a.probeLoop(ctx, probeInterval)
 	}
 	for _, w := range a.workers {
-		go w.supervise(ctx)
+		go superviseAfterCubeEgress(ctx, reverseEgress, w.supervise)
 	}
 
 	log.Info("runtimed started", "version", version, "app_dir", appDir, "socket", socketPath,

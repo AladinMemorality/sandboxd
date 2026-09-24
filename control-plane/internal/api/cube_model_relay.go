@@ -68,6 +68,10 @@ func (s *Server) prepareCubeModelScope(ctx context.Context, id, taskID string, r
 		}
 	}
 	env["RUNTIMED_CUBE_AGENT_BASE_URL"] = strings.TrimRight(s.CubeAgentRelayOrigin, "/") + "/v1/cube-model/" + id + "/" + taskID
+	if s.cubeEgress != nil {
+		env["RUNTIMED_CUBE_AGENT_BASE_URL"] = "http://127.0.0.1:3032/__cube/model/v1/cube-model/" + id + "/" + taskID
+		env["BRIDGE_URL"] = "http://127.0.0.1:3032/__cube/bridge"
+	}
 	env["RUNTIMED_CUBE_AGENT_TOKEN"] = token
 	req.Env = env
 	return nil
@@ -152,6 +156,9 @@ func (s *Server) cubeModelRelay(w http.ResponseWriter, r *http.Request) {
 	request.Body = http.MaxBytesReader(w, r.Body, cubeModelBodyLimit)
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.DisableCompression = true
+	transport.Proxy = nil
+	transport.MaxResponseHeaderBytes = 16 << 10
+	transport.ResponseHeaderTimeout = 2 * time.Minute
 	defer transport.CloseIdleConnections()
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {

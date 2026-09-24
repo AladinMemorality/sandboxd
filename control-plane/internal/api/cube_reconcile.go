@@ -50,9 +50,13 @@ func (s *Server) connectCube(ctx context.Context, id string, timeoutSeconds int)
 		return err
 	}
 	if sb.Status == "running" {
-		return s.Store.BumpLastActive(ctx, id, time.Now().UTC())
+		if err := s.Store.BumpLastActive(ctx, id, time.Now().UTC()); err != nil {
+			return err
+		}
+	} else if err := s.Store.MarkRunningWoke(ctx, id, "", "", time.Now().UTC()); err != nil {
+		return err
 	}
-	return s.Store.MarkRunningWoke(ctx, id, "", "", time.Now().UTC())
+	return s.ensureCubeEgress(ctx, id)
 }
 
 // ReconcileCube reads authoritative remote state without creating/replacing a
@@ -106,6 +110,7 @@ func (s *Server) ReconcileCube(ctx context.Context) {
 					return
 				}
 				if sb.Status != "stopped" {
+					s.stopCubeEgress(sb.ID)
 					_ = s.Store.MarkStoppedAt(bounded, sb.ID, time.Now().UTC())
 				}
 			case "running":
@@ -123,6 +128,7 @@ func (s *Server) ReconcileCube(ctx context.Context) {
 				if sb.Status != "running" {
 					_ = s.Store.MarkRunningWoke(bounded, sb.ID, "", "", time.Now().UTC())
 				}
+				_ = s.ensureCubeEgress(bounded, sb.ID)
 			}
 		}()
 	}

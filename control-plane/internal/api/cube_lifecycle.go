@@ -200,6 +200,10 @@ func (s *Server) createCubeAppSandbox(w http.ResponseWriter, r *http.Request, ap
 		}
 	}
 
+	if err = s.ensureCubeEgress(r.Context(), id); err != nil {
+		writeV1Err(w, 503, "runtime_unavailable", "Cube outbound broker unavailable; runtime retained")
+		return
+	}
 	if len(gitArchive) > 0 {
 		if err = s.importCubeGit(r.Context(), id, gitArchive); err != nil {
 			persist, cancel := context.WithTimeout(context.Background(), 3*time.Second)
@@ -329,6 +333,7 @@ func (s *Server) cubeLifecycle(w http.ResponseWriter, r *http.Request, action st
 			}
 			err = s.Cube.Pause(r.Context(), b.RuntimeID)
 			if err == nil {
+				s.stopCubeEgress(id)
 				err = s.Store.MarkStoppedAt(r.Context(), id, time.Now().UTC())
 			}
 		}
@@ -343,6 +348,7 @@ func (s *Server) cubeLifecycle(w http.ResponseWriter, r *http.Request, action st
 		if err == nil {
 			// Finish local deletion even if the caller disconnects after the
 			// destructive remote operation. A retry can recover a remote404.
+			s.stopCubeEgress(id)
 			cleanup, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 			err = s.Store.PurgeSandbox(cleanup, id)

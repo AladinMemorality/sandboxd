@@ -593,6 +593,12 @@ func main() {
 		Live: live,
 	}
 
+	if cubeConfig.reverseEgress != nil {
+		if err := server.ConfigureCubeEgress(ctx, *cubeConfig.reverseEgress); err != nil {
+			log.Error("invalid Cube reverse egress configuration", "err", err)
+			os.Exit(1)
+		}
+	}
 	wakeHandler.CubePreview = server.TryServeCubePreview
 
 	// Finalize any coding task left `running` by a previous sandboxd

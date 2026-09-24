@@ -95,3 +95,43 @@ func TestCubeRelayRequiresHTTPSAndExplicitNetworkAttestation(t *testing.T) {
 		t.Fatal("unverified network relay enabled")
 	}
 }
+
+func TestCubeReverseEgressRequiresExplicitCompatiblePilot(t *testing.T) {
+	t.Setenv("SANDBOXD_CUBE_ENABLED", "true")
+	t.Setenv("SANDBOXD_CUBE_API_URL", "http://127.0.0.1:3000")
+	t.Setenv("SANDBOXD_CUBE_API_KEY", "fixture")
+	t.Setenv("SANDBOXD_CUBE_PROXY_URL", "http://127.0.0.1:80")
+	t.Setenv("SANDBOXD_CUBE_DOMAIN", "cube.test")
+	t.Setenv("SANDBOXD_CUBE_TEMPLATES", `{"react-vite":"reviewed"}`)
+	t.Setenv("SANDBOXD_CUBE_APP_IDS", "pilot-app")
+	t.Setenv("SANDBOXD_CUBE_AGENT_RELAY_ORIGIN", "https://relay.example")
+	t.Setenv("SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED", "true")
+	t.Setenv("SANDBOXD_CUBE_EGRESS_ALLOW_DOMAINS", "")
+	t.Setenv("SANDBOXD_CUBE_ROLLOUT", "allowlist")
+	t.Setenv("SANDBOXD_CUBE_REVERSE_EGRESS", "true")
+	t.Setenv("SANDBOXD_CUBE_EGRESS_CLIENT_PROFILE", "proxy-http-v1")
+	t.Setenv("SANDBOXD_CUBE_EGRESS_PROTECTED_CIDRS", "65.108.225.153/32")
+	t.Setenv("SANDBOXD_CUBE_EGRESS_PROTECTED_DOMAINS", "baarcha.tn")
+	t.Setenv("SANDBOXD_CUBE_BRIDGE_URL", "https://baarcha.tn/api/bridge")
+	cfg, err := loadCubeConfig()
+	if err != nil || cfg.reverseEgress == nil {
+		t.Fatalf("reviewed pilot unavailable: %v", err)
+	}
+	for _, tt := range []struct{ k, v string }{{"SANDBOXD_CUBE_ENABLED", "false"}, {"SANDBOXD_CUBE_REVERSE_EGRESS", "1"}, {"SANDBOXD_CUBE_EGRESS_CLIENT_PROFILE", "all-backends"}, {"SANDBOXD_CUBE_EGRESS_PROTECTED_CIDRS", ""}, {"SANDBOXD_CUBE_EGRESS_PROTECTED_CIDRS", "::/0"}, {"SANDBOXD_CUBE_EGRESS_PROTECTED_DOMAINS", ""}, {"SANDBOXD_CUBE_BRIDGE_URL", "http://baarcha.tn/api/bridge"}, {"SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED", "false"}, {"SANDBOXD_CUBE_EGRESS_ALLOW_DOMAINS", "registry.npmjs.org"}} {
+		t.Run(tt.k+tt.v, func(t *testing.T) {
+			t.Setenv(tt.k, tt.v)
+			if _, err := loadCubeConfig(); err == nil {
+				t.Fatal("incomplete/unsupported configuration accepted")
+			}
+		})
+	}
+	// Explicitly gate globals independently of template completeness or flags.
+	cfg.allApps = true
+	if _, err := loadCubeReverseEgressConfig(cfg); err == nil {
+		t.Fatal("unsupported global client compatibility admitted")
+	}
+	t.Setenv("SANDBOXD_CUBE_REVERSE_EGRESS", "false")
+	if config, err := loadCubeReverseEgressConfig(cfg); err != nil || config != nil {
+		t.Fatal("disabled path changed")
+	}
+}

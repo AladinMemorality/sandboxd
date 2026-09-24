@@ -102,6 +102,9 @@ func authenticatedControl(token string, next http.Handler) http.Handler {
 
 func (a *app) controlHandler() http.Handler {
 	mux := http.NewServeMux()
+	if a.cubeEgress != nil {
+		mux.Handle("GET /egress/channel", a.cubeEgress.ChannelHandler())
+	}
 	mux.HandleFunc("GET /status", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, a.status())
 	})
@@ -115,6 +118,8 @@ func (a *app) controlHandler() http.Handler {
 	mux.HandleFunc("GET /export", a.handleFileExport)
 	mux.HandleFunc("POST /export/private-home", a.handlePrivateHome)
 	mux.HandleFunc("PUT /import/private-home", a.handlePrivateHome)
+	mux.HandleFunc("POST /export/private-home-v2", a.handlePrivateHome)
+	mux.HandleFunc("PUT /import/private-home-v2", a.handlePrivateHome)
 	mux.HandleFunc("POST /export/private-task-history", a.handlePrivateTaskHistory)
 	mux.HandleFunc("PUT /import/private-task-history", a.handlePrivateTaskHistory)
 	mux.HandleFunc("POST /workspace/quiesce", a.handleWorkspaceQuiesce)

@@ -8,11 +8,13 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/api"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
 )
 
 type cubeConfig struct {
+	reverseEgress    *api.CubeEgressConfig
 	relayOrigin      string
 	client           *cube.Client
 	templates        map[string]string
@@ -28,6 +30,9 @@ func loadCubeConfig() (cubeConfig, error) {
 	var cfg cubeConfig
 	enabled := os.Getenv("SANDBOXD_CUBE_ENABLED")
 	if enabled == "" || enabled == "false" {
+		if value := os.Getenv("SANDBOXD_CUBE_REVERSE_EGRESS"); value != "" && value != "false" {
+			return cfg, fmt.Errorf("reverse egress requires Cube enabled")
+		}
 		return cfg, nil
 	}
 	if enabled != "true" {
@@ -96,5 +101,9 @@ func loadCubeConfig() (cubeConfig, error) {
 		return cfg, fmt.Errorf("SANDBOXD_CUBE_APP_IDS requires an explicit pilot app allowlist")
 	}
 	cfg.client, err = cube.New(cube.Config{APIURL: os.Getenv("SANDBOXD_CUBE_API_URL"), APIKey: os.Getenv("SANDBOXD_CUBE_API_KEY")})
+	if err != nil {
+		return cfg, err
+	}
+	cfg.reverseEgress, err = loadCubeReverseEgressConfig(cfg)
 	return cfg, err
 }

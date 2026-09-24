@@ -36,6 +36,7 @@ import (
 
 // Server bundles the collaborators the handlers need.
 type Server struct {
+	cubeEgress *cubeEgressManager
 	CubeAgentRelayOrigin string   // trusted HTTPS public origin; disabled by default
 	cubePreviewLeases    sync.Map // sandbox ID -> short verified running lease (time.Time)
 	cubeTaskWatches      sync.Map // task ID -> active watcher; restart-safe recovery is durable in SQLite

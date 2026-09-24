@@ -27,6 +27,10 @@ func prepareSourceDependencies(ctx context.Context, staged, finalRoot string) er
 	}
 	defer os.RemoveAll(home)
 	env := []string{"PATH=/usr/local/bin:/usr/bin:/bin:/home/sandbox/.local/bin:/home/sandbox/.bun/bin", "HOME=" + home, "CI=true", "npm_config_userconfig=/dev/null", "npm_config_globalconfig=" + filepath.Join(home, "global-npmrc"), "npm_config_audit=false", "npm_config_fund=false", "PIP_CONFIG_FILE=/dev/null", "PIP_DISABLE_PIP_VERSION_CHECK=1", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_TERMINAL_PROMPT=0"}
+	if os.Getenv("RUNTIMED_CUBE_GUEST") == "1" && os.Getenv("RUNTIMED_CUBE_REVERSE_EGRESS") == "1" {
+		// Fixed loopback routing only; never inherit application proxy credentials.
+		env = append(env, cubeProxyEnvironment()...)
+	}
 	for _, key := range []string{"SSL_CERT_FILE", "SSL_CERT_DIR"} {
 		if v := os.Getenv(key); v != "" {
 			env = append(env, key+"="+v)
