@@ -21,7 +21,7 @@ CONFIG_KEYS = {
     'SANDBOXD_CUBE_AGENT_RELAY_ORIGIN', 'SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED',
     'SANDBOXD_AGENT_PROXY_URL', 'SANDBOXD_PREVIEW_TOKEN_SECRETS', 'SANDBOXD_API_AUTH_DISABLED',
     'SANDBOXD_AGENT', 'SANDBOXD_MODEL', 'BRIDGE_PUBLIC_URL', 'CAPTURE_SERVICE_SOCKET',
-    'CAPTURE_DENY_CIDRS', 'CAPTURE_BACKEND', 'SANDBOXD_PREVIEW_ORIGIN',
+    'CAPTURE_DENY_CIDRS', 'CAPTURE_BACKEND', 'SITE_ORIGIN', 'SANDBOXD_PREVIEW_ORIGIN',
 }
 
 
@@ -117,6 +117,8 @@ def audit(runtime, platform, plan, base):
         issue('capture_backend_invalid', 'CAPTURE_BACKEND must be shared or service; there is no automatic fallback.')
     if capture_backend == 'service' and not platform.get('CAPTURE_SERVICE_SOCKET', '').startswith('/'):
         issue('capture_socket_missing', 'The explicitly selected capture service needs its Unix socket and read-only readiness probe.')
+    if not valid_url(platform.get('SITE_ORIGIN', '')):
+        issue('platform_assets_origin_missing', 'SITE_ORIGIN must identify the canonical platform origin for the bounded anonymous file adapter; protected host access remains denied.')
 
     try:
         inventory = plan.get('protected_addresses', [])

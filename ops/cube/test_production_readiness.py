@@ -25,6 +25,7 @@ class ReadinessTests(unittest.TestCase):
         for key in ('SANDBOXD_CUBE_API_URL', 'SANDBOXD_CUBE_PROXY_URL', 'SANDBOXD_AGENT_PROXY_URL'):
             self.runtime[key] = 'http://127.0.0.1:9090'
         self.platform = {'BRIDGE_PUBLIC_URL': 'https://app.example/api/bridge',
+                         'SITE_ORIGIN': 'https://app.example',
                          'SANDBOXD_PREVIEW_ORIGIN': 'https://%ID%.preview.example',
                          'CAPTURE_BACKEND': 'service', 'CAPTURE_SERVICE_SOCKET': '/run/capture.sock', 'CAPTURE_DENY_CIDRS': '8.8.8.8/32'}
         self.plan = {'protected_addresses': ['8.8.8.8'], 'capacity': {
@@ -128,6 +129,11 @@ class ReadinessTests(unittest.TestCase):
         for value in ('', 'typo'):
             self.platform['CAPTURE_BACKEND'] = value
             self.assertIn('capture_backend_invalid', {entry['code'] for entry in self.check()['findings']})
+
+    def test_platform_file_adapter_requires_exact_canonical_origin(self):
+        for value in ('', 'https://app.example/files', 'https://app.example?token=secret'):
+            self.platform['SITE_ORIGIN'] = value
+            self.assertIn('platform_assets_origin_missing', {entry['code'] for entry in self.check()['findings']})
 
 
 if __name__ == '__main__':

@@ -14,6 +14,10 @@ worker count plus manager. Protected management-address exclusions remain
 mandatory for both brokers. Optional Cube browser-worker benchmarks are not
 acceptance criteria for Cube app migration.
 
+`SITE_ORIGIN` must be the canonical platform origin. Its exact `/files/<id>`
+adapter reads only anonymously authorized upload bytes through storage; it does
+not permit general HTTP access to the protected platform host or forward cookies.
+
 The migration branch now implements an opt-in host-initiated reverse connection
 for reviewed pilot apps. Public HTTP/TLS destinations are resolved and pinned by
 the host; model and platform bridge calls use fixed scoped handlers. The guest
