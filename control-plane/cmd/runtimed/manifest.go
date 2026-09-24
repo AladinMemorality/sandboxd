@@ -8,6 +8,7 @@ import (
 	"sort"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 	"gopkg.in/yaml.v3"
 )
 
@@ -73,10 +74,11 @@ const ManifestFile = "sandbox.yaml"
 // defaults. The agent can edit this file like any workspace file; runtimed
 // re-reads it on (re)start.
 type Manifest struct {
-	Version int        `yaml:"version"`
-	Web     *WebProc   `yaml:"web"`     // the previewed process; nil => no preview (worker-only)
-	Build   *BuildSpec `yaml:"build"`   // post-task build check
-	Workers []Worker   `yaml:"workers"` // background processes, no preview
+	SourceDigest string     `yaml:"-"`
+	Version      int        `yaml:"version"`
+	Web          *WebProc   `yaml:"web"`     // the previewed process; nil => no preview (worker-only)
+	Build        *BuildSpec `yaml:"build"`   // post-task build check
+	Workers      []Worker   `yaml:"workers"` // background processes, no preview
 }
 
 // WebProc is the single previewed process: it serves HTTP on Port and is
@@ -136,7 +138,9 @@ func LoadManifest(appDir string, def Defaults) (*Manifest, error) {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return defaultManifest(def), nil
+			m := defaultManifest(def)
+			m.SourceDigest = runtime.ManifestSourceDigest(nil, false)
+			return m, nil
 		}
 		return defaultManifest(def), fmt.Errorf("read %s: %w", ManifestFile, err)
 	}
@@ -162,6 +166,7 @@ func LoadManifest(appDir string, def Defaults) (*Manifest, error) {
 	if err := m.validate(); err != nil {
 		return defaultManifest(def), fmt.Errorf("invalid %s: %w", ManifestFile, err)
 	}
+	m.SourceDigest = runtime.ManifestSourceDigest(raw, true)
 	return &m, nil
 }
 

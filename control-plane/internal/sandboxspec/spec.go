@@ -12,6 +12,7 @@ package sandboxspec
 
 import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/traefik"
 	"strings"
@@ -64,6 +65,7 @@ func Build(sb *store.Sandbox, e Env) docker.RunSpec {
 		env = append(env, e.AppEnv...)
 	}
 
+	env = append(env, "RUNTIMED_APP_CONFIG_REVISION="+runtime.DockerConfigRevision(e.AppEnv))
 	volumes := append([]string{sb.WorkspaceMnt + ":/home/sandbox"}, e.AgentAuthMounts...)
 	if e.DNSResolvConf != "" {
 		volumes = append(volumes, e.DNSResolvConf+":/etc/resolv.conf:ro")

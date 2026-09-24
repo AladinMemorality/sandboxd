@@ -181,6 +181,13 @@ func (h *Handler) serve(r *http.Request, w http.ResponseWriter, id, port string,
 	log := h.Log.With("sandbox_id", id, "shape", shapeOf(isHTML))
 	start := time.Now()
 
+	// Lock before registering inflight work: a lifecycle caller already holding
+	// this mutex must never wait behind a wake that is waiting for that mutex.
+	if h.Locks != nil && !lifecycleLockHeld(ctx, id) {
+		h.Locks.Lock(id)
+		defer h.Locks.Unlock(id)
+	}
+
 	// Per-id mutex to dedup concurrent wakes. Roadmap §7 idempotency
 	// rule: "two concurrent wake requests must not double-start.
 	// Guard per-id with an in-memory mutex; the second caller waits
@@ -209,18 +216,6 @@ func (h *Handler) serve(r *http.Request, w http.ResponseWriter, id, port string,
 		h.mu.Unlock()
 		close(wf.done)
 	}()
-
-	// Phase 7 — hold the shared per-id lock for the whole wake. The
-	// inflight map above already dedups concurrent *wakes*; this lock
-	// additionally excludes a concurrent snapshot / restore / destroy
-	// of the same id (roadmap phase-7 §9: snapshot must not race a
-	// wake that is starting the container and writing the loopback).
-	// nil-safe — pre-Phase-7 callers that build a Handler without a
-	// lock registry still work.
-	if h.Locks != nil {
-		h.Locks.Lock(id)
-		defer h.Locks.Unlock(id)
-	}
 
 	// 1. Look up the row.
 	sb, err := h.Store.Get(ctx, id)

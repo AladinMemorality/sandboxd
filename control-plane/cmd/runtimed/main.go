@@ -37,6 +37,7 @@ type app struct {
 	workspaceQuiesced bool         // guarded by taskMu; persisted outside workspace
 	restartPending    bool         // guarded by taskMu
 	nextAppConfig     *runtime.AppConfigRequest
+	manifestSHA256    string // parsed manifest identity, immutable for this boot
 	appConfigRevision string // immutable for this process lifetime
 
 	web           *process   // the previewed process; nil for a worker-only app
@@ -160,6 +161,7 @@ func main() {
 		log:               log,
 		bootedAt:          time.Now(),
 		appConfigRevision: os.Getenv("RUNTIMED_APP_CONFIG_REVISION"),
+		manifestSHA256:    m.SourceDigest,
 	}
 	if m.Web != nil {
 		a.web = newProcess("web", "web", appDir, m.Web.Command, filepath.Join(runtimeDir, "web.log"), log)
@@ -349,6 +351,7 @@ func (a *app) status() runtime.Status {
 
 	return runtime.Status{
 		AppConfigRevision: a.appConfigRevision,
+		ManifestSHA256:    a.manifestSHA256,
 		Runtimed: runtime.RuntimedInfo{
 			Version:  version,
 			BootedAt: a.bootedAt,

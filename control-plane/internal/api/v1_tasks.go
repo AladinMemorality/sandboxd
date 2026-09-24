@@ -18,6 +18,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/events"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/wake"
 )
 
 // runtimeClientFor builds a runtime.Client for a sandbox's runtimed.
@@ -91,9 +92,10 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 	}
 
 	remote := sb.RuntimeProvider == "cube"
-	if remote && s.Locks != nil {
+	if s.Locks != nil {
 		s.Locks.Lock(id)
 		defer s.Locks.Unlock(id)
+		r = r.WithContext(wake.WithLifecycleLockHeld(r.Context(), id))
 		sb, err = s.Store.Get(r.Context(), id)
 		if err != nil {
 			writeV1Err(w, 404, "not_found", "no such sandbox")

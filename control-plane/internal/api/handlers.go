@@ -775,7 +775,9 @@ func (s *Server) handleCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	// The app's stored config, for the runtime: keys the owner entered
 	// through /v1/apps/{id}/config ride in as environment (internal/appenv).
-	envFlags = append(envFlags, appenv.Best(r.Context(), s.Store, s.Secrets, req.AppID, s.Log)...)
+	appEnvironment := appenv.Best(r.Context(), s.Store, s.Secrets, req.AppID, s.Log)
+	envFlags = append(envFlags, appEnvironment...)
+	envFlags = append(envFlags, "RUNTIMED_APP_CONFIG_REVISION="+runtime.DockerConfigRevision(appEnvironment))
 	limits := s.Limits
 	if limits.Memory == "" {
 		limits = sandboxspec.DefaultLimits

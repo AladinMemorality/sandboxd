@@ -2,9 +2,7 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
-	"io"
 	"net/http"
 	"time"
 
@@ -27,23 +25,8 @@ func (s *Server) cubeRecreateSandbox(w http.ResponseWriter, r *http.Request, id 
 	if sb.RuntimeProvider != "cube" {
 		return false
 	}
-	var request map[string]any
-	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
-	if err := decoder.Decode(&request); (err != nil && err != io.EOF) || (err == nil && request == nil) {
-		writeV1Err(w, 400, "invalid_request", "expected an optional reload_manifest boolean")
-		return true
-	}
-	reloadManifest := false
-	for key, value := range request {
-		flag, ok := value.(bool)
-		if key != "reload_manifest" || !ok {
-			writeV1Err(w, 400, "invalid_request", "expected an optional reload_manifest boolean")
-			return true
-		}
-		reloadManifest = flag
-	}
-	if decoder.Decode(new(any)) != io.EOF {
-		writeV1Err(w, 400, "invalid_request", "expected a single request object")
+	reloadManifest, validRequest := readRecreateRequest(w, r)
+	if !validRequest {
 		return true
 	}
 	if s.Locks != nil {

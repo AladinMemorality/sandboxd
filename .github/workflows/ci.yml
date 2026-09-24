@@ -14,6 +14,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: staged deployment and rollback contract
+        working-directory: .
+        run: |
+          bash -n ops/deploy-project-x.sh
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s ops -p test_deploy_project_x.py -v
+
       - uses: actions/setup-go@v5
         with:
           go-version-file: control-plane/go.mod

@@ -137,6 +137,7 @@ func (c *Client) Run(ctx context.Context, spec RunSpec) (string, error) {
 // by encoding/json.
 type ContainerJSON struct {
 	ID     string `json:"Id"`
+	Image  string `json:"Image"`
 	Name   string `json:"Name"`
 	Mounts []struct {
 		Source      string `json:"Source"`
@@ -222,6 +223,19 @@ func (c *Client) Inspect(ctx context.Context, name string) (*ContainerJSON, erro
 		return nil, fmt.Errorf("inspect: parse json: %w", err)
 	}
 	return &cj, nil
+}
+
+// ImageID resolves a local image reference to its immutable content identity.
+func (c *Client) ImageID(ctx context.Context, ref string) (string, error) {
+	out, err := c.run(ctx, "image", "inspect", "--format", "{{.Id}}", ref)
+	if err != nil {
+		return "", err
+	}
+	id := strings.TrimSpace(string(out))
+	if !strings.HasPrefix(id, "sha256:") || len(id) != 71 {
+		return "", errors.New("invalid image identity")
+	}
+	return id, nil
 }
 
 // Remove forces removal. Idempotent — returns nil on "no such container".

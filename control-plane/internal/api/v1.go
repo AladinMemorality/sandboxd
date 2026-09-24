@@ -17,7 +17,6 @@ import (
 	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/audit"
-	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/events"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
@@ -485,53 +484,5 @@ func (s *Server) v1RecreateSandbox(w http.ResponseWriter, r *http.Request) {
 	if s.cubeRecreateSandbox(w, r, id) {
 		return
 	}
-	sb, err := s.Store.Get(r.Context(), id)
-	if errors.Is(err, store.ErrNotFound) {
-		writeV1Err(w, http.StatusNotFound, "not_found", "no such sandbox")
-		return
-	}
-	if err != nil {
-		writeV1Err(w, http.StatusInternalServerError, "internal", err.Error())
-		return
-	}
-	if sb.Status == "running" {
-		_, mnt := s.Loopback.Paths(id)
-		rctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-		defer cancel()
-		if rs, rerr := runtime.NewClient(filepath.Join(mnt, ".runtimed", "sock")).Status(rctx); rerr == nil && rs.ActiveTask != nil {
-			writeV1Err(w, http.StatusConflict, "task_in_progress",
-				"a task is in progress; cancel it before recreating")
-			return
-		}
-		if err := s.Docker.Stop(r.Context(), "s-"+id, 10); err != nil {
-			writeV1Err(w, http.StatusInternalServerError, "internal", "docker stop: "+err.Error())
-			return
-		}
-		if err := s.Store.MarkStoppedAt(r.Context(), id, time.Now().UTC()); err != nil {
-			s.loggerFor(r, id).Warn("v1 recreate: MarkStoppedAt failed", "err", err.Error())
-		}
-	} else if sb.Status != "stopped" {
-		writeV1Err(w, http.StatusConflict, "conflict", "sandbox is "+sb.Status+" — cannot recreate")
-		return
-	}
-	// Gone container = the wake handler's "missing" branch, which recreates
-	// from the row. A not-found here is the idempotent case.
-	if err := s.Docker.Remove(r.Context(), "s-"+id); err != nil && !errors.Is(err, docker.ErrNotFound) {
-		writeV1Err(w, http.StatusInternalServerError, "internal", "docker rm: "+err.Error())
-		return
-	}
-	s.auditAction(r, audit.Entry{Action: "sandbox.recreate", Target: id})
-	code, body := s.delegate(r, s.handleWakeJSON, http.MethodPost, "/wake/"+id,
-		map[string]string{"id": id}, nil)
-	if code != http.StatusOK {
-		relayV1Error(w, code, body)
-		return
-	}
-	if sb, err = s.Store.Get(r.Context(), id); err != nil {
-		writeV1Err(w, http.StatusInternalServerError, "internal", err.Error())
-		return
-	}
-	s.recordEvent(r, events.Event{Type: events.SandboxStarted, Severity: events.SeverityInfo,
-		Message: "Sandbox recreated", AppID: sb.AppID.String, SandboxID: id})
-	writeJSON(w, http.StatusOK, s.v1SandboxFromRow(r, sb))
+	s.recreateDockerSandbox(w, r, id)
 }

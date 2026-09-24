@@ -136,17 +136,22 @@ were revoked. This was an isolated functional relay; forced fallback and a final
 cancelled-credit-ledger assertion remain unverified. See the
 [functional evidence](../ops/cube/functional/2026-09-24/README.md).
 
-All seven reviewed preset images passed actual Cube startup, process-preserving
-pause/resume and strict workspace/home export checks. The
-[preset matrix](cube-pilot-results/reviewed-preset-matrix-2026-09-24.md) pins the
+All eight composed v4 presets passed actual Cube functional acceptance. The
+seven database-free starters passed startup, process-preserving pause/resume and
+strict workspace/home exports; the opt-in PostgreSQL starter additionally passed
+SQL persistence, manifest activation, same-VM source restore and private-home
+recovery. The
+[current preset matrix](cube-pilot-results/composed-preset-matrix-2026-09-24/README.md) pins the
 isolated-cluster images/templates and exact acceptance scope. These checks establish
 preset behavior, not every existing project's native-tool compatibility or a
 comparative speedup. The [actual API lifecycle fixture](../ops/cube/functional/2026-09-24/app-lifecycle.md)
 also passed source publication, fresh-owner remix, stop/start and owner restore,
 with private sentinels excluded from shared source. Single nested observations
 were 6.417 s create-to-supervisor-ready, 4.010 s remix-to-ready and 1.395 s
-pause/resume-to-ready; these are not a matched speedup benchmark. A separate
-`.env.local` reload hang remains under investigation.
+pause/resume-to-ready; these are not a matched speedup benchmark. The cold Vite
+environment-reload hang was subsequently fixed and verified on Docker and Cube;
+see the [regression evidence](cube-pilot-results/vite-cold-reload-2026-09-24/README.md)
+and [composed-image benchmark](cube-pilot-results/react-pro-candidate-2026-09-24/README.md).
 
 The [independent recovery fixture](cube-pilot-results/independent-backup-restore-2026-09-24.md)
 restored a consistent SQLite snapshot, encryption key, source home and recovery
@@ -173,6 +178,25 @@ but worker replacement or capture throughput is not an app-runtime migration gat
 The user authorized merging, deployment and production monitoring once the release
 gates pass. Another generic deployment approval is not required. This authorization
 does not turn an incomplete connectivity or data-compatibility check into a pass.
+
+A **staged Docker deployment** is distinct from the global Cube cutover below.
+It can deliver the compatible platform/control-plane changes while all existing
+and new applications continue using Docker. The reviewed
+[runtime deploy script](../ops/deploy-project-x.md) refuses existing Cube ownership
+or enabled Cube/reverse-egress configuration, tests exact built images before
+activation, preserves sibling containers and takes an online SQLite backup.
+Its rollback restores code/images without rewinding data. The companion platform
+stages its build outside the live directory, retains prior static assets and
+automatically restores code/artifacts if service readiness fails. Install both
+reviewed deploy scripts at the existing external entrypoints before merging;
+the old deployment scripts build over live code or mutable image tags.
+
+The Docker manifest activation implementation must precede the platform's new
+automatic reload calls. It validates the source before stopping a container and
+requires the live supervisor's manifest/configuration acknowledgement and exact
+image identity. Repeated unchanged activation is a no-op; ordinary empty-body
+environment recreation keeps its existing behavior. This staged deployment does
+not complete Cube isolation, migrate any project or relax global admission.
 
 The platform's `.github/workflows/landing.yml` deploys successful pushes to `main`;
 merging and pushing there is a production action. Runtime's
