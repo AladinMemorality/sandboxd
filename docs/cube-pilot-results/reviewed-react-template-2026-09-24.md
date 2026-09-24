@@ -1,5 +1,7 @@
 # Reviewed React Cube template — 2026-09-24
 
+**Use the newer v3 template for migration work:** the [home roundtrip report](reviewed-home-roundtrip-2026-09-24.md) records a subsequent build-cache fix. The v2 timings below remain historical functional evidence.
+
 The production-base React Pro image passed a disposable Cube functional run.
 No production projects, files, credentials, routing, or services were changed.
 See [the structured result](reviewed-react-template-2026-09-24.json) for immutable

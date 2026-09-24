@@ -35,6 +35,13 @@ RUN if [ "${CUBE_REVERSE_EGRESS}" = 1 ]; then \
       && python3 -m venv .venv \
       && .venv/bin/pip install --no-cache-dir -r requirements.txt; \
     fi
+# The reviewed base's pnpm build cache contains index links into /opt/templates.
+# It is not owner data and is not a dependency target in the copied app. Drop
+# this build-only store so private home export never inherits external links.
+USER root
+RUN rm -rf /home/sandbox/.cache/pnpm-store && mkdir -p /home/sandbox/.cache \
+ && chown sandbox:sandbox /home/sandbox/.cache
+USER sandbox
 # Cube's template readiness port must be 49983 (tokenless bootstrap), not3031.
 # No supervisor/app starts until Cubelet delivers fresh per-instance credentials.
 ENTRYPOINT ["/usr/bin/tini", "--"]
