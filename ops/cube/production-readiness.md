@@ -6,6 +6,14 @@ The current runtime always denies guest outbound traffic; nonempty operator doma
 
 ## Integration progress, 2026-09-24
 
+Capture selection is independent of app runtime selection. With the default
+`CAPTURE_BACKEND=shared`, the inventory requires an explicit positive
+`capacity.capture_memory_mib` budget for the warmed browser, but no worker socket.
+With `CAPTURE_BACKEND=service`, it requires the socket and budgets the selected
+worker count plus manager. Protected management-address exclusions remain
+mandatory for both brokers. Optional Cube browser-worker benchmarks are not
+acceptance criteria for Cube app migration.
+
 The migration branch now implements an opt-in host-initiated reverse connection
 for reviewed pilot apps. Public HTTP/TLS destinations are resolved and pinned by
 the host; model and platform bridge calls use fixed scoped handlers. The guest

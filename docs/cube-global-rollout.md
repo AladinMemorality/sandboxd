@@ -5,6 +5,23 @@ links, remixes, AI tasks, configuration, previews and rollback. The branch is no
 yet ready for production cutover. Global scope does not waive any project's
 data-compatibility checks or the deployed network-isolation acceptance gate.
 
+## App runtime and screenshots are separate rollouts
+
+Cube executes migrated projects. The sandboxd API remains a compatibility
+control plane for stable app IDs, tasks, previews and snapshots; retaining that
+API does not mean retaining Docker as the app execution engine.
+
+Screenshots remain one platform feature for authorized Chat and Sandbox agents.
+The companion platform is separating renderer selection: `CAPTURE_BACKEND=shared`
+retains the warmed browser with fresh contexts and scoped HTTP/WebSocket brokers;
+`service` explicitly selects the optional worker manager. There is no automatic
+failure fallback. Neither shared Chromium nor Docker workers are microVMs.
+
+The capture-worker results below are historical, independent feature research.
+Their throughput is not a Cube app-migration gate. Validate capture authorization
+and functionality against the selected renderer during app rollout; replacing
+the renderer requires its own release and capacity acceptance.
+
 ## Operator selection and durable identity
 
 `SANDBOXD_CUBE_ROLLOUT=allowlist` is the default when Cube is enabled. It requires
@@ -67,7 +84,8 @@ Before any global switch, require all of the following for the actual deployment
 - Actual HTTPS browser checks for owner/public/unlisted links, privacy settings,
   signed-preview refresh, WebSockets, old remixes, publish, resume and screenshots.
 - Representative simultaneous create/wake/remix/publish load, resource quotas,
-  capture worker replacement, disk/snapshot growth and failure/upgrade recovery.
+  disk/snapshot growth and failure/upgrade recovery. Capture-worker replacement
+  is an additional requirement only when that separate service is deployed.
 
 Drain new work and wait for active tasks, acquire the migration maintenance fence,
 then regenerate the full fleet plan. Any new/missing project or changed eligibility
@@ -75,10 +93,10 @@ requires review before execution. Retain source containers and recovery archives
 until post-migration application checks and the rollback retention period complete.
 Do not present a subset of passing projects as global acceptance.
 
-The shared capture service is deployed separately from guest migration. Its
-platform runbook defines the protected Unix socket, disposable prewarmed workers,
-host-address exclusions and readiness checks. Never deploy capture callers before
-the service is ready: there is deliberately no browser fallback in the platform.
+The optional capture service is deployed separately from guest migration. Its
+runbook defines the protected Unix socket, disposable workers, host-address
+exclusions and readiness checks. Only an explicitly selected service backend
+requires that deployment; retaining the shared renderer does not require a socket.
 
 ## Validation of the global migration branch, 2026-09-23
 
@@ -156,11 +174,11 @@ Deployment order, after acceptance:
 1. Record the running revisions, service configuration references, current fleet
    identity, active tasks, traffic/error/latency baseline and verified backup
    locations. Keep secrets and signed preview capabilities out of evidence.
-2. Install the reviewed shared capture image and manager with its final Node path,
-   socket permissions, address exclusions and measured capacity. Verify liveness,
-   idle readiness and a complete capture through the platform client/broker
-   before publishing callers that require it. Keep the previous platform release
-   available for application rollback.
+2. Retain the existing warmed screenshot backend and verify owner/public/private
+   captures through its scoped broker. Deploy a replacement manager only as an
+   independently selected and validated release. Its worker benchmarks do not
+   establish app create/resume/publish/remix performance. Keep the previous
+   platform revision available for application rollback.
 3. Deploy the reviewed Cube worker/templates/relay and runtime with new admission
    still controlled. Verify the actual HTTPS, model, bridge, dependency and
    isolation paths against these exact artifacts. Recheck readiness after restart.

@@ -7,6 +7,13 @@ production home/tool compatibility, network isolation and operational acceptance
 remain release gates. Dependency preparation and journaled transfer are implemented
 on this branch, with their limits documented below. No production projects were moved.
 
+The app runtime is the migration target. The sandboxd API remains the compatibility
+control plane while Cube replaces Docker execution for migrated projects.
+Screenshots are an independent platform feature for all authorized agents. The
+companion platform is adding explicit `CAPTURE_BACKEND=shared|service` selection,
+retaining the existing warmed browser by default. Optional worker experiments
+below do not establish, or gate, app create/resume/publish/remix performance.
+
 ## Implemented
 
 - Explicit global admission mode and legacy published-snapshot remix conversion;

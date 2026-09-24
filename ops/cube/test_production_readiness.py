@@ -26,7 +26,7 @@ class ReadinessTests(unittest.TestCase):
             self.runtime[key] = 'http://127.0.0.1:9090'
         self.platform = {'BRIDGE_PUBLIC_URL': 'https://app.example/api/bridge',
                          'SANDBOXD_PREVIEW_ORIGIN': 'https://%ID%.preview.example',
-                         'CAPTURE_SERVICE_SOCKET': '/run/capture.sock', 'CAPTURE_DENY_CIDRS': '8.8.8.8/32'}
+                         'CAPTURE_BACKEND': 'service', 'CAPTURE_SERVICE_SOCKET': '/run/capture.sock', 'CAPTURE_DENY_CIDRS': '8.8.8.8/32'}
         self.plan = {'protected_addresses': ['8.8.8.8'], 'capacity': {
             'host_memory_mib': 16384, 'reserved_memory_mib': 2048, 'running_guests': 4,
             'peak_waking_guests': 2, 'guest_memory_mib': 1024, 'free_storage_bytes': 100000,
@@ -103,6 +103,30 @@ class ReadinessTests(unittest.TestCase):
         before = self.check()['resource_summary']['minimum_planned_memory_mib']
         self.plan['capacity']['capture_workers'] = 8
         self.assertEqual(self.check()['resource_summary']['minimum_planned_memory_mib'], before + 6 * 768)
+
+
+    def test_shared_capture_does_not_require_replacement_service(self):
+        self.platform.pop('CAPTURE_BACKEND')
+        self.platform.pop('CAPTURE_SERVICE_SOCKET')
+        self.plan['capacity']['capture_memory_mib'] = 1024
+        result = self.check()
+        codes = {entry['code'] for entry in result['findings']}
+        self.assertNotIn('capture_socket_missing', codes)
+        self.assertNotIn('capacity_inventory_missing', codes)
+        self.assertEqual(result['resource_summary']['capture_backend'], 'shared')
+        self.assertEqual(result['resource_summary']['capture_workers'], 0)
+        self.assertEqual(result['resource_summary']['minimum_planned_memory_mib'], 2048 + 6 * 1024 + 1024)
+        self.assertFalse(result['authorizes_rollout'])
+        self.platform['CAPTURE_DENY_CIDRS'] = ''
+        self.assertIn('capture_management_exclusion_missing', {entry['code'] for entry in self.check()['findings']})
+
+    def test_selected_service_and_shared_capture_require_their_own_resources(self):
+        self.platform.pop('CAPTURE_SERVICE_SOCKET')
+        self.assertIn('capture_socket_missing', {entry['code'] for entry in self.check()['findings']})
+        self.platform['CAPTURE_BACKEND'] = 'shared'
+        self.assertIn('capacity_inventory_missing', {entry['code'] for entry in self.check()['findings']})
+        self.platform['CAPTURE_BACKEND'] = 'typo'
+        self.assertIn('capture_backend_invalid', {entry['code'] for entry in self.check()['findings']})
 
 
 if __name__ == '__main__':

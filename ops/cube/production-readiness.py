@@ -21,7 +21,7 @@ CONFIG_KEYS = {
     'SANDBOXD_CUBE_AGENT_RELAY_ORIGIN', 'SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED',
     'SANDBOXD_AGENT_PROXY_URL', 'SANDBOXD_PREVIEW_TOKEN_SECRETS', 'SANDBOXD_API_AUTH_DISABLED',
     'SANDBOXD_AGENT', 'SANDBOXD_MODEL', 'BRIDGE_PUBLIC_URL', 'CAPTURE_SERVICE_SOCKET',
-    'CAPTURE_DENY_CIDRS', 'SANDBOXD_PREVIEW_ORIGIN',
+    'CAPTURE_DENY_CIDRS', 'CAPTURE_BACKEND', 'SANDBOXD_PREVIEW_ORIGIN',
 }
 
 
@@ -73,7 +73,7 @@ def audit(runtime, platform, plan, base):
     # This is a source-level capability limit, deliberately not overridable by
     # an operator boolean or a supplied evidence document. Updating it requires
     # a separately reviewed networking implementation and acceptance process.
-    issue('guest_egress_unavailable', 'Current OperatorEgressPolicy denies all outbound traffic and rejects domain allowances. Global model, bridge, registry and external-backend connectivity is not implemented for release.')
+    issue('guest_egress_unavailable', 'Direct guest egress remains denied. Reverse egress is implemented for reviewed pilot apps; global native-client compatibility and deployed model, bridge, registry and external-backend acceptance remain incomplete.')
     if runtime.get('SANDBOXD_CUBE_EGRESS_ALLOW_DOMAINS', '').strip():
         issue('unsupported_domain_allowance', 'Configured domain allowances are rejected by the current runtime; they cannot enable connectivity.')
     if runtime.get('SANDBOXD_CUBE_ENABLED') != 'true':
@@ -112,8 +112,11 @@ def audit(runtime, platform, plan, base):
     preview = platform.get('SANDBOXD_PREVIEW_ORIGIN', '').replace('%ID%', 'reviewed-project')
     if not valid_url(preview, https=True):
         issue('preview_https_missing', 'Provide the reviewed HTTPS preview origin; browser cookie, CSRF and log-redaction acceptance remains separate.')
-    if not platform.get('CAPTURE_SERVICE_SOCKET', '').startswith('/'):
-        issue('capture_socket_missing', 'The unified capture Unix socket must be configured and pass its read-only readiness probe.')
+    capture_backend = platform.get('CAPTURE_BACKEND', '') or 'shared'
+    if capture_backend not in ('shared', 'service'):
+        issue('capture_backend_invalid', 'CAPTURE_BACKEND must be shared or service; there is no automatic fallback.')
+    if capture_backend == 'service' and not platform.get('CAPTURE_SERVICE_SOCKET', '').startswith('/'):
+        issue('capture_socket_missing', 'The explicitly selected capture service needs its Unix socket and read-only readiness probe.')
 
     try:
         inventory = plan.get('protected_addresses', [])
@@ -140,13 +143,20 @@ def audit(runtime, platform, plan, base):
                   'rollback_reserve_bytes', 'backup_staging_bytes', 'planned_snapshot_growth_bytes')
         if any(type(capacity.get(key)) is not int or capacity[key] < 0 for key in fields): raise ValueError()
         if not capacity['guest_memory_mib'] or not capacity['host_memory_mib']: raise ValueError()
-        capture_workers = capacity.get('capture_workers', 2)
-        if type(capture_workers) is not int or not 1 <= capture_workers <= 8: raise ValueError()
-        memory = capacity['reserved_memory_mib'] + (capacity['running_guests'] + capacity['peak_waking_guests']) * capacity['guest_memory_mib'] + capture_workers * 768 + 512
+        capture_workers = 0
+        if capture_backend == 'service':
+            capture_workers = capacity.get('capture_workers', 2)
+            if type(capture_workers) is not int or not 1 <= capture_workers <= 8: raise ValueError()
+            capture_memory = capture_workers * 768 + 512
+        else:
+            capture_memory = capacity.get('capture_memory_mib')
+            if type(capture_memory) is not int or capture_memory <= 0: raise ValueError()
+        memory = capacity['reserved_memory_mib'] + (capacity['running_guests'] + capacity['peak_waking_guests']) * capacity['guest_memory_mib'] + capture_memory
         storage = sum(capacity[key] for key in ('project_export_bytes', 'rollback_reserve_bytes', 'backup_staging_bytes', 'planned_snapshot_growth_bytes'))
         resource_summary = {'minimum_planned_memory_mib': memory, 'minimum_storage_reserve_bytes': storage,
-                            'capture_workers': capture_workers}
-        if memory > capacity['host_memory_mib']: issue('memory_overcommitted', 'Planned guests, waking burst, capture workers and host reserve exceed available memory.')
+                            'capture_backend': capture_backend, 'capture_workers': capture_workers,
+                            'capture_memory_mib': capture_memory}
+        if memory > capacity['host_memory_mib']: issue('memory_overcommitted', 'Planned guests, waking burst, selected capture budget and host reserve exceed available memory.')
         if storage > capacity['free_storage_bytes']: issue('storage_overcommitted', 'Exports, rollback, backups and snapshot growth exceed available storage.')
     except (ValueError, TypeError):
         issue('capacity_inventory_missing', 'Provide nonnegative measured resource and transfer-size inventory; small fixture timings are not fleet capacity proof.')
