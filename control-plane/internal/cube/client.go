@@ -27,6 +27,10 @@ const (
 var identifier = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,127}$`)
 var envName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 
+// ErrRuntimeUnavailable means a known provider ID has no confirmed live task.
+// Keep its durable reservation and data; this is not permission to recreate it.
+var ErrRuntimeUnavailable = errors.New("Cube runtime requires recovery")
+
 type Client struct {
 	base      *url.URL
 	key       string
@@ -292,7 +296,13 @@ func (c *Client) DeleteSnapshot(ctx context.Context, id string) error {
 }
 
 func validateSandbox(out *Sandbox, expected string) error {
-	if validateID(out.SandboxID) != nil || validateID(out.TemplateID) != nil || (expected != "" && out.SandboxID != expected) {
+	if validateID(out.SandboxID) != nil || (expected != "" && out.SandboxID != expected) {
+		return errors.New("cube: invalid sandbox response identifier")
+	}
+	if out.State == "stopped" || out.State == "unknown" {
+		return ErrRuntimeUnavailable
+	}
+	if validateID(out.TemplateID) != nil {
 		return errors.New("cube: invalid sandbox response identifier")
 	}
 	if out.State != "" && out.State != "running" && out.State != "paused" && out.State != "pausing" {

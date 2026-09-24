@@ -159,8 +159,8 @@ This is only a preliminary estimate: the PG app's live socket prevented a full
 home scan, and its exact budget must be recomputed after graceful database stop.
 
 For normal creates, use the existing conservative worker disk-fill filter
-against real physical capacity. A 75-percent threshold on the provisioned 320-GiB data volume
-provides roughly 80 GiB at the last heartbeat. It is cached headroom, not an
+against real physical capacity. The installed 65-percent threshold on the provisioned 320-GiB data volume
+provides roughly 112 GiB at the last heartbeat. It is cached headroom, not an
 atomic 48-GiB reservation: active tenant writes, pause snapshots and import
 staging consume space afterward. The twelve-active limit bounds the number of
 simultaneous VM RAM snapshots but does not cap tenant disk growth. Do not inflate

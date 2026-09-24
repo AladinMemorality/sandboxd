@@ -11,6 +11,8 @@ import (
 // An ambiguous allocation needs reconciliation; do not advise creating again.
 func writeCubeAdmissionError(w http.ResponseWriter, err error) bool {
 	switch {
+	case errors.Is(err, cube.ErrRuntimeUnavailable):
+		writeV1Err(w, http.StatusServiceUnavailable, "runtime_recovery_required", "The sandbox requires recovery before it can start.")
 	case errors.Is(err, cube.ErrCapacityUnavailable):
 		w.Header().Set("Retry-After", "5")
 		writeV1Err(w, http.StatusServiceUnavailable, "runtime_capacity", "Sandbox capacity is busy. Please retry shortly.")
