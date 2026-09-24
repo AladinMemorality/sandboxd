@@ -1,0 +1,21 @@
+{
+  "scope": "isolated composed v4 prepared starter matrix; not production acceptance",
+  "base_abi_image": "sha256:9ec445151344a7baa295b085bebe1a0352ab930601fe0d9ed2bf1283bbaa6678",
+  "composed_base_image": "sha256:3fd511ce3b190865f49ea3875c8743daffd7c80930d892a073b9b3e03b06aa0f",
+  "runtimed_sha256": "49d701136b38a639ab116a0e8c99827dbc125e5d451dd163c5294c49ca2329db",
+  "cube_init_sha256": "786b3eafa6fbd078ccbc4837ff34ec456ed2a466f9f1b2d4ebc74269d816ed55",
+  "cube_template_sha256": "a2e083857553856f499a4348d4e992301fd55b925bc5ac32a099c6a80baaea42",
+  "fixture_executable_sha256": "c9c59debfcb2ac16f23a68f6e91259265831263ed042adc024b5a2d6b0585bfc",
+  "fixture_source_sha256": {
+    "home.go": "4931f18d08dba722547d4042ae5d6b25d5f50c5892ff68a0a62d829cccc6d37b",
+    "presets.go": "57e46c78d0f03c518db9b3e63eb9fd167c6ff9de88107505dce2d1ff447f2f3a",
+    "main.go": "757da634e912e1c3766ca02d87043a3dd6e67c3dac180fb064315bb4515cde3f"
+  },
+  "template_resources": {
+    "cpu_millicores": 1000,
+    "memory_mib": 1024,
+    "writable_layer_gib": 10
+  },
+  "production_rollout_accepted": false,
+  "network_isolation_accepted": false
+}

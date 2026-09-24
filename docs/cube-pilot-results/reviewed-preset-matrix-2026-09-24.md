@@ -56,8 +56,11 @@ Checks covered:
   restart count, followed by strict quiesced home-v2 and workspace-v2 exports
   with validated canonical digests.
 
-All fixture guests were deleted. Images and templates remain reusable test
-artifacts. These checks ran under shared functional-test load; they are not a
+All fixture guests were deleted. Images remain reusable test artifacts. The
+seven template records in this historical mapping were later deleted through
+Cube's normal API to free space for the composed v4 matrix; their image/build
+identities remain recorded here. The unrelated paused September 17 guest and
+its snapshot were preserved. See the [v4 matrix and cleanup evidence](composed-preset-matrix-2026-09-24/README.md). These checks ran under shared functional-test load; they are not a
 speed benchmark or a full browser interaction suite.
 
 ## Strict export caught startup-generated Next.js state

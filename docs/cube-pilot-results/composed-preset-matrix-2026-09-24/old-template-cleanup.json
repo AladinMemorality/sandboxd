@@ -1,0 +1,16 @@
+{
+  "guest_inventory_before": "NODE_SCOPE       all\nNODES_SCANNED    1/1\nSANDBOX_COUNT    1\n\nsandbox_id                          status    backend    remote    pause_snap                       host_id      create_at    pause_at               template_id    namespace    host_ip      labels\n6d96feb3819a41aabbcb04e3058b056b    paused    xfs        -         snap-4d5641643a124f35b70f66dc    10.0.2.15    -            2026-09-17 12:13:03                                10.0.2.15    null\n",
+  "deleted_templates": [
+    "tpl-ce9efc43b71248d9a0adfb90",
+    "tpl-16690c3572a04e88a662a8fb",
+    "tpl-d2187254ca8d4ea89910c0d1",
+    "tpl-c78fd90bc05b42a5a66bd4ed",
+    "tpl-7a7173c461ba4846a75c8c3b",
+    "tpl-849724091697474a97258914",
+    "tpl-6a2b2e0d60da4217bccae0a7"
+  ],
+  "free_bytes_before": 15500095488,
+  "delete_output": "2026/09/24 19:06:25 template deleted: tpl-ce9efc43b71248d9a0adfb90\n2026/09/24 19:06:25 template deleted: tpl-16690c3572a04e88a662a8fb\n2026/09/24 19:06:25 template deleted: tpl-d2187254ca8d4ea89910c0d1\n2026/09/24 19:06:25 template deleted: tpl-c78fd90bc05b42a5a66bd4ed\n2026/09/24 19:06:25 template deleted: tpl-7a7173c461ba4846a75c8c3b\n2026/09/24 19:06:25 template deleted: tpl-849724091697474a97258914\n2026/09/24 19:06:26 template deleted: tpl-6a2b2e0d60da4217bccae0a7\n",
+  "free_bytes_after": 40238559232,
+  "guest_inventory_after": "NODE_SCOPE       all\nNODES_SCANNED    1/1\nSANDBOX_COUNT    1\n\nsandbox_id                          status    backend    remote    pause_snap                       host_id      create_at    pause_at               template_id    namespace    host_ip      labels\n6d96feb3819a41aabbcb04e3058b056b    paused    xfs        -         snap-4d5641643a124f35b70f66dc    10.0.2.15    -            2026-09-17 12:13:03                                10.0.2.15    null\n"
+}

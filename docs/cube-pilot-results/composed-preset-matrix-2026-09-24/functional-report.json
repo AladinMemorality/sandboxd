@@ -1,0 +1,212 @@
+[
+  {
+    "preset": "react-pro",
+    "template": "tpl-f985e6e704684df4945b989e",
+    "image": "baarcha-cube-reviewed-react-pro:20260924-v4-final",
+    "image_digest": "sha256:82bcbc1f26582cbe3bcb2119d1d462db7d9920aa7575dc4964c49fc42f6c1a43",
+    "free_bytes_before": {
+      "/": 54062501888,
+      "/data": 29963390976
+    },
+    "functional": {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "react_html_and_transformed_entrypoint",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "delete_verified_http404": true,
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "preset": "react-pro",
+      "sandbox_id": "62c03644213547e7bbc5460214d4fc85",
+      "scope": "single fresh authenticated Cube starter, ordinary frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; not real-owner ABI or performance benchmark",
+      "template": "tpl-f985e6e704684df4945b989e",
+      "workspace_archive_bytes": 43485071,
+      "workspace_digest": "0e9c38497a4299cfe540d503fefd4d3e9b321a602bcbb9110f687de92b22d6bc"
+    }
+  },
+  {
+    "preset": "marketplace",
+    "template": "tpl-ea87516417594bcbba062802",
+    "image": "baarcha-cube-reviewed-marketplace:20260924-v4-final",
+    "image_digest": "sha256:8ae36753b770bac06b49ef75d266ff5074fd30e567ebc1857e281e4ae9b566d4",
+    "free_bytes_before": {
+      "/": 44904099840,
+      "/data": 22423175168
+    },
+    "functional": {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "react_html_and_transformed_entrypoint",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "delete_verified_http404": true,
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "preset": "marketplace",
+      "sandbox_id": "1dd413a10c584a01a38760d563c0c82e",
+      "scope": "single fresh authenticated Cube starter, ordinary frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; not real-owner ABI or performance benchmark",
+      "template": "tpl-ea87516417594bcbba062802",
+      "workspace_archive_bytes": 42881908,
+      "workspace_digest": "1167ab97a9c3d46cfc91bf72a3e8eb990761a2ed6f408176e6d96d45d52dbaf0"
+    }
+  },
+  {
+    "preset": "react-vite",
+    "template": "tpl-225b69b14f544892b5f23e6b",
+    "image": "baarcha-cube-reviewed-react-vite:20260924-v4-final",
+    "image_digest": "sha256:b8ece62881111a7c1b6ce3efaaf13960818a53b54cf03c10454dba8938a68c96",
+    "free_bytes_before": {
+      "/": 44904099840,
+      "/data": 22423175168
+    },
+    "functional": {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "react_html_and_transformed_entrypoint",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "delete_verified_http404": true,
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "preset": "react-vite",
+      "sandbox_id": "d9bb792960d5455f91db7503bab432da",
+      "scope": "single fresh authenticated Cube starter, ordinary frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; not real-owner ABI or performance benchmark",
+      "template": "tpl-225b69b14f544892b5f23e6b",
+      "workspace_archive_bytes": 18131049,
+      "workspace_digest": "c0456f2e8ca42430a65236e5f74b69c881f0e60d0c4227f77aa6254b59f9acc8"
+    }
+  },
+  {
+    "preset": "nextjs",
+    "template": "tpl-3d684e8c416049289685319e",
+    "image": "baarcha-cube-reviewed-nextjs:20260924-v4-final",
+    "image_digest": "sha256:a6026ccaf642bdf82d8d94aed3681c6d6b34a2e6d46d259f52a0a860ecfd233a",
+    "free_bytes_before": {
+      "/": 64484032512,
+      "/data": 40238600192
+    },
+    "functional": {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "next_server_rendered_html",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "delete_verified_http404": true,
+      "home_archive_bytes": 3031,
+      "home_digest": "cbb5f583bcc105dda9484a9f1d798cc28bf4770c902ad85cdf3c92888af73407",
+      "preset": "nextjs",
+      "sandbox_id": "702357623c0a4f50bf22e3d38baa5cb9",
+      "scope": "single fresh authenticated Cube starter, ordinary frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; not real-owner ABI or performance benchmark",
+      "template": "tpl-3d684e8c416049289685319e",
+      "workspace_archive_bytes": 73275208,
+      "workspace_digest": "86bed5ccbf1e1e017089c2385a7413042545662e7d741afad22a9eaa542249e5"
+    }
+  },
+  {
+    "preset": "node-express",
+    "template": "tpl-45e214308a344823b19f8555",
+    "image": "baarcha-cube-reviewed-node-express:20260924-v4-final",
+    "image_digest": "sha256:25b6a882d49edd2a52843d17a6510229890dfa836dbc9db7199deb21134061fb",
+    "free_bytes_before": {
+      "/": 64484032512,
+      "/data": 40238600192
+    },
+    "functional": {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "backend_health_and_root_routes",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "delete_verified_http404": true,
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "preset": "node-express",
+      "sandbox_id": "ca6291892d584439818348303d7b7de0",
+      "scope": "single fresh authenticated Cube starter, ordinary frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; not real-owner ABI or performance benchmark",
+      "template": "tpl-45e214308a344823b19f8555",
+      "workspace_archive_bytes": 1123627,
+      "workspace_digest": "94fd0936624652a34f15ca4075e2ec63397f5d0fc59aff6a6ebbc0a963eb8099"
+    }
+  },
+  {
+    "preset": "fastapi",
+    "template": "tpl-43b96d1e5b9441f48c0a15f1",
+    "image": "baarcha-cube-reviewed-fastapi:20260924-v4-final",
+    "image_digest": "sha256:bbc7fe7dab61546df715c1253c816ca3ab96a3259e2c3a92132068ef2bd16613",
+    "free_bytes_before": {
+      "/": 64484032512,
+      "/data": 40238600192
+    },
+    "functional": {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "backend_health_and_root_routes",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "delete_verified_http404": true,
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "preset": "fastapi",
+      "sandbox_id": "5c2a733a4fac4f2fa177d7b588078c96",
+      "scope": "single fresh authenticated Cube starter, ordinary frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; not real-owner ABI or performance benchmark",
+      "template": "tpl-43b96d1e5b9441f48c0a15f1",
+      "workspace_archive_bytes": 10166531,
+      "workspace_digest": "efa65c9861c2a5c73ac0151b0b9581869451a66bd4fff785f1cde6895b0c2117"
+    }
+  },
+  {
+    "preset": "worker",
+    "template": "tpl-9592dcb244f24e21bf82119b",
+    "image": "baarcha-cube-reviewed-worker:20260924-v4-final",
+    "image_digest": "sha256:d6947de9c563fbc408e1115dbe5d1d118672b7ef9bb792ac8925e575e96367b7",
+    "free_bytes_before": {
+      "/": 64484032512,
+      "/data": 40238600192
+    },
+    "functional": {
+      "checks": [
+        "authenticated_supervisor",
+        "authenticated_reverse_channel",
+        "expected_process_running",
+        "worker_only_no_preview",
+        "pause_resume_same_supervisor_and_process",
+        "quiesced_home_v2_export_digest",
+        "quiesced_workspace_v2_export_digest"
+      ],
+      "delete_verified_http404": true,
+      "home_archive_bytes": 2600,
+      "home_digest": "8d0d657bf05ce0fdf537b019cbc86902a65c52ba1fbc4e05e158048217ceeee9",
+      "preset": "worker",
+      "sandbox_id": "8d467ca113f7477790e1c5ed1a559122",
+      "scope": "single fresh authenticated Cube starter, ordinary frontend/backend/worker readiness, same-process resume, quiesced home/workspace export; not real-owner ABI or performance benchmark",
+      "template": "tpl-9592dcb244f24e21bf82119b",
+      "workspace_archive_bytes": 3353,
+      "workspace_digest": "2ffe2e6ef343c63c2e0e6168d16dfd35d22709b5e0b2a2f21125fe016054e7d0"
+    }
+  }
+]

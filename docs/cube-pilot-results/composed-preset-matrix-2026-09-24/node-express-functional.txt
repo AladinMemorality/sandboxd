@@ -1,0 +1,3 @@
+PASS preset node-express startup/resume; checking exports
+PASS preset node-express home export
+PASS preset node-express all functional checks

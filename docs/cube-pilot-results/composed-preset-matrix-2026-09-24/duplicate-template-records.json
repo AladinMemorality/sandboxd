@@ -1,0 +1,22 @@
+[
+  {
+    "preset": "node-postgres",
+    "template": "tpl-df42eb49405a47cb80c8c507",
+    "image": "baarcha-cube-reviewed-node-postgres:20260924-v4-final",
+    "image_digest": "sha256:b72798aaa51aa770dc9c950eefb1f0ea5fd17fc9454e6b94c1b8bf4be7f40e85",
+    "free_bytes_before": {
+      "/": 44905361408,
+      "/data": 22762885120
+    }
+  },
+  {
+    "preset": "react-pro",
+    "template": "tpl-fb5b1354ff0d4c7ab48d9a31",
+    "image": "baarcha-cube-reviewed-react-pro:20260924-v4-final",
+    "image_digest": "sha256:82bcbc1f26582cbe3bcb2119d1d462db7d9920aa7575dc4964c49fc42f6c1a43",
+    "free_bytes_before": {
+      "/": 44905361408,
+      "/data": 22762885120
+    }
+  }
+]

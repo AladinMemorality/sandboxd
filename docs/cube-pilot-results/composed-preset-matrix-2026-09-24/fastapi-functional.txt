@@ -1,0 +1,3 @@
+PASS preset fastapi startup/resume; checking exports
+PASS preset fastapi home export
+PASS preset fastapi all functional checks
