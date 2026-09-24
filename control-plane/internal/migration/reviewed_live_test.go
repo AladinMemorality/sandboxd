@@ -113,7 +113,7 @@ func TestOperatorReviewedTemplateJournalRoundtrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	containerName := "cube-migration-fixture-" + strings.ToLower(id)
-	command := exec.CommandContext(ctx, "docker", "run", "--detach", "--name", containerName, "--user", "1000:1000", "--network", "none", "--label", "sandboxd.managed=true", "--volume", home+":/home/sandbox", "--entrypoint", "node", image, "/home/sandbox/workspace/app/server.js")
+	command := exec.CommandContext(ctx, "docker", "run", "--detach", "--name", containerName, "--user", "1000:1000", "--network", "none", "--cpus", "1", "--memory", "1g", "--label", "sandboxd.managed=true", "--volume", home+":/home/sandbox", "--entrypoint", "node", image, "/home/sandbox/workspace/app/server.js")
 	output, err := command.CombinedOutput()
 	if err != nil {
 		t.Fatalf("disposable source: %v %s", err, output)
