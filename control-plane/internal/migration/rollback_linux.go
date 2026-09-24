@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/appenv"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
@@ -186,12 +187,15 @@ func (b *OfflineBackend) RetireSource(ctx context.Context, id string) error {
 		}
 	}
 	client := runtime.NewClient(filepath.Join(b.WorkspaceRoot, id, ".runtimed", "sock"))
-	status, err := client.Status(ctx)
-	if err != nil {
-		return err
-	}
-	if status.ActiveTask != nil || (status.Preview.Status != runtime.PreviewReady && status.Preview.Status != runtime.PreviewNone) {
-		return errors.New("replacement application is not ready")
+	probe := migrationReadiness{Window: 2 * time.Second}
+	if err = wait(ctx, 30*time.Second, func() bool {
+		status, statusErr := client.Status(ctx)
+		if statusErr != nil {
+			return probe.Observe(nil, time.Now())
+		}
+		return probe.Observe(status, time.Now())
+	}); err != nil {
+		return fmt.Errorf("replacement application is not stably ready: %w", err)
 	}
 	original, err := b.Docker.Inspect(ctx, m.Source.ContainerID.String)
 	if errors.Is(err, docker.ErrNotFound) {
