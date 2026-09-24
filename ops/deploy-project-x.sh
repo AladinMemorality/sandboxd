@@ -160,7 +160,11 @@ if [[ -d "$src/traefik/dynamic" ]]; then cp -a "$src/traefik/dynamic" "$run/trae
 
 git -C "$src" fetch --no-tags origin "$sha"
 [[ "$(git -C "$src" rev-parse "$sha^{commit}")" == "$sha" ]]
-git -C "$src" worktree add --detach "$run/source" "$sha"
+# Public checked-in source must keep normal Git 0644/0755 modes: Docker COPY
+# preserves them, and sandbox users must read root-owned files in the image.
+# Scope this umask only to Git; the enclosing release directory stays 0700 and
+# environment, database and inspection artifacts retain the private 077 umask.
+(umask 022; git -C "$src" worktree add --detach "$run/source" "$sha")
 # A retry may reuse a completed immutable artifact, but cannot overwrite it or
 # accept an unrelated pre-existing tag. Only this reviewed source SHA is valid.
 build_image() {
@@ -176,6 +180,13 @@ build_image "$base_tag" -f "$run/source/image/Dockerfile" "$run/source"
 build_image "$control_tag" --build-arg "VERSION=$sha" --build-arg "GIT_COMMIT=$sha" -f "$run/source/control-plane/Dockerfile" "$run/source/control-plane"
 new_base=$(docker image inspect -f '{{.Id}}' "$base_tag")
 new_control=$(docker image inspect -f '{{.Id}}' "$control_tag")
+# Copy only these checked-in public fixtures to explicit readable individual
+# bind mounts; never relax permissions on release directories or secret files.
+mkdir -m 700 "$run/check-fixtures"
+for fixture in scripts/vite-reload-regression.mjs image/services/postgres/paths.test.mjs image/services/postgres/worker.test.mjs; do
+  git -C "$run/source" ls-files --error-unmatch -- "$fixture" >/dev/null
+  install -m 644 "$run/source/$fixture" "$run/check-fixtures/${fixture##*/}"
+done
 # Acceptance executes the exact built artifacts, with no network or host data
 # mounts. A timeout removes only the uniquely named disposable check container.
 acceptance() {
@@ -199,7 +210,7 @@ acceptance opt-in 30 --entrypoint node "$base_tag" -e '
   catch(e){if(e.code!=="ENOENT"&&e.code!=="ESRCH")throw e;}
  }'
 acceptance vite 180 --entrypoint bash \
-  -v "$run/source/scripts/vite-reload-regression.mjs:/opt/reload-regression.mjs:ro" \
+  -v "$run/check-fixtures/vite-reload-regression.mjs:/opt/reload-regression.mjs:ro" \
   -e RELOAD_USE_INSTALLED_PATCH=1 -e RELOAD_EXIT_AFTER_REPORT=1 "$base_tag" -lc '
  set -eu
  mkdir -p /tmp/reload-app
@@ -210,8 +221,8 @@ acceptance vite 180 --entrypoint bash \
  node reload-regression.mjs
  cat reload-results.json' >"$run/vite-acceptance.txt"
 acceptance postgres 180 --entrypoint node \
-  -v "$run/source/image/services/postgres/paths.test.mjs:/opt/services/postgres/paths.test.mjs:ro" \
-  -v "$run/source/image/services/postgres/worker.test.mjs:/opt/services/postgres/worker.test.mjs:ro" \
+  -v "$run/check-fixtures/paths.test.mjs:/opt/services/postgres/paths.test.mjs:ro" \
+  -v "$run/check-fixtures/worker.test.mjs:/opt/services/postgres/worker.test.mjs:ro" \
   "$base_tag" --test /opt/services/postgres/paths.test.mjs /opt/services/postgres/worker.test.mjs >"$run/postgres-acceptance.txt"
 # SQLite online backup includes committed WAL frames while the old controller
 # remains live; never cp an open database or restore this snapshot automatically.
