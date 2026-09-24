@@ -12,7 +12,7 @@ import (
 
 func (a *app) workspaceFence(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		history := r.URL.Path == "/export/private-task-history" || r.URL.Path == "/import/private-task-history" || r.URL.Path == "/export/private-home" || r.URL.Path == "/import/private-home"
+		history := r.URL.Path == "/export/private-task-history" || r.URL.Path == "/import/private-task-history" || r.URL.Path == "/export/private-home" || r.URL.Path == "/import/private-home" || r.URL.Path == "/export/private-home-v2" || r.URL.Path == "/import/private-home-v2"
 		streaming := r.URL.Path == "/export/private-workspace-v2" || r.URL.Path == "/import/private-workspace-v2"
 		control := history || streaming || strings.HasPrefix(r.URL.Path, "/workspace/") || (r.URL.Path == "/import/private-workspace" || r.URL.Path == "/import/git-workspace") || r.URL.Path == "/export/private-workspace" || r.URL.Path == "/import/source"
 		if !control && r.Method != http.MethodGet && r.Method != http.MethodHead {

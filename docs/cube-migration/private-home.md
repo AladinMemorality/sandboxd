@@ -72,7 +72,8 @@ identify filesystem boundaries; overlay lower/upper files may report different
 crossings still fail. Publication remains strict and does not use owner-link
 exceptions. Relative home-contained links and absolute `/home/sandbox/` links
 are preserved, along with the previously reviewed `.venv` Python executable-leaf
-exception. Arbitrary absolute OS links, special files, and descendants beneath
+exception. Version two additionally supports the narrowly reviewed literal-link
+contracts below. Other absolute OS links, special files, and descendants beneath
 symlinks remain unsupported.
 
 Import validates every archive path, file length/CRC, stock hash and symlink
@@ -94,3 +95,63 @@ redirect rejection, and an actual UID1000 authenticated guest roundtrip. A
 its zero-filled payload is not a production compression or throughput benchmark.
 Production projects are eligible only after their own reviewed manifest,
 workspace compatibility, disk bounds, and journaled roundtrip checks pass.
+
+## Explicit compatibility links and version two
+
+Version two retains the same disjoint `entries`, with an optional `links` array.
+Each contract has exactly a relative `path`, literal `target`, and `kind`:
+
+```json
+{"path":"hubenv/bin/python3","target":"/usr/bin/python3","kind":"python-interpreter"}
+```
+
+Contracts are restricted to preserved paths and three reviewed classes:
+
+- `python-interpreter`: a `bin/python`, `bin/python3`, or versioned executable
+  leaf targeting exactly `/usr/bin/python3` or `/usr/bin/python3.N`.
+- `pnpm-project-index`: one explicitly named v10 project-index hash, with its
+  literal relative pointer resolving to `/tmp` or `/tmp/imgtool` in the guest.
+- `system-package-link`: the reviewed `chromelibs` package layout's fontconfig,
+  systemd masking, shell/SSH snippet, environment and X11 color links. The
+  permitted source/target pair is checked by code as well as the manifest.
+
+The optional `literal_paths` list additionally permits the two exact regular
+systemd package files `chromelibs/usr/lib/systemd/system/system-systemd\x2dcryptsetup.slice`
+and `chromelibs/usr/lib/systemd/system/system-systemd\x2dveritysetup.slice`.
+Their backslash is a literal Linux filename byte. The private importer preserves
+it; arbitrary backslash paths, directory/symlink substitutions and publication
+archives remain rejected. At most these two exact contracts are accepted.
+
+There is no generic absolute-link permission. An altered target, duplicate
+contract, protected auth/control path, or linked ancestor fails. The exporter
+reads only the symlink bytes; it never opens an external target on the host.
+The importer restores those bytes without traversing them. Canonical digest
+verification binds the complete manifest and link bytes. These exceptions never
+apply to published source/remixes. A removed link may remain an unused contract
+so the same immutable journal can support owner edits and later rollback.
+
+**Transport permission is not a destination ABI check.** A manifest candidate
+must not be approved merely because it validates: the selected image must
+supply the reviewed interpreter and library versions, and the owner application
+must pass its fixture/readiness checks. Do not inspect the host's `/usr/bin` as
+proof of what a Docker container or Cube guest provides. Package indexes may
+point to ephemeral guest `/tmp`; migration preserves their bytes without
+copying another namespace's temporary files.
+
+Version-one requests and their 4096-byte header contract remain unchanged.
+Version two uses `POST /export/private-home-v2` with JSON, or
+`PUT /import/private-home-v2` whose body is a four-byte big-endian manifest
+length, exactly that many UTF-8 JSON bytes, then the ZIP stream. The JSON is
+bounded to 32 KiB, 96 selectors and 128 exact link contracts. It is never put in
+an HTTP header. The guest rejects protocol/version mismatches, trailing manifest
+JSON, truncated/oversized frames and invalid archive contents before replacing
+owner roots. Both versions require authentication and the same quiescence fence.
+
+`scripts/inventory-cube-home-compatibility.py PRIVATE_OUTPUT_DIRECTORY` produces
+root-private candidate manifests, preset proposals, link metadata and selected
+native-header evidence. It never runs tenant code or reads provider contents;
+all owner traversal opens directories relative to pinned descriptors with
+`O_NOFOLLOW`. Output contains private filenames and must not enter Git or a
+public artifact. Candidates require the real Go inventory validator plus image,
+quiescence, hardlink, disk-space and roundtrip acceptance. A live scan is
+provisional and must be repeated under the final admission/write fence.

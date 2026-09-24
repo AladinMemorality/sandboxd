@@ -27,10 +27,13 @@ const MaxPrivateHomeExpandedBytes int64 = 8 << 30
 const MaxPrivateHomeFileBytes int64 = 1 << 30
 const MaxPrivateHomeEntries = 500000
 const MaxHomeManifestBytes = 4096
+const MaxHomeManifestV2Bytes = 32 << 10
 
 type HomeManifest struct {
-	Version int                 `json:"version"`
-	Entries []HomeManifestEntry `json:"entries"`
+	Version      int                 `json:"version"`
+	Entries      []HomeManifestEntry `json:"entries"`
+	Links        []HomeLinkContract  `json:"links,omitempty"`
+	LiteralPaths []string            `json:"literal_paths,omitempty"`
 }
 type HomeManifestEntry struct {
 	Path        string `json:"path"`
@@ -89,7 +92,7 @@ func reviewedProviderDocument(name string) bool {
 	return strings.HasPrefix(name, ".claude/plans/") && (strings.HasSuffix(name, ".md") || strings.HasSuffix(name, ".txt"))
 }
 func CanonicalHomeManifest(manifest HomeManifest) ([]byte, error) {
-	if manifest.Version != 1 || len(manifest.Entries) > 96 {
+	if (manifest.Version != 1 && manifest.Version != 2) || len(manifest.Entries) > 96 {
 		return nil, errors.New("unsupported home manifest")
 	}
 	manifest.Entries = append([]HomeManifestEntry(nil), manifest.Entries...)
@@ -133,11 +136,18 @@ func CanonicalHomeManifest(manifest HomeManifest) ([]byte, error) {
 	if !hasRuntime {
 		return nil, errors.New("home manifest must identify separate runtime scope")
 	}
+	if e := canonicalHomeLinks(&manifest); e != nil {
+		return nil, e
+	}
 	raw, e := json.Marshal(manifest)
 	if e != nil {
 		return nil, e
 	}
-	if len(raw) > MaxHomeManifestBytes {
+	limit := MaxHomeManifestBytes
+	if manifest.Version == 2 {
+		limit = MaxHomeManifestV2Bytes
+	}
+	if len(raw) > limit {
 		return nil, errors.New("home manifest limit")
 	}
 	return raw, nil
@@ -178,7 +188,7 @@ func openHomePath(root *os.File, name string, directory bool) (*os.File, error) 
 	}
 	return owned, nil
 }
-func walkPrivateHome(ctx context.Context, root *os.File, visit func(*os.File, string, string, unix.Stat_t) error) error {
+func walkPrivateHome(ctx context.Context, root *os.File, manifest HomeManifest, visit func(*os.File, string, string, unix.Stat_t) error) error {
 	count := 0
 	var walk func(*os.File, string, int) error
 	walk = func(dir *os.File, prefix string, depth int) error {
@@ -203,7 +213,7 @@ func walkPrivateHome(ctx context.Context, root *os.File, visit func(*os.File, st
 					return errors.New("home entry limit")
 				}
 				full := path.Join(prefix, name)
-				if len(full) > 4096 || !ValidArchivePath(full) {
+				if !privateHomePath(manifest, full) {
 					return errors.New("invalid home path")
 				}
 				var st unix.Stat_t
@@ -243,7 +253,7 @@ func ValidateHomeManifest(ctx context.Context, home string, manifest HomeManifes
 	defer root.Close()
 	found := map[string]bool{}
 	var expanded int64
-	e = walkPrivateHome(ctx, root, func(parent *os.File, leaf, name string, st unix.Stat_t) error {
+	e = walkPrivateHome(ctx, root, manifest, func(parent *os.File, leaf, name string, st unix.Stat_t) error {
 		entry, ok := homeDisposition(name, manifest)
 		if !ok {
 			return fmt.Errorf("unclassified home path: %s", name)
@@ -252,6 +262,9 @@ func ValidateHomeManifest(ctx context.Context, home string, manifest HomeManifes
 			found[name] = true
 		}
 		kind := st.Mode & unix.S_IFMT
+		if strings.Contains(name, "\\") && kind != unix.S_IFREG {
+			return errors.New("literal home package path is not regular")
+		}
 		if (entry.Disposition == "preserve" || entry.Disposition == "stock") && kind == unix.S_IFREG {
 			if st.Size < 0 || st.Size > MaxPrivateHomeExpandedBytes-expanded {
 				return errors.New("expanded home limit")
@@ -313,7 +326,7 @@ func ValidateHomeManifest(ctx context.Context, home string, manifest HomeManifes
 				if e != nil {
 					return e
 				}
-				if n > 4096 || !privateHomeLink(name, string(buf[:n])) {
+				if n > 4096 || !manifestHomeLink(manifest, name, string(buf[:n])) {
 					return errors.New("home symlink escapes owner scope")
 				}
 				if int64(n) > MaxPrivateHomeExpandedBytes-expanded {
@@ -401,7 +414,7 @@ func ExportPrivateHome(ctx context.Context, home string, manifest HomeManifest, 
 	defer root.Close()
 	writer := zip.NewWriter(&homeBoundedWriter{w: dest})
 	var expanded, indexBytes int64
-	e = walkPrivateHome(ctx, root, func(parent *os.File, leaf, name string, st unix.Stat_t) error {
+	e = walkPrivateHome(ctx, root, manifest, func(parent *os.File, leaf, name string, st unix.Stat_t) error {
 		entry, _ := homeDisposition(name, manifest)
 		if entry.Disposition != "preserve" && entry.Disposition != "stock" {
 			if entry.Disposition != "ancestor" && st.Mode&unix.S_IFMT == unix.S_IFDIR {
@@ -431,7 +444,7 @@ func ExportPrivateHome(ctx context.Context, home string, manifest HomeManifest, 
 			if e != nil {
 				return e
 			}
-			if n > 4096 || !privateHomeLink(name, string(buf[:n])) {
+			if n > 4096 || !manifestHomeLink(manifest, name, string(buf[:n])) {
 				return errors.New("invalid home link")
 			}
 			if int64(n) > MaxPrivateHomeExpandedBytes-expanded {
@@ -502,10 +515,13 @@ func homeArchive(manifest HomeManifest, reader io.ReaderAt, size int64) ([]*zip.
 	for _, f := range z.File {
 		name := strings.TrimSuffix(f.Name, "/")
 		entry, ok := homeDisposition(name, manifest)
-		if !ValidArchivePath(name) || !ok || (entry.Disposition != "preserve" && entry.Disposition != "stock") {
+		if !privateHomePath(manifest, name) || !ok || (entry.Disposition != "preserve" && entry.Disposition != "stock") {
 			return nil, errors.New("archive outside preserved home scope")
 		}
 		mode := f.Mode()
+		if strings.Contains(name, "\\") && !mode.IsRegular() {
+			return nil, errors.New("literal home package archive path is not regular")
+		}
 		if (!mode.IsRegular() && !mode.IsDir() && mode&os.ModeSymlink == 0) || sensitiveHomePath(name) && !(name == entry.Path && reviewedProviderDocument(name) && mode.IsRegular()) {
 			return nil, errors.New("unsafe home archive entry")
 		}
@@ -565,7 +581,7 @@ func homeArchive(manifest HomeManifest, reader io.ReaderAt, size int64) ([]*zip.
 			}
 			b, e := io.ReadAll(r)
 			r.Close()
-			if e != nil || !privateHomeLink(name, string(b)) {
+			if e != nil || !manifestHomeLink(manifest, name, string(b)) {
 				return nil, errors.New("home link escapes scope")
 			}
 		} else {

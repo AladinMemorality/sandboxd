@@ -14,8 +14,7 @@ The authenticated guest API exposes `POST /workspace/quiesce`,
 write fence, migration journal, and provider cutover transaction.
 
 Quiescence requires UID1000 and the Cube bootstrap's `RUNTIMED_CUBE_GUEST=1`
-marker. It blocks in-flight/future guest API writes, rejects active tasks, closes
-the capture browser, suspends supervised process restarts, and stops detached
+marker. It blocks in-flight/future guest API writes, rejects active tasks, suspends supervised process restarts, and stops detached
 same-UID processes with pidfds. It excludes runtimed and its bootstrap ancestor
 chain. If processes cannot be inspected/stopped, export/import fails closed.
 The fsynced fence marker survives supervisor reexec; config may be applied while
@@ -44,20 +43,22 @@ The canonical digest includes sorted paths, entry types/modes, relative-link
 targets, and file contents; ZIP order, timestamps, and compression do not affect
 it. Export/import/export verification therefore detects meaningful tree changes.
 
-Bounds: compressed archive **256 MiB**, expanded tree **4 GiB**, individual file
-**128 MiB**, app entries **200,000**, depth **32**, owner-home inventory entries
-**1,000,000**. These are explicit eligibility limits, not truncation. Export
-buffers compressed bytes and one file; import validation streams file content
-but retains the ZIP bytes. A future streaming/file-backed transport is required
-for larger compressed workspaces and large databases; copying a huge archive
-through an unbounded JSON/base64 body is not an acceptable workaround.
+Legacy byte transport is bounded to 256 MiB compressed, 4 GiB expanded and
+128 MiB per file. The file-backed `/export/private-workspace-v2` and
+`/import/private-workspace-v2` transport supports 4 GiB compressed, 8 GiB
+expanded and 1 GiB per file, with 200,000 app entries, depth 32 and bounded ZIP
+index metadata. Migration uses this streaming version. Files spool to private
+disk instead of an unbounded in-memory archive; staging still needs room for
+both old and new trees plus the ZIP. These limits are explicit rejection bounds,
+not a disk-capacity guarantee or truncation policy. Owner-home inode inventory
+remains bounded to 1,000,000 entries.
 
 Only the app root is transferred by this transport. Home-level tool caches,
 user dotfiles, agent history, and supervisor state are not implicitly included.
 The migration inventory must classify these separately. Never copy old runtime
-control credentials or global model credentials into a new guest. Finished task
-history can remain owner-scoped in the retained source without copying a live
-supervisor identity.
+control credentials or global model credentials into a new guest. Finished canonical task history uses the selected-task channel below without
+copying a live supervisor identity. Additional owner files use the explicitly
+reviewed [private home manifest](private-home.md).
 
 ## Changed dependencies and Git
 

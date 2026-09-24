@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"io"
 	"net/http"
@@ -40,6 +41,15 @@ func (c *Client) privateHomeRequest(ctx context.Context, method, path string, ma
 		body = bytes.NewReader(raw)
 		size = int64(len(raw))
 	}
+	if manifest.Version == 2 {
+		path += "-v2"
+		if method == http.MethodPut {
+			var prefix [4]byte
+			binary.BigEndian.PutUint32(prefix[:], uint32(len(raw)))
+			body = io.MultiReader(bytes.NewReader(prefix[:]), bytes.NewReader(raw), body)
+			size += int64(4 + len(raw))
+		}
+	}
 	req, e := http.NewRequestWithContext(ctx, method, origin+path, body)
 	if e != nil {
 		cleanup()
@@ -47,8 +57,12 @@ func (c *Client) privateHomeRequest(ctx context.Context, method, path string, ma
 	}
 	req.ContentLength = size
 	if method == http.MethodPut {
-		req.Header.Set("X-Home-Manifest", base64.RawURLEncoding.EncodeToString(raw))
-		req.Header.Set("Content-Type", "application/zip")
+		if manifest.Version == 2 {
+			req.Header.Set("Content-Type", "application/vnd.sandboxd.private-home-v2")
+		} else {
+			req.Header.Set("X-Home-Manifest", base64.RawURLEncoding.EncodeToString(raw))
+			req.Header.Set("Content-Type", "application/zip")
+		}
 	} else {
 		req.Header.Set("Content-Type", "application/json")
 	}

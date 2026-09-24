@@ -3,11 +3,13 @@ package main
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/json"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
@@ -29,8 +31,30 @@ func (a *app) handlePrivateHome(w http.ResponseWriter, r *http.Request) {
 	}
 	var manifest runtime.HomeManifest
 	var reader io.Reader
+	v2 := strings.HasSuffix(r.URL.Path, "-v2")
+	limit := runtime.MaxHomeManifestBytes
+	if v2 {
+		limit = runtime.MaxHomeManifestV2Bytes
+	}
 	if r.Method == http.MethodPost {
-		reader = http.MaxBytesReader(w, r.Body, runtime.MaxHomeManifestBytes)
+		reader = http.MaxBytesReader(w, r.Body, int64(limit))
+	} else if v2 {
+		var prefix [4]byte
+		if _, e := io.ReadFull(r.Body, prefix[:]); e != nil {
+			http.Error(w, "invalid home manifest frame", 400)
+			return
+		}
+		n := binary.BigEndian.Uint32(prefix[:])
+		if n == 0 || n > uint32(limit) {
+			http.Error(w, "home manifest limit", 400)
+			return
+		}
+		raw := make([]byte, int(n))
+		if _, e := io.ReadFull(r.Body, raw); e != nil {
+			http.Error(w, "incomplete home manifest", 400)
+			return
+		}
+		reader = bytes.NewReader(raw)
 	} else {
 		encoded := r.Header.Get("X-Home-Manifest")
 		if len(encoded) > runtime.MaxHomeManifestBytes*4/3+4 {
@@ -53,6 +77,10 @@ func (a *app) handlePrivateHome(w http.ResponseWriter, r *http.Request) {
 	var tail any
 	if dec.Decode(&tail) != io.EOF {
 		http.Error(w, "invalid home manifest", 400)
+		return
+	}
+	if (v2 && manifest.Version != 2) || (!v2 && manifest.Version != 1) {
+		http.Error(w, "home manifest protocol mismatch", 400)
 		return
 	}
 	if _, e := runtime.CanonicalHomeManifest(manifest); e != nil {
