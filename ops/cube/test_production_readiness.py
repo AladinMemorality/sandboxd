@@ -125,8 +125,9 @@ class ReadinessTests(unittest.TestCase):
         self.assertIn('capture_socket_missing', {entry['code'] for entry in self.check()['findings']})
         self.platform['CAPTURE_BACKEND'] = 'shared'
         self.assertIn('capacity_inventory_missing', {entry['code'] for entry in self.check()['findings']})
-        self.platform['CAPTURE_BACKEND'] = 'typo'
-        self.assertIn('capture_backend_invalid', {entry['code'] for entry in self.check()['findings']})
+        for value in ('', 'typo'):
+            self.platform['CAPTURE_BACKEND'] = value
+            self.assertIn('capture_backend_invalid', {entry['code'] for entry in self.check()['findings']})
 
 
 if __name__ == '__main__':

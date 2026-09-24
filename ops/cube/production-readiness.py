@@ -112,7 +112,7 @@ def audit(runtime, platform, plan, base):
     preview = platform.get('SANDBOXD_PREVIEW_ORIGIN', '').replace('%ID%', 'reviewed-project')
     if not valid_url(preview, https=True):
         issue('preview_https_missing', 'Provide the reviewed HTTPS preview origin; browser cookie, CSRF and log-redaction acceptance remains separate.')
-    capture_backend = platform.get('CAPTURE_BACKEND', '') or 'shared'
+    capture_backend = platform.get('CAPTURE_BACKEND', 'shared')
     if capture_backend not in ('shared', 'service'):
         issue('capture_backend_invalid', 'CAPTURE_BACKEND must be shared or service; there is no automatic fallback.')
     if capture_backend == 'service' and not platform.get('CAPTURE_SERVICE_SOCKET', '').startswith('/'):
