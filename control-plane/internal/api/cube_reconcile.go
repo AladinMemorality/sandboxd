@@ -12,6 +12,12 @@ import (
 // A control-plane response is not application readiness: verify the scoped
 // supervisor before promoting durable state, including creating/error recovery.
 func (s *Server) connectCube(ctx context.Context, id string, timeoutSeconds int) error {
+	return s.connectCubeWithConfig(ctx, id, timeoutSeconds, true)
+}
+
+// Explicit manifest activation validates the manifest before applying pending
+// config. Normal lifecycle calls retain their existing config synchronization.
+func (s *Server) connectCubeWithConfig(ctx context.Context, id string, timeoutSeconds int, applyConfig bool) error {
 	if s.Cube == nil {
 		return errors.New("Cube runtime disabled")
 	}
@@ -42,8 +48,10 @@ func (s *Server) connectCube(ctx context.Context, id string, timeoutSeconds int)
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
-	if err := s.syncCubeAppConfig(ctx, id); err != nil && !errors.Is(err, errCubeConfigBusy) {
-		return err
+	if applyConfig {
+		if err := s.syncCubeAppConfig(ctx, id); err != nil && !errors.Is(err, errCubeConfigBusy) {
+			return err
+		}
 	}
 	sb, err := s.Store.Get(ctx, id)
 	if err != nil {

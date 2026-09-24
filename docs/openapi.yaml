@@ -1232,10 +1232,21 @@ paths:
         current image and the app's current config (delivered as environment).
         The workspace is untouched. Use after changing app config values.
         Cube applies the current config in the existing VM; an already applied
-        revision is an idempotent success without another restart.
+        revision is an idempotent success without another restart. With
+        reload_manifest=true, Cube validates sandbox.yaml and activates its
+        current worker/web commands in the same VM. Repeating an identical
+        manifest/config is idempotent. The exposed web port cannot change here.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reload_manifest: { type: boolean, default: false }
       responses:
         "200":
-          description: Running again, on a fresh container
+          description: Configuration acknowledged; preview may still be starting
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Sandbox" }
@@ -1244,6 +1255,8 @@ paths:
           content:
             application/json:
               schema: { $ref: "#/components/schemas/Error" }
+        "422":
+          description: Manifest invalid or exposed web port changed
         "503":
           description: Capacity pushback (Retry-After).
           content:

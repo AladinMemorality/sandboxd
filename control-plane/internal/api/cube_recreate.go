@@ -2,7 +2,9 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"time"
 
@@ -11,7 +13,8 @@ import (
 
 // Cube applies a complete config revision by restarting its supervisor in the
 // same VM. Preserve the workspace and stable ID; an already applied revision
-// is an idempotent success, avoiding a second restart after config CRUD.
+// is an idempotent success, avoiding a second restart after config CRUD. An
+// explicit manifest reload activates new workers without replacing the VM.
 func (s *Server) cubeRecreateSandbox(w http.ResponseWriter, r *http.Request, id string) bool {
 	sb, err := s.Store.Get(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
@@ -23,6 +26,25 @@ func (s *Server) cubeRecreateSandbox(w http.ResponseWriter, r *http.Request, id 
 	}
 	if sb.RuntimeProvider != "cube" {
 		return false
+	}
+	var request map[string]any
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 1024))
+	if err := decoder.Decode(&request); (err != nil && err != io.EOF) || (err == nil && request == nil) {
+		writeV1Err(w, 400, "invalid_request", "expected an optional reload_manifest boolean")
+		return true
+	}
+	reloadManifest := false
+	for key, value := range request {
+		flag, ok := value.(bool)
+		if key != "reload_manifest" || !ok {
+			writeV1Err(w, 400, "invalid_request", "expected an optional reload_manifest boolean")
+			return true
+		}
+		reloadManifest = flag
+	}
+	if decoder.Decode(new(any)) != io.EOF {
+		writeV1Err(w, 400, "invalid_request", "expected a single request object")
+		return true
 	}
 	if s.Locks != nil {
 		s.Locks.Lock(id)
@@ -43,7 +65,7 @@ func (s *Server) cubeRecreateSandbox(w http.ResponseWriter, r *http.Request, id 
 		writeV1Err(w, 503, "runtime_unavailable", "Cube runtime is not configured")
 		return true
 	}
-	if err = s.connectCube(bounded, id, 3600); err != nil {
+	if err = s.connectCubeWithConfig(bounded, id, 3600, !reloadManifest); err != nil {
 		writeV1Err(w, 502, "runtime_unavailable", "Cube config application failed")
 		return true
 	}
@@ -56,9 +78,11 @@ func (s *Server) cubeRecreateSandbox(w http.ResponseWriter, r *http.Request, id 
 		writeV1Err(w, 409, "task_in_progress", "a task is in progress; apply config after it finishes")
 		return true
 	}
-	if err = s.syncCubeAppConfig(bounded, id); err != nil {
+	if err = s.syncCubeAppConfigWithManifest(bounded, id, reloadManifest); err != nil {
 		if errors.Is(err, errCubeConfigBusy) {
 			writeV1Err(w, 409, "task_in_progress", "a task is in progress")
+		} else if errors.Is(err, errCubeManifestInvalid) {
+			writeV1Err(w, 422, "invalid_manifest", "manifest must be valid and retain the exposed web port")
 		} else {
 			writeV1Err(w, 502, "runtime_unavailable", "Cube config acknowledgement pending")
 		}
