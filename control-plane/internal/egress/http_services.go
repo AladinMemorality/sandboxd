@@ -18,6 +18,8 @@ import (
 )
 
 // HTTPService is operator configuration for one app-specific fixed L7 origin.
+// Routes are literal paths or contain one whole-segment {uuid} placeholder.
+// DELETE is permitted only when explicitly configured for a matching route.
 // It never changes generic public egress policy or permits opaque CONNECT.
 type HTTPService struct {
 	Origin string              `json:"origin"`
@@ -49,18 +51,18 @@ func copyService(s HTTPService) (HTTPService, error) {
 		return HTTPService{}, err
 	}
 	out := HTTPService{Origin: s.Origin, Routes: make(map[string][]string)}
-	if len(s.Routes) == 0 || len(s.Routes) > 2 {
+	if len(s.Routes) == 0 || len(s.Routes) > 3 {
 		return out, ErrDenied
 	}
 	total := 0
 	for method, routes := range s.Routes {
-		if (method != "GET" && method != "POST") || len(routes) == 0 {
+		if (method != "GET" && method != "POST" && method != "DELETE") || len(routes) == 0 {
 			return out, ErrDenied
 		}
 		seen := map[string]bool{}
 		for _, route := range routes {
 			total++
-			if total > 32 || len(route) == 0 || len(route) > 512 || !strings.HasPrefix(route, "/") || route != path.Clean(route) || strings.ContainsAny(route, "%?\\#\r\n\x00\t ") || seen[route] {
+			if total > 32 || len(route) == 0 || len(route) > 512 || !strings.HasPrefix(route, "/") || route != path.Clean(route) || strings.ContainsAny(route, "%?\\#\r\n\x00\t ") || seen[route] || !validServiceRoutePlaceholder(route) {
 				return out, ErrDenied
 			}
 			seen[route] = true
@@ -68,6 +70,45 @@ func copyService(s HTTPService) (HTTPService, error) {
 		}
 	}
 	return out, nil
+}
+
+// Only one complete typed segment is variable; no regex, glob, partial segment
+// or arbitrary placeholder name can expand an operator's configured route.
+func validServiceRoutePlaceholder(route string) bool {
+	count := 0
+	for _, segment := range strings.Split(route, "/") {
+		if segment == "{uuid}" {
+			count++
+		} else if strings.ContainsAny(segment, "{}*") {
+			return false
+		}
+	}
+	return count <= 1
+}
+func canonicalServiceUUID(value string) bool {
+	if len(value) != 36 {
+		return false
+	}
+	for i := 0; i < len(value); i++ {
+		if i == 8 || i == 13 || i == 18 || i == 23 {
+			if value[i] != '-' {
+				return false
+			}
+		} else if !(value[i] >= '0' && value[i] <= '9' || value[i] >= 'a' && value[i] <= 'f') {
+			return false
+		}
+	}
+	return true
+}
+func serviceRouteMatches(route, requested string) bool {
+	prefix, suffix, variable := strings.Cut(route, "{uuid}")
+	if !variable {
+		return route == requested
+	}
+	if len(requested) != len(prefix)+36+len(suffix) || !strings.HasPrefix(requested, prefix) || !strings.HasSuffix(requested, suffix) {
+		return false
+	}
+	return canonicalServiceUUID(requested[len(prefix) : len(prefix)+36])
 }
 
 // ParseHTTPServices validates exact numeric RFC1918 origins against the explicit
@@ -182,7 +223,7 @@ func (s HTTPService) handler(transport http.RoundTripper) http.Handler {
 		identity, ok := SourceIdentity(r.Context())
 		allowed := false
 		for _, route := range validated.Routes[r.Method] {
-			if route == r.URL.Path {
+			if serviceRouteMatches(route, r.URL.Path) {
 				allowed = true
 			}
 		}

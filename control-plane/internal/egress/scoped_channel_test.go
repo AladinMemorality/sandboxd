@@ -80,7 +80,7 @@ func TestScopedHTTPChannelDoesNotGrantPrivateTCP(t *testing.T) {
 }
 
 func TestScopedHTTPCallbackRejectsMethods(t *testing.T) {
-	for _, method := range []string{"CONNECT", "DELETE", "PUT"} {
+	for _, method := range []string{"CONNECT", "PUT", "PATCH"} {
 		var called atomic.Bool
 		opts := fixtureOptions("")
 		opts.HTTPServices = map[string]http.Handler{"10.40.14.68:8080": http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called.Store(true) })}
@@ -131,5 +131,61 @@ func TestScopedHTTPChannelParsesHTTPInsideConnect(t *testing.T) {
 	response.Body.Close()
 	if err != nil || response.StatusCode != 200 || string(body) != "http-only" || calls.Load() != 1 {
 		t.Fatal("HTTP callback inside CONNECT failed")
+	}
+}
+
+func TestScopedHTTPChannelUUIDDeleteRemainsAppAndOriginScoped(t *testing.T) {
+	var calls, dials atomic.Int32
+	config, err := ParseHTTPServices(encodedService(meetingService()), servicePolicy())
+	if err != nil {
+		t.Fatal(err)
+	}
+	opts := fixtureOptions("")
+	opts.DialContext = func(context.Context, string, string) (net.Conn, error) {
+		dials.Add(1)
+		return nil, errors.New("no actual network allowed")
+	}
+	service := config[serviceApp][0]
+	opts.HTTPServices = map[string]http.Handler{service.Address(): service.handler(serviceRoundTrip(func(r *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		if r.Method != "DELETE" || r.URL.String() != "http://10.40.14.68:8321/v1/bots/"+meetingUUID+"/data" {
+			t.Errorf("wrong request forwarded: %s %s", r.Method, r.URL)
+		}
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("deleted-fixture"))}, nil
+	}))}
+	f := startFixture(t, opts)
+	client := proxyClient(t, f)
+	for i, target := range []string{"http://10.40.14.68:8321/v1/bots/" + meetingUUID + "/data", "http://10.40.14.68:8321/health", "http://10.40.14.68:8321/v1/bots/" + meetingUUID + "/data/extra", "http://10.40.14.68:8321/v1/bots/" + meetingUUID + "/data?force=1", "http://10.40.14.68:8321/v1/bots/" + meetingUUID + "/%2e%2e/data", "http://10.40.14.68:8322/v1/bots/" + meetingUUID + "/data", "http://10.40.14.69:8321/v1/bots/" + meetingUUID + "/data"} {
+		request, _ := http.NewRequest("DELETE", target, nil)
+		response, err := client.Do(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		body, _ := io.ReadAll(response.Body)
+		response.Body.Close()
+		if i == 0 && (response.StatusCode != 200 || string(body) != "deleted-fixture") {
+			t.Fatal("configured DELETE failed")
+		}
+		if i > 0 && response.StatusCode == 200 {
+			t.Errorf("forbidden target accepted: %s", target)
+		}
+	}
+	// Selection uses the authenticated app ID; sibling/remix apps get no mapping.
+	other := fixtureOptions("")
+	other.Identity = Identity{SandboxID: "other-app-sandbox", Generation: "other-app-generation"}
+	other.DialContext = opts.DialContext
+	other.HTTPServices = map[string]http.Handler{}
+	for _, service := range config["01M2NYBQS2HM74H5H378H6QG2E"] {
+		other.HTTPServices[service.Address()] = service.Handler()
+	}
+	foreign := startFixture(t, other)
+	request, _ := http.NewRequest("DELETE", "http://10.40.14.68:8321/v1/bots/"+meetingUUID+"/data", nil)
+	response, err := proxyClient(t, foreign).Do(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if response.StatusCode == 200 || calls.Load() != 1 || dials.Load() != 0 {
+		t.Fatalf("wrong app/origin reached backend: calls%d dials%d", calls.Load(), dials.Load())
 	}
 }

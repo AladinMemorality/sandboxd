@@ -103,7 +103,7 @@ func RunHost(ctx context.Context, conn *websocket.Conn, opts HostOptions) error 
 					return
 				}
 				serveHTTPCallback(streamCtx, st, opts.Identity, handler, func(r *http.Request) bool {
-					return (r.Method == "GET" || r.Method == "POST") && !r.URL.IsAbs() && r.URL.Host == "" &&
+					return (r.Method == "GET" || r.Method == "POST" || r.Method == "DELETE") && !r.URL.IsAbs() && r.URL.Host == "" &&
 						r.URL.RawPath == "" && r.URL.RawQuery == "" && !r.URL.ForceQuery && r.URL.Fragment == ""
 				})
 				<-streamCtx.Done()

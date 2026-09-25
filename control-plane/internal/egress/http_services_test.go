@@ -181,3 +181,72 @@ func TestHTTPServiceCancellationReachesRealUpstream(t *testing.T) {
 		t.Fatal("handler not released")
 	}
 }
+
+const meetingUUID = "b60c4fa2-252d-4ebc-bae5-9d16142d2020"
+
+func meetingService() HTTPService {
+	return HTTPService{Origin: "http://10.40.14.68:8321", Routes: map[string][]string{
+		"GET": {"/health", "/v1/bots/{uuid}/transcript"}, "POST": {"/v1/bots"}, "DELETE": {"/v1/bots/{uuid}", "/v1/bots/{uuid}/data"}}}
+}
+func TestHTTPServiceTypedUUIDConfiguration(t *testing.T) {
+	if _, err := ParseHTTPServices(encodedService(meetingService()), servicePolicy()); err != nil {
+		t.Fatal(err)
+	}
+	for _, route := range []string{"/v1/bots/*", "/v1/bots/{id}", "/v1/bots/prefix{uuid}", "/v1/bots/{uuid}suffix", "/v1/bots/{uuid}/{uuid}", "/v1/bots/{uuid?}", "/v1/bots/{uuid}/../admin", "/v1/bots/{uuid}/", "/v1/bots/%7buuid%7d", "/v1/bots/{uuid}/data?force=true"} {
+		s := meetingService()
+		s.Routes["DELETE"] = []string{route}
+		if _, err := ParseHTTPServices(encodedService(s), servicePolicy()); err == nil {
+			t.Errorf("unsafe route configured: %s", route)
+		}
+	}
+	for _, method := range []string{"delete", "PUT", "PATCH", "CONNECT"} {
+		s := meetingService()
+		s.Routes = map[string][]string{method: {"/v1/bots/{uuid}"}}
+		if _, err := ParseHTTPServices(encodedService(s), servicePolicy()); err == nil {
+			t.Errorf("unsafe method configured: %s", method)
+		}
+	}
+}
+func TestHTTPServiceUUIDRoutesPreserveRequestAndDenyAliases(t *testing.T) {
+	var calls atomic.Int32
+	handler := meetingService().handler(serviceRoundTrip(func(r *http.Request) (*http.Response, error) {
+		calls.Add(1)
+		if r.URL.Host != "10.40.14.68:8321" || r.Host != "10.40.14.68:8321" || strings.Contains(r.URL.Path, "{") {
+			t.Errorf("wrong forwarded target: %s", r.URL)
+		}
+		if r.Header.Get("Authorization") != "Bearer fixture-app" || r.Header.Get("Cookie") != "" {
+			t.Error("credential forwarding changed")
+		}
+		return &http.Response{StatusCode: 200, Header: http.Header{}, Body: io.NopCloser(strings.NewReader(r.Method + " " + r.URL.Path))}, nil
+	}))
+	allowed := []struct{ method, path string }{{"GET", "/health"}, {"POST", "/v1/bots"}, {"GET", "/v1/bots/" + meetingUUID + "/transcript"}, {"DELETE", "/v1/bots/" + meetingUUID}, {"DELETE", "/v1/bots/" + meetingUUID + "/data"}}
+	for _, item := range allowed {
+		request := serviceRequest(item.method, item.path)
+		request.Header.Set("Authorization", "Bearer fixture-app")
+		request.Header.Set("Cookie", "never-forward")
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		if response.Code != 200 || response.Body.String() != item.method+" "+item.path {
+			t.Fatalf("allowed route failed: %s %s %d", item.method, item.path, response.Code)
+		}
+	}
+	for _, target := range []string{"/v1/bots/{uuid}", "/v1/bots/" + strings.ToUpper(meetingUUID), "/v1/bots/" + strings.ReplaceAll(meetingUUID, "-", ""), "/v1/bots/------------------------------------", "/v1/bots/" + meetingUUID + "/extra", "/v1/bots/" + meetingUUID + "/data/extra", "/v1/bots/" + meetingUUID + "?force=1", "/v1/bots/" + meetingUUID + "?", "/v1/bots/%62" + meetingUUID[1:], "/v1/bots/" + meetingUUID + "/%2e%2e/data", "/v1/bots//" + meetingUUID, "/v1/bots/" + meetingUUID + "/../health", "http://10.40.14.68:8321/v1/bots/" + meetingUUID} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, serviceRequest("DELETE", target))
+		if response.Code != 403 {
+			t.Errorf("unsafe path accepted: %s %d", target, response.Code)
+		}
+	}
+	for _, method := range []string{"GET", "POST", "PUT", "PATCH", "CONNECT"} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, serviceRequest(method, "/v1/bots/"+meetingUUID))
+		if response.Code != 403 {
+			t.Errorf("wrong method accepted: %s", method)
+		}
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, serviceRequest("DELETE", "/health"))
+	if response.Code != 403 || calls.Load() != int32(len(allowed)) {
+		t.Fatal("denied request dialed upstream")
+	}
+}
