@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""INERT CANDIDATE. No installed units; drain integration intentionally refuses."""
+"""Reviewed worker supervisor; installation and tenant readiness remain separate."""
 import argparse
 import contextlib
 import fcntl
@@ -23,7 +23,11 @@ DATA = Path('/mnt/nvme/baarcha-cube/worker-01')
 CONFIG = Path('/etc/baarcha-cube/lifecycle.json')
 STATUS = ROOT / 'lifecycle-status.json'
 SCRIPT = '/usr/local/libexec/baarcha-cube-worker-lifecycle.py'
-STOP_COORDINATOR_IMPLEMENTED = False
+# Reviewed for initial empty-worker enrollment after the real nested retained
+# stop/clean reboot and acknowledged-pause loss acceptance. This source gate
+# does not approve a host manifest, invent a prior stop receipt, or enable Cube
+# customer routing. See SOURCE-GATE-REVIEW-2026-09-25.md.
+STOP_COORDINATOR_IMPLEMENTED = True
 BACKUP_MARKER = b'baarcha-cube-backup-lock-v1\n'
 INSTANCE_MARKER = b'baarcha-cube-worker-supervisor-v1\n'
 SERVICES = tuple('cube-sandbox-'+x+'.service' for x in (

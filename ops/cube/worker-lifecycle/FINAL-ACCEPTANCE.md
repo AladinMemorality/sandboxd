@@ -1,8 +1,10 @@
 # Final enrollment and recovery acceptance — prepared, not executed
 
 This sequence is for root's coordinated maintenance only. The host source gate
-remains false. It does not authorize service changes, customer migration, or
-fabricated receipts. Production currently has 66 Docker projects; refresh the
+permits [reviewed empty enrollment](SOURCE-GATE-REVIEW-2026-09-25.md); the private
+host manifest and actual drain/coordinator evidence remain mandatory. This
+document does not authorize customer migration or fabricated receipts.
+Production currently has 66 Docker projects; refresh the
 canonical inventory under the final admission fence rather than freezing that
 number into a migration plan.
 

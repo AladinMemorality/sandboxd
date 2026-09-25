@@ -49,8 +49,25 @@ class LifecycleTests(unittest.TestCase):
             with self.subTest(proof=proof):
                 state=self.setup_state(mock.Mock(return_value=proof));state.signal(signal.SIGTERM);self.assertTrue(state.tick());self.power.assert_not_called()
     def test_configuration_cannot_enable_unimplemented_coordinator(self):
-        with self.assertRaises(life.Blocked):
+        with mock.patch.object(life,'STOP_COORDINATOR_IMPLEMENTED',False), self.assertRaises(life.Blocked):
             life.host_preflight({"version":1,"reviewed":True,"drain_integration_reviewed":True})
+    def test_implemented_coordinator_still_requires_reviewed_drained_empty_enrollment(self):
+        self.assertTrue(life.STOP_COORDINATOR_IMPLEMENTED)
+        status=mock.Mock();status.exists.return_value=False
+        with mock.patch.object(life,'STATUS',status):
+            for config,message in (
+                ({},'reviewed lifecycle manifest required'),
+                ({'version':1,'reviewed':True},'production drain integration is not installed'),
+                ({'version':1,'reviewed':True,'drain_integration_reviewed':True},'initial boot needs explicit empty-worker review'),
+            ):
+                with self.subTest(config=config), self.assertRaisesRegex(life.Blocked,message):
+                    life.host_preflight(config)
+    def test_first_boot_flag_cannot_bypass_existing_unclean_generation(self):
+        status=mock.Mock();status.exists.return_value=True
+        config={'version':1,'reviewed':True,'drain_integration_reviewed':True,'first_boot_empty_reviewed':True}
+        with mock.patch.object(life,'STATUS',status), mock.patch.object(life,'private_json',return_value={'state':'worker-lost'}):
+            with self.assertRaisesRegex(life.Blocked,'unclean previous worker exit'):
+                life.host_preflight(config)
     def test_stop_proof_requires_exact_qemu_generation_and_paused_set(self):
         identity={'qemu_pid':42,'qemu_start_time':'123'}
         good={'version':1,'verified':True,'qemu_pid':42,'qemu_start_time':'123','guest_states':{'fixture':'paused'},'provider_jobs':0}
@@ -59,7 +76,9 @@ class LifecycleTests(unittest.TestCase):
             changed=dict(good);changed[key]=value
             with self.assertRaises(life.Blocked):life.validate_stop_proof(identity,changed)
     def test_unwired_production_coordinator_always_refuses(self):
-        with self.assertRaises(life.Blocked):life.prepare_stop({'qemu_pid':12345,'paused':True})
+        with mock.patch.object(life,'STOP_COORDINATOR_IMPLEMENTED',False), mock.patch.object(life.subprocess,'Popen') as child:
+            with self.assertRaises(life.Blocked):life.prepare_stop({'qemu_pid':12345,'paused':True})
+            child.assert_not_called()
     def test_status_write_failure_retains_supervisor(self):
         state=self.setup_state(publish=mock.Mock(side_effect=OSError('disk full')))
         state.signal(signal.SIGTERM);self.assertTrue(state.tick());self.assertEqual(state.state,'powerdown-wait')

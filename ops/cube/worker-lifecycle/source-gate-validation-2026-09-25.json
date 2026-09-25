@@ -1,0 +1,20 @@
+{
+  "scope": "source gate for reviewed empty host enrollment only",
+  "helper_sha256": "94398ad7ebd42af9288c705924e2bbf5c4214561582afeef54d55f32714dbffd",
+  "local": {
+    "tests": 54,
+    "skipped": 1,
+    "result": "pass"
+  },
+  "native_vps": {
+    "tests": 54,
+    "skipped": 0,
+    "elapsed_seconds": 0.197,
+    "result": "pass",
+    "stage": "/opt/baarcha-bench/cube-host-gate-review-20260925"
+  },
+  "outer_helper_installed": false,
+  "nested_helper_changed": false,
+  "production_coordinator_cycle_passed": false,
+  "customer_cube_activated": false
+}

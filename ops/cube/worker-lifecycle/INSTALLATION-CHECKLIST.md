@@ -1,10 +1,10 @@
 # Candidate installation and initial enrollment checklist — not executed
 
-The source constant `STOP_COORDINATOR_IMPLEMENTED` remains false. No manifest
-field overrides it. These instructions are preparation; they neither install a
-unit nor authorize a service change. Root performs actual worker acceptance and
-approves a reviewed source transition separately. Do not use `sed`, an environment
-variable, a wrapper, or an installer-time substitution to evade the gate.
+The source constant `STOP_COORDINATOR_IMPLEMENTED` is now true for the reviewed
+empty-enrollment transition; see [the review](SOURCE-GATE-REVIEW-2026-09-25.md).
+These instructions do not install a unit or supply the required private host
+review and actual drain evidence. Do not use `sed`, an environment variable, a
+wrapper, or an installer-time substitution to bypass any remaining check.
 
 ## 1. Freeze the deployment inputs
 
