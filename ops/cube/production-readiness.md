@@ -80,9 +80,14 @@ Optional capture-worker experiments are retained in platform
 implementation and do not establish application create/resume/publish/remix speed.
 No further capture-worker tuning is required for this migration.
 
-Global admission remains disabled in the configuration loader. The offline
-inventory deliberately continues to report blocked rather than interpreting the
-new implementation or a boolean operator flag as deployment acceptance.
+The configuration loader supports explicit `SANDBOXD_CUBE_ROLLOUT=global` with
+reviewed mappings for every preset and the configured model relay. Production
+still has Cube disabled. The offline inventory deliberately continues to report
+blocked rather than interpreting implemented configuration support or a boolean
+operator flag as deployment acceptance. See the
+[current cutover handover](staged-release/2026-09-25-handover.md) for newer
+production observations and remaining work; the dated inventories below remain
+historical evidence.
 
 ## Observed production configuration, 2026-09-23
 
