@@ -14,6 +14,7 @@
 *.test
 *.out
 **/node_modules/
+**/__pycache__/
 
 # Editor / OS
 .DS_Store
