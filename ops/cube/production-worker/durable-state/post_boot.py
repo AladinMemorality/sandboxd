@@ -92,6 +92,11 @@ def main():
         print(json.dumps({'phase':a.phase,'passed':True,'boot_id':boot,'retained_current_disk':'unchanged stat identity'}));return
     need(sha(BINARY)==CANDIDATE_SHA,'installed candidate mismatch')
     check_config(CONFIG.read_text(),a.old_config.read_text())
+    from render_quota import UniqueLoader
+    import yaml
+    dynamic=yaml.load(Path('/usr/local/services/cubetoolbox/Cubelet/dynamicconf/conf.yaml').read_text(),Loader=UniqueLoader)
+    expected_quota={'mcpu_limit':10000,'mem_limit':'10Gi','mvm_limit':128,'creation_concurrent_num':1,'paused_resource_release_ratio':1.0}
+    need(dynamic['host']['quota']==expected_quota,'reviewed four-slot worker quota not installed')
     pid=int(run('systemctl','show','cube-sandbox-cubelet.service','-p','MainPID','--value'))
     need(pid>1,'Cubelet not running')
     need(sha(Path('/proc')/str(pid)/'exe')==CANDIDATE_SHA,'running process is not exact candidate')
@@ -115,7 +120,7 @@ def main():
         item=json.loads(run('cubemastercli','tpl','info','--template-id',row['template_id'],'--include-request','--json'))
         check_template(item,row)
     need(pid==int(run('systemctl','show','cube-sandbox-cubelet.service','-p','MainPID','--value')),'Cubelet restarted during check')
-    print(json.dumps({'phase':'ready','passed':True,'boot_id':boot,'critical_roots':filesystems,'required_templates':8,'retained_current_disk':'unchanged stat identity','power_loss_acceptance':False},sort_keys=True))
+    print(json.dumps({'phase':'ready','passed':True,'boot_id':boot,'critical_roots':filesystems,'required_templates':8,'worker_quota':expected_quota,'retained_current_disk':'unchanged stat identity','power_loss_acceptance':False},sort_keys=True))
 
 if __name__=='__main__':
     try: main()

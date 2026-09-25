@@ -1,0 +1,35 @@
+{
+  "scope": "read-only actual held worker after independent cold checkpoint",
+  "boot_id": "0043241e-f6dc-4bf1-8694-26b8369037da",
+  "role": "control",
+  "config_writes": {
+    "prepare-compute-role.sh": [
+      "cubeops_addr rewritten to existing http://127.0.0.1:3010",
+      "compute-only dynamicconf branch skipped"
+    ],
+    "cubelet-start.sh": [
+      "cow.s3.enable rewritten to existing false",
+      "existing cow.s3.socket_path preserved",
+      "mkdir runtime/log directories",
+      "no metadata/data root changes"
+    ]
+  },
+  "observed_quota": {
+    "mcpu_limit": 28000,
+    "mem_limit": "30Gi",
+    "mvm_limit": 128,
+    "creation_concurrent_num": 1,
+    "paused_resource_release_ratio": 1.0
+  },
+  "proposed_quota_changes_only": {
+    "mcpu_limit": 10000,
+    "mem_limit": "10Gi"
+  },
+  "quota_applied_by_review": false,
+  "scripts_sha256": {
+    "scripts/systemd/prepare-compute-role.sh": "4be00b56788681c2918a1d42aecde0a39a5b9a7222667a403dec28ff2226e2e4",
+    "scripts/systemd/cubelet-start.sh": "df2a4c6e35dc6e2cba56d9f61dc0465ebf34919d8acb0741164defd0f05d5f4e",
+    "scripts/systemd/common.sh": "8fcbdb821e264950da849f87b1792a11bf0d3a2e28a81871be19b251464cc6b4",
+    "scripts/common/cubelet_config.sh": "c5d3837691188a486630d57d5c1ec3c5b34b3f50cf1e4e212914e53065d0cbf0"
+  }
+}

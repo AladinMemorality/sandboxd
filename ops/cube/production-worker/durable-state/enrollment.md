@@ -276,3 +276,41 @@ compares parsed live config to the exact rendered config, catching unexpected
 startup rewrites, but detecting a rewrite after startup is not a substitute for
 reviewing a destructive script before execution. Never run installer/config
 regeneration scripts to resolve a missing DB/template automatically.
+
+
+### Completed held-boot startup review
+
+The exact installed scripts were inspected read-only after boot
+`0043241e-f6dc-4bf1-8694-26b8369037da`; hashes and reviewed fields are in
+[ startup-review.json ](results/2026-09-25/startup-review.json).
+Role is `control`. Preparation rewrites cubeops_addr to its existing value
+`http://127.0.0.1:3010`, then exits before the compute-only dynamicconf branch.
+The start script rewrites cow.s3.enable to existing `false` and preserves existing
+`/var/run/s3lvol.sock`; it does not change any metadata/data root. Both functions
+can replace config file bytes/inode; semantic equality remains the check.
+
+The separately approved four-slot policy changes native host.quota from
+28000mCPU/30Gi to10000mCPU/10Gi. Keep mvm_limit128,
+creation_concurrent_num1 and paused_resource_release_ratio1.0.
+`python3 render_quota.py OLD_DYNAMICCONF NEW_PRIVATE_OUTPUT` prepares only those
+two field edits, rejects duplicate keys and requires every other parsed field
+unchanged. Existing worker PyYAML is required. Two tests and in-memory rendering
+of the actual config passed without writing it. Source SHA256:
+`f9a237c5260bc42f54e7db1b801dadc6c5ed3345f99e02382c29fc150607aa8c`;
+prepared output SHA256:
+`33a19eeaa0226a1c64b15f71810a37409fcccdfd09afc01af8d2c9f1cec49ca8`.
+Install the reviewed private output atomically while management is held,
+preserving/fsyncing the old/new files and parent. Readiness now requires this
+quota. The bound must still pass the actual four-workload/fifth-refusal test.
+It does not replace controller admission serialization.
+
+Release/start reviewed components in this order: Docker; MySQL/Redis/MinIO and
+actual health; CubeOps; CubeMaster; Cubelet and persistent-root checks; CoreDNS
+and DNS host route; egress-net and egress; lifecycle manager; proxy; API and
+templatecenter. Use explicit units, not a blanket control.target start which
+also includes optional web UI. Start only the existing loopback registry after
+Docker, verifying its exact official digest
+`registry@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373`
+and127.0.0.1:5000 binding before starting its discovered existing container name.
+Do not recreate missing registry/template state automatically. The review did
+not start any component or alter dynamicconf.
