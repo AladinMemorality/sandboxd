@@ -44,14 +44,16 @@ protected host addresses, public CONNECT and native guest networking are unchang
 
 ## Exact HTTP contract
 
-Paths come from Motion Studio PR8 head `c1d90603`:
+Paths cover Motion Studio through the handed-over `843e9f9` directing/avatar
+features and the coordinated provider-neutral worker parser:
 
 | Method | Path |
 | --- | --- |
 | GET | `/api/health`, `/api/status`, `/api/projects` |
 | POST | `/api/projects` |
 | GET, PATCH | `/api/projects/{uuid}` |
-| POST | `/api/projects/{uuid}/{plan,render,assets,cancel,duplicate}` |
+| POST | `/api/projects/{uuid}/{plan,render,assets,cancel,duplicate,narrate,clone}` |
+| DELETE | `/api/projects/{uuid}/voice` (no request body) |
 | GET, HEAD | `/media/{uuid}/{filename}` |
 
 UUIDs are lowercase canonical hexadecimal UUID-shaped segments. The filename
@@ -68,7 +70,12 @@ no-store; worker cookies, authorization and arbitrary response headers are not
 exposed. Redirects and unexpectedly compressed responses fail closed.
 
 JSON requests are limited to 65,000 bytes. Uploads accept exactly one non-empty
-file of at most **50 MiB**, plus an optional `kind` of `media` or `logo`. Incoming
+file of at most **50 MiB**, plus an optional `kind` of `media`, `logo`, `portrait`,
+`voice` or `narration` (default `media`). A single optional `consent` field must
+be exactly `true` or `false`; `portrait` and `voice` require `true`. Both the
+broker and the coordinated worker enforce this before a complete upload can
+be accepted. File-valued, duplicate or malformed consent is refused regardless
+of field order. Incoming
 multipart wire bytes, including an epilogue, are capped at **51 MiB** even with
 chunked transfer. Multipart is re-encoded incrementally; no host archive, temporary
 file or whole-upload buffer is created. Unsupported/duplicate fields and part
@@ -77,6 +84,12 @@ accepted part headers are capped at 8 KiB. An invalid upload never receives a
 completed forwarded closing boundary. This alone is not a universal transactional
 upstream guarantee: the coordinated worker validates the complete form and file
 limit before asset writes, with its own truncation/duplicate/oversize regressions.
+
+The latest-action and upload regressions include file-first/file-last ordering,
+preserved payload bytes, explicit consent, incomplete closing boundaries on
+rejection, and body-free voice deletion. The complete Motion broker suite passed
+with the Go race detector. This source validation does not establish deployed
+worker/template acceptance or migrate the existing Motion project.
 
 JSON responses are limited to 16 MiB, media responses to 1 GiB, and all requests to
 120 seconds. Both known and unknown body lengths are bounded. Streaming overflow

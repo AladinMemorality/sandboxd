@@ -115,9 +115,12 @@ func motionRoute(r *http.Request) (media, upload, allowed bool) {
 	if len(parts) == 4 {
 		return false, false, r.Method == "GET" || r.Method == "PATCH"
 	}
+	if len(parts) == 5 && r.Method == "DELETE" && parts[4] == "voice" {
+		return false, false, true
+	}
 	if len(parts) == 5 && r.Method == "POST" {
 		switch parts[4] {
-		case "plan", "render", "cancel", "duplicate":
+		case "plan", "render", "cancel", "duplicate", "narrate", "clone":
 			return false, false, true
 		case "assets":
 			return false, true, true
@@ -150,7 +153,7 @@ func (s *MotionStudio) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "invalid range", 400)
 		return
 	}
-	if (r.Method == "GET" || r.Method == "HEAD") && (r.ContentLength != 0 || len(r.TransferEncoding) != 0) {
+	if (r.Method == "GET" || r.Method == "HEAD" || r.Method == "DELETE") && (r.ContentLength != 0 || len(r.TransferEncoding) != 0) {
 		http.Error(w, "unexpected body", 400)
 		return
 	}
@@ -387,12 +390,16 @@ func (u *motionUpload) Close() error {
 	return nil
 }
 func (u *motionUpload) copyParts(in *multipart.Reader, out *multipart.Writer) error {
-	file, kind := false, false
+	file, kind, consent := false, false, false
+	kindValue, consentValue := "media", ""
 	for count := 0; ; count++ {
 		part, err := in.NextRawPart()
 		if err == io.EOF {
 			if !file {
 				return errors.New("missing file")
+			}
+			if (kindValue == "portrait" || kindValue == "voice") && consentValue != "true" {
+				return errors.New("explicit consent required")
 			}
 			return nil
 		}
@@ -403,7 +410,7 @@ func (u *motionUpload) copyParts(in *multipart.Reader, out *multipart.Writer) er
 			}
 			return err
 		}
-		if count >= 2 {
+		if count >= 3 {
 			return errors.New("too many fields")
 		}
 		headerBytes := 0
@@ -454,14 +461,33 @@ func (u *motionUpload) copyParts(in *multipart.Reader, out *multipart.Writer) er
 				return errors.New("invalid kind field")
 			}
 			kind = true
+			value, err := io.ReadAll(io.LimitReader(part, 10))
+			if err != nil {
+				return err
+			}
+			kindValue = string(value)
+			switch kindValue {
+			case "media", "logo", "portrait", "voice", "narration":
+			default:
+				return errors.New("invalid kind")
+			}
+			if err := out.WriteField("kind", kindValue); err != nil {
+				return err
+			}
+		case "consent":
+			if consent || part.FileName() != "" {
+				return errors.New("invalid consent field")
+			}
+			consent = true
 			value, err := io.ReadAll(io.LimitReader(part, 6))
 			if err != nil {
 				return err
 			}
-			if string(value) != "media" && string(value) != "logo" {
-				return errors.New("invalid kind")
+			consentValue = string(value)
+			if consentValue != "true" && consentValue != "false" {
+				return errors.New("invalid consent")
 			}
-			if err := out.WriteField("kind", string(value)); err != nil {
+			if err := out.WriteField("consent", consentValue); err != nil {
 				return err
 			}
 		default:
