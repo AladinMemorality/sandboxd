@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "deployed": false,
+  "scope": "worker listener and strict multipart validation only; no frontend installer",
+  "reviewed_source_commit": "08244741f2c595f433fffacdf1ec6f3cd5a8a2ff",
+  "live_feature_baseline": "843e9f9",
+  "live_files_matching_baseline": 20,
+  "files": [
+    {
+      "path": "server/index.mjs",
+      "old_sha256": "7eabcf0d45df359e399cb0cf8ccc1bc0aaec94b2e6d54b45d4668ef4527c4d1e",
+      "candidate_sha256": "bd7bfbb0b4f02f1e7fe67e2de2577df30cac9d69a6ef772b5dd1f161a1a5f816",
+      "bytes": 12928,
+      "expected_before": "exact regular file"
+    },
+    {
+      "path": "server/listen.mjs",
+      "old_sha256": null,
+      "candidate_sha256": "7bdc86ffda1e641f1895ffcebb8e6f205a220c23783762dae6936962a9499513",
+      "bytes": 1728,
+      "expected_before": "absent"
+    },
+    {
+      "path": "server/multipart.mjs",
+      "old_sha256": null,
+      "candidate_sha256": "77d566705fd74ceaf6cc63b2a020c59efd418815e7e6847b16ed88bbe9679ce3",
+      "bytes": 1843,
+      "expected_before": "absent"
+    }
+  ],
+  "source_tar_sha256": "432309a16306180f972b1f50bb62c0dc2c2aaaf84d4a9e3501763ad785e3cb7a",
+  "unchanged": [
+    "package.json",
+    "package-lock.json",
+    "proxy.mjs",
+    "server/jobs.mjs",
+    "server/store.mjs",
+    "server/intelligence.mjs",
+    "server/voice.mjs",
+    "server/schema.mjs",
+    "server/media.mjs",
+    "server/render.mjs",
+    "server/soundtrack.mjs",
+    "render/*",
+    "shared/*",
+    "data/*",
+    "home/*",
+    "worker.env"
+  ],
+  "installed_unit_before_sha256": "3207a24c7eb6314cb9652a4ad315c26d62e62f1865b2fcbe0919533f29b3436c",
+  "listener_before": {
+    "worker_pid": 3282578,
+    "bind": "172.19.0.1",
+    "port": "8332",
+    "data_directory": "/opt/baarcha/motion-studio/data",
+    "worker_key_present": true,
+    "proxy_worker_url_present": false,
+    "socket_option_present": false,
+    "project_count": 7,
+    "job_status_counts": {
+      "ready": 20,
+      "failed": 6
+    }
+  },
+  "limits": [
+    "Queue counts are read-only point-in-time observations, not a writer fence.",
+    "Source revision and installed inode/hash/owner/mode must be rechecked under deployment locks before change.",
+    "No dependency install, render, paid generation or customer project change is included."
+  ]
+}

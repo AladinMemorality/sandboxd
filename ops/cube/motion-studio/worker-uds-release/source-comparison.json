@@ -1,0 +1,80 @@
+{
+  "843e9f9": {
+    "matching": [
+      "package-lock.json",
+      "package.json",
+      "proxy.mjs",
+      "render/Film.jsx",
+      "render/ProductScenes.jsx",
+      "render/index.jsx",
+      "server/index.mjs",
+      "server/intelligence.mjs",
+      "server/jobs.mjs",
+      "server/media.mjs",
+      "server/production.test.mjs",
+      "server/render.mjs",
+      "server/schema.mjs",
+      "server/soundtrack.mjs",
+      "server/store.mjs",
+      "server/studio.test.mjs",
+      "server/voice.mjs",
+      "shared/narration.mjs",
+      "shared/soundtrack.mjs",
+      "shared/timing.mjs"
+    ],
+    "different": [],
+    "missing_from_live": []
+  },
+  "0824474": {
+    "matching": [
+      "package-lock.json",
+      "render/Film.jsx",
+      "render/ProductScenes.jsx",
+      "render/index.jsx",
+      "server/intelligence.mjs",
+      "server/jobs.mjs",
+      "server/media.mjs",
+      "server/production.test.mjs",
+      "server/render.mjs",
+      "server/schema.mjs",
+      "server/soundtrack.mjs",
+      "server/store.mjs",
+      "server/studio.test.mjs",
+      "server/voice.mjs",
+      "shared/narration.mjs",
+      "shared/soundtrack.mjs",
+      "shared/timing.mjs"
+    ],
+    "different": [
+      {
+        "path": "package.json",
+        "live_sha256": "9f3917faa46a5ec430e2a9a7407f412837c77fd51d7efa1a69c9a76ec9bdba5e",
+        "candidate_sha256": "8a8c3ded5a305312dbb7635aa84678d4b90aa05c1738f68fe1d4530673f4e438"
+      },
+      {
+        "path": "proxy.mjs",
+        "live_sha256": "e18a9353d333a582998aee231923072316ef4166eb5688aee7feaf3b45f7cef9",
+        "candidate_sha256": "a09b1760e08e86895ef2c34bcfe11b55e1d763453b3d1442fa87a9dfe53c1b27"
+      },
+      {
+        "path": "server/index.mjs",
+        "live_sha256": "7eabcf0d45df359e399cb0cf8ccc1bc0aaec94b2e6d54b45d4668ef4527c4d1e",
+        "candidate_sha256": "bd7bfbb0b4f02f1e7fe67e2de2577df30cac9d69a6ef772b5dd1f161a1a5f816"
+      }
+    ],
+    "missing_from_live": [
+      {
+        "path": "server/deployment-safety.test.mjs",
+        "candidate_sha256": "7b0d34af18d11187eea6f5d81d02ada45a6c5780e31b1af419389dd00805039a"
+      },
+      {
+        "path": "server/listen.mjs",
+        "candidate_sha256": "7bdc86ffda1e641f1895ffcebb8e6f205a220c23783762dae6936962a9499513"
+      },
+      {
+        "path": "server/multipart.mjs",
+        "candidate_sha256": "77d566705fd74ceaf6cc63b2a020c59efd418815e7e6847b16ed88bbe9679ce3"
+      }
+    ]
+  }
+}
