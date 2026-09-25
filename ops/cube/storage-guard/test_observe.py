@@ -30,7 +30,7 @@ class ObserverTest(unittest.TestCase):
   with self.assertRaises(m.Invalid):self.run_probe()
   with self.assertRaises(m.Invalid):m.strict_json('{"x":1,"x":2}')
  def test_corrupt_sequence_is_not_reinterpreted_as_fresh(self):
-  for old in [{'generation':1}, {'observer_id':self.c['observer_id'],'generation':0,'started_ns':1,'outer_boot_id':self.c['outer_boot_id']}]:
+  for old in [{'generation':1}, {'observer_id':self.c['observer_id'],'generation':1,'started_ns':1,'outer_boot_id':'corrupted'}, {'observer_id':self.c['observer_id'],'generation':0,'started_ns':1,'outer_boot_id':self.c['outer_boot_id']}]:
    with self.assertRaises(m.Invalid):self.run_probe(old)
  def test_low_space_is_truthfully_published(self):
   self.inner['inner_free_bytes']=0;self.assertEqual(self.run_probe()['inner_free_bytes'],0)

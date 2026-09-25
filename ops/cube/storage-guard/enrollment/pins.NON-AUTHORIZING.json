@@ -1,0 +1,9 @@
+{
+  "observation_path": "/run/sandboxd-cube-storage/observation.json",
+  "observer_id": "af3479abfe7d8824427e0b14b46945e4",
+  "outer_boot_id": "571f77dc-2077-412c-be3b-fa5c33a519f3",
+  "worker_machine_id": "2b9e31d4abd345e3bd4b966591e61296",
+  "expected_boot_id": "UNVERIFIED_POST_CYCLE_BOOT_DO_NOT_INSTALL",
+  "inner_fs_uuid": "793c3349-db9c-4815-9842-989ed484f1f8",
+  "outer_fs_uuid": "e0fd3502-6629-46ed-85a6-fa12687a10d9"
+}

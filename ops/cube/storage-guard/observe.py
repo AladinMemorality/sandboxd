@@ -138,7 +138,7 @@ def make_observation(c, previous, inner_probe=probe_inner, outer_probe=probe_out
         raise Invalid("outer boot differs from reviewed pin")
     start = clock()
     if previous:
-        if set(previous) != {'observer_id', 'generation', 'started_ns', 'outer_boot_id'} or previous['observer_id'] != c['observer_id'] or type(previous['generation']) is not int or previous['generation'] < 1 or previous['generation'] >= (1 << 63)-1 or type(previous['started_ns']) is not int or (previous['outer_boot_id'] == c['outer_boot_id'] and start <= previous['started_ns']):
+        if set(previous) != {'observer_id', 'generation', 'started_ns', 'outer_boot_id'} or previous['observer_id'] != c['observer_id'] or type(previous['generation']) is not int or previous['generation'] < 1 or previous['generation'] >= (1 << 63)-1 or type(previous['started_ns']) is not int or previous['started_ns'] <= 0 or not isinstance(previous['outer_boot_id'], str) or not UUID.fullmatch(previous['outer_boot_id']) or (previous['outer_boot_id'] == c['outer_boot_id'] and start <= previous['started_ns']):
             raise Invalid('observer sequence or clock moved backwards')
     inner, outer = inner_probe(), outer_probe()
     if set(inner) != {'worker_machine_id', 'worker_boot_id', 'inner_fs_uuid', 'inner_free_bytes'} or set(outer) != {'outer_fs_uuid', 'outer_free_bytes'}:

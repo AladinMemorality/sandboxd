@@ -1,0 +1,11 @@
+# Candidate override only; requires a completed root-reviewed enrollment.
+# Mount the directory so atomic observation replacement is visible.
+services:
+  sandboxd:
+    volumes:
+      - type: bind
+        source: /run/sandboxd-cube-storage
+        target: /run/sandboxd-cube-storage
+        read_only: true
+        bind:
+          create_host_path: false
