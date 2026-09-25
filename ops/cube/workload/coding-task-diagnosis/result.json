@@ -1,0 +1,49 @@
+{
+  "task": "01M3D3Z2T9CM6WSW9QB311KXB7",
+  "sandbox": "01M3D1Q0E1KM1FEM244XVHEC65",
+  "provider_id": "095a0076b90b4b009ab995837909e276",
+  "mode": "read-only aggregate diagnosis; no paid replay",
+  "sse_sha256": "069ca3cf34b9c1cdf112e9af4aae1777a18d751ee7bb6efda55012faa47b833b",
+  "sse_events": 32,
+  "tool_starts": 24,
+  "files_changed": 0,
+  "failure": "agent_timeout",
+  "duration_ms": 300380,
+  "metadata_probe": {
+    "guest_exit": 23,
+    "operator_exec_uid": 0,
+    "canonical_regular_nonempty_bounded_transcript": true
+  },
+  "parser_uid": 1000,
+  "aggregate_source_sha256": "dc9bd9c6968e386ed13160f50ae1ca05d4dce9121fa17f49a65326a5f769e59c",
+  "result_probe": {
+    "guest_exit": 66,
+    "matched_tool_result_records": 24,
+    "error_records": 1
+  },
+  "source_flags_probe": {
+    "guest_exit": 85,
+    "read_source_results_exist": true,
+    "source_result_over1000chars": true,
+    "source_contains_server_code": true,
+    "source_read_errors": false,
+    "empty_source_results": false,
+    "any_matched_tool_result_delay_over1000ms": false,
+    "matched_result_count_equals_unique_use_count": true
+  },
+  "limits": [
+    "Aggregate matching count was checked; duplicate result IDs were not separately excluded.",
+    "Raw content was not copied or printed; no definitive claim about external model consumption.",
+    "Operator cubecli stdout was empty even with500ms linger/interactive; exit-status metadata worked. This is separate from agent tool pipes.",
+    "Runtime task usage0 on timeout reflects final-result-only accounting in parser, not actual platform billing."
+  ],
+  "setting_difference": "Fixture explicitly MAX_THINKING_TOKENS=0; normal platform defaults2000 and configured0 omits the variable.",
+  "local_transport_review": "Reverse channel, runtime model relay and platform primary route preserve request body; fallback preserves messages. External model gateway processing remains unverified.",
+  "aggregate_source": "aggregate.cjs",
+  "source_review": {
+    "runtime_relay": "control-plane/internal/api/cube_model_relay.go",
+    "platform_route": "src/app/api/v1/messages/route.ts",
+    "platform_fallback": "src/lib/platform/agent-failover.ts",
+    "normal_thinking": "src/lib/sandboxd/client.ts"
+  }
+}
