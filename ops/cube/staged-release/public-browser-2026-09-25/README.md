@@ -11,3 +11,7 @@ The authorized repair changed exactly two URLs in `src/lib/brand.ts` and correct
 A fresh anonymous browser then confirmed the canonical image response was **200**, the video response **206**, all four image elements loaded, and the 1024×576 video reached readyState 4. There were no remaining localhost references, failed resource requests or page JavaScript errors. The browser was closed. The original files and exact private repair receipt remain in operator storage; their hashes and sanitized outcomes are in `results.json`.
 
 This evidence predates deployment of the later merged CI-fix revision `11981fd9cdbf0f33b82fbbcd467783176a113fde`. That release is tracked separately and was not falsely attributed to this audit.
+
+## Final compatible platform release
+
+Workflow `36153083058` passed every check and deployed `11981fd9cdbf0f33b82fbbcd467783176a113fde`, whose tree exactly matches reviewed tree `1ed716d0518f126e2bc18c4816fc30dc44c80792`. At 15:27 UTC, the installed source matched that SHA and was clean; the service was active and local/public health returned 200. A fresh targeted Tunde browser check again confirmed all four canonical images, video response 206 and readyState 4, with zero failed requests or JavaScript errors. No second full20-app run is claimed. See `release-11981fd.json`.
