@@ -46,8 +46,9 @@ unhealthy. Preserve a private copy of all approved manifests and hashes.
 
 The outer worker unit is the reviewed `baarcha-cube-worker-01.service`; monitor
 unit/timer are separate. Nested reviewed target/preflight are separate from the
-outer systemd manager. All 14 nested units listed in `lifecycle.py:SERVICES` need
-the reviewed preflight dependency drop-in; merely disabling the upstream target
+outer systemd manager. All 14 nested units listed in `lifecycle.py:SERVICES`, plus any enabled/requestable
+web UI service, need the reviewed preflight dependency drop-in; the inactive
+optional s3lvol service is also held during this empty upgrade; merely disabling the upstream target
 is insufficient because another unit can directly start a dependency. Audit the
 upstream enabled control target and templatecenter explicitly. Validate candidate
 unit files with `systemd-analyze verify` before any `daemon-reload` or enablement.
@@ -118,3 +119,7 @@ metadata; reverting to volatile worker metadata is not an acceptable rollback.
 No item above authorizes editing customer files, relaxing network isolation,
 changing app resource limits, copying global credentials to guests, or enabling
 Cube routing before the separate full-fleet acceptance.
+
+See [BOOT-HOLD-REVIEW.md](BOOT-HOLD-REVIEW.md) for the actual observed target graph,
+Docker restart-policy bypass, exact maintenance hold set and helper escalation
+that must be resolved before the source gate can be reviewed for enablement.
