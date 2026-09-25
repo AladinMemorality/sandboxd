@@ -28,6 +28,11 @@ number into a migration plan.
 
 ## Exact staging commands after readiness
 
+Before final generation, root installs the reviewed candidate preflight/target
+unit files and reloads the unit graph without starting the new target. The
+generator requires both installed unit hashes; before this step only ownership
+inventory is valid. No absent boot unit is silently omitted.
+
 Root stages the committed `render_nested.py`, `ownership_plan.py` and
 `lifecycle.py` in this **nested-worker** root0700 directory first:
 `/root/cube-production/lifecycle-candidate-20260925`. These are concrete proposed

@@ -4,6 +4,14 @@
 writes a **new private staging directory only**. It never installs a unit, starts
 or stops anything, changes an allow-file, or enables the host source gate.
 
+Final generation also requires both exact candidate boot units installed and
+loaded: `/etc/systemd/system/baarcha-cube-preflight.service` and
+`/etc/systemd/system/baarcha-cube-reviewed.target`. Root installs these reviewed
+files without starting the new target, runs daemon-reload, and only then generates
+the final manifest. Before those units exist, final generation deliberately fails;
+the earlier ownership-only inventory remains usable. Both unit hashes and their
+loaded drop-ins join the required artifact set. Missing units are never omitted.
+
 Before running it, root must bring the reviewed management stack up under its
 controlled maintenance procedure. Five native services must have actual active
 MainPIDs: Cubelet is Type=forking, and Master/API/Ops/templatecenter Type=simple.

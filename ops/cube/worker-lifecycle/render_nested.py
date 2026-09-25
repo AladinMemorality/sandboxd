@@ -16,6 +16,7 @@ import tomllib
 
 TOOLBOX=Path('/usr/local/services/cubetoolbox')
 SCRIPT='/usr/local/libexec/baarcha-cube-worker-lifecycle.py'
+BOOT_UNITS=('baarcha-cube-preflight.service','baarcha-cube-reviewed.target')
 META=Path('/data/cubelet/persistent-metadata')
 REQUIRED_CONFIGS=('.one-click.env','Cubelet/config/config.toml','Cubelet/dynamicconf/conf.yaml','CubeMaster/conf.yaml','CubeTemplateCenter/conf.yaml')
 NATIVE={'cubelet':'Cubelet/bin/cubelet','cubemaster':'CubeMaster/bin/cubemaster',
@@ -83,7 +84,7 @@ def collect():
         checksum=digest(exe)
         need(start_time(pid)==generation and unit(target).get('MainPID')==str(pid),'native process changed while inspecting')
         observed['native'][name]={'path':str(exe),'sha256':checksum,'pid':pid,'start_time':generation,'unit_type':state['Type']}
-    names=['cube-sandbox-'+name+'.service' for name in SERVICES]+['cube-sandbox-control.target','cube-sandbox-compute.target','docker.service','docker.socket']
+    names=['cube-sandbox-'+name+'.service' for name in SERVICES]+['cube-sandbox-control.target','cube-sandbox-compute.target','docker.service','docker.socket',*BOOT_UNITS]
     for name in names:
         state=unit(name);observed['units'][name]={'active':state['ActiveState'],'type':state.get('Type')}
         if name=='cube-sandbox-s3lvol.service':need(state['ActiveState']=='inactive' and state.get('MainPID')=='0','unsupported s3lvol must remain inactive')
@@ -153,6 +154,7 @@ def render(observed,helper_sha):
         need(value['path']==str(TOOLBOX/path) and SHA.fullmatch(value['sha256']) and value['pid']>1,'wrong native binary identity')
         need(value['unit_type']==('forking' if name=='cubelet' else 'simple'),'unexpected native service type')
     need(set(observed.get('metadata_paths',[]))=={str(META/child) for _,child in PLUGINS.values()},'all persistent plugin paths required')
+    need(all('/etc/systemd/system/'+name in observed.get('artifacts',{}) for name in BOOT_UNITS),'both installed reviewed boot units must be pinned')
     need(all(str(TOOLBOX/relative) in observed.get('artifacts',{}) for relative in REQUIRED_CONFIGS),'all fixed configuration hashes including dynamic quota required')
     validate_registry(observed.get('registry'))
     staged=overrides();artifacts=dict(observed['artifacts'])
