@@ -1,5 +1,7 @@
 import importlib.util
 import json
+import sqlite3
+from contextlib import closing
 from pathlib import Path
 import tempfile
 import unittest
@@ -12,6 +14,54 @@ d = importlib.util.module_from_spec(spec); spec.loader.exec_module(d)
 
 
 class ObserveTests(unittest.TestCase):
+    def sqlite_fixture(self, directory, complete=True):
+        path = Path(directory) / 'state.db'
+        with closing(sqlite3.connect(path)) as db:
+            db.execute('CREATE TABLE task(status TEXT)')
+            db.executemany('INSERT INTO task VALUES(?)', [('running',), ('queued',), ('done',)])
+            if complete:
+                db.execute('CREATE TABLE runtime_binding(runtime_id TEXT)')
+                db.execute("INSERT INTO runtime_binding VALUES('owned-fixture')")
+            db.commit()
+        return path
+
+    def assert_connection_closed(self, connection):
+        # Keep a strong reference: garbage collection must not make a leaked
+        # sqlite3.Connection context manager look safe by closing it for us.
+        with self.assertRaisesRegex(sqlite3.ProgrammingError, 'closed'):
+            connection.execute('SELECT 1')
+
+    def test_sqlite_observation_closes_connection_on_success(self):
+        real_connect = sqlite3.connect
+        held = []
+        def connect(*args, **kwargs):
+            connection = real_connect(*args, **kwargs)
+            held.append(connection)
+            return connection
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.sqlite_fixture(directory)
+            with patch.object(d, 'DB', str(path)), patch.object(d.sqlite3, 'connect', side_effect=connect):
+                result = d.sqlite_observation()
+            self.assertEqual(result, {'task_status_counts': {'done': 1, 'queued': 1, 'running': 1},
+                                      'runtime_bindings': 1, 'active_tasks': 2})
+            self.assertEqual(len(held), 1)
+            self.assert_connection_closed(held[0])
+
+    def test_sqlite_observation_closes_connection_on_query_error(self):
+        real_connect = sqlite3.connect
+        held = []
+        def connect(*args, **kwargs):
+            connection = real_connect(*args, **kwargs)
+            held.append(connection)
+            return connection
+        with tempfile.TemporaryDirectory() as directory:
+            path = self.sqlite_fixture(directory, complete=False)
+            with patch.object(d, 'DB', str(path)), patch.object(d.sqlite3, 'connect', side_effect=connect):
+                with self.assertRaisesRegex(sqlite3.OperationalError, 'runtime_binding'):
+                    d.sqlite_observation()
+            self.assertEqual(len(held), 1)
+            self.assert_connection_closed(held[0])
+
     def test_tcp_ownership_and_no_peer_export(self):
         rows = d.parse_tcp('header\n0: 0100007F:2328 AAAAAAAA:DEAD 01 0 0 0 0 0 45\n1: 0:2328 0:0000 0A 0 0 0 0 0 46', {'45'})
         self.assertEqual(rows, [{'inode': '45', 'state': 'established', 'local_port': 9000}])

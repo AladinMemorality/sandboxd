@@ -6,6 +6,7 @@ values are collected. A connected TCP socket is NOT an active-request counter.
 """
 import argparse
 import collections
+from contextlib import closing
 import datetime
 import hashlib
 import json
@@ -100,7 +101,10 @@ def unit_processes(value):
 
 
 def sqlite_observation():
-    with sqlite3.connect('file:' + DB + '?mode=ro', uri=True, timeout=2) as db:
+    # sqlite3.Connection's context manager commits/rolls back; it does NOT
+    # close the connection. Retained observation frames must not keep DB FDs
+    # open while the independent coordinator scans for maintenance writers.
+    with closing(sqlite3.connect('file:' + DB + '?mode=ro', uri=True, timeout=2)) as db:
         db.execute('PRAGMA query_only=ON')
         db.execute('BEGIN')
         tasks = dict(db.execute('SELECT status,count(*) FROM task GROUP BY status'))
