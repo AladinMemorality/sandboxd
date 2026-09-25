@@ -80,7 +80,7 @@ def atomic(path,raw):
   if os.path.exists(temp):os.unlink(temp)
 if action=='prepare' and not p.exists() and not p.is_symlink():
  need(mode=='docker');(root/'worker-stop.absent').write_text('No worker coordinator was installed.\n');sys.exit(0)
-if action=='refresh' and (root/'worker-stop.absent').exists():
+if action in ('candidate','refresh') and (root/'worker-stop.absent').exists():
  need(not p.exists() and not p.is_symlink());sys.exit(0)
 raw=private(p);c=decode(raw)
 need(re.fullmatch('[0-9a-f]{64}',controller) and c.get('database')==database)
@@ -100,6 +100,18 @@ need(live['Id']==controller and live['Image']==image and live['State']['Running'
 if action=='prepare':
  need(c.get('controller_id')==controller and not expected.exists())
  atomic(root/'worker-stop.before.json',raw);atomic(expected,raw)
+elif action=='candidate':
+ need(raw==private(expected) and c.get('controller_id')==controller)
+ candidate=root/'source/control-plane/migrations'
+ def manifest(directory):
+  result={}
+  for path in directory.glob('*.sql'):
+   need(re.fullmatch(r'[0-9]{4}_.+\.sql',path.name) and path.is_file() and not path.is_symlink())
+   result[path.name]=hashlib.sha256(path.read_bytes()).hexdigest()
+  return result
+ # Refuse a new schema BEFORE the candidate can migrate the live DB. A
+ # binary rollback cannot undo such a migration or upgrade old coordinators.
+ need(candidate.is_dir() and manifest(candidate)==manifest(migrations))
 elif action=='refresh':
  need(raw==private(expected))
  c['controller_id']=controller;updated=(json.dumps(c,indent=2)+'\n').encode()
@@ -293,6 +305,7 @@ git -C "$src" fetch --no-tags origin "$sha"
 # Scope this umask only to Git; the enclosing release directory stays 0700 and
 # environment, database and inspection artifacts retain the private 077 umask.
 (umask 022; git -C "$src" worktree add --detach "$run/source" "$sha")
+worker_pin candidate "$old_control"
 # A retry may reuse a completed immutable artifact, but cannot overwrite it or
 # accept an unrelated pre-existing tag. Only this reviewed source SHA is valid.
 build_image() {

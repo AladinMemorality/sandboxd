@@ -149,8 +149,10 @@ class DeployTest(unittest.TestCase):
         self.git("init", "-q")
         self.git("config", "user.email", "deploy-test@invalid.example")
         self.git("config", "user.name", "Synthetic deploy test")
-        for directory in ("host", "image", "control-plane", "traefik/dynamic", "scripts", "image/services/postgres"):
+        for directory in ("host", "image", "control-plane/migrations", "traefik/dynamic", "scripts", "image/services/postgres"):
             (self.src / directory).mkdir(parents=True, exist_ok=True)
+        for number in range(1, 35):
+            (self.src / "control-plane/migrations" / f"{number:04d}_fixture.sql").write_text("-- fixture\n")
         (self.src / "host/sandbox-isolation.sh").write_text(ISOLATION)
         (self.src / "host/sandbox-isolation.sh").chmod(0o755)
         (self.src / "docker-compose.yml").write_text("services: {sandboxd: {image: old}}\n")
@@ -372,6 +374,26 @@ class DeployTest(unittest.TestCase):
         result = self.deploy()
         self.assertNotEqual(result.returncode, 0)
         self.assertFalse(any(c[0] == "build" or "up" in c for c in self.commands()))
+
+    def test_candidate_schema_or_migration_drift_refused_before_build_or_restart(self):
+        for change in ("new_schema", "changed_sql"):
+            with self.subTest(change=change):
+                if change != "new_schema":
+                    self.doCleanups(); self.setUp()
+                before = self.install_worker_config()
+                self.git("checkout", "--detach", self.sha)
+                filename = "0035_new.sql" if change == "new_schema" else "0034_fixture.sql"
+                (self.src / "control-plane/migrations" / filename).write_text("-- incompatible new schema\n")
+                self.git("add", "control-plane/migrations")
+                self.git("commit", "-qm", "candidate schema drift")
+                self.sha = self.git("rev-parse", "HEAD")
+                self.git("checkout", "--detach", self.old)
+                result = self.deploy()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(any(c[0] == "build" or "up" in c or "stop" in c for c in self.commands()))
+                self.assertEqual(self.git("rev-parse", "HEAD"), self.old)
+                self.assertEqual(self.db.execute("SELECT MAX(id) FROM migration").fetchone()[0], 34)
+                self.assertEqual(json.loads((self.root / "worker/worker-stop.json").read_text()), before)
 
     def test_worker_config_permissions_symlink_and_stop_marker_fail_closed(self):
         for mode in ("permissions", "symlink", "marker"):
