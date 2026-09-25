@@ -1,6 +1,6 @@
 # Cube cutover status, 2026-09-25
 
-At 11:32 UTC production had **65 Docker projects and zero Cube bindings**.
+At 13:03 UTC production had **66 Docker projects and zero Cube bindings**.
 The platform and controller were healthy, with no running coding tasks. Global
 Cube creation selection is implemented but remains disabled in production.
 Changing that selection does not migrate existing projects.
@@ -18,13 +18,26 @@ app files, home files and PostgreSQL row into a new owned sandbox, without anoth
 commit. [Recorded recovery result](../ops/cube/production-worker/recovery/results/2026-09-25/current-disk-replacement.json).
 Original disks and archives remain retained; no production binding changed.
 
+The corrected Cubelet is installed on the isolated worker. Live namespace/FD
+checks now confirm all ten database roots use persistent XFS, including the
+containerd plugin whose original root setting was silently ignored. Its fresh
+PostgreSQL lifecycle and Vite reload fixtures passed. A real retained-component
+stop and clean worker reboot preserved the same paused guest and latest app,
+home and SQL; resume through SQL verification took 1.021 seconds in that single
+functional sample. Abrupt-loss tests remain separate gates.
+
+The replacement recovery journal has also passed with real Cube imports,
+verification and stable binding preservation. The fresh read-only fleet review
+found 65 preliminary passes and one live PostgreSQL socket requiring graceful
+quiescence, with no blocked snapshots. Fennec Meet's newly added backend routes
+are being included in scoped egress compatibility.
+
 Production cutover still requires:
 
-- Install and validate persistent Cube metadata and durable pause ordering,
-  including clean restart and another owned interruption test.
+- Complete separate acknowledged-pause and running abrupt-loss acceptance;
+  recheck four-concurrent-workload performance against the installed native quota.
 - Validate the worker shutdown/startup coordinator and actual encrypted paired
   backup restoration. An encrypted fixture round-trip is not a worker restore.
-- Exercise the replacement journal against real Cube imports and stable bindings.
 - Refresh and freeze the entire fleet inventory under the traffic/write drain;
   preserve source containers, full homes, databases, history and snapshots.
 - Merge and deploy the combined revision, migrate every frozen binding, enable
