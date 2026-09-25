@@ -9,10 +9,72 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 
 	"golang.org/x/sys/unix"
 )
+
+func TestFileReadAllowsOnlyAppInternalSymlinks(t *testing.T) {
+	s, id := fileSymlinkServer(t)
+	app := s.appDirFor(id)
+	if err := os.Mkdir(filepath.Join(app, "real"), 0755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(app, "real", "file"), []byte("internal"), 0644); err != nil {
+		t.Fatal(err)
+	}
+	for name, target := range map[string]string{"alias": "real", "file-link": "real/file", "escape-absolute": "/etc/passwd", "escape-relative": "../../../outside", "magic": "/proc/self/fd/0"} {
+		if err := os.Symlink(target, filepath.Join(app, name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, path := range []string{"alias/file", "file-link"} {
+		if w := getContent(t, s, id, path); w.Code != 200 || w.Body.String() != "internal" {
+			t.Fatalf("internal link %s: %d %s", path, w.Code, w.Body.String())
+		}
+	}
+	for _, path := range []string{"escape-absolute", "escape-relative", "magic"} {
+		if w := getContent(t, s, id, path); w.Code != 404 {
+			t.Fatalf("escaping link accepted: %s", path)
+		}
+	}
+	r := httptest.NewRequest("GET", "/files?path=alias", nil)
+	r.SetPathValue("id", id)
+	w := httptest.NewRecorder()
+	s.v1ListFiles(w, r)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "alias/file") {
+		t.Fatalf("internal directory listing: %d %s", w.Code, w.Body.String())
+	}
+	// Swap an internal link for an escaping link while real GETs resolve it.
+	outside := filepath.Join(t.TempDir(), "secret")
+	if err := os.WriteFile(outside, []byte(secretMarker), 0600); err != nil {
+		t.Fatal(err)
+	}
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 400; i++ {
+			target := "real/file"
+			if i%2 == 0 {
+				target = outside
+			}
+			tmp := filepath.Join(app, "swap-next")
+			_ = os.Remove(tmp)
+			_ = os.Symlink(target, tmp)
+			_ = os.Rename(tmp, filepath.Join(app, "file-link"))
+		}
+	}()
+	for i := 0; i < 400; i++ {
+		w := getContent(t, s, id, "file-link")
+		if w.Code == 200 && w.Body.String() != "internal" {
+			t.Errorf("link race leaked data")
+			break
+		}
+	}
+	wg.Wait()
+}
 
 type fileMutationReader struct {
 	mutate func()

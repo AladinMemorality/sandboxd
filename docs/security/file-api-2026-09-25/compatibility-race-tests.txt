@@ -1,0 +1,9 @@
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/auth	1.016s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/egress	29.820s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/api	36.169s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/runtime	3.351s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/store	2.639s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/migration	2.893s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/runtimed	1.896s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/sandboxd	1.051s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-migrate	1.045s

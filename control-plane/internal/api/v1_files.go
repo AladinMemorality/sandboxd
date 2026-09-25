@@ -69,18 +69,18 @@ func (s *Server) v1ListFiles(w http.ResponseWriter, r *http.Request) {
 	}
 	rel, err := filepath.Rel(root, full)
 	_, mnt := s.Loopback.Paths(id)
-	dir, err := openAppDirs(mnt, rel)
+	dir, err := openAppRead(mnt, rel, true)
 	if err != nil {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no such directory")
 		return
 	}
-	defer dir.close()
+	defer dir.Close()
 	var entries []fileEntry
 	prefix := rel
 	if prefix == "." {
 		prefix = ""
 	}
-	err = walkAppFiles(dir.last(), prefix, recursive, func(path string, isDir bool, file *os.File) error {
+	err = walkAppFiles(int(dir.Fd()), prefix, recursive, func(path string, isDir bool, file *os.File) error {
 		e := fileEntry{Path: path, Type: "dir"}
 		if !isDir {
 			st, err := file.Stat()
@@ -122,13 +122,7 @@ func (s *Server) v1FileContent(w http.ResponseWriter, r *http.Request) {
 	}
 	rel, err := filepath.Rel(root, full)
 	_, mnt := s.Loopback.Paths(id)
-	dir, err := openAppDirs(mnt, filepath.Dir(rel))
-	if err != nil {
-		writeV1Err(w, http.StatusNotFound, "not_found", "no such file")
-		return
-	}
-	defer dir.close()
-	file, err := openRegularAt(dir.last(), filepath.Base(rel))
+	file, err := openAppRead(mnt, rel, false)
 	if err != nil {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no such file")
 		return

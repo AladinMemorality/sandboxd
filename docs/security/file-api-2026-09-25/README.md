@@ -30,3 +30,15 @@ export, Cube delegation and the full API race suite also passed. The shared
 native run includes another agent's Motion changes; validation.json identifies
 its exact source archive and the owned file hashes. No test container, worker
 mutation or tenant workload remains from this run.
+
+## Tested internal-link compatibility follow-up
+
+The final read/list behavior restores relative links contained within the app.
+It opens the mount/workspace/app root with the same strict no-follow walk, then
+uses Linux `openat2(RESOLVE_BENEATH | RESOLVE_NO_MAGICLINKS)` for the explicit
+requested path. The kernel confines resolution atomically; absolute, escaping
+and magic links fail. Unsupported kernels fail closed without a pathname
+fallback. PUT remains no-follow, and recursive list/export still omit symlink
+entries as they did before the fix. Internal file/directory links, escapes and
+400 concurrent link substitutions were tested in the full nine-package native
+race suite; see compatibility-validation.json for exact source/log hashes.

@@ -143,6 +143,37 @@ func openRegularAt(dir int, name string) (*os.File, error) {
 	return f, nil
 }
 
+// Explicit reads may follow relative app-internal links. Confinement is done
+// by the kernel in the same operation as path resolution; no realpath/open gap
+// and no fallback on kernels lacking openat2. The app root itself stays no-follow.
+func openAppRead(mnt, rel string, directory bool) (*os.File, error) {
+	c, err := openAppDirs(mnt, "")
+	if err != nil {
+		return nil, err
+	}
+	defer c.close()
+	if rel == "" {
+		rel = "."
+	}
+	flags := unix.O_RDONLY | unix.O_CLOEXEC | unix.O_NONBLOCK
+	if directory {
+		flags |= unix.O_DIRECTORY
+	}
+	fd, err := unix.Openat2(c.last(), rel, &unix.OpenHow{
+		Flags: uint64(flags), Resolve: unix.RESOLVE_BENEATH | unix.RESOLVE_NO_MAGICLINKS,
+	})
+	if err != nil {
+		return nil, err
+	}
+	f := os.NewFile(uintptr(fd), rel)
+	st, err := f.Stat()
+	if err != nil || (directory && !st.IsDir()) || (!directory && !st.Mode().IsRegular()) {
+		f.Close()
+		return nil, errUnsafeFilePath
+	}
+	return f, nil
+}
+
 // The callback consumes each file while its parent is retained. Descendants
 // are opened relative to that FD; a directory replaced by a symlink is skipped.
 func walkAppFiles(dir int, prefix string, recursive bool, visit func(string, bool, *os.File) error) error {

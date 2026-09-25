@@ -1,0 +1,15 @@
+{
+  "source_archive_sha256": "fd9f654e384322d7608bb5f6de82cfb7edbb13c870afe3ad5259d39652d2d0c6",
+  "source_manifest_sha256": "2e52f517dd21276cfb8d4b17555ac008acb79bba56da931577e6c0524097a35a",
+  "owned_source_sha256": {
+    "control-plane/internal/api/v1_files.go": "440f503e00497f7a476b962e13de19164b56c396cc0724853bafb67c10f4ece5",
+    "control-plane/internal/api/v1_files_secure_linux.go": "0287b2667355f81e79d2586b43ba890ce279f869732057d95709bdb75de81251",
+    "control-plane/internal/api/v1_files_secure_linux_test.go": "a06217989aa4bf4c16c065b34844cd975a58a0567114b41235f6ce1aa7b195c4"
+  },
+  "tests": "full nine-package Linux/amd64 Go1.22 race suite; all PASS",
+  "log_sha256": "68514249b4f9af6adfe4ae2006e92722d2480e361c0c12e61b3e941567e2529a",
+  "unit": "cube-files-motion-native-20260925-02",
+  "container_removed": true,
+  "deployed": false,
+  "compatibility": "Explicit read/list requests support relative app-internal symlinks through openat2 RESOLVE_BENEATH|RESOLVE_NO_MAGICLINKS; strict no-follow app root, no unavailable-kernel fallback; recursive list/export still skip symlink entries."
+}
