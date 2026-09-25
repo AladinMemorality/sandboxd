@@ -1,0 +1,260 @@
+{
+  "kind": "actual-platform-release",
+  "revision": "3b1922fc58f2951c1f5e55d07391d4473cafa25c",
+  "tree": "dcaf2d8d36f2cc18119a98ec96eb08e4fef34a80",
+  "previous_revision": "1b4e9ac2a02dde0e51021dbe09898548860df4a1",
+  "merged_pr": "https://github.com/AladinMemorality/project-z-mail/pull/9",
+  "ci": "https://github.com/AladinMemorality/project-z-mail/actions/runs/36196229883",
+  "ci_conclusion": "success",
+  "deployment": {
+    "unit": "baarcha-platform-release-20260925-01",
+    "result": "success",
+    "exit_code": 0,
+    "rollback_artifacts": "/opt/baarcha/releases/platform-release.9cQsXVUN",
+    "schema_addition": "0021_project_creation.sql",
+    "existing_schema_modified": false,
+    "exact_migration_review_sha256": "37498cf71a0595f73390efd7d3e51848aef85636ea10375eba8dbe937cf85c49",
+    "automatic_job_initially_refused_missing_review": true,
+    "automatic_job_rerun_after_actual_deployment": "same deployed revision; no rebuild or database replay"
+  },
+  "database_backup": {
+    "at": "2026-09-25T22:22:41.617Z",
+    "last_migration": {
+      "version": "0020",
+      "name": "0020_project_thumbnail_capture.sql"
+    },
+    "count": 20,
+    "server_version_num": "170011",
+    "dump_client": "pg_dump (PostgreSQL) 17.11 (Ubuntu 17.11-1.pgdg24.04+2)",
+    "dump_bytes": 2080714,
+    "dump_sha256": "d595adcad94b00601d842e844499906fa1192f779ec1b124ea0f361cb15b0dea",
+    "dump_exit": 0,
+    "list_readable": true,
+    "independent_restore_tested": false
+  },
+  "owned_smoke": {
+    "passed": true,
+    "owner": 103,
+    "request_id": "85e6a61c-9343-4610-b60f-98d6ff12d892",
+    "project_id": "01M3CZB4HXT2Y8HP8CEY75PCWY",
+    "source_commit": "3b1922fc58f2951c1f5e55d07391d4473cafa25c",
+    "phase": "complete",
+    "no_paid_task_submission": true,
+    "ledger": {
+      "versions": 21,
+      "latest": {
+        "version": "0021",
+        "name": "0021_project_creation.sql"
+      },
+      "constraints": [
+        {
+          "type": "c",
+          "definition": "CHECK ((phase = ANY (ARRAY['ready'::text, 'creating'::text, 'project'::text, 'provisioning'::text, 'sandbox'::text, 'submitting'::text, 'complete'::text, 'rejected'::text])))"
+        },
+        {
+          "type": "f",
+          "definition": "FOREIGN KEY (owner_id) REFERENCES waitlist(id) ON DELETE CASCADE"
+        },
+        {
+          "type": "p",
+          "definition": "PRIMARY KEY (owner_id, request_id)"
+        },
+        {
+          "type": "u",
+          "definition": "UNIQUE (project_id)"
+        }
+      ],
+      "valid_unique_indexes": 2
+    },
+    "existing_project": {
+      "owner_verified": true,
+      "foreign_404": true,
+      "anonymous_401": true,
+      "app_url": "/apps/cubef6ff432593177fb12a/cube-recovery-acceptance-6ff432593177fb12",
+      "cover_url": "/files/zQbJGdSbBZnFZeio",
+      "cover_render_not_executed": true
+    },
+    "inventory_before_sha256": "a63d1f1583314fd5a79dc61ea1d13784eb043598ccb9cadb9263534d7727bed8",
+    "input_hash": "b2b576d3fc020d8e516155acb68a7ff09f4c5f1c7e8462b5f51f2d6be3363875",
+    "intent_inserted": true,
+    "inventory_after_sha256": "a63d1f1583314fd5a79dc61ea1d13784eb043598ccb9cadb9263534d7727bed8",
+    "existing_apps": 1,
+    "existing_tasks": 4,
+    "intent_unchanged": true,
+    "runtime_app_task_sideeffects": false,
+    "intent_retained_for_review": true,
+    "limitations": [
+      "No genuine live capacity refusal exercised",
+      "No task submitted, no paid inference, no credits changed",
+      "Existing failed node-postgres fixture cannot exercise success-only React starter detection",
+      "Existing screenshot URL ownership checked; no new capture or render"
+    ]
+  },
+  "public_browser": {
+    "source_sha256": "ebb03b4ea7ce6c177317b0d25642e60f3ce68d85a23ff77304a4a984cf207f50",
+    "raw_results_sha256": "01f6855995690d4060bbf84e5cfcd27f79b12ce6fd31619d65fc3f72e9e330f7",
+    "public_apps": 20,
+    "rendered": 20,
+    "loading_cleared": 20,
+    "page_javascript_errors": 0,
+    "author_directories_http_200": 3,
+    "private_kanzari_anonymous_404": true,
+    "max_concurrent_pages": 2,
+    "start_spacing_ms": 5000,
+    "median_render_ms": 6875.0,
+    "maximum_render_ms": 23796,
+    "results": [
+      {
+        "url": "/apps/aladin/levelupia-redesign",
+        "http_status": 200,
+        "render_ms": 6839,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/tunde-bridge",
+        "http_status": 200,
+        "render_ms": 7438,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/mohamed-cherif/minecraft-tunnel-server",
+        "http_status": 200,
+        "render_ms": 5344,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/thedot-style-website",
+        "http_status": 200,
+        "render_ms": 7350,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/mini-minecraft",
+        "http_status": 200,
+        "render_ms": 6394,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/pc-builder",
+        "http_status": 200,
+        "render_ms": 6448,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/classroom",
+        "http_status": 200,
+        "render_ms": 3502,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/faith-mask-shop",
+        "http_status": 200,
+        "render_ms": 10008,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/malek-mimouna/lina-sami-a-wedding-site",
+        "http_status": 200,
+        "render_ms": 6911,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/vega-redesign",
+        "http_status": 200,
+        "render_ms": 6299,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/jaloul-ayed-site",
+        "http_status": 200,
+        "render_ms": 8449,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/wedding-suite",
+        "http_status": 200,
+        "render_ms": 6787,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/wild-haven",
+        "http_status": 200,
+        "render_ms": 2868,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/campaign-canvas",
+        "http_status": 200,
+        "render_ms": 23796,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/candle-shop",
+        "http_status": 200,
+        "render_ms": 8957,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/slide-studio",
+        "http_status": 200,
+        "render_ms": 7809,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/jordan-studio",
+        "http_status": 200,
+        "render_ms": 6610,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/makla-hometti",
+        "http_status": 200,
+        "render_ms": 7374,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/avocall-redesign",
+        "http_status": 200,
+        "render_ms": 7928,
+        "rendered": true,
+        "loading_cleared": true
+      },
+      {
+        "url": "/apps/aladin/nabd-tunis",
+        "http_status": 200,
+        "render_ms": 6242,
+        "rendered": true,
+        "loading_cleared": true
+      }
+    ],
+    "fetch_abort_events": 201,
+    "fetch_abort_limit": "Harness records through context closure; these net::ERR_ABORTED events are unclassified, not claimed successful resources. No other request failure type recorded.",
+    "scope": "Initial ordinary anonymous page/iframe rendering only; no forms, model calls, or complete business workflows."
+  },
+  "cube_global_rollout": false,
+  "customer_projects_migrated_by_this_release": 0,
+  "limitations": [
+    "Latest failed node-postgres canary does not qualify for live success-only React starter detection.",
+    "Owned ambiguous intent was explicitly operator-seeded; genuine capacity exhaustion was not induced.",
+    "Shared screenshot CI had one original Chromium capture protocol failure; unchanged code passed local reproduction, independent hosted run and failed-job rerun.",
+    "Full Cube backup/restore, higher concurrency, automatic worker reboot and global fleet migration remain separate acceptance gates."
+  ]
+}
