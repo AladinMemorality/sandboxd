@@ -1,5 +1,32 @@
 # Canonical operator fixture for paired restore
 
+## Reviewed timeout continuation, September25
+
+The first actual task `01M3D27V0SHQ863WHPCAENGVTY` reached the model service,
+changed `recovery-fixture/app marker.txt`, and ended with `agent_timeout` after
+120.474 seconds. Its real failed checkpoint is
+`e3d133d81550b2ce085720f05aee367174f7bc9c`. It did not finish the fixture and is
+not accepted as a successful AI task. Before submission, two separate preflight
+attempts failed on a missing preview signing key and first-hostname certificate
+issuance; neither submitted an AI task. The key was configured using supported
+auth reload; the certificate took about4.81seconds and later anonymous preview
+checks returned401 in milliseconds.
+
+`complete-timed-out-task` is a separately reviewed one-use continuation for only
+that exact run/app/sandbox/owner/task/checkpoint and original pending timestamp.
+It requires positive remaining original operator credit and the existing scoped
+bridge. It preserves the failed result and intent before one distinct task with
+a300-second runtime bound and360-second cancellation watchdog. The prompt asks
+for a consolidated filesystem edit and local syntax check; the operator still
+independently verifies the actual app/home/SQL/capture. No grant is repeated.
+Unknown/running outcomes, another task, another checkpoint, another run or any
+previous continuation are refused. A lost continuation acknowledgement stays
+pending and cannot be automatically replayed. The original120-second failure
+remains part of the evidence; a later success does not turn it into a pass.
+
+This continuation is prepared and tested locally; its actual result must be
+recorded separately before claiming fixture acceptance.
+
 Root executed the initial owner/app phases on2026-09-25. Synthetic owners103
 and104 were committed with notification rows suppressed; the first app request
 returned400 because the fixture incorrectly used template directory

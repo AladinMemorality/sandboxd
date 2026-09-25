@@ -8,6 +8,42 @@ const app=j=>({id,external_user_id:'baarcha:21',external_project_id:`cube-recove
 const preview=`https://s-${sb.toLowerCase()}-3000.preview.65.108.225.153.sslip.io/`;
 const access=()=>({url:preview,access_url:preview+'__sandboxd/preview-auth?token=fixture',token:'fixture',expires_at:new Date(Date.now()+600000).toISOString()});
 
+function timeoutFixture() {
+  const j=journal();j.run='6ff432593177fb12';j.app='01M3CZB4HXT2Y8HP8CEY75PCWY';j.sandbox='01M3D1Q0E1KM1FEM244XVHEC65';j.task='01M3D27V0SHQ863WHPCAENGVTY';j.owners[0].id=103;j.owners[1].id=104;
+  j.pending={name:'task',at:'2026-09-25T19:56:22.299Z'};j.done.credit={};j.done.sandbox={};
+  const prior=j.task, posts=[];
+  const failed={id:prior,status:'failed',failure_reason:'agent_timeout',checkpoint_id:'e3d133d81550b2ce085720f05aee367174f7bc9c'};
+  const tx=async strings=>strings.join('').includes('SELECT id FROM waitlist')?[{id:103}]:strings.join('').includes('AS balance')?[{balance:900}]:[{token:'a'.repeat(64),waitlist_id:103}];
+  const f=new Fixture(config,j,{sql:{begin:async fn=>fn(tx)},persist:async()=>{}});
+  f.checkApp=async()=>{};f.preview=async()=>{};
+  f.rt=async(route,opts={})=>{
+    if(route.endsWith('/tasks')&&opts.method==='POST'){posts.push(opts.body);return{id:task};}
+    if(route.endsWith('/tasks'))return{tasks:[failed]};
+    if(route.endsWith('/'+prior))return failed;
+    return{id:task,status:'succeeded',checkpoint_id:'new-checkpoint'};
+  };
+  return{f,j,failed,posts};
+}
+test('reviewed terminal timeout continuation retains failed checkpoint and submits once with300s',async()=>{
+  const {f,j,posts}=timeoutFixture();const old=process.env.BRIDGE_PUBLIC_URL;process.env.BRIDGE_PUBLIC_URL='https://baarcha.tn/api/bridge';
+  try{await f.completeTimedOutTask();}finally{if(old===undefined)delete process.env.BRIDGE_PUBLIC_URL;else process.env.BRIDGE_PUBLIC_URL=old;}
+  assert.equal(posts.length,1);assert.equal(posts[0].timeout_s,300);assert.equal(posts[0].continue,false);
+  assert.equal(j.timeout_reconciled.failed_task.status,'failed');assert.equal(j.timeout_reconciled.failed_task.checkpoint_id,'e3d133d81550b2ce085720f05aee367174f7bc9c');
+  assert.equal(j.done.task.result.status,'succeeded');assert.equal(j.done.task.prior_failed_task,'01M3D27V0SHQ863WHPCAENGVTY');assert(!j.pending);
+  await assert.rejects(f.completeTimedOutTask());assert.equal(posts.length,1);
+});
+test('timeout continuation refuses running, unknown outcome, changed checkpoint or another run',async()=>{
+  for(const change of [{status:'running'},{failure_reason:'unknown'},{checkpoint_id:'different'}]){
+    const {f,failed,posts,j}=timeoutFixture();Object.assign(failed,change);await assert.rejects(f.completeTimedOutTask());assert.equal(posts.length,0);assert.equal(j.pending.name,'task');
+  }
+  const {f,j,posts}=timeoutFixture();j.run='a'.repeat(16);await assert.rejects(f.completeTimedOutTask());assert.equal(posts.length,0);
+});
+test('lost continuation acknowledgement retains completion intent and never replays',async()=>{
+  const {f,j,posts}=timeoutFixture();const rt=f.rt;f.rt=async(route,opts)=>{if(opts?.method==='POST'){posts.push(opts.body);throw Error('lost response');}return rt(route,opts);};
+  const old=process.env.BRIDGE_PUBLIC_URL;process.env.BRIDGE_PUBLIC_URL='https://baarcha.tn/api/bridge';
+  try{await assert.rejects(f.completeTimedOutTask());assert.equal(j.pending.name,'completion_task');await assert.rejects(f.completeTimedOutTask());assert.equal(posts.length,1);}finally{if(old===undefined)delete process.env.BRIDGE_PUBLIC_URL;else process.env.BRIDGE_PUBLIC_URL=old;}
+});
+
 test('config refuses uncontrolled stage, credit, app IDs and missing binary pins',()=>{
   assert.deepEqual(validateConfig({...config}),config);
 });

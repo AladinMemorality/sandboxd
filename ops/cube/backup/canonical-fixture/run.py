@@ -16,7 +16,7 @@ import time
 
 LOCKS = ('/opt/baarcha/deploy-release.lock', '/opt/sandboxd/deploy-state/deploy.lock',
          '/run/lock/cube-operator-acceptance.lock', '/opt/baarcha-bench/cube-workload-operator.lock')
-ACTIONS = ('prepare', 'resume-rejected-app', 'create', 'fund', 'task', 'verify', 'inspect')
+ACTIONS = ('prepare', 'resume-rejected-app', 'create', 'fund', 'task', 'complete-timed-out-task', 'verify', 'inspect')
 
 
 def private(p):
@@ -86,13 +86,13 @@ def main():
         while child.poll() is None:
             nested.heartbeat()
             if time.monotonic() >= deadline:
-                raise RuntimeError('fixture coordinator deadline; task itself is bounded120s')
+                raise RuntimeError('fixture coordinator deadline; task has its own reviewed runtime limit')
             time.sleep(1)
         if child.returncode:
             raise RuntimeError('fixture failed; private mutation intent retained')
     finally:
         # Terminating only this exact child CLI cancels no worker process. The
-        # submitted task's supervisor-enforced120s bound remains independent.
+        # submitted task's supervisor-enforced bound remains independent.
         if child is not None and child.poll() is None:
             child.terminate()
             try:

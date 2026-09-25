@@ -160,6 +160,39 @@ export class Fixture {
     });
     await this.done('task',{id:this.j.task,result:tr,result_sha256:digest(JSON.stringify(tr)),runtime_timeout_s:120});
   }
+  async completeTimedOutTask() {
+    // One explicit continuation after inspecting the terminal120s failure.
+    // Preserve its real failed result/checkpoint; never replay an uncertain POST.
+    const prior='01M3D27V0SHQ863WHPCAENGVTY';
+    need(this.j.run==='6ff432593177fb12'&&this.owner().id===103&&this.owner('foreign').id===104,'Not the reviewed timeout fixture');
+    need(this.j.app==='01M3CZB4HXT2Y8HP8CEY75PCWY'&&this.j.sandbox==='01M3D1Q0E1KM1FEM244XVHEC65'&&this.j.task===prior,'Fixture task identity changed');
+    need(this.j.pending?.name==='task'&&this.j.pending.at==='2026-09-25T19:56:22.299Z'&&!this.j.done.task&&!this.j.timeout_reconciled,'Original task intent differs');
+    await this.checkApp();await this.preview();
+    const tasks=await this.rt(`/v1/sandboxes/${this.j.sandbox}/tasks`);
+    need(tasks.tasks?.length===1&&tasks.tasks[0].id===prior,'Another task exists; no continuation');
+    const failed=await this.rt(`/v1/sandboxes/${this.j.sandbox}/tasks/${prior}`);
+    need(failed.status==='failed'&&failed.failure_reason==='agent_timeout'&&failed.checkpoint_id==='e3d133d81550b2ce085720f05aee367174f7bc9c','Exact terminal timeout/checkpoint required');
+    let token;
+    await this.sql.begin(async tx=>{
+      const [account]=await tx`SELECT id FROM waitlist WHERE id=${this.owner().id} AND google_sub=${this.owner().sub} FOR UPDATE`;need(account,'Owner changed');
+      const [credit]=await tx`SELECT COALESCE(SUM(millimes),0)::int AS balance FROM credit_ledger WHERE waitlist_id=${this.owner().id}`;need(credit?.balance>0&&credit.balance<=1000,'No remaining approved credit');
+      const rows=await tx`SELECT token,waitlist_id FROM bridge_token WHERE project_id=${this.j.app}`;need(rows.length===1&&rows[0].waitlist_id===103,'Existing scoped bridge required');token=rows[0].token;
+    });
+    need(/^[a-f0-9]{64}$/.test(token),'Invalid scoped bridge token');
+    const bridge=process.env.BRIDGE_PUBLIC_URL;need(bridge&&new URL(bridge).pathname==='/api/bridge','Existing platform bridge required');
+    this.j.timeout_reconciled={at:new Date().toISOString(),old_intent:this.j.pending,failed_task:failed,reason:'Inspected terminal agent_timeout with retained checkpoint; no ambiguous submission',next_runtime_timeout_s:300};
+    delete this.j.pending;await this.persist();await this.intent('completion_task');
+    const env={BRIDGE_URL:bridge,BRIDGE_TOKEN:token,BRIDGE_PROJECT:this.j.app,ANTHROPIC_CUSTOM_HEADERS:`x-baarcha-bridge: ${token}`,MAX_THINKING_TOKENS:'0'};
+    const prompt=`Complete only the remaining synthetic recovery fixture changes in this existing project. The prior task hit its operator test120s limit; preserve all existing files and data. ${promptFor(this.j.run)} Minimize tool calls: make the filesystem changes in one Python or Node script and run node --check server.mjs, then finish. You do not need HTTP checks or server restarts; the operator independently checks both. Use node:fs readFileSync/readlinkSync/lstatSync in the GET handler and add that route before static middleware. No package installation or unrelated exploration.`;
+    const tr=await runTaskToTerminal({deadlineMs:360000,
+      submit:()=>this.rt(`/v1/sandboxes/${this.j.sandbox}/tasks`,{method:'POST',body:{prompt,agent:'claude-code',model:process.env.SANDBOXD_MODEL||'glm-5.3-flash[1m]',timeout_s:300,continue:false,env},timeout:20000}),
+      save:async task=>{this.j.task=task.id;await this.persist();},
+      poll:id=>this.rt(`/v1/sandboxes/${this.j.sandbox}/tasks/${id}`,{timeout:5000}),
+      cancel:id=>this.rt(`/v1/sandboxes/${this.j.sandbox}/tasks/${id}/cancel`,{method:'POST',timeout:10000})
+    });
+    const result={id:this.j.task,result:tr,result_sha256:digest(JSON.stringify(tr)),runtime_timeout_s:300,prior_failed_task:prior};
+    this.j.done.task=result;await this.done('completion_task',result);
+  }
   async verify() {
     need(this.j.done.task&&!this.j.pending,'Completed exact task required');await this.checkApp();
     const preview=await this.preview();let proof;const until=Date.now()+60000;
@@ -201,7 +234,7 @@ async function main() {
   need(process.env.CUBE_FIXTURE_LOCKED_PARENT===String(process.ppid),'Use the reviewed Python lock wrapper');
   need(digest(await fs.readFile(fileURLToPath(import.meta.url)))===args[5],'Script hash mismatch');
   await privatePath(args[1]);const c=validateConfig(JSON.parse(await fs.readFile(args[1],'utf8')));
-  need(['prepare','resume-rejected-app','create','fund','task','verify','inspect'].includes(args[3]),'Unknown phase');
+  need(['prepare','resume-rejected-app','create','fund','task','complete-timed-out-task','verify','inspect'].includes(args[3]),'Unknown phase');
   await privatePath(c.stage,true);
   const lock=await fs.open(path.join(c.stage,'running.lock'),'wx',0o600);await lock.writeFile(String(process.pid));await lock.sync();
   let sql;try{
@@ -245,8 +278,9 @@ async function main() {
     };
     const f=new Fixture(c,j,{request,sql,persist,inspect,rejectedAppProof});
     if(args[3]==='inspect'){console.log(JSON.stringify({phase:j.pending?.name||'idle',app:j.app||null,sandbox:j.sandbox||null,task:j.task||null,done:Object.keys(j.done),verification:!!j.verification}));return;}
-    need(!j.pending||args[3]==='resume-rejected-app','Pending mutation retained; inspect/reconcile manually before further work');
-    try {await f[args[3]==='resume-rejected-app'?'resumeRejectedApp':args[3]]();} catch(error) {await atomic(path.join(c.stage,`failure-${Date.now()}.json`),{at:new Date().toISOString(),action:args[3],pending:j.pending?.name||null,error_class:error?.name||'Error',message:error?.name==='AssertionError'?String(error.message).slice(0,300):'bounded fixture operation failed; retain journal'});throw error;}console.log(JSON.stringify({action:args[3],completed:true,app:j.app||null,sandbox:j.sandbox||null,retained_for_backup:true}));
+    need(!j.pending||['resume-rejected-app','complete-timed-out-task'].includes(args[3]),'Pending mutation retained; inspect/reconcile manually before further work');
+    const method={'resume-rejected-app':'resumeRejectedApp','complete-timed-out-task':'completeTimedOutTask'}[args[3]]||args[3];
+    try {await f[method]();} catch(error) {await atomic(path.join(c.stage,`failure-${Date.now()}.json`),{at:new Date().toISOString(),action:args[3],pending:j.pending?.name||null,error_class:error?.name||'Error',message:error?.name==='AssertionError'?String(error.message).slice(0,300):'bounded fixture operation failed; retain journal'});throw error;}console.log(JSON.stringify({action:args[3],completed:true,app:j.app||null,sandbox:j.sandbox||null,retained_for_backup:true}));
   } finally {if(sql)await sql.end({timeout:5});await lock.close();await fs.unlink(path.join(c.stage,'running.lock'));}
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))main().catch(()=>{console.error('Fixture stopped; inspect the private journal. No automatic retry or cleanup.');process.exitCode=1;});
