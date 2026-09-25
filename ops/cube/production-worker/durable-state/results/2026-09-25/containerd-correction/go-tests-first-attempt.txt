@@ -1,0 +1,19 @@
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/internal/durability	1.193s
+{"InstanceType":"","CallerIp":"","Action":"","RequestId":"","ContainerId":"","FunctionType":"","Caller":"","RetCode":0,"Module":"","@timestamp":"2026-09-25T12:53:13.330872087Z","LogLevel":"DEBUG","Namespace":"","AppId":0,"CalleeEndpoint":"","CalleeAction":"","LogContent":"copy operation completed successfully with additional fields: {\"copied_to\":\"/root/cube-production/containerd-durable-native-candidate/tmp/TestCopyfile2373640244/001/subdir/single_dest.txt\",\"copied_from\":\"/root/cube-production/containerd-durable-native-candidate/tmp/TestCopyfile2373640244/001/single_source.txt\"}","LocalIp":"","Version":"","InstanceId":"","CostTime":0,"Callee":"","CodeLine":""}
+{"ContainerId":"","CallerIp":"","@timestamp":"2026-09-25T12:53:13.331621194Z","InstanceId":"","copied_to":"/root/cube-production/containerd-durable-native-candidate/tmp/TestCopyfile2373640244/001/dst_dir","Module":"","CalleeEndpoint":"","RequestId":"","Action":"","InstanceType":"","Caller":"","CostTime":0,"CodeLine":"","FunctionType":"","Namespace":"","RetCode":0,"Version":"","AppId":0,"LogContent":"copy operation completed successfully","LocalIp":"","LogLevel":"DEBUG","Callee":"","copied_from":"/root/cube-production/containerd-durable-native-candidate/tmp/TestCopyfile2373640244/001/src_dir","CalleeAction":""}
+{"InstanceId":"","Namespace":"","AppId":0,"CallerIp":"","LogContent":"process[1] check timeout,still exist,context deadline exceeded","Module":"","ContainerId":"","CalleeAction":"","InstanceType":"","RetCode":0,"FunctionType":"","Callee":"","LocalIp":"","CodeLine":"","LogLevel":"WARN","Action":"","RequestId":"","@timestamp":"2026-09-25T12:53:19.068616288Z","Version":"","CostTime":0,"Caller":"","CalleeEndpoint":""}
+{"ContainerId":"","RetCode":0,"CodeLine":"","Namespace":"","CallerIp":"","CalleeEndpoint":"","LogContent":"process[1000000000] not exist,no such process","InstanceType":"","Action":"","FunctionType":"","@timestamp":"2026-09-25T12:53:19.068876191Z","LogLevel":"DEBUG","Callee":"","CalleeAction":"","Version":"","AppId":0,"LocalIp":"","Module":"","CostTime":0,"Caller":"","InstanceId":"","RequestId":""}
+{"LocalIp":"","Module":"","CodeLine":"","@timestamp":"2026-09-25T12:53:19.273430328Z","LogLevel":"FATAL","LogContent":"panic: a panic, stack: a panic\nat github.com/tencentcloud/CubeSandbox/Cubelet/pkg/utils.TestRecover(/root/cube-production/containerd-durable-native-candidate/Cubelet/pkg/utils/recover_test.go:13)\nat testing.tRunner(testing/testing.go:1934)\n"}
+{"CodeLine":"","@timestamp":"2026-09-25T12:53:19.273734889Z","LogLevel":"FATAL","LogContent":"panic: panic called with nil argument, stack: panic called with nil argument\nat github.com/tencentcloud/CubeSandbox/Cubelet/pkg/utils.TestRecoverNil(/root/cube-production/containerd-durable-native-candidate/Cubelet/pkg/utils/recover_test.go:18)\nat testing.tRunner(testing/testing.go:1934)\n","LocalIp":"","Module":""}
+--- FAIL: Test_HashCode (0.00s)
+    strings_test.go:43: use too much time, use 1 ms, each use 194 ns
+FAIL
+FAIL	github.com/tencentcloud/CubeSandbox/Cubelet/pkg/utils	7.756s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/pkg/store/cubebox	84.293s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/plugins/cube/internals/cubes	3.220s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/services/cubebox	7.961s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/services/server/config	1.018s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/cmd/cubelet	1.079s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/plugins/metadata	(cached)
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/plugins/backup	(cached)
+FAIL

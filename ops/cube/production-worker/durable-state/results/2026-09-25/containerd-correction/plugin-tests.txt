@@ -1,0 +1,2 @@
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/plugins/metadata	1.743s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/plugins/backup	2.490s

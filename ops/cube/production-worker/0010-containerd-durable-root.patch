@@ -1,0 +1,342 @@
+--- a/Cubelet/plugins/metadata/plugin.go
++++ b/Cubelet/plugins/metadata/plugin.go
+@@ -37,6 +37,8 @@
+ 	"github.com/containerd/plugin"
+ 	"github.com/containerd/plugin/registry"
+ 
++	"github.com/tencentcloud/CubeSandbox/Cubelet/internal/durability"
++
+ 	bolt "go.etcd.io/bbolt"
+ )
+ 
+@@ -49,6 +51,9 @@
+ }
+ 
+ type BoltConfig struct {
++	// RootPath overrides volatile State for durable container metadata.
++	RootPath string `toml:"root_path"`
++
+ 	ContentSharingPolicy string `toml:"content_sharing_policy"`
+ 
+ 	NoSync bool `toml:"no_sync"`
+@@ -83,7 +88,20 @@
+ 			NoSync:               false,
+ 		},
+ 		InitFn: func(ic *plugin.InitContext) (interface{}, error) {
++			cfg, ok := ic.Config.(*BoltConfig)
++			if !ok || cfg == nil {
++				return nil, fmt.Errorf("invalid metadata plugin configuration")
++			}
+ 			root := ic.Properties[plugins.PropertyStateDir]
++			if cfg.RootPath != "" {
++				if !filepath.IsAbs(cfg.RootPath) || filepath.Clean(cfg.RootPath) != cfg.RootPath {
++					return nil, fmt.Errorf("metadata root_path must be canonical and absolute")
++				}
++				if cfg.NoSync {
++					return nil, fmt.Errorf("explicit metadata root_path requires synchronous database writes")
++				}
++				root = cfg.RootPath
++			}
+ 			if err := os.MkdirAll(root, 0711); err != nil {
+ 				return nil, err
+ 			}
+@@ -115,7 +133,7 @@
+ 
+ 			shared := true
+ 			ic.Meta.Exports["policy"] = SharingPolicyShared
+-			if cfg, ok := ic.Config.(*BoltConfig); ok {
++			{
+ 				if cfg.ContentSharingPolicy != "" {
+ 					if err := cfg.Validate(); err != nil {
+ 						return nil, err
+@@ -167,7 +185,12 @@
+ 
+ 			mdb := metadata.NewDB(db, cs.(content.Store), snapshotters, dbopts...)
+ 			if err := mdb.Init(ic.Context); err != nil {
++				_ = db.Close()
+ 				return nil, err
++			}
++			if err := durability.SyncDirectories(root); err != nil {
++				_ = db.Close()
++				return nil, fmt.Errorf("sync metadata database directory: %w", err)
+ 			}
+ 			return mdb, nil
+ 		},
+--- /dev/null
++++ b/Cubelet/plugins/metadata/durable_plugin_test.go
+@@ -0,0 +1,160 @@
++package plugin
++
++import (
++	"context"
++	"fmt"
++	"os"
++	"path/filepath"
++	"testing"
++
++	srvconfig "github.com/containerd/containerd/v2/cmd/containerd/server/config"
++	"github.com/containerd/containerd/v2/core/events"
++	"github.com/containerd/containerd/v2/core/metadata"
++	"github.com/containerd/containerd/v2/core/snapshots"
++	"github.com/containerd/containerd/v2/plugins"
++	"github.com/containerd/containerd/v2/plugins/content/local"
++	"github.com/containerd/plugin"
++	"github.com/containerd/plugin/registry"
++	"github.com/pelletier/go-toml/v2"
++	bolt "go.etcd.io/bbolt"
++)
++
++type discardPublisher struct{}
++
++func (discardPublisher) Publish(context.Context, string, events.Event) error { return nil }
++
++type inertSnapshotter struct{ snapshots.Snapshotter }
++
++// Use the registered real InitFn and the same server Config.Decode path as the
++// plugin loader. A TOML-shape-only test missed the ignored root_path regression.
++func loadMetadata(t *testing.T, root, state string, noSync bool) (*metadata.DB, *bolt.DB, *plugin.InitContext, error) {
++	t.Helper()
++	ctx := context.Background()
++	set := plugin.NewPluginSet()
++	cs, err := local.NewStore(t.TempDir())
++	if err != nil {
++		t.Fatal(err)
++	}
++	for typ, instance := range map[plugin.Type]interface{}{plugins.ContentPlugin: cs, plugins.EventPlugin: discardPublisher{}, plugins.SnapshotPlugin: inertSnapshotter{}} {
++		r := plugin.Registration{Type: typ, ID: "fixture", InitFn: func(*plugin.InitContext) (interface{}, error) { return instance, nil }}
++		if err := set.Add(r.Init(plugin.NewContext(ctx, set, nil))); err != nil {
++			t.Fatal(err)
++		}
++	}
++	var registered *plugin.Registration
++	for _, reg := range registry.Graph(func(*plugin.Registration) bool { return false }) {
++		if reg.Type == plugins.MetadataPlugin && reg.ID == "bolt" {
++			copy := reg
++			registered = &copy
++			break
++		}
++	}
++	if registered == nil {
++		t.Fatal("real metadata registration missing")
++	}
++	text := fmt.Sprintf("version=3\n[plugins.\"io.containerd.metadata.v1.bolt\"]\nroot_path=%q\nno_sync=%t\ncontent_sharing_policy=\"shared\"\n", root, noSync)
++	var config srvconfig.Config
++	if err := toml.Unmarshal([]byte(text), &config); err != nil {
++		t.Fatal(err)
++	}
++	decoded, err := config.Decode(ctx, registered.URI(), &BoltConfig{ContentSharingPolicy: SharingPolicyShared})
++	if err != nil {
++		t.Fatal(err)
++	}
++	ic := plugin.NewContext(ctx, set, map[string]string{plugins.PropertyStateDir: state})
++	ic.Config = decoded
++	result := registered.Init(ic)
++	instance, err := result.Instance()
++	if err != nil {
++		return nil, nil, ic, err
++	}
++	mdb := instance.(*metadata.DB)
++	var db *bolt.DB
++	if err := mdb.View(func(tx *bolt.Tx) error { db = tx.DB(); return nil }); err != nil {
++		t.Fatal(err)
++	}
++	return mdb, db, ic, nil
++}
++
++func TestRegisteredMetadataPluginOpensAndReopensDurableRoot(t *testing.T) {
++	base := t.TempDir()
++	root := filepath.Join(base, "persistent", "containerd")
++	state := filepath.Join(base, "volatile-state")
++	mdb, db, ic, err := loadMetadata(t, root, state, false)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer func() {
++		if db != nil {
++			_ = db.Close()
++		}
++	}()
++	expected := filepath.Join(root, "meta.db")
++	if db.Path() != expected || ic.Meta.Exports["path"] != expected {
++		t.Fatalf("actual DB path %q, want %q", db.Path(), expected)
++	}
++	if db.NoSync || db.NoGrowSync {
++		t.Fatal("actual DB configured asynchronous")
++	}
++	if err := mdb.Update(func(tx *bolt.Tx) error {
++		b, e := tx.CreateBucketIfNotExists([]byte("durability-fixture"))
++		if e != nil {
++			return e
++		}
++		return b.Put([]byte("latest"), []byte("acknowledged"))
++	}); err != nil {
++		t.Fatal(err)
++	}
++	if err := db.Close(); err != nil {
++		t.Fatal(err)
++	}
++	db = nil
++	if _, err := os.Stat(state); !os.IsNotExist(err) {
++		t.Fatalf("volatile State unexpectedly created: %v", err)
++	}
++	mdb, reopened, _, err := loadMetadata(t, root, state, false)
++	if err != nil {
++		t.Fatal(err)
++	}
++	db = reopened
++	if err := mdb.View(func(tx *bolt.Tx) error {
++		b := tx.Bucket([]byte("durability-fixture"))
++		if b == nil || string(b.Get([]byte("latest"))) != "acknowledged" {
++			t.Fatal("latest metadata lost on reopen")
++		}
++		return nil
++	}); err != nil {
++		t.Fatal(err)
++	}
++}
++
++func TestRegisteredMetadataPluginRejectsUnsafeExplicitRoot(t *testing.T) {
++	for _, tc := range []struct {
++		root  string
++		async bool
++	}{{"relative", false}, {filepath.Join(t.TempDir(), "durable"), true}} {
++		state := filepath.Join(t.TempDir(), "state")
++		_, db, _, err := loadMetadata(t, tc.root, state, tc.async)
++		if db != nil {
++			_ = db.Close()
++		}
++		if err == nil {
++			t.Fatal("unsafe explicit root accepted")
++		}
++		if _, e := os.Stat(state); !os.IsNotExist(e) {
++			t.Fatal("invalid config created volatile fallback")
++		}
++	}
++}
++
++func TestRegisteredMetadataPluginPreservesUnconfiguredLegacyPath(t *testing.T) {
++	state := filepath.Join(t.TempDir(), "state")
++	_, db, _, err := loadMetadata(t, "", state, false)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer db.Close()
++	if db.Path() != filepath.Join(state, "meta.db") {
++		t.Fatal("unexpected legacy path")
++	}
++}
+--- a/Cubelet/plugins/backup/plugin.go
++++ b/Cubelet/plugins/backup/plugin.go
+@@ -53,6 +53,16 @@
+ 				return nil, err
+ 			}
+ 			md := m.(*metadata.DB)
++			var metadataPath string
++			if err := md.View(func(tx *bolt.Tx) error {
++				metadataPath = tx.DB().Path()
++				return nil
++			}); err != nil {
++				return nil, fmt.Errorf("locate active metadata database: %w", err)
++			}
++			if !filepath.IsAbs(metadataPath) || filepath.Clean(metadataPath) != metadataPath {
++				return nil, fmt.Errorf("active metadata database path is invalid")
++			}
+ 
+ 			l := &Local{
+ 				BackupPeriod: backupPeriod,
+@@ -68,7 +78,7 @@
+ 					})
+ 				},
+ 
+-				Source: "/data/cubelet/state/io.containerd.metadata.v1.bolt/meta.db",
++				Source: metadataPath,
+ 
+ 				TargetDir: filepath.Join(config.RootPath,
+ 					fmt.Sprintf("%v.%v", plugins.MetadataPlugin, "bolt")),
+--- /dev/null
++++ b/Cubelet/plugins/backup/durable_source_test.go
+@@ -0,0 +1,84 @@
++package backup
++
++import (
++	"context"
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/containerd/containerd/v2/core/metadata"
++	"github.com/containerd/containerd/v2/plugins"
++	"github.com/containerd/plugin"
++	"github.com/containerd/plugin/registry"
++	"github.com/tencentcloud/CubeSandbox/Cubelet/pkg/constants"
++	bolt "go.etcd.io/bbolt"
++)
++
++func TestRegisteredBackupUsesActualPersistentMetadataDatabase(t *testing.T) {
++	base := t.TempDir()
++	source := filepath.Join(base, "actual-durable-meta.db")
++	db, err := bolt.Open(source, 0600, nil)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer db.Close()
++	if err := db.Update(func(tx *bolt.Tx) error {
++		b, e := tx.CreateBucketIfNotExists([]byte("fixture"))
++		if e != nil {
++			return e
++		}
++		return b.Put([]byte("latest"), []byte("persistent"))
++	}); err != nil {
++		t.Fatal(err)
++	}
++	md := metadata.NewDB(db, nil, nil)
++	ctx, cancel := context.WithCancel(context.Background())
++	cancel() // disable background ticker work
++	set := plugin.NewPluginSet()
++	reg := plugin.Registration{Type: plugins.MetadataPlugin, ID: "bolt", InitFn: func(*plugin.InitContext) (interface{}, error) { return md, nil }}
++	if err := set.Add(reg.Init(plugin.NewContext(ctx, set, nil))); err != nil {
++		t.Fatal(err)
++	}
++	var backupReg *plugin.Registration
++	for _, r := range registry.Graph(func(*plugin.Registration) bool { return false }) {
++		if r.Type == constants.InternalPlugin && r.ID == constants.BackupID.ID() {
++			copy := r
++			backupReg = &copy
++			break
++		}
++	}
++	if backupReg == nil {
++		t.Fatal("registered backup plugin absent")
++	}
++	ic := plugin.NewContext(ctx, set, nil)
++	ic.Config = &Config{RootPath: filepath.Join(base, "backups"), BackupPeriod: "24h"}
++	instance, err := backupReg.Init(ic).Instance()
++	if err != nil {
++		t.Fatal(err)
++	}
++	local := instance.(*Local)
++	if len(local.jobs) != 1 || local.jobs[0].Source != source {
++		t.Fatalf("backup did not use actual open database: %+v", local.jobs)
++	}
++	if err := local.backup(); err != nil {
++		t.Fatal(err)
++	}
++	target := filepath.Join(local.jobs[0].TargetDir, filepath.Base(source))
++	if _, err := os.Stat(target); err != nil {
++		t.Fatal(err)
++	}
++	restored, err := bolt.Open(target, 0600, &bolt.Options{ReadOnly: true})
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer restored.Close()
++	if err := restored.View(func(tx *bolt.Tx) error {
++		b := tx.Bucket([]byte("fixture"))
++		if b == nil || string(b.Get([]byte("latest"))) != "persistent" {
++			t.Fatal("backup omitted latest metadata")
++		}
++		return nil
++	}); err != nil {
++		t.Fatal(err)
++	}
++}

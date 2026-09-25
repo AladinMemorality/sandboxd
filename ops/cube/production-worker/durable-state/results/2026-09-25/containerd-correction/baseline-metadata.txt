@@ -1,0 +1,7 @@
+time="2026-09-25T12:53:08Z" level=warning msg="Ignoring unknown key in TOML for plugin" error="strict mode: fields in the document are missing in the target struct" key=root_path plugin=io.containerd.metadata.v1.bolt
+time="2026-09-25T12:53:08Z" level=info msg="metadata content store policy set" policy=shared
+--- FAIL: TestRegisteredMetadataPluginOpensAndReopensDurableRoot (0.14s)
+    durable_plugin_test.go:94: actual DB path "/root/cube-production/containerd-durable-native-candidate/tmp/TestRegisteredMetadataPluginOpensAndReopensDurableRoot2776648851/001/volatile-state/meta.db", want "/root/cube-production/containerd-durable-native-candidate/tmp/TestRegisteredMetadataPluginOpensAndReopensDurableRoot2776648851/001/persistent/containerd/meta.db"
+FAIL
+FAIL	github.com/tencentcloud/CubeSandbox/Cubelet/internal/durable_regression_baseline/metadata	0.156s
+FAIL

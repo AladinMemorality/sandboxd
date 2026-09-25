@@ -1,0 +1,5 @@
+--- FAIL: TestRegisteredBackupUsesActualPersistentMetadataDatabase (1.17s)
+    durable_source_test.go:61: backup did not use actual open database: [{Locker:0x10d79e0 Source:/data/cubelet/state/io.containerd.metadata.v1.bolt/meta.db TargetDir:/root/cube-production/containerd-durable-native-candidate/tmp/TestRegisteredBackupUsesActualPersistentMetadataDatabase3548886300/001/backups/io.containerd.metadata.v1.bolt}]
+FAIL
+FAIL	github.com/tencentcloud/CubeSandbox/Cubelet/internal/durable_regression_baseline/backup	1.204s
+FAIL

@@ -1,4 +1,4 @@
-# Durable critical metadata candidate — no deployment
+# Durable critical metadata patches and readiness gates
 
 Pinned v0.7.1 source31d911e430fdf8a8879bd062b8e78066c1a8e89d mounts
 `/data/cubelet/state` as tmpfs **inside Cubelet's private mount namespace**.
@@ -84,9 +84,14 @@ objects were verified in the binary. The old source and installed worker binary
 remained unchanged. See [results/2026-09-25/summary.json](results/2026-09-25/summary.json)
 for hashes, commands, limits and the baseline/full-storage failures.
 
-Candidate SHA256:
-`a61a43c531b8e7854dd8ee064db0d1e160d42fcb4d50e7c4b3c98d447e63e75a`.
-It is not installed or power-loss validated. Read the concrete
+Historical candidate a61a43 was installed only on the empty test worker.
+Strict readiness caught an ignored containerd root_path before any guest ran.
+Required [0010 correction](containerd-correction.md) fixes the actual plugin and
+backup path; its new candidate is
+`de3bd4c1a4db12c11d58cf7f558589f04ab4b3d736d4e72a947d45b8343bef9b`.
+It passed real plugin loader/reopen/backup tests and is awaiting corrected live
+readiness and power-loss acceptance. The original initial installer now refuses
+deployment rather than accidentally install the superseded binary. Read the concrete
 [empty-worker enrollment review](enrollment.md) before any deployment.
 For a small latency check, use a disposable XFS metadata directory in the fresh
 worker after a CPU handoff. Measure1000 sequential64KiB CubeStore transactions

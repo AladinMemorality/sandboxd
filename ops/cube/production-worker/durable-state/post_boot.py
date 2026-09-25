@@ -13,8 +13,8 @@ from render_config import PLUGINS, ROOT, render
 
 CONFIG=Path('/usr/local/services/cubetoolbox/Cubelet/config/config.toml')
 BINARY=Path('/usr/local/services/cubetoolbox/Cubelet/bin/cubelet')
-CANDIDATE=Path('/root/cube-production/durable-native-candidate/cubelet-candidate')
-CANDIDATE_SHA='a61a43c531b8e7854dd8ee064db0d1e160d42fcb4d50e7c4b3c98d447e63e75a'
+CANDIDATE=Path('/root/cube-production/containerd-durable-native-candidate/cubelet-candidate')
+CANDIDATE_SHA='de3bd4c1a4db12c11d58cf7f558589f04ab4b3d736d4e72a947d45b8343bef9b'
 BASELINE_SHA='254b5e7b11c7c6f865e3e1816c3737a4041424b7e84b5aba7dc406e596eecbed'
 DATA_UUID='793c3349-db9c-4815-9842-989ed484f1f8'
 CRITICAL_UNITS=['cubelet','cubemaster','cube-api','cube-proxy','cube-templatecenter','cube-lifecycle-manager','cubeops','webui']

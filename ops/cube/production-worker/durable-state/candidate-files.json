@@ -37,5 +37,11 @@
   ],
   "optional_unbuilt_patch_0009_files": [
     "CubeShim/shim/src/hypervisor/snapshot.rs"
+  ],
+  "patch_0010_files": [
+    "Cubelet/plugins/metadata/plugin.go",
+    "Cubelet/plugins/metadata/durable_plugin_test.go",
+    "Cubelet/plugins/backup/plugin.go",
+    "Cubelet/plugins/backup/durable_source_test.go"
   ]
 }
