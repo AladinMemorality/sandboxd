@@ -33,7 +33,7 @@ def rows():
 class AnalysisTest(unittest.TestCase):
     def test_explicit_phase_guest_native_cadence_and_no_double_count(self):
         report=a.analyze(rows(),106*10**9,120*10**9,'owned',100,110*10**9,115*10**9)
-        self.assertEqual([p['name'] for p in report['phases']],['idle_before_task','actual_task_including_build','build_subset_of_task','after_task'])
+        self.assertEqual([p['name'] for p in report['phases']],['idle_before_task','actual_task','build_subset_of_task','after_task'])
         task=report['phases'][1];g=task['guest_container']
         self.assertEqual(g['samples'],3)
         self.assertEqual(g['memory_usage_bytes']['median'],115)
@@ -81,6 +81,7 @@ class AnalysisTest(unittest.TestCase):
     def test_explicit_task_build_and_timezone_required(self):
         self.assertEqual(a.utc_ns('1970-01-01T01:00:00+01:00'),0)
         self.assertEqual(a.utc_ns('1970-01-01T00:00:00.123456Z'),123456000)
+        self.assertEqual(a.utc_ns('2026-09-25T20:54:51.636746569Z'),1790369691636746569)
         with self.assertRaises(ValueError):a.utc_ns('2026-09-25T20:54:51')
         for args in [('missing',100,None,None),('owned',0,None,None),('owned',100,99*10**9,101*10**9),('owned',100,None,101*10**9)]:
             with self.assertRaises(ValueError):a.analyze(rows(),100*10**9,125*10**9,*args)
@@ -97,7 +98,7 @@ class AnalysisTest(unittest.TestCase):
             self.assertEqual(report['input_sha256']['samples'],a.hashlib.sha256(raw.read_bytes()).hexdigest())
             self.assertEqual((out/'analysis.json').stat().st_mode & 0o777,0o600)
             self.assertEqual(out.stat().st_mode & 0o777,0o700)
-            self.assertIn('actual_task_including_build',(out/'table.md').read_text())
+            self.assertIn('actual_task',(out/'table.md').read_text())
             self.assertNotEqual(subprocess.run(command,capture_output=True).returncode,0)
 
     def test_raw_bounds_hash_partial_and_absent_io(self):

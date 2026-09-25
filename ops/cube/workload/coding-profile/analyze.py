@@ -5,17 +5,20 @@ import datetime as dt
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import statistics
 import metrics as m
 
 
 def utc_ns(value):
-    parsed = dt.datetime.fromisoformat(value.replace('Z', '+00:00'))
-    m.need(parsed.tzinfo is not None, 'timestamps require an explicit UTC offset')
+    match = re.fullmatch(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?(Z|[+-]\d{2}:\d{2})', value)
+    m.need(match is not None, 'timestamps require ISO8601 seconds and an explicit UTC offset')
+    parsed = dt.datetime.fromisoformat(match[1] + match[3].replace('Z', '+00:00'))
     epoch = dt.datetime(1970, 1, 1, tzinfo=dt.timezone.utc)
     delta = parsed.astimezone(dt.timezone.utc) - epoch
-    return (delta.days * 86400 + delta.seconds) * 10**9 + delta.microseconds * 1000
+    fraction = int((match[2] or '').ljust(9, '0'))
+    return (delta.days * 86400 + delta.seconds) * 10**9 + fraction
 
 
 def load_rows(path):
@@ -172,7 +175,7 @@ def analyze(rows, start, end, task_id, ticks, build_start=None, build_end=None):
     phases = []
     if rows[0]['at_unix_ns'] < start:
         phases.append(phase(rows, 'idle_before_task', rows[0]['at_unix_ns'], start - 1, ticks))
-    phases.append(phase(rows, 'actual_task_including_build', start, end, ticks))
+    phases.append(phase(rows, 'actual_task', start, end, ticks))
     if build_start is not None:
         phases.append(phase(rows, 'build_subset_of_task', build_start, build_end, ticks))
     if end < rows[-1]['at_unix_ns']:
@@ -199,7 +202,8 @@ def markdown(result):
         memory = f"{mem['median']/2**20:.2f} / {mem['sampled_peak']/2**20:.2f}" if mem else 'unavailable'
         cpu_text = f"{c['cpu_seconds']:.3f}s / {c['average_percent_one_core']:.2f}% / {c['interval_peak_percent_one_core']:.2f}%" if c else 'unavailable'
         lines.append(f"| {p['name']} | {memory} | {p['guest_vm']['process_memory_bytes']['Pss']['sampled_peak']/2**20:.2f} | {file['sampled_peak']/2**20:.2f} | {cpu_text} | {p['disk']['allocated_net_delta_bytes']/2**20:.2f} |")
-    return '\n'.join(lines) + '\n\nCPU percentages refer to one core. Build overlaps the task; scopes must not be summed. See JSON for actual sample coverage, RSS/cgroup/cache, I/O, pressure, OOM/swap/throttle and collection costs.\n'
+    build_note = 'The build interval overlaps the task.' if any(p['name'] == 'build_subset_of_task' for p in result['phases']) else 'No build interval was supplied.'
+    return '\n'.join(lines) + '\n\nCPU percentages refer to one core. ' + build_note + ' Nested scopes must not be summed. See JSON for actual sample coverage, RSS/cgroup/cache, I/O, pressure, OOM/swap/throttle and collection costs.\n'
 
 
 def main():
