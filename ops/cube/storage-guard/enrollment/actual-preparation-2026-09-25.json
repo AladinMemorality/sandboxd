@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "date": "2026-09-25",
+  "scope": "post-cycle observer enrollment preparation only",
+  "installed": false,
+  "observer_run": false,
+  "live_guarded_workload_run": false,
+  "stage": "/opt/baarcha-bench/cube-storage-enrollment-reviewed-20260925-01",
+  "identity_evidence": {
+    "version": 1,
+    "scope": "read-only actual identity check and new private config rendering; no installation",
+    "observed_at_unix": 1790353387,
+    "inner": {
+      "worker_machine_id": "2b9e31d4abd345e3bd4b966591e61296",
+      "worker_boot_id": "c1b590df-28d3-4222-b9a3-c0408c8ccc07",
+      "inner_fs_uuid": "793c3349-db9c-4815-9842-989ed484f1f8",
+      "inner_free_bytes": 432330256384
+    },
+    "outer": {
+      "outer_fs_uuid": "e0fd3502-6629-46ed-85a6-fa12687a10d9",
+      "outer_free_bytes": 416138178560
+    },
+    "outer_boot_id": "571f77dc-2077-412c-be3b-fa5c33a519f3",
+    "qemu_pid": 3026420,
+    "qemu_start_time": "483403245",
+    "controller_id": "5fb591f9c2705b5611efee74d0fff7c3169897afc7719977c7f2a0d52f25fe67",
+    "controller_image": "sha256:26222f6de55d5923f65f7b48489f2ea3b79b2f21a948e17adff370ca5101c747",
+    "cube_enabled": false,
+    "installed_host_artifact_sha256": {
+      "/usr/local/libexec/baarcha-cube-worker-stop": "ab55a5dda0bfceb6053a1870c7c73413ce2902e53e4c5ea2d2e0f903d20c469f",
+      "/usr/local/libexec/baarcha-cube-worker-start": "e3752688e978540c6dbcee2c7d8786fb24e3d409efaed8a2d880d1bc6c85cfb9",
+      "/etc/systemd/system/baarcha-cube-worker-01.service": "3aa77889f7a4b0eb305782145f2ee7eb1906d1d6bd7dca663645c4a9404112a8"
+    },
+    "completed_cycle_receipt_sha256": {
+      "complete.json": "adabb42be911b8b5500a093a4adb1cd0b09dd2b7420fcd5946e7314465fc480a",
+      "startup-reconciled.json": "e9abc159dd16f215e08b32e6b9f32bdb0849b348e5207c14536437ac73107735"
+    },
+    "controller_pin_must_be_refreshed_after_deploy": true
+  },
+  "identity_evidence_sha256": "52232156e887782c22b73811c823930bf4a560c907efac30a0ed5f2062f5cd16",
+  "review_manifest": {
+    "boot_evidence_sha256": "52232156e887782c22b73811c823930bf4a560c907efac30a0ed5f2062f5cd16",
+    "files": {
+      "admission.json": "700fa749770e6fd7d67efb2ad05d82989d83361d5314b28642c915e018932704",
+      "docker-compose.storage-guard.yml": "e8b6727ffe66be52a20c4610fadb031d561ac090d4a0727dc72e68cf334761f7",
+      "storage-guard.json": "9df51e0cf0af1735388506192ba7758214a683c81da2536224f998ffa6bf3bd8",
+      "worker-stop.json": "d439fc811071a24ffa7c3c344a8f03365ae1c3833b1e46e38f7e4e47ee2416b4"
+    },
+    "installed": false,
+    "version": 1
+  },
+  "review_manifest_sha256": "67ea4bce171dd1a35e937342f74fa0e42542dcb1958ced9d9396b0aef2fec87f",
+  "native_coordinators": {
+    "/opt/baarcha-bench/cube-storage-coordinators-20260925/bin/cube-worker-stop": "ec5ad71372774107c2f31539aec7b1e36979b40ed7396e217ff96c0f2173e6e5",
+    "/opt/baarcha-bench/cube-storage-coordinators-20260925/bin/cube-worker-start": "fa337ad2e31fc1ed110ee884bab6e3d6e8a4160265595115276f53cd0b962811"
+  },
+  "source_hashes": {
+    "baarcha-cube-storage-observer.service": "dca21f6d32a809cd37c7eeb27f5e7898b104acb960270175fa8a5dd6fa5d3c25",
+    "baarcha-cube-storage-observer.timer": "452820725ae1c963ec0b94ddb1cefedfdbd710eb9b44393c7a3e337418379de1",
+    "observe.py": "b5e32483aeb77b170cc49cc0c429630f2ba3d3fad880c7c80472e2e278541ed3",
+    "prepare_enrollment.py": "14ec3b5f41324ed9a7b4146fe003d08fc661e1863ba4ca768cc3364c684dd68a"
+  },
+  "independently_read_worker_binaries": {
+    "/usr/local/services/cubetoolbox/Cubelet/bin/cubelet": "de3bd4c1a4db12c11d58cf7f558589f04ab4b3d736d4e72a947d45b8343bef9b",
+    "/usr/local/services/cubetoolbox/CubeMaster/bin/cubemaster": "1d89da2f1e6d27770b6ef3dcd9e2316e29bb8b2bb07f7e978b6847e64c2ea619",
+    "/usr/local/services/cubetoolbox/CubeAPI/bin/cube-api": "e3cfe133e96b8a48e2d8b4c3a1723438a16b6020701426bd09aa9592ea283a08"
+  },
+  "data_mount": {
+    "source": "/dev/vdb",
+    "fstype": "xfs",
+    "size_bytes": 480910508032
+  },
+  "pending": [
+    "Controller deployment completion and immutable ID refresh before coordinator configuration installation",
+    "Observer installation, actual observation and timer validation",
+    "Native schema-34 stop/start and migration manifest installation",
+    "Read-only observation directory mount in controller",
+    "Fresh synthetic-DB guarded four-app workload and canonical coordinator acceptance"
+  ]
+}
