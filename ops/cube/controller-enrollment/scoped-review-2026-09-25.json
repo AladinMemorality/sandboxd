@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "reviewed": true,
+  "scope": "single-owned-synthetic-app",
+  "app_id": "01M3CZB4HXT2Y8HP8CEY75PCWY",
+  "external_user_id": "baarcha:103",
+  "external_project_id": "cube-recovery:6ff432593177fb12",
+  "global_rollout": false,
+  "direct_guest_egress": "deny-all",
+  "reverse_egress": true,
+  "logical_model_origin": "https://cube-model.baarcha.tn",
+  "worker_boot_id": "c1b590df-28d3-4222-b9a3-c0408c8ccc07",
+  "cubelet_sha256": "de3bd4c1a4db12c11d58cf7f558589f04ab4b3d736d4e72a947d45b8343bef9b",
+  "network_provenance": {
+    "ordinary_report_sha256": "da7c003293c343d0566221cccea842b2354dec7099b0aae31dfa3469bd241232",
+    "anonymous_kernel_sha256": "336fe1ea29c70681cbe0a32db9e99686ea28678771ae71d9dd59bc7c579421cd",
+    "loaded_provenance_sha256": "cb7eec1edbee6e28003377214ca2b02fe5ec0af856ecea37eddc581b0aa9aa80",
+    "de3_summary_sha256": "a7e5c20f9c0d64535eca3dfc614897fc076afcaefd704d8151f6cc79c3926020"
+  },
+  "review_basis": [
+    "Root verified actual running Cubelet /proc/1734/exe SHA and worker boot.",
+    "80 unchanged CubeNet source files and three embedded BPF object sequences carry forward prior bounded controls across storage-only patches.",
+    "Exact owner app has no sandbox before enrollment; only this app is eligible.",
+    "Reverse model and bridge use fixed authenticated host callbacks; logical HTTPS model origin is not dialed."
+  ],
+  "limits": [
+    "Does not accept global rollout or direct NIC domain egress.",
+    "Historical network_isolation_accepted=false reports remain unchanged.",
+    "Loaded relocated instruction byte identity, TTL kernel case, and map-write failure kernel case are not established.",
+    "Actual canonical model/bridge/metering/private-capture and backup restore acceptance remain pending."
+  ],
+  "candidate_manifest_sha256": "08ea8147a64ecba7df757b9845bf3b942e3492c97562750a8aaef3969b23f3a5"
+}
