@@ -629,3 +629,69 @@ func TestCubeAdmissionPendingCreateDoesNotBlockRunningConnect(t *testing.T) {
 		t.Fatal("running connect not forwarded")
 	}
 }
+
+// A worker can lose its provider registration without deleting the underlying
+// VM or disk. Missing registration must not free capacity or permit mutations.
+func TestCubeAdmissionMissingKnownRuntimeRetainsReservation(t *testing.T) {
+	for _, state := range []string{"active", "released", "pending"} {
+		t.Run(state, func(t *testing.T) {
+			s := openTestStore(t)
+			ctx := context.Background()
+			var mutations atomic.Int32
+			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					mutations.Add(1)
+				}
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			defer provider.Close()
+			c := newAdmissionClient(t, s, provider.URL, 1)
+			a, err := s.AdmissionBegin(ctx, "app:one", "vm-one", "tpl-reviewed", "create", "create-one")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if state != "pending" {
+				if err = s.AdmissionFinish(ctx, a, "vm-one", state); err != nil {
+					t.Fatal(err)
+				}
+			}
+			before, err := s.AdmissionLookup(ctx, "vm-one")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if _, err = c.Get(ctx, "vm-one"); !errors.Is(err, cube.ErrRuntimeUnavailable) {
+				t.Fatalf("GET: %v", err)
+			}
+			if _, err = c.Connect(ctx, "vm-one", cube.ConnectRequest{}); !errors.Is(err, cube.ErrRuntimeUnavailable) {
+				t.Fatalf("connect: %v", err)
+			}
+			if err = c.Pause(ctx, "vm-one"); !errors.Is(err, cube.ErrRuntimeUnavailable) {
+				t.Fatalf("pause: %v", err)
+			}
+			if err = c.Delete(ctx, "vm-one"); !errors.Is(err, cube.ErrRuntimeUnavailable) {
+				t.Fatalf("delete: %v", err)
+			}
+			after, err := s.AdmissionLookup(ctx, "vm-one")
+			if err != nil || before != after {
+				t.Fatalf("missing registration changed ledger: before=%+v after=%+v err=%v", before, after, err)
+			}
+			if before.Charged == 1 {
+				if _, err = c.Create(ctx, admissionInput("two")); !errors.Is(err, cube.ErrCapacityUnavailable) {
+					t.Fatalf("lost registration freed capacity: %v", err)
+				}
+			}
+			if mutations.Load() != 0 {
+				t.Fatalf("unexpected provider mutation count: %d", mutations.Load())
+			}
+			raw, err := cube.New(cube.Config{APIURL: provider.URL, APIKey: "fixture"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = raw.Get(ctx, "vm-one")
+			var upstream *cube.APIError
+			if !errors.As(err, &upstream) || upstream.StatusCode != 404 {
+				t.Fatalf("operator lost raw provider result: %v", err)
+			}
+		})
+	}
+}

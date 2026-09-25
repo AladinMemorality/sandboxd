@@ -183,10 +183,19 @@ func (c *Client) Get(ctx context.Context, id string) (*Sandbox, error) {
 		return c.getRaw(ctx, id)
 	}
 	old, lookup := c.admission.store.AdmissionLookup(ctx, id)
+	if errors.Is(lookup, ErrRuntimeUnavailable) {
+		return nil, ErrRuntimeUnavailable
+	}
 	out, err := c.getRaw(ctx, id)
 	var upstream *APIError
-	if lookup == nil && ((old.State == "active" && err == nil && out.State == "paused") || ((old.State == "active" || old.State == "released") && errors.As(err, &upstream) && upstream.StatusCode == 404)) {
-		if releaseErr := c.admission.store.AdmissionObserveReleased(ctx, old, err != nil); releaseErr != nil {
+	// Registration can disappear after a worker failure while its disk and VM
+	// still exist. Only an acknowledged delete may turn a known ID's 404 into
+	// released capacity; ordinary reads must preserve the recovery reservation.
+	if lookup == nil && old.State != "deleted" && errors.As(err, &upstream) && upstream.StatusCode == 404 {
+		return nil, ErrRuntimeUnavailable
+	}
+	if lookup == nil && old.State == "active" && err == nil && out.State == "paused" {
+		if releaseErr := c.admission.store.AdmissionObserveReleased(ctx, old, false); releaseErr != nil {
 			return nil, releaseErr
 		}
 	}
