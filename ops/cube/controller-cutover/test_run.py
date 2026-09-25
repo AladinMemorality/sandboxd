@@ -1,6 +1,8 @@
 import copy
 import importlib.util
 import json
+import os
+import stat
 from pathlib import Path
 import tempfile
 import types
@@ -24,6 +26,47 @@ def candidate():
 
 
 class CutoverTests(unittest.TestCase):
+    def test_routing_mode_contract_is_separate_from_private_metadata(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp).resolve()
+            target = base / 'drain.json'
+            target.write_bytes(b'original')
+            actual_stat = os.stat
+            # Unit fixtures are owned by the test user on non-root CI. Simulate
+            # ONLY their reviewed root ownership; preserve real modes/inodes.
+            def root_stat(path, *args, **kwargs):
+                value = actual_stat(path, *args, **kwargs)
+                fields = list(value)
+                fields[4] = 0
+                return os.stat_result(fields)
+            with patch.object(m, 'ROUTING', base), patch.object(os, 'stat', root_stat):
+                for mode in (0o600, 0o644):
+                    target.chmod(mode)
+                    m.routing_file(target)
+                    m.install_bytes(target, b'replacement', routing=True)
+                    self.assertEqual(target.read_bytes(), b'replacement')
+                    self.assertEqual(stat.S_IMODE(target.stat().st_mode), mode)
+                with self.assertRaisesRegex(RuntimeError, 'unsafe private input'):
+                    m.private(target)
+                with self.assertRaisesRegex(RuntimeError, 'unsafe private input'):
+                    m.install_bytes(target, b'must-not-write')
+                for mode in (0o666, 0o640, 0o664, 0o1600):
+                    target.chmod(mode)
+                    with self.assertRaisesRegex(RuntimeError, 'unsafe routing input'):
+                        m.routing_file(target)
+                target.chmod(0o644)
+                alias = base / 'offline.json'
+                alias.symlink_to(target)
+                with self.assertRaisesRegex(RuntimeError, 'noncanonical routing'):
+                    m.routing_file(alias)
+                alias.unlink()
+                os.link(target, alias)
+                with self.assertRaisesRegex(RuntimeError, 'unsafe routing'):
+                    m.routing_file(target)
+                alias.unlink()
+                with self.assertRaisesRegex(RuntimeError, 'unexpected maintenance'):
+                    m.routing_file(base / 'secrets.key')
+
     def test_added_live_alias_id_preserved_and_fenced(self):
         def config(routes): return {'apps': {'http': {'servers': {'srv0': {'routes': routes}}}}}
         preview = {'match': [{'host': ['*.preview.65.108.225.153.sslip.io']}], 'handle': [{'handler': 'reverse_proxy'}]}

@@ -23,6 +23,7 @@ SOURCE = Path('/opt/sandboxd/src')
 STATE = Path('/opt/sandboxd/deploy-state')
 STOP = Path('/etc/baarcha-cube/worker-stop.json')
 KEY = Path('/var/lib/sandboxd/secrets.key')
+ROUTING = Path('/opt/baarcha-cube/worker-01/cutover-routing')
 OBSERVER_SHA = '06dd5e379fa594ec6fbfa37d36971fa5703ff5969b8766bac98196ee10c0f92e'
 SERVICES = ('sandboxd', 'cube-management-api', 'cube-management-proxy')
 HOST_RELAYS = ('cube-management-api.service', 'cube-management-proxy.service')
@@ -65,14 +66,28 @@ def read_json(path):
     return json.loads(private(path).read_text(), object_pairs_hook=pairs)
 
 
-def install_bytes(path, raw):
+def routing_file(path):
+    p = Path(path)
+    need(p.parent == ROUTING and p.name in ('drain.json', 'offline.json'), 'unexpected maintenance routing path')
+    need(p.resolve(strict=True) == p, 'noncanonical routing input')
+    s = p.stat()
+    need(stat.S_ISREG(s.st_mode) and s.st_uid == 0 and s.st_nlink == 1 and stat.S_IMODE(s.st_mode) in (0o600, 0o644), 'unsafe routing input')
+    need(s.st_size <= 4 * 1024 * 1024, 'oversized routing input')
+    return p
+
+
+def install_bytes(path, raw, *, routing=False):
     p = Path(path)
     need(p.parent.resolve(strict=True) == p.parent and p.parent.stat().st_uid == 0 and p.parent.stat().st_mode & 0o022 == 0, 'unsafe installation directory')
-    if p.exists() or p.is_symlink():
+    mode = 0o600
+    if routing:
+        mode = stat.S_IMODE(routing_file(p).stat().st_mode)
+    elif p.exists() or p.is_symlink():
         private(p)
     temp = p.with_name('.' + p.name + '.cutover-' + str(os.getpid()))
-    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, mode)
     with os.fdopen(fd, 'wb') as f:
+        os.fchmod(f.fileno(), mode)
         f.write(raw)
         f.flush()
         os.fsync(f.fileno())
@@ -245,7 +260,7 @@ class Cutover:
         for name in ('drain.json', 'offline.json'):
             need(digest(private(Path(self.c['routing_directory']) / name)) == self.c['routing_hashes'][name], 'reviewed routing candidate changed')
             expected = self.c['routing_hashes'][name] if self.routing_installed else self.c['routing_original_hashes'][name]
-            need(digest(self.h.ROUTING / name) == expected, 'installed maintenance routing changed')
+            need(digest(routing_file(self.h.ROUTING / name)) == expected, 'installed maintenance routing changed')
 
     def preflight(self):
         self.check_files()
@@ -314,7 +329,7 @@ class Cutover:
             need(digest(original) == self.c['routing_original_hashes'][name], 'routing drift before installation')
             install_bytes(self.job / ('routing-' + name + '.before'), original.read_bytes())
         for name in ('drain.json', 'offline.json'):
-            install_bytes(self.h.ROUTING / name, private(Path(self.c['routing_directory']) / name).read_bytes())
+            install_bytes(self.h.ROUTING / name, private(Path(self.c['routing_directory']) / name).read_bytes(), routing=True)
         self.h.run(['caddy', 'reload', '--config', str(self.h.ROUTING / 'drain.json')])
         self.h.run(['systemctl', 'stop', *self.h.TIMERS])
         self.h.wait_for(lambda: all(self.h.unit(t.replace('.timer', '.service'))['ActiveState'] == 'inactive' for t in self.h.TIMERS), 120)
@@ -494,7 +509,7 @@ class Cutover:
                 if current != self.c['routing_original_hashes'][name]:
                     backup = self.job / ('routing-' + name + '.before')
                     need(digest(backup) == self.c['routing_original_hashes'][name], 'routing backup changed')
-                    install_bytes(self.h.ROUTING / name, backup.read_bytes())
+                    install_bytes(self.h.ROUTING / name, backup.read_bytes(), routing=True)
         self.advance('rolled-back-without-database-rewind')
 
 
