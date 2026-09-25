@@ -8,6 +8,8 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 )
 
+const cubeRecoveryRequiredMessage = "Cube runtime requires operator recovery; binding retained"
+
 // connectCube must be called under the sandbox lock by mutating callers.
 // A control-plane response is not application readiness: verify the scoped
 // supervisor before promoting durable state, including creating/error recovery.
@@ -109,6 +111,14 @@ func (s *Server) ReconcileCube(ctx context.Context) {
 			}
 			remote, err := s.Cube.Get(bounded, b.RuntimeID)
 			if err != nil {
+				if errors.Is(err, cube.ErrRuntimeUnavailable) {
+					// A known ID without a live task requires operator recovery.
+					// Retain its binding and charged admission; never replace or
+					// release it based on an unavailable runtime observation.
+					s.cubePreviewLeases.Delete(sb.ID)
+					_ = s.Store.MarkError(bounded, sb.ID, cubeRecoveryRequiredMessage)
+					return
+				}
 				var apiErr *cube.APIError
 				if errors.As(err, &apiErr) && apiErr.StatusCode == 404 {
 					_ = s.Store.MarkError(bounded, sb.ID, "Cube runtime no longer exists; binding retained for investigation")

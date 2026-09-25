@@ -41,6 +41,7 @@ type v1Sandbox struct {
 	RuntimeProvider string      `json:"runtime_provider"`
 	ID              string      `json:"id"`
 	Status          string      `json:"status"`
+	ErrorCode       string      `json:"error_code,omitempty"`
 	Preview         v1Preview   `json:"preview"`
 	Processes       []v1Process `json:"processes"`
 	ActiveTaskID    string      `json:"active_task_id,omitempty"`
@@ -173,6 +174,11 @@ func (s *Server) v1SandboxFromRow(r *http.Request, sb *store.Sandbox) v1Sandbox 
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 	var rs *runtime.Status
+	if sb.RuntimeProvider == "cube" && sb.Status == "error" && sb.ErrorMessage.Valid && sb.ErrorMessage.String == cubeRecoveryRequiredMessage {
+		out.ErrorCode = "runtime_recovery_required"
+		out.Preview, out.Processes = s.v1RuntimeView(sb.ID, sb.Status, nil, webPortOf(sb))
+		return out
+	}
 	// Paused Cube VMs cannot answer; status polling must not spend the
 	// remote timeout (or wake them) just to rediscover the durable stopped state.
 	if sb.RuntimeProvider != "cube" || sb.Status != "stopped" {
