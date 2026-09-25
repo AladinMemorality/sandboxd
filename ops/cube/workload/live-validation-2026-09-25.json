@@ -1,0 +1,307 @@
+{
+  "date": "2026-09-25",
+  "status": "FAIL_RESIDENT_PREPARATION_DEADLINE",
+  "production_accepted": false,
+  "twelve_busy_apps_accepted": false,
+  "worker_handed_back": true,
+  "final_binary_sha256": "85527bee2502021256427fc21e0c05ac6577b8aab34e3809bba2d864d2aea76b",
+  "template_id": "tpl-98b45d63cfcc48c5b6ba9104",
+  "resource_profile": {
+    "guests": 12,
+    "cpu_per_guest": 2,
+    "memory_mib_per_guest": 2048,
+    "touched_memory_mib_target_per_guest": 512,
+    "async_chunk_mib": 4,
+    "http_timeout_seconds": 5,
+    "resident_readiness_timeout_seconds": 20,
+    "requested_steady_work_seconds": 45,
+    "achieved_steady_work_seconds": 0,
+    "cpu_duty_ms_per_100ms": 5,
+    "absolute_app_stop_seconds": 80
+  },
+  "attempts": [
+    {
+      "attempt": 1,
+      "passed": false,
+      "cleanup_verified": null,
+      "charged_remaining": null,
+      "outer_vm_cgroup_sampled_peak_gib": 15.054,
+      "oom_event_delta": 0,
+      "oom_kill_delta": 0,
+      "memory_max_events_delta": 0,
+      "cgroup_cpu_usage_seconds": 2.013,
+      "cgroup_throttled_periods_delta": 0,
+      "cgroup_throttled_seconds_counter_delta": 0.0,
+      "private_stage": "/opt/baarcha-bench/cube-workload-build-20260925/live-run-01",
+      "reason": "Source archive AppleDouble SQL sidecars rejected before allocation; isolated packaging corrected.",
+      "known_guests_created": 0,
+      "private_result_sha256": "c8925729c43fcab9e47044c2afb4e953796cf4b67a39a651bfe8105543a52a1f",
+      "private_cgroup_report_sha256": "5dd593ceddbbde140c2a3d8900a47c849d0de037353df0c363dacd57d8e3f5db"
+    },
+    {
+      "attempt": 2,
+      "passed": false,
+      "cleanup_verified": true,
+      "charged_remaining": 0,
+      "outer_vm_cgroup_sampled_peak_gib": 15.055,
+      "oom_event_delta": 0,
+      "oom_kill_delta": 0,
+      "memory_max_events_delta": 0,
+      "cgroup_cpu_usage_seconds": 2.168,
+      "cgroup_throttled_periods_delta": 0,
+      "cgroup_throttled_seconds_counter_delta": 0.0,
+      "private_stage": "/opt/baarcha-bench/cube-workload-build-20260925/live-run-02",
+      "global_oom_kill_delta": {
+        "outer": 0,
+        "worker": 0
+      },
+      "reason": "First guest returned transient supervisor502 before initialization; authenticated20s readiness polling added.",
+      "known_guests_created": 1,
+      "private_result_sha256": "1140b225e772ad64e10981db27cf761b0692347b9186df32b4b593829cc0875b",
+      "private_cgroup_report_sha256": "aded5663376072bad29c36ce41e5c13ac5e82ea729a662e663b50a3ac64bc512"
+    },
+    {
+      "attempt": 3,
+      "passed": false,
+      "cleanup_verified": true,
+      "charged_remaining": 0,
+      "outer_vm_cgroup_sampled_peak_gib": 15.068,
+      "oom_event_delta": 0,
+      "oom_kill_delta": 0,
+      "memory_max_events_delta": 0,
+      "cgroup_cpu_usage_seconds": 32.693,
+      "cgroup_throttled_periods_delta": 0,
+      "cgroup_throttled_seconds_counter_delta": 0.0,
+      "private_stage": "/opt/baarcha-bench/cube-workload-build-20260925/live-run-03",
+      "global_oom_kill_delta": {
+        "outer": 0,
+        "worker": 0
+      },
+      "reason": "Invalid IPv6 protected-prefix entry rejected reverse host policy; no workload started.",
+      "known_guests_created": 4,
+      "private_result_sha256": "e86dec2d2077a679513f7a56bc7581579b947b4e76c365f2135dc40bcca975bd",
+      "private_cgroup_report_sha256": "9a09e2495453690faf687f2cbf8756c477d305b526e23e6fa7bbced25614bba9"
+    },
+    {
+      "attempt": 4,
+      "passed": false,
+      "cleanup_verified": true,
+      "charged_remaining": 0,
+      "outer_vm_cgroup_sampled_peak_gib": 15.065,
+      "oom_event_delta": 0,
+      "oom_kill_delta": 0,
+      "memory_max_events_delta": 0,
+      "cgroup_cpu_usage_seconds": 15.758,
+      "cgroup_throttled_periods_delta": 0,
+      "cgroup_throttled_seconds_counter_delta": 0.0,
+      "private_stage": "/opt/baarcha-bench/cube-workload-build-20260925/live-run-04",
+      "global_oom_kill_delta": {
+        "outer": 0,
+        "worker": 0
+      },
+      "reason": "Private diagnostics confirmed invalid protected prefix: supervisor alive, preview down, reverse channel terminated; no workload started.",
+      "known_guests_created": 1,
+      "private_result_sha256": "222f85736604184ad8c7b4b0c9778cfff5323bfb142e6777e808d87637b3acf5",
+      "private_cgroup_report_sha256": "27e5fad0ba39d2c33724d511392db3900456cec76c06fdb0437f8188710b58de"
+    },
+    {
+      "attempt": 5,
+      "passed": false,
+      "cleanup_verified": true,
+      "charged_remaining": 0,
+      "outer_vm_cgroup_sampled_peak_gib": 15.736,
+      "oom_event_delta": 0,
+      "oom_kill_delta": 0,
+      "memory_max_events_delta": 0,
+      "cgroup_cpu_usage_seconds": 153.66,
+      "cgroup_throttled_periods_delta": 62,
+      "cgroup_throttled_seconds_counter_delta": 9.182,
+      "private_stage": "/opt/baarcha-bench/cube-workload-build-20260925/live-run-05",
+      "global_oom_kill_delta": {
+        "outer": 0,
+        "worker": 0
+      },
+      "reason": "All12 apps ready; synchronous first-touch /start batch failed a5s-bounded HTTP request before any steady-state measurement.",
+      "known_guests_created": 12,
+      "private_result_sha256": "0633b2334b573b23c798c319d2203222a4905ebff3529c6172e44e750840a8d3",
+      "private_cgroup_report_sha256": "61b8c6dc554829b9ce43569fe4f6cffd5666533f174366f92530bce5da958ece"
+    },
+    {
+      "attempt": 6,
+      "passed": false,
+      "cleanup_verified": true,
+      "charged_remaining": 0,
+      "outer_vm_cgroup_sampled_peak_gib": 17.151,
+      "oom_event_delta": 0,
+      "oom_kill_delta": 0,
+      "memory_max_events_delta": 0,
+      "cgroup_cpu_usage_seconds": 304.281,
+      "cgroup_throttled_periods_delta": 216,
+      "cgroup_throttled_seconds_counter_delta": 35.908,
+      "private_stage": "/opt/baarcha-bench/cube-workload-build-20260925/live-run-06",
+      "global_oom_kill_delta": {
+        "outer": 0,
+        "worker": 0
+      },
+      "reason": "Async start acknowledged by all12;512MiB resident preparation exceeded20s before any steady-state measurement.",
+      "known_guests_created": 12,
+      "preparation_rounds": [
+        {
+          "round": 0,
+          "successful_app_and_supervisor_responses": 12,
+          "fully_resident_apps": 0,
+          "min_rss_mib": 11.91,
+          "max_rss_mib": 12.91,
+          "max_http_ms": 229.721,
+          "max_supervisor_ms": 8.586,
+          "transport_errors": []
+        },
+        {
+          "round": 1,
+          "successful_app_and_supervisor_responses": 12,
+          "fully_resident_apps": 0,
+          "min_rss_mib": 23.81,
+          "max_rss_mib": 36.04,
+          "max_http_ms": 2328.667,
+          "max_supervisor_ms": 42.211,
+          "transport_errors": []
+        },
+        {
+          "round": 2,
+          "successful_app_and_supervisor_responses": 12,
+          "fully_resident_apps": 0,
+          "min_rss_mib": 40.25,
+          "max_rss_mib": 52.79,
+          "max_http_ms": 1794.429,
+          "max_supervisor_ms": 19.911,
+          "transport_errors": []
+        },
+        {
+          "round": 3,
+          "successful_app_and_supervisor_responses": 12,
+          "fully_resident_apps": 0,
+          "min_rss_mib": 59.92,
+          "max_rss_mib": 64.27,
+          "max_http_ms": 1332.97,
+          "max_supervisor_ms": 43.577,
+          "transport_errors": []
+        },
+        {
+          "round": 4,
+          "successful_app_and_supervisor_responses": 12,
+          "fully_resident_apps": 0,
+          "min_rss_mib": 68.25,
+          "max_rss_mib": 76.05,
+          "max_http_ms": 1037.896,
+          "max_supervisor_ms": 15.763,
+          "transport_errors": []
+        },
+        {
+          "round": 5,
+          "successful_app_and_supervisor_responses": 12,
+          "fully_resident_apps": 0,
+          "min_rss_mib": 80.5,
+          "max_rss_mib": 85.16,
+          "max_http_ms": 1185.794,
+          "max_supervisor_ms": 22.292,
+          "transport_errors": []
+        },
+        {
+          "round": 6,
+          "successful_app_and_supervisor_responses": 12,
+          "fully_resident_apps": 0,
+          "min_rss_mib": 88.88,
+          "max_rss_mib": 96.54,
+          "max_http_ms": 1023.122,
+          "max_supervisor_ms": 18.646,
+          "transport_errors": []
+        },
+        {
+          "round": 7,
+          "successful_app_and_supervisor_responses": 12,
+          "fully_resident_apps": 0,
+          "min_rss_mib": 100.88,
+          "max_rss_mib": 112.66,
+          "max_http_ms": 1685.37,
+          "max_supervisor_ms": 37.041,
+          "transport_errors": []
+        },
+        {
+          "round": 8,
+          "successful_app_and_supervisor_responses": 12,
+          "fully_resident_apps": 0,
+          "min_rss_mib": 117.0,
+          "max_rss_mib": 124.44,
+          "max_http_ms": 994.769,
+          "max_supervisor_ms": 70.108,
+          "transport_errors": []
+        },
+        {
+          "round": 9,
+          "successful_app_and_supervisor_responses": 12,
+          "fully_resident_apps": 0,
+          "min_rss_mib": 125.12,
+          "max_rss_mib": 140.6,
+          "max_http_ms": 2200.501,
+          "max_supervisor_ms": 30.043,
+          "transport_errors": []
+        },
+        {
+          "round": 10,
+          "successful_app_and_supervisor_responses": 12,
+          "fully_resident_apps": 0,
+          "min_rss_mib": 145.0,
+          "max_rss_mib": 152.56,
+          "max_http_ms": 1313.364,
+          "max_supervisor_ms": 54.674,
+          "transport_errors": []
+        },
+        {
+          "round": 11,
+          "successful_app_and_supervisor_responses": 12,
+          "fully_resident_apps": 0,
+          "min_rss_mib": 157.12,
+          "max_rss_mib": 164.56,
+          "max_http_ms": 789.416,
+          "max_supervisor_ms": 20.001,
+          "transport_errors": []
+        },
+        {
+          "round": 12,
+          "successful_app_and_supervisor_responses": 3,
+          "fully_resident_apps": 0,
+          "min_rss_mib": 165.12,
+          "max_rss_mib": 168.79,
+          "max_http_ms": 813.051,
+          "max_supervisor_ms": 9.676,
+          "transport_errors": [
+            "synthetic preview transport failed",
+            "synthetic preview transport failed",
+            "synthetic preview transport failed",
+            "synthetic preview transport failed",
+            "synthetic preview transport failed",
+            "synthetic preview transport failed",
+            "synthetic preview transport failed",
+            "synthetic preview transport failed",
+            "synthetic preview transport failed"
+          ]
+        }
+      ],
+      "independent_cleanup": {
+        "authenticated_api_empty": true,
+        "all_state_cli_empty": true
+      },
+      "private_result_sha256": "7ce09d3be984c3b72911479825279cb88f63466bf2e149839edda39b96cc37bc",
+      "private_cgroup_report_sha256": "309d20ea2b9a38d9b938126b2edf0a4e3beec4b0c6f5312c944ccc8545f29425"
+    }
+  ],
+  "interpretation": [
+    "Earlier allocation-only burst success does not establish12 busy-app performance.",
+    "The final run proves successful bounded start acknowledgments and gradual resident-memory progress, not6GiB simultaneous residency.",
+    "No worker/outer global OOM or QEMU cgroup OOM/max events were observed.",
+    "The final QEMU cgroup incurred216 additional throttled periods; throttled_usec is an aggregate counter, not35.9s of whole-host wall pause.",
+    "No quota, network, production data, or template changes were made.",
+    "No further load attempt was performed after the approved async run failed.",
+    "Root cause of slow memory first touch needs separate diagnosis; this evidence alone does not isolate nested-page-fault, CPU quota, or memory backend costs."
+  ]
+}
