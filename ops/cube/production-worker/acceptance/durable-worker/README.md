@@ -176,3 +176,59 @@ fixture first. Its isolated admission profile should be bounded to the tested
 four slots (the PG scenario itself owns at most two guests), without claiming
 12-slot readiness. Failed native error-state recovery may require the existing
 separate rescue/journal path, whose prior pass does not prove this new candidate.
+
+## Fresh four-slot PostgreSQL and Vite prerequisite package
+
+`prepare-api.py` copies the existing full PG and Vite acceptance fixtures into an
+isolated control-plane snapshot, changing only their explicit admission limit
+12→4 and adding `admission_max_active: 4` to the new reports. It also copies the
+existing runner, reload probe and private preflight, strengthening the latter to
+require a complete one-node CLI inventory. Original source fixtures and all
+historical results are untouched. Preparation refuses existing copied fixtures
+or an existing package directory.
+
+```sh
+python3 prepare-api.py --snapshot /isolated/control-plane --package /new/private/package
+cd /isolated/control-plane
+go test -race -run '^TestOperatorAcceptanceCleanupVerifiesRemoteDeletion$' ./internal/api
+go test -c -o /new/private/package/api-acceptance.test ./internal/api
+cd /new/private/package
+sha256sum api-acceptance.test > binary.sha256
+```
+
+The package must also contain the corresponding source snapshot under
+`source/control-plane/`, including migrations and the API directory. Keep normal
+repository fixtures (docs, traefik, image/templates) under `source/` as well.
+No `.env`, credentials, user data or tenant source belongs in that package.
+
+After the worker has booted and root has independently reviewed readiness, copy
+this complete package into a **new root0700 worker stage**. Root writes the
+one-use0600 handoff described in `../README.md`; the runner independently checks
+private API credentials, security-family cleanup marker and empty all-state
+inventory under the shared fixture lock. Root can then explicitly invoke:
+
+```sh
+systemd-run --unit=UNIQUE_PG_FIXTURE_UNIT --wait --collect \
+  -p CPUQuota=200% -p MemoryMax=2G -p RuntimeMaxSec=14min \
+  /root/NEW_PRIVATE_STAGE/run-api.sh postgres pg-current-01
+```
+
+The wrapper sets `CUBE_POSTGRES_FUNCTIONAL=1`,
+`CUBE_POSTGRES_TEMPLATE=tpl-ce1ee426e686460bbc8c3bfc`, and
+`CUBE_POSTGRES_STAGE=STAGE/runs/postgres-pg-current-01`; its executable runs from
+`STAGE/source/control-plane/internal/api`. These settings are fixtures only,
+not production gates. The real API key remains in the existing root0600 worker
+file `/root/cube-production/test-secrets.json`, never in the invocation or logs.
+
+After PG cleanup is independently verified, root may create a **new** one-use
+handoff with family `reload`, run ID `vite-current-01`, and invoke the same wrapper
+with `reload vite-current-01` in another unique transient unit. It sets
+`CUBE_RELOAD_FUNCTIONAL=1`, template `tpl-98b45d63cfcc48c5b6ba9104`, and a distinct
+run directory. It uses the same four-slot binary and exercises actual Vite source
+and environment reload behavior. These bounds constrain the fixture controller;
+the owned guests separately retain their reviewed two-CPU/two-GiB allocation.
+
+The PG result is valid for durability packaging only when its seven original
+functional assertions plus owned deletion are all true. Copy that fresh report
+as mode0600 into each new clean/paused-loss/running-loss stage. A skipped opt-in
+unit or successful compilation does not meet that precondition.
