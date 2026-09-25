@@ -1,0 +1,25 @@
+{
+  "date": "2026-09-25",
+  "status": "candidate-linux-tests-passed-not-installed",
+  "source_gate_enabled": false,
+  "worker_service_changes": false,
+  "linux_test_count": 35,
+  "linux_elapsed_seconds": 0.650,
+  "linux_log": "/opt/baarcha-bench/cube-retained-stop-20260925/python-tests-final-r2.log",
+  "real_fixture": "pidfd SIGTERM of one disposable Python child only",
+  "coverage": [
+    "Immutable full container identity and Docker infinite graceful timeout",
+    "No container removal or force-kill command",
+    "Native PID generation check and one pidfd SIGTERM",
+    "No-overwrite current-boot stop plan",
+    "Loaded unit refusal for upstream ExecStop, restart or forced timeout",
+    "Failure before QMP leaves supervisor blocked and QEMU alive",
+    "Management writers stop before support containers; Docker/socket last",
+    "Worker identity and receipt validation for fixed SSH stop operation"
+  ],
+  "remaining_acceptance": [
+    "Observe actual native systemd MainPID/executable handoffs",
+    "Review/install exact retained-stop overrides on isolated worker",
+    "Exercise actual nested stop and clean reboot with latest app/SQL continuation"
+  ]
+}

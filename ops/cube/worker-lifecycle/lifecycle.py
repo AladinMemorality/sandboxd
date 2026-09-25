@@ -8,6 +8,8 @@ import json
 import os
 from pathlib import Path
 import signal
+import select
+import re
 import selectors
 import socket
 import stat
@@ -188,14 +190,16 @@ def prepare_stop(identity):
                 require(len(buffer)<=65536,'stop proof exceeds bound')
                 if b'\n' in buffer:
                     line,extra=buffer.split(b'\n',1);require(not extra.strip(),'unexpected extra stop proof')
-                    return validate_stop_proof(identity,json.loads(line))
+                    proof=validate_stop_proof(identity,json.loads(line))
+                    shutdown_nested(proof)
+                    return proof
         raise Blocked('stop coordinator exceeded bounded preparation; locks and QEMU retained')
     finally:
         selector.close()
 
 
 def sync_data(args):
-    config=private_json(CONFIG);nested_preflight(config)
+    config=private_json(CONFIG);nested_preflight(config);graceful_contract(config)
     require(Path('/etc/machine-id').read_text().strip()==args.machine_id,'worker machine changed')
     require(Path('/proc/sys/kernel/random/boot_id').read_text().strip()==args.boot_id,'worker boot changed')
     require(config.get('data_filesystem_uuid')==args.data_uuid,'worker data generation changed')
@@ -230,7 +234,7 @@ def retain_clean_receipt(proof):
     finally:os.close(fd)
 
 def verify_start(args,require_paused=True):
-    config=private_json(CONFIG);nested_preflight(config,True)
+    config=private_json(CONFIG);nested_preflight(config,True);graceful_contract(config)
     require(Path('/etc/machine-id').read_text().strip()==args.machine_id,'worker machine changed')
     require(Path('/proc/sys/kernel/random/boot_id').read_text().strip()==args.boot_id,'worker boot changed')
     require(config.get('data_filesystem_uuid')==args.data_uuid,'worker data changed')
@@ -242,6 +246,226 @@ def verify_start(args,require_paused=True):
         tasks=run(['/usr/bin/ctr','--address','/data/cubelet/cubelet.sock','--namespace','default','tasks','list','--quiet'],timeout=5)
         require(not tasks.strip(),'unexpected running Cube tasks at clean startup')
     return {'verified':True,'boot_id':args.boot_id}
+
+# Every name is a reviewed management component, never a tenant-selected unit.
+CONTAINER_UNITS = {
+    'mysql':'cube-sandbox-mysql', 'redis':'cube-sandbox-redis',
+    'minio':'cube-sandbox-minio', 'coredns':'cube-proxy-coredns',
+    'cube-lifecycle-manager':'cube-lifecycle-manager', 'cube-proxy':'cube-proxy',
+    'cube-egress':'cube-egress', 'webui':'cube-webui',
+}
+PROCESS_UNITS = {'cubelet':'cubelet','cubemaster':'cubemaster','cube-api':'cube-api',
+                 'cubeops':'cubeops','cube-templatecenter':'templatecenter'}
+NOOP_UNITS = {'dns','cube-egress-net'}
+STOP_PLAN = Path('/run/baarcha-cube-retained-stop.json')
+STOP_ORDER = ('cube-lifecycle-manager','cube-templatecenter','cube-api','cubeops',
+              'cube-proxy','webui','cubelet','cubemaster','cube-egress',
+              'cube-egress-net','dns','coredns','mysql','redis','minio','s3lvol')
+
+def component_name(unit):
+    require(unit.startswith('cube-sandbox-') and unit.endswith('.service'),'fixed management unit required')
+    name=unit[len('cube-sandbox-'):-len('.service')]
+    require(name in STOP_ORDER,'unknown management unit')
+    return name
+
+def unit_state(unit):
+    raw=run(['/usr/bin/systemctl','show',unit,'-p','Id','-p','LoadState','-p','ActiveState',
+        '-p','MainPID','-p','Restart','-p','SendSIGKILL','-p','TimeoutStopUSec',
+        '-p','KillMode','-p','KillSignal','-p','ExecStop','-p','Result','-p','ExecMainStatus'],timeout=5)
+    return dict(line.split('=',1) for line in raw.decode().splitlines() if '=' in line)
+
+def docker_identity(name):
+    raw=run(['/usr/bin/docker','inspect','--type','container','--format',
+        '{"id":{{json .Id}},"name":{{json .Name}},"running":{{json .State.Running}},"paused":{{json .State.Paused}},"restarting":{{json .State.Restarting}},"oom":{{json .State.OOMKilled}},"exit":{{json .State.ExitCode}}}',name],timeout=5)
+    item=json.loads(raw)
+    require(re.fullmatch(r'[a-f0-9]{64}',item.get('id','')) and item.get('name')=='/'+name,'exact container identity required')
+    require(not item.get('paused') and not item.get('restarting'),'ambiguous container state')
+    return item
+
+def inspect_container_id(identity,name):
+    # Resolve by the frozen immutable ID, then independently refuse a name that
+    # was rebound. Never fall back to stopping a replacement by name.
+    raw=run(['/usr/bin/docker','inspect','--type','container','--format',
+        '{"id":{{json .Id}},"name":{{json .Name}},"running":{{json .State.Running}},"paused":{{json .State.Paused}},"restarting":{{json .State.Restarting}},"oom":{{json .State.OOMKilled}},"exit":{{json .State.ExitCode}}}',identity],timeout=5)
+    item=json.loads(raw)
+    require(item.get('id')==identity and item.get('name')=='/'+name and docker_identity(name)['id']==identity,'container generation changed')
+    return item
+
+def retained_container_stop(name,identity):
+    require(re.fullmatch(r'[a-f0-9]{64}',identity),'frozen full container identity required')
+    before=inspect_container_id(identity,name)
+    if before['running']:
+        # None means no client deadline and --time=-1 forbids Docker escalation.
+        # The outer coordinator observes a separate bounded deadline; on failure
+        # QEMU remains alive and this fixed ExecStop is never force-terminated.
+        run(['/usr/bin/docker','stop','--time=-1',identity],timeout=None)
+    after=inspect_container_id(identity,name)
+    require(not after['running'] and not after['paused'] and not after['restarting']
+        and not after['oom'] and after['exit']!=137,'container did not stop gracefully')
+    return identity
+
+def native_identity(unit,config):
+    name=component_name(unit);expected=PROCESS_UNITS[name];state=unit_state(unit)
+    require(state.get('Id')==unit and state.get('LoadState')=='loaded','unit identity changed')
+    pid=int(state.get('MainPID','0'));require(pid>1,'native main PID unavailable')
+    path=Path(f'/proc/{pid}/exe').resolve(strict=True)
+    require(path.is_relative_to('/usr/local/services') and path.name==expected,'unexpected native executable')
+    approved=dict(config.get('artifacts',{}))
+    approved.update({v['path']:v['sha256'] for v in config.get('binaries',{}).values()})
+    require(approved.get(str(path))==digest(path),'native executable is not pinned')
+    return pid,process_start_time(pid),path
+
+def retained_native_stop(unit,config,expected):
+    require(hasattr(os,'pidfd_open') and hasattr(signal,'pidfd_send_signal'),'pidfd support required')
+    pid,generation,path=native_identity(unit,config)
+    require(expected=={'pid':pid,'start_time':generation,'path':str(path)},'native identity differs from frozen stop plan')
+    descriptor=os.pidfd_open(pid,0)
+    try:
+        require(process_start_time(pid)==generation and Path(f'/proc/{pid}/exe').resolve(strict=True)==path
+            and unit_state(unit).get('MainPID')==str(pid),'native process generation changed')
+        signal.pidfd_send_signal(descriptor,signal.SIGTERM)
+        poll=select.poll();poll.register(descriptor,select.POLLIN)
+        # Exit is the only successful completion. No timeout fallback signal.
+        while not poll.poll(1000):pass
+    finally:os.close(descriptor)
+
+
+def retained_component_stop(unit,config):
+    name=component_name(unit);plan=read_stop_plan()
+    if name in CONTAINER_UNITS:return retained_container_stop(CONTAINER_UNITS[name],plan['containers'][CONTAINER_UNITS[name]])
+    if name in PROCESS_UNITS:return retained_native_stop(unit,config,plan['native'][unit])
+    if name in NOOP_UNITS:
+        # During whole-worker shutdown kernel network state is disposable. Do
+        # not invoke upstream cleanup scripts while preserving paused guests.
+        require(unit_state(unit).get('MainPID')=='0','unexpected network helper process')
+        return
+    raise Blocked('optional s3lvol stop is not supported; it must already be inactive')
+
+
+
+def publish_stop_plan(value):
+    fd=os.open(STOP_PLAN,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+    with os.fdopen(fd,'w') as file:
+        json.dump(value,file,sort_keys=True);file.write('\n');file.flush();os.fsync(file.fileno())
+    fd=os.open(STOP_PLAN.parent,os.O_RDONLY)
+    try:os.fsync(fd)
+    finally:os.close(fd)
+
+def read_stop_plan():
+    require(sys.platform=='linux' and os.geteuid()==0 and socket.gethostname()=='baarcha-cube-worker-01','fixed nested root only')
+    plan=private_json(STOP_PLAN)
+    require(plan.get('version')==1 and plan.get('worker_boot_id')==Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+        and plan.get('machine_id')==Path('/etc/machine-id').read_text().strip(),'current coordinator stop plan required')
+    return plan
+
+def no_guest_processes():
+    for proc in Path('/proc').iterdir():
+        if not proc.name.isdigit():continue
+        try:path=(proc/'exe').resolve(strict=True)
+        except (FileNotFoundError,ProcessLookupError):continue
+        require(path.name not in {'cubelet','cube-shim','containerd-shim-cube-v2','containerd-shim-cube-rs','cube-runtime','cloud-hypervisor','firecracker','cube-vmm'},'Cube compute process remains after management stop')
+
+def graceful_contract(config):
+    for name in STOP_ORDER:
+        unit='cube-sandbox-'+name+'.service';state=unit_state(unit)
+        require(state.get('Id')==unit and state.get('LoadState')=='loaded','management unit missing')
+        if name=='s3lvol':
+            require(state.get('ActiveState')=='inactive' and state.get('MainPID')=='0' and state.get('Restart')=='no','active or restarting s3lvol requires separate retained-stop support')
+            continue
+        require(state.get('Restart')=='no' and state.get('SendSIGKILL')=='no'
+            and state.get('TimeoutStopUSec')=='infinity' and state.get('KillMode')=='process','unsafe nested stop policy')
+        # systemctl's loaded ExecStop structure must contain exactly the fixed
+        # interpreter/script/subcommand/unit and no additional command entry.
+        value=state.get('ExecStop','')
+        expected=f'/usr/bin/python3 {SCRIPT} stop-component --unit {unit}'
+        require(value.count('path=')==1 and 'path=/usr/bin/python3 ;' in value
+            and f'argv[]={expected} ;' in value and 'ignore_errors=no' in value,'upstream or unreviewed ExecStop remains')
+        require(state.get('ActiveState') in ('active','inactive'),'management component is transitioning or failed')
+        if name in PROCESS_UNITS and state.get('ActiveState')=='active':native_identity(unit,config)
+    docker=unit_state('docker.service')
+    require(docker.get('Restart')=='no' and docker.get('SendSIGKILL')=='no'
+        and docker.get('TimeoutStopUSec')=='infinity' and docker.get('KillSignal')=='15' and not docker.get('ExecStop'),'Docker stop override must not run cleanup or escalation')
+
+
+def shutdown_components(args):
+    # Called only by the outer supervisor after the exact admitted-pause proof.
+    # It makes no config/unit changes and never creates permission/hold files.
+    config=private_json(CONFIG);verify_start(args,True);graceful_contract(config)
+    names=run(['/usr/bin/docker','ps','-a','--format','{{.Names}}'],timeout=5).decode().splitlines()
+    allowed=set(CONTAINER_UNITS.values())|{'cube-production-registry'}
+    require(len(names)==len(set(names)) and set(names)<=allowed,'unreviewed nested Docker container present')
+    original={name:docker_identity(name)['id'] for name in names}
+    native={}
+    for name in PROCESS_UNITS:
+        unit='cube-sandbox-'+name+'.service'
+        if unit_state(unit).get('ActiveState')=='active':
+            pid,generation,path=native_identity(unit,config)
+            native[unit]={'pid':pid,'start_time':generation,'path':str(path)}
+    publish_stop_plan({'version':1,'worker_boot_id':args.boot_id,'machine_id':args.machine_id,'containers':original,'native':native})
+    deadline=time.monotonic()+180
+    for name in STOP_ORDER:
+        unit='cube-sandbox-'+name+'.service';state=unit_state(unit)
+        if state.get('ActiveState')=='inactive':continue
+        require(time.monotonic()<deadline,'nested stop preparation deadline reached')
+        run(['/usr/bin/systemctl','stop','--no-block',unit],timeout=5)
+        while True:
+            state=unit_state(unit)
+            if state.get('ActiveState')=='inactive' and state.get('MainPID')=='0':break
+            require(state.get('ActiveState')!='failed' and time.monotonic()<deadline,'nested component stop blocked; worker retained')
+            time.sleep(.2)
+    # All container-backed units and native writers stopped before Docker itself.
+    # The image registry is not a systemd Cube component; retain it too.
+    if 'cube-production-registry' in original:
+        require(docker_identity('cube-production-registry')['id']==original['cube-production-registry'],'registry generation changed')
+        # Run the fixed same helper via a child so outer observation stays bounded;
+        # timeout must leave the stop request/process intact, never SIGKILL.
+        process=subprocess.Popen(['/usr/bin/python3',SCRIPT,'stop-registry'],stdin=subprocess.DEVNULL,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
+        while process.poll() is None:
+            require(time.monotonic()<deadline,'registry graceful stop pending; worker retained');time.sleep(.2)
+        require(process.returncode==0,'registry retained stop failed')
+    require(set(run(['/usr/bin/docker','ps','-a','--format','{{.Names}}'],timeout=5).decode().splitlines())==set(original),'nested container inventory changed')
+    for name,identity in original.items():
+        value=inspect_container_id(identity,name)
+        require(not value['running'] and not value['oom'] and value['exit']!=137,'nested container still running or killed')
+    for name in STOP_ORDER:
+        state=unit_state('cube-sandbox-'+name+'.service')
+        require(state.get('ActiveState')=='inactive' and state.get('MainPID')=='0','management restarted during shutdown')
+    no_guest_processes()
+    # All retained container states were inspected before disabling Docker's
+    # restart manager and socket activation. No Docker API is needed afterward.
+    run(['/usr/bin/systemctl','stop','--no-block','docker.service','docker.socket'],timeout=5)
+    for unit in ['docker.service','docker.socket']:
+        while True:
+            state=unit_state(unit)
+            if state.get('ActiveState')=='inactive' and state.get('MainPID','0')=='0':break
+            require(state.get('ActiveState')!='failed' and time.monotonic()<deadline,'Docker shutdown pending; worker retained')
+            time.sleep(.2)
+    no_guest_processes()
+    run(['/usr/bin/sync','-f','/data'],timeout=20);run(['/usr/bin/sync','-f','/'],timeout=20)
+    return {'version':1,'stopped':True,'retained_containers':len(original),'boot_id':args.boot_id}
+
+
+def shutdown_nested(proof):
+    values=[proof.get(k,'') for k in ['worker_machine_id','worker_boot_id','data_uuid']]
+    require(all(isinstance(v,str) and re.fullmatch(r'[a-f0-9-]{32,64}',v) for v in values),'fixed worker identities missing from pause proof')
+    command=f'/usr/bin/python3 {SCRIPT} shutdown-components --machine-id {values[0]} --boot-id {values[1]} --data-uuid {values[2]}'
+    raw=run(['/usr/bin/ssh','-i',str(ROOT/'operator-key'),'-p','20222','-oBatchMode=yes',
+        '-oConnectTimeout=5','-oStrictHostKeyChecking=yes','-oUserKnownHostsFile='+str(ROOT/'known_hosts'),'root@127.0.0.1',command],timeout=240)
+    result=json.loads(raw)
+    require(result.get('stopped') is True and result.get('boot_id')==values[1],'graceful retained nested stop failed')
+
+
+def stop_component_entry(unit):
+    # Never let a failed ExecStop fall through to systemd signalling a possibly
+    # wrong main PID or proceeding with worker poweroff. Explicit root recovery
+    # is required; no signal or subprocess kill is issued on this error path.
+    try:
+        require(os.geteuid()==0 and socket.gethostname()=='baarcha-cube-worker-01','nested root only')
+        retained_component_stop(unit,private_json(CONFIG));return 0
+    except Exception:
+        print('nested component stop blocked; retained state requires operator review',flush=True)
+        while True:time.sleep(30)
+
 
 def qmp_powerdown(path):
     # Exactly one graceful request, never quit/reset/stop/kill.
@@ -363,11 +587,18 @@ def monitor():
 def main():
     parser=argparse.ArgumentParser();sub=parser.add_subparsers(dest='action',required=True)
     p=sub.add_parser('supervise');p.add_argument('--lock-file',required=True)
+    p=sub.add_parser('stop-component');p.add_argument('--unit',required=True)
+    sub.add_parser('stop-registry')
+    p=sub.add_parser('shutdown-components');p.add_argument('--machine-id',required=True);p.add_argument('--boot-id',required=True);p.add_argument('--data-uuid',required=True)
     sub.add_parser('nested-preflight');sub.add_parser('nested-ready');sub.add_parser('monitor')
     p=sub.add_parser('observe-worker');p.add_argument('--machine-id',required=True);p.add_argument('--boot-id',required=True);p.add_argument('--data-uuid',required=True)
     p=sub.add_parser('verify-start');p.add_argument('--machine-id',required=True);p.add_argument('--boot-id',required=True);p.add_argument('--data-uuid',required=True)
     p=sub.add_parser('sync-data');p.add_argument('--machine-id',required=True);p.add_argument('--boot-id',required=True);p.add_argument('--data-uuid',required=True)
     args=parser.parse_args()
+    if args.action=='stop-component':return stop_component_entry(args.unit)
+    if args.action=='stop-registry':
+        plan=read_stop_plan();retained_container_stop('cube-production-registry',plan['containers']['cube-production-registry']);return 0
+    if args.action=='shutdown-components':print(json.dumps(shutdown_components(args)));return 0
     if args.action=='supervise':return supervise(args.lock_file)
     if args.action=='monitor':return monitor()
     if args.action=='observe-worker':print(json.dumps(verify_start(args,False)));return 0

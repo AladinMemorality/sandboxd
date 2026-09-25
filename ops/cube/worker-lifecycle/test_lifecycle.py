@@ -138,3 +138,95 @@ class CleanReceiptTests(unittest.TestCase):
         child=Child();child.code=None;save=mock.Mock();proof={'verified':True,'qemu_pid':child.pid}
         state=life.Supervisor(child,{'qemu_pid':child.pid},lambda _:proof,lambda:None,lambda _:None,retain_clean=save)
         state.signal(signal.SIGTERM);state.tick();save.assert_not_called();child.code=0;self.assertFalse(state.tick());save.assert_called_once_with(proof)
+
+class RetainedStopTests(unittest.TestCase):
+    def test_container_stop_uses_only_frozen_id_infinite_timeout_and_retains(self):
+        identity='a'*64;calls=[];current={'id':identity,'name':'/cube-sandbox-mysql','running':True,'paused':False,'restarting':False,'oom':False,'exit':0}
+        def run(argv,timeout=10):
+            calls.append((argv,timeout))
+            if argv[1]=='inspect':return json.dumps(current).encode()
+            self.assertEqual(argv,['/usr/bin/docker','stop','--time=-1',identity]);self.assertIsNone(timeout);current['running']=False;return identity.encode()
+        with mock.patch.object(life,'run',side_effect=run):self.assertEqual(life.retained_container_stop('cube-sandbox-mysql',identity),identity)
+        self.assertEqual(sum(args[1]=='stop' for args,_ in calls),1)
+        self.assertFalse(any('rm' in args or 'kill' in args for args,_ in calls))
+    def test_replaced_container_or_oom_cannot_pass(self):
+        identity='a'*64
+        with mock.patch.object(life,'inspect_container_id',side_effect=life.Blocked('replacement')),mock.patch.object(life,'run') as run:
+            with self.assertRaises(life.Blocked):life.retained_container_stop('cube-sandbox-mysql',identity)
+            run.assert_not_called()
+        with mock.patch.object(life,'inspect_container_id',return_value={'running':False,'paused':False,'restarting':False,'oom':True,'exit':137}):
+            with self.assertRaises(life.Blocked):life.retained_container_stop('cube-sandbox-mysql',identity)
+    def test_native_signal_is_pidfd_term_once_and_generation_checked(self):
+        path=Path('/usr/local/services/Cubelet/bin/cubelet');expected={'pid':55,'start_time':'77','path':str(path)};poll=mock.Mock();poll.poll.return_value=[(99,1)]
+        with mock.patch.object(life,'native_identity',return_value=(55,'77',path)),mock.patch.object(life,'process_start_time',return_value='77'),mock.patch.object(Path,'resolve',return_value=path),mock.patch.object(life,'unit_state',return_value={'MainPID':'55'}),mock.patch.object(life.os,'pidfd_open',return_value=99,create=True),mock.patch.object(life.signal,'pidfd_send_signal',create=True) as send,mock.patch.object(life.select,'poll',return_value=poll),mock.patch.object(life.os,'close') as close:
+            life.retained_native_stop('cube-sandbox-cubelet.service',{},expected)
+            send.assert_called_once_with(99,signal.SIGTERM);close.assert_called_once_with(99)
+            send.reset_mock()
+            with self.assertRaises(life.Blocked):life.retained_native_stop('cube-sandbox-cubelet.service',{},dict(expected,pid=56))
+            send.assert_not_called()
+    def test_stop_plan_never_overwrites_prior_attempt(self):
+        with tempfile.TemporaryDirectory() as d,mock.patch.object(life,'STOP_PLAN',Path(d).resolve()/'plan.json'):
+            life.publish_stop_plan({'version':1,'attempt':'old'})
+            with self.assertRaises(FileExistsError):life.publish_stop_plan({'version':1,'attempt':'new'})
+            self.assertEqual(json.loads(life.STOP_PLAN.read_text())['attempt'],'old')
+    def test_contract_refuses_upstream_compose_and_force_timeout(self):
+        def state(unit):
+            name=life.component_name(unit) if unit.startswith('cube-') else ''
+            return {'Id':unit,'LoadState':'loaded','ActiveState':'inactive','MainPID':'0','Restart':'no','SendSIGKILL':'no','TimeoutStopUSec':'infinity','KillMode':'process','KillSignal':'15', 'ExecStop': '' if unit=='docker.service' or name=='s3lvol' else '{ path=/usr/bin/python3 ; argv[]=/usr/bin/python3 '+life.SCRIPT+' stop-component --unit '+unit+' ; ignore_errors=no ; }'}
+        with mock.patch.object(life,'unit_state',side_effect=state):life.graceful_contract({})
+        for field,value in [('ExecStop','{ path=/bin/bash ; argv[]=/bin/bash upstream-compose-down ; }'),('TimeoutStopUSec','30s'),('SendSIGKILL','yes'),('Restart','on-failure')]:
+            def changed(unit,field=field,value=value):
+                row=state(unit)
+                if unit=='cube-sandbox-mysql.service':row[field]=value
+                return row
+            with mock.patch.object(life,'unit_state',side_effect=changed):
+                with self.assertRaises(life.Blocked):life.graceful_contract({})
+    def test_failed_nested_shutdown_prevents_qmp_powerdown(self):
+        child=Child();child.code=None;power=mock.Mock()
+        def drain(_):raise life.Blocked('nested stop incomplete')
+        state=life.Supervisor(child,{'qemu_pid':child.pid},drain,power,lambda _:None)
+        state.signal(signal.SIGTERM);state.tick();self.assertEqual(state.state,'stop-blocked');power.assert_not_called();self.assertIsNone(child.code)
+    def test_retained_shutdown_order_and_docker_last(self):
+        from types import SimpleNamespace
+        args=SimpleNamespace(machine_id='a'*32,boot_id='b'*32,data_uuid='c'*32)
+        active={'cube-sandbox-cube-api.service','cube-sandbox-cubelet.service','cube-sandbox-mysql.service','docker.service','docker.socket'}
+        rows={unit:{'ActiveState':'active' if unit in active else 'inactive','MainPID':'0'} for unit in ['cube-sandbox-'+x+'.service' for x in life.STOP_ORDER]+['docker.service','docker.socket']}
+        rows['cube-sandbox-cube-api.service']['MainPID']='51';rows['cube-sandbox-cubelet.service']['MainPID']='52'
+        containers={'cube-sandbox-mysql':'a'*64,'cube-production-registry':'b'*64};stops=[];saved=[];events=[]
+        def run(argv,timeout=10):
+            events.append(argv)
+            if argv[0]=='/usr/bin/docker' and argv[1]=='ps':return ('\n'.join(containers)+'\n').encode()
+            if argv[:3]==['/usr/bin/systemctl','stop','--no-block']:
+                self.assertTrue(saved,'component stop before frozen plan')
+                for unit in argv[3:]:rows[unit]={'ActiveState':'inactive','MainPID':'0'};stops.append(unit)
+                return b''
+            if argv[0]=='/usr/bin/sync':return b''
+            self.fail('unexpected mutation '+str(argv))
+        process=mock.Mock();process.poll.return_value=0;process.returncode=0
+        native=lambda unit,config:(int(rows[unit]['MainPID']),'1',Path('/usr/local/services/bin/'+('cubelet' if 'cubelet' in unit else 'cube-api')))
+        with mock.patch.object(life,'private_json',return_value={}),mock.patch.object(life,'verify_start'),mock.patch.object(life,'graceful_contract'),mock.patch.object(life,'unit_state',side_effect=lambda unit:rows[unit]),mock.patch.object(life,'run',side_effect=run),mock.patch.object(life,'docker_identity',side_effect=lambda name:{'id':containers[name]}),mock.patch.object(life,'native_identity',side_effect=native),mock.patch.object(life,'publish_stop_plan',side_effect=saved.append),mock.patch.object(life,'inspect_container_id',return_value={'running':False,'oom':False,'exit':0}),mock.patch.object(life,'no_guest_processes'),mock.patch.object(life.subprocess,'Popen',return_value=process):
+            result=life.shutdown_components(args)
+        self.assertTrue(result['stopped']);self.assertEqual(saved[0]['containers'],containers)
+        self.assertEqual(stops,['cube-sandbox-cube-api.service','cube-sandbox-cubelet.service','cube-sandbox-mysql.service','docker.service','docker.socket'])
+        self.assertEqual(events[-2:],[['/usr/bin/sync','-f','/data'],['/usr/bin/sync','-f','/']])
+    @unittest.skipUnless(sys.platform=='linux' and hasattr(os,'pidfd_open') and hasattr(signal,'pidfd_send_signal'),'real Linux pidfd fixture')
+    def test_real_pidfd_stops_only_owned_synthetic_child(self):
+        child=subprocess.Popen([sys.executable,'-c','import time; time.sleep(20)'])
+        try:
+            path=Path(f'/proc/{child.pid}/exe').resolve(strict=True);generation=life.process_start_time(child.pid)
+            expected={'pid':child.pid,'start_time':generation,'path':str(path)}
+            with mock.patch.object(life,'native_identity',return_value=(child.pid,generation,path)),mock.patch.object(life,'unit_state',return_value={'MainPID':str(child.pid)}):
+                life.retained_native_stop('cube-sandbox-cubelet.service',{},expected)
+            self.assertEqual(child.wait(timeout=2),-signal.SIGTERM)
+        finally:
+            if child.poll() is None:child.terminate();child.wait(timeout=2)
+    def test_nested_shutdown_receipt_and_identity_gate_before_qmp(self):
+        proof={'worker_machine_id':'a'*32,'worker_boot_id':'b'*32,'data_uuid':'c'*32}
+        with mock.patch.object(life,'run',return_value=json.dumps({'stopped':True,'boot_id':'b'*32}).encode()) as run:
+            life.shutdown_nested(proof)
+            args=run.call_args.args[0]
+            self.assertEqual(args[0],'/usr/bin/ssh');self.assertIn('shutdown-components',args[-1]);self.assertEqual(run.call_args.kwargs['timeout'],240)
+            with self.assertRaises(life.Blocked):life.shutdown_nested(dict(proof,data_uuid='; arbitrary shell'))
+            self.assertEqual(run.call_count,1)
+        with mock.patch.object(life,'run',return_value=b'{"stopped":false}'):
+            with self.assertRaises(life.Blocked):life.shutdown_nested(proof)
