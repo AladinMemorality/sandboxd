@@ -5,9 +5,19 @@
 and timer advancement. `installed-20260925.py` records that one-time operation;
 it refuses an existing installation and is not an upgrade command. No guest,
 controller, worker or coordinator lifecycle operation was part of installation.
-The controller remains on Docker with Cube disabled. The refreshed stop
-configuration is prepared privately but has not been installed; live guarded
-workload and coordinator acceptance remain separate gates.
+The controller remains on Docker with Cube disabled. Root subsequently installed
+the exact schema34 coordinators, migration directory and refreshed stop
+configuration; `coordinator-installation-2026-09-25.json` records that operation.
+The installation itself did not invoke a coordinator or enroll the canonical
+database guard. Real coordinator/restore acceptance remains a separate gate.
+
+`coordinator-installed-20260925.py` records the exact bounded installer. It checks
+the former hashes, takes all four operator/deployment locks, preserves old
+binaries/configuration, and writes only reviewed replacements. Its default is
+read-only; its one-time install mode now refuses the existing installation.
+Do not restore the old schema33-only coordinators after a storage policy or Cube
+binding exists. Prior clean-stop/start receipts and lifecycle configuration were
+preserved, and a future stop still requires its own fresh reviewed drain receipt.
 
 The post-cycle worker boot ID is deliberately invalid in the reusable
 `pins.NON-AUTHORIZING.json`. Do not replace it with
