@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:baarcha:cube:nested-lifecycle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "reviewed",
+    "machine_id",
+    "data_filesystem_uuid",
+    "binaries",
+    "artifacts",
+    "durable_metadata_reviewed",
+    "durable_metadata_paths"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "reviewed": {
+      "const": true
+    },
+    "machine_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{32}$"
+    },
+    "data_filesystem_uuid": {
+      "type": "string",
+      "pattern": "^[a-f0-9-]{32,64}$"
+    },
+    "binaries": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "cubelet",
+        "cubemaster",
+        "cube-api"
+      ],
+      "properties": {
+        "cubelet": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^/usr/local/services/[^\\u0000]+$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "cubemaster": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^/usr/local/services/[^\\u0000]+$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        },
+        "cube-api": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "sha256"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "pattern": "^/usr/local/services/[^\\u0000]+$"
+            },
+            "sha256": {
+              "type": "string",
+              "pattern": "^[a-f0-9]{64}$"
+            }
+          }
+        }
+      }
+    },
+    "artifacts": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {
+        "pattern": "^/(etc/systemd/system|usr/local/services)/[^\\u0000]+$"
+      },
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "durable_metadata_reviewed": {
+      "const": true
+    },
+    "durable_metadata_paths": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 16,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^/data/[^\\u0000]+$"
+      }
+    }
+  }
+}

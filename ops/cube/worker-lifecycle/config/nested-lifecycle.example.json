@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "reviewed": false,
+  "machine_id": "REQUIRES_ACTUAL_WORKER_MACHINE_ID",
+  "data_filesystem_uuid": "REQUIRES_ACTUAL_DATA_XFS_UUID",
+  "binaries": {
+    "cubelet": {
+      "path": "/usr/local/services/REVIEWED/cubelet",
+      "sha256": "REQUIRES_EXACT_INSTALLED_HASH"
+    },
+    "cubemaster": {
+      "path": "/usr/local/services/REVIEWED/cubemaster",
+      "sha256": "REQUIRES_EXACT_INSTALLED_HASH"
+    },
+    "cube-api": {
+      "path": "/usr/local/services/REVIEWED/cube-api",
+      "sha256": "REQUIRES_EXACT_INSTALLED_HASH"
+    }
+  },
+  "artifacts": {
+    "/usr/local/services/REVIEWED/cubelet-config.toml": "REQUIRES_ACTUAL_HASH",
+    "/etc/systemd/system/REVIEWED.service": "REQUIRES_ACTUAL_HASH"
+  },
+  "durable_metadata_reviewed": false,
+  "durable_metadata_paths": [
+    "/data/cubelet/persistent-metadata",
+    "/data/REQUIRES_REVIEWED_MYSQL_PERSISTENCE_PATH",
+    "/data/REQUIRES_REVIEWED_OTHER_STATE_PATHS"
+  ]
+}

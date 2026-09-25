@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:baarcha:cube:host-lifecycle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "reviewed",
+    "drain_integration_reviewed",
+    "first_boot_empty_reviewed",
+    "qemu_sha256",
+    "outer_data_filesystem_uuid"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "reviewed": {
+      "const": true
+    },
+    "drain_integration_reviewed": {
+      "const": true
+    },
+    "first_boot_empty_reviewed": {
+      "type": "boolean"
+    },
+    "qemu_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "outer_data_filesystem_uuid": {
+      "type": "string",
+      "pattern": "^[a-f0-9-]{32,64}$"
+    }
+  }
+}
