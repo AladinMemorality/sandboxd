@@ -171,3 +171,29 @@ outer verification preserved twelve output files under
 repair/log evidence. Latest app/home markers and canonical archive contracts
 passed. PostgreSQL SQL recovery and journal execution are still separate pending
 checks; neither native nor production recovery is claimed by this export.
+
+
+## Actual repaired retained-source journal acceptance
+
+The separately authorized journal ran at14:40:16–14:40:48UTC, exit0, CPU14.879s,
+using candidate83815957… and a fresh execution fence with the exact lifecycle
+manager container frozen. It verified the ORIGINAL latest acknowledged app/home
+markers and PostgreSQL SQL, without recommitting them; quiesced archive digests,
+frozen config, synthetic task history and stable owner/app/sandbox identity also
+passed. The isolated binding switched atomically and repeated Commit succeeded.
+This was an isolated controller database, not a production binding or browser
+routing test; original crash task history was not exported by this fixture.
+
+The fixture created target3c545045bcf84e9785113a6700ba60ca, then deleted only
+that target and verified404 with zero target admission charge. Independent
+post-run inventory showed exactly the original524905… in exited(failed), no Cube
+tasks, and the original lifecycle-manager container still paused. Original
+source cleanup/unfreeze remains a separate root-reviewed action. Native recovery
+still failed; this is current-disk repair plus replacement/journal recovery.
+
+The initial prepared command referenced converted archives under /mnt/nvme,
+which the binary correctly disallows. This was caught before invocation. All
+four converted files were independently copied under the private journal stage;
+the original command was preserved and the corrected command explicitly reviewed
+before execution. Future preparation now makes that copy and generates a path
+within the executable guard; tests reject outside-root commands and symlinks.

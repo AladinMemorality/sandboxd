@@ -87,6 +87,29 @@ def validate_capture_metadata(plan, manifest, metadata):
                 'capture metadata canonical hash mismatch')
 
 
+def stage_converted(source, output):
+    destination = output / 'converted'
+    destination.mkdir(mode=0o700)
+    for name in ['app.zip', 'home.zip', 'home-manifest.json', 'conversion.json']:
+        original = source / name
+        info = original.lstat()
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.geteuid() and
+                info.st_mode & 0o077 == 0 and info.st_size < 256 << 20,
+                'private bounded converted file required')
+        with original.open('rb') as inp, (destination / name).open('xb') as out:
+            os.fchmod(out.fileno(), 0o600)
+            shutil.copyfileobj(inp, out)
+            out.flush(); os.fsync(out.fileno())
+        require(digest(original) == digest(destination / name), 'converted staging digest mismatch')
+    return destination
+
+
+def journal_argv(binary, old_dir, output):
+    require(output.is_absolute() and output.parent == Path('/opt/baarcha-bench') and
+            output.name.startswith('cube-journal-'), 'journal output outside executable guard')
+    return [binary, 'run', str(old_dir), str(output / 'converted'), str(output)]
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         raise ValueError("management redirect refused")
@@ -196,9 +219,10 @@ def main():
         'recovery_evidence_sha256': digest(output / 'recovery-evidence.json'), 'expires_at': fence['expires_at']})
     write(output / 'native-archive.json', {'retained_home_tar_path': str(export / 'home.tar'),
                                         'retained_current_disk_path': str(inputs / 'current.ext4')})
+    stage_converted(export / 'converted', output)
     write(output / 'prepared-command.json', {
         'cwd': str(Path(args.binary).parent / 'cmd/operator-journal-acceptance'),
-        'argv': [args.binary, 'run', str(old_dir), str(export / 'converted'), str(output)],
+        'argv': journal_argv(args.binary, old_dir, output),
         'binary_sha256': args.binary_sha256, 'executed': False,
         'required_limits': {'CPUQuota': '200%', 'MemoryMax': '2G', 'TasksMax': 128, 'RuntimeMaxSec': '21min'}})
     fd = os.open(output, os.O_DIRECTORY); os.fsync(fd); os.close(fd)

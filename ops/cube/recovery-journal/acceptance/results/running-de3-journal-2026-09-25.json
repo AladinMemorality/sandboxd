@@ -1,0 +1,21 @@
+{
+  "actual_ui_router_tested": false,
+  "fixture_target_admission_charge_zero": true,
+  "isolated_binding_changed_atomically": true,
+  "latest_app_home_sql_preserved": true,
+  "old_provider_id": "524905c6b8a84f9b90470e0f0a813894",
+  "old_provider_state_branch": "unavailable-retained",
+  "original_crash_task_history_present": false,
+  "original_source_retained_verified": true,
+  "owned_target_deleted_verified404": true,
+  "production_accepted": false,
+  "production_binding_changed": false,
+  "provider_inventory_zero": false,
+  "quiesced_app_home_digests_match": true,
+  "stable_owner_app_sandbox_config_task_preserved": true,
+  "stable_url_identity_preserved": true,
+  "stage": "journal-acceptance-pass",
+  "synthetic_history_only": true,
+  "synthetic_task_history_roundtrip": true,
+  "updated_at": "2026-09-25T14:40:48.498511371Z"
+}
