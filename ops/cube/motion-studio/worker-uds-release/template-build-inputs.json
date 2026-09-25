@@ -1,0 +1,10 @@
+{
+  "source_commit": "5fdb953dea1aafaf486b5e3fdd63e20de2781a89",
+  "source_archive_sha256": "6c8b9df04626e6c0a0510da072306d4b823dc50fc9763d3b6d3e32a79b463473",
+  "source_regular_files": 507,
+  "dockerfile_sha256": "ad0668e9aab9e934e2a5a36897a23913dfb6acea79cc817d05e80d5fe833f7b5",
+  "built": false,
+  "registered": false,
+  "base_image_readonly_presence_verified": true,
+  "builder_image_readonly_presence_verified": true
+}
