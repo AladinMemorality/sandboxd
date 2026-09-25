@@ -25,7 +25,7 @@ func (s *Store) AdmissionPolicy(ctx context.Context, maximum int, profile string
 			return errors.New("Cube admission policy differs from durable capacity contract")
 		}
 		var missing int
-		if err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM runtime_binding b WHERE b.provider='cube' AND NOT EXISTS(SELECT 1 FROM cube_admission a WHERE a.runtime_id=b.runtime_id)`).Scan(&missing); err != nil {
+		if err = db.QueryRowContext(ctx, `SELECT COUNT(*) FROM runtime_binding b WHERE b.provider='cube' AND NOT EXISTS(SELECT 1 FROM cube_admission a WHERE a.runtime_id=b.runtime_id) AND NOT EXISTS(SELECT 1 FROM cube_recovery r JOIN cube_admission a ON a.admission_key='app:'||r.app_id WHERE r.sandbox_id=b.sandbox_id AND r.old_runtime_id=b.runtime_id AND r.phase IN ('creating','created','verified') AND ((r.phase='creating' AND a.state='pending' AND a.operation='create' AND a.token=r.operation_token AND a.charged=1) OR (r.phase IN ('created','verified') AND a.runtime_id=r.new_runtime_id)))`).Scan(&missing); err != nil {
 			return err
 		}
 		if missing != 0 {
@@ -40,6 +40,13 @@ func scanAdmission(row *sql.Row) (cube.AdmissionRecord, error) {
 	return a, err
 }
 func (s *Store) AdmissionLookup(ctx context.Context, runtimeID string) (cube.AdmissionRecord, error) {
+	var quarantined int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM cube_runtime_quarantine WHERE runtime_id=?`, runtimeID).Scan(&quarantined); err != nil {
+		return cube.AdmissionRecord{}, err
+	}
+	if quarantined != 0 {
+		return cube.AdmissionRecord{}, cube.ErrRuntimeUnavailable
+	}
 	return scanAdmission(s.db.QueryRowContext(ctx, `SELECT admission_key,runtime_id,template_id,operation,token,state,charged FROM cube_admission WHERE runtime_id=?`, runtimeID))
 }
 
@@ -56,6 +63,13 @@ func (s *Store) AdmissionBegin(ctx context.Context, key, runtimeID, templateID, 
 		// Acquire the SQLite write lock before reading count or previous state.
 		if _, err = tx.ExecContext(ctx, `UPDATE cube_admission_policy SET max_active=max_active WHERE singleton=1`); err != nil {
 			return err
+		}
+		var quarantined int
+		if err = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM cube_runtime_quarantine WHERE runtime_id=?`, runtimeID).Scan(&quarantined); err != nil {
+			return err
+		}
+		if quarantined != 0 {
+			return cube.ErrRuntimeUnavailable
 		}
 		var max int
 		if err = tx.QueryRowContext(ctx, `SELECT max_active FROM cube_admission_policy WHERE singleton=1`).Scan(&max); err != nil {
@@ -111,13 +125,20 @@ func (s *Store) AdmissionBegin(ctx context.Context, key, runtimeID, templateID, 
 }
 func (s *Store) AdmissionFinish(ctx context.Context, a cube.AdmissionRecord, runtimeID, state string) error {
 	return s.submit(ctx, func(db *sql.DB) error {
+		var recovery int
+		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM cube_recovery WHERE phase='creating' AND operation_token=?`, a.Token).Scan(&recovery); err != nil {
+			return err
+		}
+		if recovery != 0 {
+			return cube.ErrAdmissionPending
+		}
 		charge := 1
 		if state == "released" || state == "deleted" {
 			charge = 0
 		} else if state != "active" {
 			return errors.New("invalid Cube admission completion")
 		}
-		result, err := db.ExecContext(ctx, `UPDATE cube_admission SET runtime_id=?,state=?,charged=? WHERE admission_key=? AND token=? AND state='pending' AND (charged>=? OR (SELECT COALESCE(SUM(charged),0) FROM cube_admission) < (SELECT max_active FROM cube_admission_policy WHERE singleton=1))`, runtimeID, state, charge, a.Key, a.Token, charge)
+		result, err := db.ExecContext(ctx, `UPDATE cube_admission SET runtime_id=?,state=?,charged=? WHERE admission_key=? AND token=? AND state='pending' AND NOT EXISTS(SELECT 1 FROM cube_recovery r WHERE r.phase='creating' AND r.operation_token=cube_admission.token) AND (charged>=? OR (SELECT COALESCE(SUM(charged),0) FROM cube_admission) < (SELECT max_active FROM cube_admission_policy WHERE singleton=1))`, runtimeID, state, charge, a.Key, a.Token, charge)
 		if err != nil {
 			return err
 		}

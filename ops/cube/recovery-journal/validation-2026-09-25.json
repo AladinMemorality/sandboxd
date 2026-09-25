@@ -1,0 +1,60 @@
+{
+  "date": "2026-09-25",
+  "status": "offline-synthetic-tests-passed-no-live-journal-recovery",
+  "production_mutations": false,
+  "live_provider_operations": false,
+  "migration": "0033_cube_recovery",
+  "checks": [
+    "Go Linux race suite: entire internal/store, internal/cube, internal/recovery packages",
+    "Full cmd/sandboxd Linux race suite",
+    "go vet internal/store, internal/cube, internal/recovery",
+    "gofmt and git diff --check"
+  ],
+  "environment": {
+    "image": "golang:1.22-bookworm",
+    "cpus": 2,
+    "memory_gib": 2,
+    "network": "none; httptest loopback only"
+  },
+  "logs": [
+    "/opt/baarcha-bench/cube-recovery-journal-20260925/final-race-04.log",
+    "/opt/baarcha-bench/cube-recovery-journal-20260925/final-cmd-race.log",
+    "/opt/baarcha-bench/cube-recovery-journal-20260925/final-domain-race.log"
+  ],
+  "coverage": [
+    "full-four-slot replacement without extra charged capacity",
+    "permanent old-runtime quarantine and stale-generation rejection",
+    "missing task history and active task refusal",
+    "config revision, config content, task result and target lease drift rejection",
+    "missing import/authentication/history proof rejection",
+    "atomic stable app/sandbox identity binding CAS and idempotent concurrent completion",
+    "ambiguous single provider POST, disk DB reopen, exact-target-only adoption",
+    "crash after acknowledgment before credential write can adopt same target",
+    "ordinary admission cannot bypass recovery intent",
+    "caller cancellation before reservation prevents POST; after intent completes acknowledgment",
+    "exclusive offline lock refusal and closed-session refusal",
+    "private journal JSON hides credentials, owner and artifact paths",
+    "recovery target domain pinned to retained reviewed hostname; mismatching provider domain rejected"
+  ],
+  "limitations": [
+    "Provider drain and import receipts remain trusted operator assertions; helper does not validate remote filesystem consistency.",
+    "No actual worker replacement has been run through this new journal.",
+    "No automatic lost-replacement retry/reset or tenant API.",
+    "Native host PID namespace and prevention of legacy daemon restarts remain operator prerequisites."
+  ],
+  "source_sha256": {
+    "control-plane/migrations/0033_cube_recovery.sql": "dff92f4871061bf6bb80b9216cf79cc4a2b51555a471c31acd85444c65a705a1",
+    "control-plane/internal/store/cube_recovery_journal.go": "a1d66b606254002c6d015f043cb2f73257ab406406d68d3b7ab2c0589cdae5a0",
+    "control-plane/internal/store/cube_recovery_journal_test.go": "9ee50daabe4fce45ca24de45a56dc9cb29bc213910a433a9ec6fa3a9b6ba5822",
+    "control-plane/internal/store/cube_admission.go": "07a5fd4477dbe8c1287b4a141ccb6310fcf1416f217328d199470e22528ef858",
+    "control-plane/internal/cube/recovery_create.go": "7a25e129c4e8be929249e2db195767ae23e6407c36fe37c5cdc7e3ed2498b789",
+    "control-plane/internal/recovery/offline_linux.go": "45c06b49834d0198bd9aa946ffa04d246f07bd69e98208a69e505783b9e4e2af",
+    "control-plane/internal/recovery/offline_linux_test.go": "c038e20d52f11604d693794ec274f0e5701b679a3be5f25653173542e6c2ccce",
+    "control-plane/cmd/sandboxd/main.go": "b141df80446066c7d42f35928ae8ccad6219be35b8085fb1bb8fff11460fa3f7"
+  },
+  "fixture_corrections": [
+    "Reopen fixture changed from in-memory to private disk SQLite, with single close per store.",
+    "Successful fake provider POST corrected to expected HTTP 201.",
+    "Independent config-content check led to stricter recovery fingerprint covering every app config policy and preset, including control-plane-only settings."
+  ]
+}

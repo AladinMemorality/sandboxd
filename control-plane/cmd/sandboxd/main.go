@@ -207,6 +207,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if pending, e := st.HasIncompleteCubeRecoveries(ctx); e != nil || pending {
+		log.Error("startup: incomplete offline Cube recovery; verify and commit recovery before starting daemon", "err", e)
+		os.Exit(1)
+	}
+
 	// Phase 5 — Backfill last_active_at for legacy running rows where
 	// the migration default (0) would otherwise make every existing
 	// row an idle candidate the moment the daemon comes up.

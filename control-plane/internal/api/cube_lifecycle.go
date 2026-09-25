@@ -135,11 +135,17 @@ func (s *Server) createCubeAppSandbox(w http.ResponseWriter, r *http.Request, ap
 		writeV1Err(w, 503, "runtime_unavailable", "Cube egress policy unavailable")
 		return
 	}
-	remote, err := s.Cube.Create(r.Context(), cube.CreateRequest{TemplateID: template, TimeoutSeconds: 3600,
+	request := cube.CreateRequest{TemplateID: template, TimeoutSeconds: 3600,
 		EnvVars:   map[string]string{"RUNTIMED_HTTP_ADDR": ":3031", "RUNTIMED_HTTP_TOKEN": token},
 		Metadata:  map[string]string{"sandboxd_id": id, "sandboxd_app_id": app.ID},
 		Lifecycle: &cube.Lifecycle{OnTimeout: "pause", AutoResume: false},
 		Network:   network,
+	}
+	var remote *cube.Sandbox
+	err = s.withCubeCapacityRetry(r.Context(), id, func() error {
+		var e error
+		remote, e = s.Cube.Create(r.Context(), request)
+		return e
 	})
 	if err != nil {
 		if writeCubeAdmissionError(w, err) {

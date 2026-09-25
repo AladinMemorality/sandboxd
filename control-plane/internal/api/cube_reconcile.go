@@ -33,7 +33,10 @@ func (s *Server) connectCubeWithConfig(ctx context.Context, id string, timeoutSe
 	if err != nil {
 		return err
 	}
-	if _, err = s.Cube.Connect(ctx, b.RuntimeID, cube.ConnectRequest{TimeoutSeconds: timeoutSeconds}); err != nil {
+	if err = s.withCubeCapacityRetry(ctx, id, func() error {
+		_, e := s.Cube.Connect(ctx, b.RuntimeID, cube.ConnectRequest{TimeoutSeconds: timeoutSeconds})
+		return e
+	}); err != nil {
 		return err
 	}
 	ready, cancel := context.WithTimeout(ctx, 15*time.Second)
