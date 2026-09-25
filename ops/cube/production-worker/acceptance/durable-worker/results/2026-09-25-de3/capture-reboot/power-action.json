@@ -1,0 +1,7 @@
+{
+  "method": "QMP system_powerdown",
+  "previous_boot_id": "1574a104-22ab-4e85-92ba-36163537171f",
+  "original_pid": 2886205,
+  "time": 1790345614.523426,
+  "production_mutated": false
+}

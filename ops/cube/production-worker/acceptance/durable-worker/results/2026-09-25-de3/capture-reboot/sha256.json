@@ -1,0 +1,10 @@
+{
+  "continuity.json": "36ee6ff8b9f10ce2eeaec663f0ca118c9ae016edb27ffcdc24d8a0d00320ed30",
+  "actual-ready.json": "ca9cdc2ad80055485b582ba8f64b758b26ea88e5e21c828fc7786f465dc3eb05",
+  "nested-ready.json": "29313157fe45ca3b66b4b5b5d609f5c7cc1a3b7873c8ef324cc55b97b153d6d0",
+  "nested-stop.json": "5bc31b86590c6d4481f68134343edcb8eddba72f49032f51379430efac73c8d8",
+  "clean-qemu-exit.json": "760b921dd233538b79cdaa8f7590f2cd73eb16f104b0cc23c904a416b695ff19",
+  "power-action.json": "66d85930f8412e1bb3cc465ff1f8cae724b73476175728f6901c9acbb38e7a72",
+  "source-before.json": "ca508c2a8d1f27e2d2d56484cd68d36c38d53c112ed938c3e6ad63d0ae8759a4",
+  "source-after.json": "ca508c2a8d1f27e2d2d56484cd68d36c38d53c112ed938c3e6ad63d0ae8759a4"
+}

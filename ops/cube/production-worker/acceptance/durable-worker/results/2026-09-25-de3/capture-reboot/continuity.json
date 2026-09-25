@@ -1,0 +1,19 @@
+{
+  "purpose": "CUBE_CAPTURE_POST_REBOOT_CONTINUITY",
+  "sandbox_id": "524905c6b8a84f9b90470e0f0a813894",
+  "worker_machine_id": "2b9e31d4abd345e3bd4b966591e61296",
+  "data_uuid": "793c3349-db9c-4815-9842-989ed484f1f8",
+  "capture_boot_id": "1574a104-22ab-4e85-92ba-36163537171f",
+  "execution_boot_id": "7ee095fe-0461-4779-93e6-42e2b557440f",
+  "captured_disk_sha256": "974163c7b81e894f3aef408347314aae6e764750dbfcc04c5e16f57bb77f94bf",
+  "post_reboot_source_sha256": "974163c7b81e894f3aef408347314aae6e764750dbfcc04c5e16f57bb77f94bf",
+  "capture_manifest_sha256": "52c5a5bdb867adfbe2041e8a8f1b3ec2fb68f22d87db9d69fe8e031813b1fbe1",
+  "capture_fence_sha256": "350f0a211beb165ef05582fd1bada17ea1ae6b9993ef9a86887fe4a647c8bf1e",
+  "source_plan_sha256": "a632d92f9f5d6cfba3063475cbaed964f5b82921a09c4406c2069b2c9444d26b",
+  "critical_identity_preserved": true,
+  "orderly_shutdown_verified": true,
+  "no_task_verified": true,
+  "no_owned_vmm_or_disk_fd_verified": true,
+  "provider_requests_drained": true,
+  "checked_at": 1790345791
+}

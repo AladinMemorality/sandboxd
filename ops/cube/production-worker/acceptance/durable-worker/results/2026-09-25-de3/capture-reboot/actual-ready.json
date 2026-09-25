@@ -1,0 +1,72 @@
+{
+  "boot_id": "7ee095fe-0461-4779-93e6-42e2b557440f",
+  "critical_roots": {
+    "cgroup": {
+      "filesystem": "xfs",
+      "open_databases": 10,
+      "root_exists": true
+    },
+    "cleanup": {
+      "filesystem": "xfs",
+      "open_databases": 10,
+      "root_exists": true
+    },
+    "containerd": {
+      "filesystem": "xfs",
+      "open_databases": 1,
+      "root_exists": true
+    },
+    "cubebox": {
+      "filesystem": "xfs",
+      "open_databases": 10,
+      "root_exists": true
+    },
+    "images": {
+      "filesystem": "xfs",
+      "open_databases": 10,
+      "root_exists": true
+    },
+    "multimeta": {
+      "filesystem": "xfs",
+      "open_databases": 10,
+      "root_exists": true
+    },
+    "netfile": {
+      "filesystem": "xfs",
+      "open_databases": 0,
+      "root_exists": true
+    },
+    "network": {
+      "filesystem": "xfs",
+      "open_databases": 10,
+      "root_exists": true
+    },
+    "overlayfs": {
+      "filesystem": "xfs",
+      "open_databases": 1,
+      "root_exists": true
+    },
+    "storage": {
+      "filesystem": "xfs",
+      "open_databases": 11,
+      "root_exists": true
+    },
+    "volume": {
+      "filesystem": "xfs",
+      "open_databases": 20,
+      "root_exists": true
+    }
+  },
+  "passed": true,
+  "phase": "ready",
+  "power_loss_acceptance": false,
+  "required_templates": 8,
+  "retained_current_disk": "unchanged stat identity",
+  "worker_quota": {
+    "creation_concurrent_num": 1,
+    "mcpu_limit": 10000,
+    "mem_limit": "10Gi",
+    "mvm_limit": 128,
+    "paused_resource_release_ratio": 1.0
+  }
+}
