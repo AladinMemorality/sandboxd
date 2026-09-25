@@ -227,3 +227,58 @@ func TestRetainedEvidenceCannotSubstituteMissingProviderPurpose(t *testing.T) {
 		t.Fatal("unfenced source accepted")
 	}
 }
+
+func TestPostCaptureRebootRequiresUnchangedDiskAndExactReceiptChain(t *testing.T) {
+	old, _ := ownedEvidence()
+	old.BootID = "original"
+	old.DataUUID = "reviewed-data"
+	files := map[string]string{"rescue-input.json": "manifest-sha", "fence.json": "fence-sha", "plan.json": "plan-sha"}
+	good := postCaptureReboot{Purpose: "CUBE_CAPTURE_POST_REBOOT_CONTINUITY", ID: old.Guest.SandboxID, Machine: old.WorkerMachineID, DataUUID: old.DataUUID, CaptureBoot: "captured", ExecutionBoot: "current", CapturedDisk: "latest-disk", CurrentDisk: "latest-disk", Manifest: "manifest-sha", Fence: "fence-sha", Plan: "plan-sha", Identity: true, Orderly: true, NoTask: true, NoVMM: true, Drained: true}
+	if e := validatePostCaptureReboot(good, old, "captured", "current", "latest-disk", files); e != nil {
+		t.Fatal(e)
+	}
+	for _, mutate := range []func(*postCaptureReboot){
+		func(p *postCaptureReboot) { p.ID = "other" }, func(p *postCaptureReboot) { p.Machine = "other" }, func(p *postCaptureReboot) { p.DataUUID = "other" },
+		func(p *postCaptureReboot) { p.CaptureBoot = "wrong" }, func(p *postCaptureReboot) { p.ExecutionBoot = "captured" }, func(p *postCaptureReboot) { p.ExecutionBoot = "original" },
+		func(p *postCaptureReboot) { p.CurrentDisk = "newer-unbound-disk" }, func(p *postCaptureReboot) { p.CapturedDisk = "old-checkpoint" }, func(p *postCaptureReboot) { p.Manifest = "other" },
+		func(p *postCaptureReboot) { p.Fence = "other" }, func(p *postCaptureReboot) { p.Plan = "other" }, func(p *postCaptureReboot) { p.Identity = false }, func(p *postCaptureReboot) { p.Orderly = false },
+		func(p *postCaptureReboot) { p.NoTask = false }, func(p *postCaptureReboot) { p.NoVMM = false }, func(p *postCaptureReboot) { p.Drained = false },
+	} {
+		bad := good
+		mutate(&bad)
+		if e := validatePostCaptureReboot(bad, old, "captured", "current", "latest-disk", files); e == nil {
+			t.Fatal("invalid reboot chain accepted")
+		}
+	}
+}
+
+func TestExplicitRepairEvidenceRequiresCleanCloneAndHashBoundLogs(t *testing.T) {
+	files := map[string]string{"repair-receipt.json": strings.Repeat("a", 64), "repair-fsck.log": strings.Repeat("b", 64), "verify-fsck.log": strings.Repeat("c", 64)}
+	source, clone := strings.Repeat("d", 64), strings.Repeat("e", 64)
+	good := map[string]any{"purpose": "CUBE_CURRENT_DISK_EXPLICIT_CLONE_REPAIR", "source_sha256": source, "clone_before_sha256": source, "clone_after_sha256": clone, "clean_verified": true, "steps": []map[string]any{{"option": "-fy", "returncode": 1, "log": "repair-fsck.log", "log_sha256": files["repair-fsck.log"]}, {"option": "-fn", "returncode": 0, "log": "verify-fsck.log", "log_sha256": files["verify-fsck.log"]}}}
+	check := func(value map[string]any) error {
+		b, err := json.Marshal(value)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return validateRepairEvidence(files["repair-receipt.json"], source, clone, files, map[string]json.RawMessage{"repair-receipt.json": b})
+	}
+	if err := check(good); err != nil {
+		t.Fatal(err)
+	}
+	for key, bad := range map[string]any{"purpose": "normal", "source_sha256": clone, "clone_before_sha256": clone, "clone_after_sha256": source, "clean_verified": false, "steps": []map[string]any{{"option": "-fy", "returncode": 1, "log": "repair-fsck.log", "log_sha256": files["repair-fsck.log"]}, {"option": "-fn", "returncode": 1, "log": "verify-fsck.log", "log_sha256": files["verify-fsck.log"]}}} {
+		old := good[key]
+		good[key] = bad
+		if err := check(good); err == nil {
+			t.Errorf("accepted %s", key)
+		}
+		good[key] = old
+	}
+	if err := validateRepairEvidence("", source, "", files, nil); err == nil {
+		t.Fatal("ignored undeclared repair")
+	}
+	delete(files, "verify-fsck.log")
+	if err := check(good); err == nil {
+		t.Fatal("accepted unbound verification log")
+	}
+}

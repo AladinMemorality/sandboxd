@@ -58,6 +58,12 @@ func validateSourceReceipt(proof missingEvidence, old escrow, archive, boot stri
 		return errors.New("missing provider evidence does not establish fenced current-disk provenance")
 	}
 	names := []string{"cubebox.json", "storage.json", "plan.json", "rescue-input.json", "fence.json", "export-report.json"}
+	if purpose == "OWNED_CURRENT_DISK_RETAINED_PROVIDER" && proof.Files["post-capture-reboot.json"] != "" {
+		names = append(names, "post-capture-reboot.json")
+	}
+	if proof.Files["repair-receipt.json"] != "" {
+		names = append(names, "repair-receipt.json", "repair-fsck.log", "verify-fsck.log")
+	}
 	if len(proof.Files) != len(names) {
 		return errors.New("incomplete recovery evidence files")
 	}
@@ -139,23 +145,110 @@ func validateSourceFiles(dir, proofSHA string, old escrow, archive, boot, purpos
 		Fenced  bool   `json:"management_fenced"`
 	}
 	var report struct {
-		Purpose string `json:"purpose"`
-		ID      string `json:"sandbox_id"`
-		Archive string `json:"archive_sha256"`
-		Disk    string `json:"captured_disk_sha256"`
+		Purpose      string `json:"purpose"`
+		ID           string `json:"sandbox_id"`
+		Archive      string `json:"archive_sha256"`
+		Disk         string `json:"captured_disk_sha256"`
+		Repair       string `json:"explicit_repair_receipt_sha256"`
+		RepairedDisk string `json:"explicit_repair_clone_sha256"`
 	}
 	for name, out := range map[string]any{"cubebox.json": &box, "storage.json": &storage, "plan.json": &plan, "rescue-input.json": &input, "fence.json": &fence, "export-report.json": &report} {
 		if err := json.Unmarshal(objects[name], out); err != nil {
 			return err
 		}
 	}
+	if err := validateRepairEvidence(report.Repair, report.Disk, report.RepairedDisk, proof.Files, objects); err != nil {
+		return err
+	}
 	id := old.Guest.SandboxID
-	if box.ID != id || box.SandboxID != id || storage.SandboxID != id || plan.ID != id || plan.Purpose != "CUBE_CURRENT_DISK_RESCUE" || input.ID != id || input.Purpose != "CUBE_CURRENT_DISK_RESCUE_INPUT" || fence.ID != id || fence.Purpose != "CUBE_CURRENT_DISK_CAPTURE" || fence.Machine != old.WorkerMachineID || fence.Before != old.BootID || fence.After != boot || !fence.NoTask || !fence.Fenced || report.ID != id || report.Purpose != "CUBE_CURRENT_DISK_HOME_EXPORT" || report.Archive != archive || len(input.Artifacts) < 2 || input.Artifacts[0].File != "current.ext4" || input.Artifacts[0].SHA != report.Disk {
+	if box.ID != id || box.SandboxID != id || storage.SandboxID != id || plan.ID != id || plan.Purpose != "CUBE_CURRENT_DISK_RESCUE" || input.ID != id || input.Purpose != "CUBE_CURRENT_DISK_RESCUE_INPUT" || fence.ID != id || fence.Purpose != "CUBE_CURRENT_DISK_CAPTURE" || fence.Machine != old.WorkerMachineID || fence.Before != old.BootID || !fence.NoTask || !fence.Fenced || report.ID != id || report.Purpose != "CUBE_CURRENT_DISK_HOME_EXPORT" || report.Archive != archive || len(input.Artifacts) < 2 || input.Artifacts[0].File != "current.ext4" || input.Artifacts[0].SHA != report.Disk {
 		return errors.New("current disk evidence identity chain mismatch")
+	}
+	if fence.After != boot {
+		if purpose != "OWNED_CURRENT_DISK_RETAINED_PROVIDER" {
+			return errors.New("historical missing-provider capture boot changed")
+		}
+		var continuity postCaptureReboot
+		if err := json.Unmarshal(objects["post-capture-reboot.json"], &continuity); err != nil {
+			return errors.New("explicit post-capture reboot evidence required")
+		}
+		if err := validatePostCaptureReboot(continuity, old, fence.After, boot, report.Disk, proof.Files); err != nil {
+			return err
+		}
+	} else if _, extra := proof.Files["post-capture-reboot.json"]; extra {
+		return errors.New("post-capture receipt supplied without observed reboot")
 	}
 	for _, k := range []string{"cubebox", "storage"} {
 		if !regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(plan.Source[k]) || plan.Source[k] != input.Source[k] {
 			return errors.New("current capture metadata binding mismatch")
+		}
+	}
+	return nil
+}
+
+// This receipt connects an immutable original capture to a later planned clean
+// worker reboot. It is an operator proof, never inferred from elapsed time.
+type postCaptureReboot struct {
+	Purpose       string `json:"purpose"`
+	ID            string `json:"sandbox_id"`
+	Machine       string `json:"worker_machine_id"`
+	DataUUID      string `json:"data_uuid"`
+	CaptureBoot   string `json:"capture_boot_id"`
+	ExecutionBoot string `json:"execution_boot_id"`
+	CapturedDisk  string `json:"captured_disk_sha256"`
+	CurrentDisk   string `json:"post_reboot_source_sha256"`
+	Manifest      string `json:"capture_manifest_sha256"`
+	Fence         string `json:"capture_fence_sha256"`
+	Plan          string `json:"source_plan_sha256"`
+	Identity      bool   `json:"critical_identity_preserved"`
+	Orderly       bool   `json:"orderly_shutdown_verified"`
+	NoTask        bool   `json:"no_task_verified"`
+	NoVMM         bool   `json:"no_owned_vmm_or_disk_fd_verified"`
+	Drained       bool   `json:"provider_requests_drained"`
+}
+
+func validatePostCaptureReboot(p postCaptureReboot, old escrow, capturedBoot, currentBoot, disk string, files map[string]string) error {
+	if old.Guest == nil || p.Purpose != "CUBE_CAPTURE_POST_REBOOT_CONTINUITY" || p.ID != old.Guest.SandboxID || p.Machine != old.WorkerMachineID || p.DataUUID != old.DataUUID || p.CaptureBoot != capturedBoot || p.ExecutionBoot != currentBoot || capturedBoot == currentBoot || capturedBoot == old.BootID || currentBoot == old.BootID || p.CapturedDisk != disk || p.CurrentDisk != disk || p.Manifest != files["rescue-input.json"] || p.Fence != files["fence.json"] || p.Plan != files["plan.json"] || !p.Identity || !p.Orderly || !p.NoTask || !p.NoVMM || !p.Drained {
+		return errors.New("post-capture reboot did not preserve fenced current-disk provenance")
+	}
+	return nil
+}
+
+// Repair is separately evidenced, never silently accepted as normal preen.
+func validateRepairEvidence(receiptSHA, sourceSHA, cloneSHA string, files map[string]string, objects map[string]json.RawMessage) error {
+	if receiptSHA == "" {
+		if files["repair-receipt.json"] != "" || cloneSHA != "" {
+			return errors.New("unexpected repair evidence")
+		}
+		return nil
+	}
+	if files["repair-receipt.json"] != receiptSHA {
+		return errors.New("unbound explicit repair receipt")
+	}
+	var receipt struct {
+		Purpose string `json:"purpose"`
+		Source  string `json:"source_sha256"`
+		Before  string `json:"clone_before_sha256"`
+		After   string `json:"clone_after_sha256"`
+		Clean   bool   `json:"clean_verified"`
+		Steps   []struct {
+			Option string `json:"option"`
+			Code   int    `json:"returncode"`
+			Log    string `json:"log"`
+			SHA    string `json:"log_sha256"`
+		} `json:"steps"`
+	}
+	if json.Unmarshal(objects["repair-receipt.json"], &receipt) != nil || receipt.Purpose != "CUBE_CURRENT_DISK_EXPLICIT_CLONE_REPAIR" || receipt.Source != sourceSHA || receipt.Before != sourceSHA || !receipt.Clean || receipt.After != cloneSHA || !regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(cloneSHA) || len(receipt.Steps) != 2 {
+		return errors.New("repair did not establish clean independent current clone")
+	}
+	for i, name := range []string{"repair-fsck.log", "verify-fsck.log"} {
+		step := receipt.Steps[i]
+		option := "-fy"
+		if i == 1 {
+			option = "-fn"
+		}
+		if step.Option != option || step.Log != name || step.SHA != files[name] || !regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(step.SHA) || step.Code < 0 || step.Code > 1 || (i == 1 && step.Code != 0) {
+			return errors.New("repair command or clean-check provenance mismatch")
 		}
 	}
 	return nil

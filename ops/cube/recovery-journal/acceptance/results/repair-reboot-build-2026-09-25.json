@@ -1,0 +1,27 @@
+{
+  "candidate_sha256": "83815957dbe4cf5d09cd9445dc8942c391c47e6f58c96645052742ed039b3a49",
+  "binary_path": "/opt/baarcha-bench/cube-journal-repair-prepare-20260925/control-plane/journal-acceptance",
+  "validation": {
+    "journal_race_seconds": 1.159,
+    "python_export_tests": 10,
+    "python_prepare_tests": 3,
+    "result": "PASS"
+  },
+  "limits": {
+    "cpu": 2,
+    "memory_gib": 2,
+    "tmpfs_exec_mib": 512,
+    "network": "none",
+    "pids": 256
+  },
+  "live_journal_executed": false,
+  "source_sha256": {
+    "ops/cube/production-worker/recovery/replacement/missing_evidence.go": "beced862255e33645b9fcc9ab2a48d6ed51cd6629df0ed27df8d37e75fb6f14a",
+    "ops/cube/production-worker/recovery/replacement/missing_evidence_test.go": "56e0d0c8c9e5bc32371ecf8ec1dd64b16c182b52873d032048309b7e890247b2",
+    "ops/cube/production-worker/recovery/rescue_export.py": "82b5c4ec4a9d9135955a2d64ef518600803ad6a16535036aa092d8499b86dc1b",
+    "ops/cube/production-worker/recovery/rescue_export_test.py": "6e13714807503d709834965938fce0c22c28d0dc74387ded8f486a0c8712fbd1",
+    "ops/cube/recovery-journal/acceptance/main_test.go": "9a8c8cc3e3d9d2f7afd16e5a85a61335413693a4690db87c3bdbe5ef84b0e615",
+    "ops/cube/recovery-journal/acceptance/prepare_retained.py": "1fc6c6be79c5a5d678481c609437144c40878ec144d1809aefc5ed0caef0e041",
+    "ops/cube/recovery-journal/acceptance/prepare_retained_test.py": "d32148eeefcc6c0a55e42a7d2669c3ee5ef4ea09bd5037db2615ec8668e27e8e"
+  }
+}

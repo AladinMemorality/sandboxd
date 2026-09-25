@@ -93,9 +93,76 @@ func TestMissingFilesRequireLinkedCurrentDiskAndExactMetadata(t *testing.T) {
 	if err := validateMissingFiles(dir, hashBytes(b), old, "archive-baseline", "new"); err == nil {
 		t.Fatal("baseline accepted")
 	}
+	// Preserve the original capture receipt, and explicitly bind a later
+	// clean worker boot to the same captured/current disk and metadata.
+	p.Purpose = "OWNED_CURRENT_DISK_RETAINED_PROVIDER"
+	p.CurrentBoot = "newer"
+	reboot := postCaptureReboot{Purpose: "CUBE_CAPTURE_POST_REBOOT_CONTINUITY", ID: old.Guest.SandboxID, Machine: old.WorkerMachineID, DataUUID: old.DataUUID,
+		CaptureBoot: "new", ExecutionBoot: "newer", CapturedDisk: "disk-current", CurrentDisk: "disk-current", Manifest: p.Files["rescue-input.json"], Fence: p.Files["fence.json"], Plan: p.Files["plan.json"], Identity: true, Orderly: true, NoTask: true, NoVMM: true, Drained: true}
+	rb, _ := json.Marshal(reboot)
+	os.WriteFile(filepath.Join(dir, "post-capture-reboot.json"), rb, 0600)
+	p.Files["post-capture-reboot.json"] = hashBytes(rb)
+	b, _ = json.Marshal(p)
+	os.WriteFile(filepath.Join(dir, "recovery-evidence.json"), b, 0600)
+	if err := validateSourceFiles(dir, hashBytes(b), old, "archive-current", "newer", "OWNED_CURRENT_DISK_RETAINED_PROVIDER"); err != nil {
+		t.Fatal(err)
+	}
+	if err := validateMissingFiles(dir, hashBytes(b), old, "archive-current", "newer"); err == nil {
+		t.Fatal("historical missing branch accepted retained reboot receipt")
+	}
+	reboot.CurrentDisk = "baseline"
+	rb, _ = json.Marshal(reboot)
+	os.WriteFile(filepath.Join(dir, "post-capture-reboot.json"), rb, 0600)
+	p.Files["post-capture-reboot.json"] = hashBytes(rb)
+	b, _ = json.Marshal(p)
+	os.WriteFile(filepath.Join(dir, "recovery-evidence.json"), b, 0600)
+	if err := validateSourceFiles(dir, hashBytes(b), old, "archive-current", "newer", "OWNED_CURRENT_DISK_RETAINED_PROVIDER"); err == nil {
+		t.Fatal("recertified receipt accepted changed current disk")
+	}
+	reboot.CurrentDisk = "disk-current"
+	rb, _ = json.Marshal(reboot)
+	os.WriteFile(filepath.Join(dir, "post-capture-reboot.json"), rb, 0600)
+	p.Files["post-capture-reboot.json"] = hashBytes(rb)
+	b, _ = json.Marshal(p)
+	os.WriteFile(filepath.Join(dir, "recovery-evidence.json"), b, 0600)
+	if err := validateSourceFiles(dir, hashBytes(b), old, "archive-current", "newer", "OWNED_CURRENT_DISK_RETAINED_PROVIDER"); err != nil {
+		t.Fatal(err)
+	}
+
+	// A repaired export must retain the receipt and exact diagnostic bytes.
+	for _, name := range []string{"repair-fsck.log", "verify-fsck.log"} {
+		raw := []byte("private fsck diagnostic for " + name)
+		if err := os.WriteFile(filepath.Join(dir, name), raw, 0600); err != nil {
+			t.Fatal(err)
+		}
+		p.Files[name] = hashBytes(raw)
+	}
+	repaired := strings.Repeat("c", 64)
+	receipt := map[string]any{"purpose": "CUBE_CURRENT_DISK_EXPLICIT_CLONE_REPAIR", "source_sha256": "disk-current", "clone_before_sha256": "disk-current", "clone_after_sha256": repaired, "clean_verified": true, "steps": []map[string]any{{"option": "-fy", "returncode": 1, "log": "repair-fsck.log", "log_sha256": p.Files["repair-fsck.log"]}, {"option": "-fn", "returncode": 0, "log": "verify-fsck.log", "log_sha256": p.Files["verify-fsck.log"]}}}
+	raw, _ := json.Marshal(receipt)
+	os.WriteFile(filepath.Join(dir, "repair-receipt.json"), raw, 0600)
+	p.Files["repair-receipt.json"] = hashBytes(raw)
+	exportReport := values["export-report.json"].(map[string]any)
+	exportReport["explicit_repair_receipt_sha256"] = p.Files["repair-receipt.json"]
+	exportReport["explicit_repair_clone_sha256"] = repaired
+	raw, _ = json.Marshal(exportReport)
+	os.WriteFile(filepath.Join(dir, "export-report.json"), raw, 0600)
+	p.Files["export-report.json"] = hashBytes(raw)
+	b, _ = json.Marshal(p)
+	os.WriteFile(filepath.Join(dir, "recovery-evidence.json"), b, 0600)
+	if err := validateSourceFiles(dir, hashBytes(b), old, "archive-current", "newer", "OWNED_CURRENT_DISK_RETAINED_PROVIDER"); err != nil {
+		t.Fatal(err)
+	}
+	logPath := filepath.Join(dir, "verify-fsck.log")
+	original, _ := os.ReadFile(logPath)
+	os.WriteFile(logPath, []byte("substituted log"), 0600)
+	if err := validateSourceFiles(dir, hashBytes(b), old, "archive-current", "newer", "OWNED_CURRENT_DISK_RETAINED_PROVIDER"); err == nil {
+		t.Fatal("changed clean-check log accepted")
+	}
+	os.WriteFile(logPath, original, 0600)
 	wrong := []byte(`{"sandboxID":"other"}`)
 	os.WriteFile(filepath.Join(dir, "storage.json"), wrong, 0600)
-	if err := validateMissingFiles(dir, hashBytes(b), old, "archive-current", "new"); err == nil {
+	if err := validateSourceFiles(dir, hashBytes(b), old, "archive-current", "newer", "OWNED_CURRENT_DISK_RETAINED_PROVIDER"); err == nil {
 		t.Fatal("changed escrow accepted")
 	}
 	p.Files["storage.json"] = hashBytes(wrong)

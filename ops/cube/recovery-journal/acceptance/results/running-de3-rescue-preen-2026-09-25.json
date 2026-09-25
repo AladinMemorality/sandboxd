@@ -1,0 +1,26 @@
+{
+  "status": "FAILED_CLOSED_BEFORE_MOUNT",
+  "started_utc": "2026-09-25T14:14:48Z",
+  "finished_utc": "2026-09-25T14:16:13Z",
+  "provider_id": "524905c6b8a84f9b90470e0f0a813894",
+  "current_disk_sha256": "974163c7b81e894f3aef408347314aae6e764750dbfcc04c5e16f57bb77f94bf",
+  "read_only_fsck_returncode": 4,
+  "unattached_inode": {
+    "number": 264273,
+    "type": "regular",
+    "uid": 1000,
+    "gid": 1000,
+    "mode": "0600",
+    "bytes": 8,
+    "association": "unknown; ncheck has no path"
+  },
+  "allocation_inode": {
+    "number": 263166,
+    "path_suffix": ".baarcha-postgres/data/pg_logical/replorigin_checkpoint"
+  },
+  "independent_private_diagnostic_escrow": "/mnt/nvme/baarcha-cube/recovery-running-de3-20260925/rescue-first-failure",
+  "source_modified": false,
+  "archive_produced": false,
+  "sql_recovery_claimed": false,
+  "repair_executed": false
+}

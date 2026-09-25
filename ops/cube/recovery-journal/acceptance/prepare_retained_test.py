@@ -1,8 +1,20 @@
 import copy
+import json
+import hashlib
 import unittest
-from prepare_retained import validate_fence, validate_inventory
+from prepare_retained import validate_fence, validate_inventory, validate_capture_metadata
 
 class RetainedPreparationTests(unittest.TestCase):
+    def test_exact_captured_metadata_not_merely_fresh_matching_identity(self):
+        metadata={'cubebox':{'id':'same','state':'running'},'storage':{'disk':'same'}}
+        source={key:hashlib.sha256(json.dumps(value,sort_keys=True,separators=(',',':')).encode()).hexdigest() for key,value in metadata.items()}
+        plan={'source_metadata_sha256':source};manifest=copy.deepcopy(plan)
+        validate_capture_metadata(plan,manifest,metadata)
+        metadata['cubebox']['state']='exited'
+        with self.assertRaises(ValueError):validate_capture_metadata(plan,manifest,metadata)
+        metadata['cubebox']['state']='running';manifest['source_metadata_sha256']['storage']='f'*64
+        with self.assertRaises(ValueError):validate_capture_metadata(plan,manifest,metadata)
+
     def test_complete_exact_source_only_inventory(self):
         owned='a'*32
         good='NODES_SCANNED 1/1\nSANDBOX_COUNT 1\n'+owned+' unknown\n'
