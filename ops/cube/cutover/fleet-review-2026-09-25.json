@@ -1,0 +1,44 @@
+{
+  "at": "2026-09-25T11:55:10.729651+00:00",
+  "read_only": true,
+  "frozen_for_migration": false,
+  "sandboxes": 65,
+  "snapshots": 31,
+  "home_manifests": 65,
+  "blocked_projects": 1,
+  "blocked_snapshots": 0,
+  "identity_sha256": "0976f8eb4cc05af2d6aea27aaf3d29f9c2c98e9917b8ee4e0f626124a6668a48",
+  "remaining_reasons": {
+    "owner home manifest validation failed": 1
+  },
+  "artifacts_sha256": {
+    "candidate-home-manifests-65.json": "6bd8f9217269ad70f3242a669ee5026f58780a15db38c758b8cf2de128985d5e",
+    "template-resources.json": "e841d87429f0e62c5a9eb9e8165a81111f0a5e7ea70b8bba78b6aa7d52cc01ab",
+    "fleet-preflight-reviewed-private.json": "605049b7fa3c883c9878e3d1e595ff7cd642cd46a135f2273c64a999ce87f395"
+  },
+  "migration_binary_sha256": "ae9718d8408f5bbee43dd61a087ca0a7c7505807445b378069530033ab0c73a7",
+  "source_revision": "bba5134",
+  "current_providers": {
+    "docker": 65
+  },
+  "idle_policy_counts": {
+    "always_on_running": 1,
+    "sleep_running": 19,
+    "sleep_stopped": 45
+  },
+  "new_projects_reviewed": 4,
+  "new_custom_python_environment": {
+    "count": 1,
+    "interpreter": "/usr/bin/python3.13",
+    "elf_machine": 62,
+    "native_files": 26,
+    "migrated_execution_verified": false
+  },
+  "remaining_checks": [
+    "quiesce the live PostgreSQL project before definitive home export preflight",
+    "repeat frozen inventory after traffic/task drain",
+    "actual migrated app and native tool readiness",
+    "all stored publication/remix links and private screenshots after cutover"
+  ],
+  "authorizes_cutover": false
+}

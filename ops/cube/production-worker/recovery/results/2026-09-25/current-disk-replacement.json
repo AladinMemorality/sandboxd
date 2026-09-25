@@ -27,5 +27,13 @@
     "unsupported_mode_bits_rejected": true,
     "latest_files_match": true,
     "no_extraction": true
+  },
+  "subsequent_owned_cleanup": {
+    "deleted_provider_id": "4994e8ea9e6b4be289ff892d72d2fc2e",
+    "confirmed_status": 404,
+    "complete_provider_inventory_zero": true,
+    "cube_tasks_zero": true,
+    "original_current_disk_and_archives_retained": true,
+    "at_unix": 1790336473
   }
 }
