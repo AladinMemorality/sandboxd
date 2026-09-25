@@ -61,3 +61,23 @@ python3 -m unittest discover -s ops/cube/workload/coding-profile -p test_profile
 ```
 
 Six focused tests passed locally and on the outer Linux host before the idle observation. They cover PID-stat parsing, generation-aware CPU deltas, unavailable/mismatched metrics, framed bounded streaming, duration limits and the exact read-only task-metrics command. The idle unit completed with exit 0 and its worker SSH collector ended normally. Raw output remains private; repository evidence contains no prompts, transcript text, credentials or process environment.
+
+## Analyze explicit task/build phases locally
+
+`analyze.py` reads retained files only; it has no remote access or lifecycle calls. Supply actual task start/finish timestamps, including their UTC offset. Do not substitute a timeout deadline for an observed finish. Build boundaries are optional and must come from actual events; a build is reported as a subset of the task, not an additional independent workload.
+
+```sh
+python3 ops/cube/workload/coding-profile/analyze.py /private/samples.jsonl \
+  --identity /private/sampler-identity.json \
+  --task-id EXACT_TASK_ID \
+  --task-start ACTUAL_START_ISO8601 --task-end ACTUAL_END_ISO8601 \
+  --output /private/new-analysis-directory
+```
+
+Optional `--build-start ACTUAL_START_ISO8601 --build-end ACTUAL_END_ISO8601` adds the build row. Output is a fresh 0700 directory containing 0600 `analysis.json` and `table.md`, with exact input hashes. The JSON retains detailed measurements; the table is a compact comparison. It requires the task to appear in the scoped samples and rejects partial/oversized JSONL, reordered samples, changed PID/disk generations, clock rollback and regressing counters.
+
+Only samples within each requested interval are used. CPU comes from consecutive counters within that phase, preserving the guest metric's native roughly five-second cadence. The output reports actual covered duration, missing boundary time, interval lengths, CPU seconds/average/interval peak, memory median/peak and net disk growth. Short phases with no guest samples report unavailable, not zero or interpolated estimates. A five-second interval peak cannot establish a shorter CPU burst's peak.
+
+The JSON also includes guest shim RSS/PSS and cgroup anon/file/shmem/kernel components; process and per-device block I/O; memory-event/OOM and CPU-throttle counter changes; swap first/last/peak; kernel MemAvailable/cache; and measured cgroup CPU/memory PSI. System-wide worker `/proc/pressure` was not sampled and is not inferred. Cgroup `file` includes file cache and shmem; it overlaps other fields. Per-device I/O is not summed because stacked devices can count the same write. Memory/swap gauges can decrease, while cumulative event counters must remain monotonic.
+
+Warm caches, retained PostgreSQL processes and observer overhead remain part of the measurements. The analyzer neither extrapolates fleet capacity nor labels all whole-worker changes as the coding app's consumption. Seven analysis regressions plus the original six sampler tests pass locally; the analysis was also applied successfully to all 61 real idle samples, reproducing the original CPU/PSS/disk result. No live coding conclusion is included without the completed task's actual timestamps.
