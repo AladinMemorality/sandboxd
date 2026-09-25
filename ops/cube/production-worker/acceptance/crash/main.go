@@ -37,15 +37,15 @@ type marker struct {
 	Nonce   string `json:"nonce"`
 }
 type escrow struct {
-	Guest      *cube.Sandbox `json:"guest"`
-	Supervisor string        `json:"supervisor"`
-	Capability string        `json:"capability"`
-	Fixture    string        `json:"fixture"`
-	BootID     string        `json:"worker_boot_id"`
-	WorkerUUID string        `json:"worker_uuid"`
-	DataUUID   string        `json:"data_uuid"`
-	Baseline   marker        `json:"baseline"`
-	Latest     marker        `json:"latest"`
+	Guest           *cube.Sandbox `json:"guest"`
+	Supervisor      string        `json:"supervisor"`
+	Capability      string        `json:"capability"`
+	Fixture         string        `json:"fixture"`
+	BootID          string        `json:"worker_boot_id"`
+	WorkerMachineID string        `json:"worker_machine_id"`
+	DataUUID        string        `json:"data_uuid"`
+	Baseline        marker        `json:"baseline"`
+	Latest          marker        `json:"latest"`
 }
 type coordinator struct {
 	ctx    context.Context
@@ -55,6 +55,10 @@ type coordinator struct {
 	saved  escrow
 	cancel context.CancelFunc
 	report map[string]any
+}
+
+func validMachineIdentity(actual, expected string) bool {
+	return regexp.MustCompile(`^[0-9a-f]{32}$`).MatchString(actual) && actual != strings.Repeat("0", 32) && actual == expected
 }
 
 func must(e error) {
@@ -257,52 +261,106 @@ func (c *coordinator) probe(route string, want marker) {
 	must(e)
 	must(validateEvidence(b, want))
 }
-func (c *coordinator) install() {
-	b, e := c.guest.ExportSource(c.ctx)
-	must(e)
-	original, e := zip.NewReader(bytes.NewReader(b), int64(len(b)))
-	must(e)
-	manifest, e := c.guest.ReadFile(c.ctx, "sandbox.yaml")
-	must(e)
-	if !bytes.Contains(manifest, []byte("name: postgres")) || strings.Count(string(manifest), "\nbuild:") != 1 {
-		panic("reviewed PostgreSQL manifest required")
+
+// buildProbeArchive patches a same-owner private workspace. ZIP Copy preserves
+// all untouched headers, compression, symlinks and modes; publication filters
+// must never decide whether a private capability survives this operation.
+func buildProbeArchive(source io.ReaderAt, size int64, dest io.Writer, probe []byte, fixture, capability string) error {
+	if err := rt.ValidatePrivateWorkspaceFileInterpreters(source, size); err != nil {
+		return err
 	}
-	yaml := strings.Replace(string(manifest), "\nbuild:", "\n  - name: crash-probe\n    command: \"chmod 600 crash-fixture-token && node probe.mjs\"\n    restart_after_task: false\nbuild:", 1)
-	probe, e := os.ReadFile(filepath.Join(c.stage, "probe.mjs"))
-	must(e)
-	settings, _ := json.Marshal(map[string]string{"purpose": "DISPOSABLE_POSTGRES_CRASH_ONLY", "fixture": c.saved.Fixture})
-	replacements := map[string][]byte{"sandbox.yaml": []byte(yaml), "probe.mjs": probe, "config/crash-fixture.json": settings, "crash-fixture-token": []byte(c.saved.Capability)}
-	var output bytes.Buffer
-	w := zip.NewWriter(&output)
+	original, err := zip.NewReader(source, size)
+	if err != nil {
+		return err
+	}
+	var manifest []byte
+	for _, f := range original.File {
+		if f.Name != "sandbox.yaml" {
+			continue
+		}
+		if !f.Mode().IsRegular() || f.UncompressedSize64 > 1<<20 {
+			return errors.New("reviewed bounded manifest required")
+		}
+		reader, e := f.Open()
+		if e != nil {
+			return e
+		}
+		manifest, e = io.ReadAll(io.LimitReader(reader, (1<<20)+1))
+		reader.Close()
+		if e != nil {
+			return e
+		}
+	}
+	if len(manifest) > 1<<20 || !bytes.Contains(manifest, []byte("name: postgres")) || strings.Count(string(manifest), "\nbuild:") != 1 {
+		return errors.New("reviewed PostgreSQL manifest required")
+	}
+	yaml := strings.Replace(string(manifest), "\nbuild:", "\n  - name: crash-probe\n    command: \"node probe.mjs\"\n    restart_after_task: false\nbuild:", 1)
+	settings, err := json.Marshal(map[string]string{"purpose": "DISPOSABLE_POSTGRES_CRASH_ONLY", "fixture": fixture})
+	if err != nil {
+		return err
+	}
+	replacements := map[string][]byte{"sandbox.yaml": []byte(yaml), "probe.mjs": probe, "config/crash-fixture.json": settings, "crash-fixture-token": []byte(capability)}
+	w := zip.NewWriter(dest)
 	for _, f := range original.File {
 		if _, ok := replacements[f.Name]; ok {
 			continue
 		}
-		r, e := f.Open()
-		must(e)
-		out, e := w.Create(f.Name)
-		must(e)
-		_, e = io.Copy(out, r)
-		r.Close()
-		must(e)
-	}
-	for name, value := range replacements {
-		if !rt.PublishedSourcePath(name) {
-			panic("synthetic source path would be filtered")
+		if err = w.Copy(f); err != nil {
+			w.Close()
+			return err
 		}
-		out, e := w.Create(name)
-		must(e)
-		_, e = out.Write(value)
-		must(e)
 	}
-	must(w.Close())
+	for _, name := range []string{"sandbox.yaml", "probe.mjs", "config/crash-fixture.json", "crash-fixture-token"} {
+		header := zip.FileHeader{Name: name, Method: zip.Deflate}
+		mode := os.FileMode(0644)
+		if name == "crash-fixture-token" {
+			mode = 0600
+		}
+		header.SetMode(mode)
+		out, e := w.CreateHeader(&header)
+		if e != nil {
+			w.Close()
+			return e
+		}
+		if _, e = out.Write(replacements[name]); e != nil {
+			w.Close()
+			return e
+		}
+	}
+	return w.Close()
+}
+func (c *coordinator) importPrivateProbe() time.Time {
+	must(c.guest.QuiesceWorkspace(c.ctx))
+	source, e := os.OpenFile(filepath.Join(c.stage, "probe-install-before.private.zip"), os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
+	must(e)
+	defer source.Close()
+	must(c.guest.ExportPrivateWorkspaceFile(c.ctx, source))
+	must(source.Sync())
+	sourceInfo, e := source.Stat()
+	must(e)
+	output, e := os.OpenFile(filepath.Join(c.stage, "probe-install.private.zip"), os.O_RDWR|os.O_CREATE|os.O_EXCL, 0600)
+	must(e)
+	defer output.Close()
+	probe, e := os.ReadFile(filepath.Join(c.stage, "probe.mjs"))
+	must(e)
+	must(buildProbeArchive(source, sourceInfo.Size(), output, probe, c.saved.Fixture, c.saved.Capability))
+	must(output.Sync())
+	outputInfo, e := output.Stat()
+	must(e)
+	must(rt.ValidatePrivateWorkspaceFileInterpreters(output, outputInfo.Size()))
+	_, e = output.Seek(0, io.SeekStart)
+	must(e)
 	before, e := c.guest.Status(c.ctx)
 	must(e)
-	must(c.guest.ImportSource(c.ctx, output.Bytes()))
+	must(c.guest.ImportPrivateWorkspaceFile(c.ctx, output, outputInfo.Size()))
+	return before.Runtimed.BootedAt
+}
+func (c *coordinator) install() {
+	before := c.importPrivateProbe()
 	restarted := false
 	for i := 0; i < 40; i++ {
 		status, e := c.guest.Status(c.ctx)
-		if e == nil && !status.Runtimed.BootedAt.Equal(before.Runtimed.BootedAt) {
+		if e == nil && !status.Runtimed.BootedAt.Equal(before) {
 			restarted = true
 			break
 		}
@@ -327,7 +385,7 @@ func (c *coordinator) install() {
 		panic("synthetic probe did not become ready")
 	}
 	// A verify before initial commit must fail: it cannot silently initialize data.
-	if _, e = c.request(3006, "/verify", c.saved.Baseline); e == nil {
+	if _, e := c.request(3006, "/verify", c.saved.Baseline); e == nil {
 		panic("probe contained preexisting synthetic markers")
 	}
 }
@@ -401,11 +459,11 @@ func (c *coordinator) prepare() {
 		panic("worker inventory is not empty")
 	}
 	var handoff struct {
-		Purpose    string `json:"purpose"`
-		NoCustomer bool   `json:"no_customer_guests"`
-		Cleanup    bool   `json:"previous_family_cleanup_verified"`
-		WorkerUUID string `json:"worker_uuid"`
-		Expires    int64  `json:"expires_at"`
+		Purpose         string `json:"purpose"`
+		NoCustomer      bool   `json:"no_customer_guests"`
+		Cleanup         bool   `json:"previous_family_cleanup_verified"`
+		WorkerMachineID string `json:"worker_machine_id"`
+		Expires         int64  `json:"expires_at"`
 	}
 	must(privateJSON(filepath.Join(c.stage, "handoff.json"), &handoff))
 	now := time.Now().Unix()
@@ -419,17 +477,17 @@ func (c *coordinator) prepare() {
 			panic("full PostgreSQL functional acceptance required first")
 		}
 	}
-	workerUUID, e := worker(c.ctx, "cat /sys/class/dmi/id/product_uuid")
+	workerMachineID, e := worker(c.ctx, "cat /etc/machine-id")
 	must(e)
 	dataUUID, e := worker(c.ctx, "findmnt -n -o UUID /data")
 	must(e)
-	if workerUUID == "" || !strings.EqualFold(workerUUID, handoff.WorkerUUID) || dataUUID == "" {
-		panic("operator worker UUID or data identity mismatch")
+	if !validMachineIdentity(workerMachineID, handoff.WorkerMachineID) || dataUUID == "" {
+		panic("operator worker machine ID or data identity mismatch")
 	}
 	c.saved = escrow{Fixture: nonce(16), Supervisor: nonce(32), Capability: nonce(32), BootID: bootID(c.ctx)}
-	c.saved.WorkerUUID = workerUUID
+	c.saved.WorkerMachineID = workerMachineID
 	c.saved.DataUUID = dataUUID
-	c.report["worker_uuid"] = workerUUID
+	c.report["worker_machine_id"] = workerMachineID
 	c.report["data_uuid"] = dataUUID
 	c.saved.Baseline = marker{c.saved.Fixture, "baseline", nonce(16)}
 	c.saved.Latest = marker{c.saved.Fixture, "latest", nonce(16)}
@@ -480,11 +538,11 @@ func (c *coordinator) verify() {
 	if after == c.saved.BootID {
 		panic("worker did not reboot")
 	}
-	workerUUID, e := worker(c.ctx, "cat /sys/class/dmi/id/product_uuid")
+	workerMachineID, e := worker(c.ctx, "cat /etc/machine-id")
 	must(e)
 	dataUUID, e := worker(c.ctx, "findmnt -n -o UUID /data")
 	must(e)
-	if workerUUID != c.saved.WorkerUUID || dataUUID != c.saved.DataUUID {
+	if !validMachineIdentity(workerMachineID, c.saved.WorkerMachineID) || dataUUID != c.saved.DataUUID {
 		panic("post-crash worker or data disk identity changed")
 	}
 	c.report["worker_boot_after"] = after

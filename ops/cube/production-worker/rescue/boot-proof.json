@@ -1,0 +1,15 @@
+{
+  "service": "baarcha-cube-rescue-20260925.service",
+  "unprivileged_qemu": true,
+  "effective_capabilities": 0,
+  "no_new_privileges": true,
+  "restricted_slirp": true,
+  "only_forward": "127.0.0.1:20223->22",
+  "host_filesystem_shares": false,
+  "verified_guest_hostname": "baarcha-cube-rescue",
+  "verified_guest_kernel": "6.8.0-139-generic",
+  "verified_virtualization": "kvm",
+  "console_matched_ed25519": "SHA256:FFFZ+7U7hAASPuXZyrdkUuc4hFXCuc0esQyAFCmrnF8",
+  "customer_data_attached": false,
+  "filesystem_recovery_tested": false
+}

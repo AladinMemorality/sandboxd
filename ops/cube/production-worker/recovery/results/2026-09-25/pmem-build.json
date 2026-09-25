@@ -1,0 +1,22 @@
+{
+  "purpose": "CURRENT_DISK_PMEM_RECOVERY_PREPARATION",
+  "upstream_commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+  "source_sha256": {
+    "plan.py": "569e00a857062ae16c1c7b710a2b26bf14f25b17d60b7786d527cd47d94ee347",
+    "plan_test.py": "5184373f32a41449ca411f2c80ac9125d38f2861a51e010ea1d60adf85354588",
+    "capture.py": "6c8544c3d9e925bd5059703f2957fdfd2e4c56e78ab4ef8eb6f2f233a3572607",
+    "capture_test.py": "c2651f0ce151592a2bf9adb7c7e96307a2aa9b6a8cf86aa1b5ebdbbb4375b021",
+    "rescue_export.py": "d8322702005238393d7fac428e8f38f0ceabc263a18cb10db1a76c2025744d91",
+    "rescue_export_test.py": "ea4d506dcb31095a818cdfcf835abe7ba51cba475fd8fe4fa71874a4d65921e1",
+    "pmem_fixture.py": "4d3f47734dc6a65e5e95927bc48e9b9af8fc8eccb426822c08fea5995682f720",
+    "pmem_fixture_run.sh": "f5d1af996b5b01694d8cf31655519e5364af7e1cfe1f4232169c0289077b3da0",
+    "overlay_fixture.py": "9bb09a3103f45adcee7a0466ae42355546792717c86f936a1425a6b0a3f8b18a"
+  },
+  "unit_tests_passed": 29,
+  "native_rescue_pmem_fixture_passed": true,
+  "initial_attempt": "test assertion normalized GNU tar hardlink ./ target; exporter/archive validation had succeeded; fresh stage rerun passed",
+  "worker_plan_preflight": "exact retained r4 metadata validated; planner only staged",
+  "real_current_disk_captured": false,
+  "postgres_crash_recovery_proven": false,
+  "production_accepted": false
+}

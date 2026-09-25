@@ -1,4 +1,4 @@
-# Prepared synthetic PostgreSQL crash check — not executed
+# Synthetic PostgreSQL crash check
 
 This is a proposed destructive-stage fixture, not approval to crash a worker.
 Only the coordinator may interrupt the **new, non-customer worker VM** after
@@ -21,7 +21,7 @@ Do not use the old benchmark worker or any production tenant workspace.
   deadlines: ten minutes each. One power interruption only, performed separately
   by the coordinator. No repeated fault loop, raw packet operation or model call.
 - Preserve a private outer-host stage, mode0700/root-owned. Require the stage's
-  exact disposable marker, current worker UUID, guest ID/template/resources,
+  exact disposable marker, current worker machine ID, guest ID/template/resources,
   node-postgres preset, synthetic app ID and fresh creation timestamp. Escrow
   the guest's supervisor/traffic credentials in a separate0600 file; never put
   credentials in the report, command arguments, console output or repository.
@@ -37,7 +37,7 @@ only into the new guest's `/home/sandbox/workspace/app`. Install a mode0600
 {"purpose":"DISPOSABLE_POSTGRES_CRASH_ONLY","fixture":"<random32hex>"}
 ```
 
-Add one supervised worker with command `chmod 600 crash-fixture-token && node probe.mjs`, `restart_after_task:
+Add one supervised worker with command `node probe.mjs`, `restart_after_task:
 false`, and activate the manifest through the normal API. It listens on3006;
 reach it only through the authenticated Cube proxy and fixed guest Host. The
 capability is additionally required in `Authorization: Bearer ...`; never log
@@ -103,7 +103,7 @@ as mode0600 `postgres-lifecycle-report.json`.
 The coordinator, not this preparation step, creates mode0600 `handoff.json`:
 
 ```json
-{"purpose":"DISPOSABLE_CUBE_CRASH_HANDOFF","worker_uuid":"<reviewed fresh VM DMI UUID>","no_customer_guests":true,"previous_family_cleanup_verified":true,"expires_at":0}
+{"purpose":"DISPOSABLE_CUBE_CRASH_HANDOFF","worker_machine_id":"<reviewed /etc/machine-id: 32 lowercase hex>","no_customer_guests":true,"previous_family_cleanup_verified":true,"expires_at":0}
 ```
 
 Replace the expiry with a Unix timestamp within30 minutes. Then explicitly run:
@@ -126,7 +126,7 @@ power action and mode0600 `power-loss-complete.json`:
 Write that confirmation only after independently reviewing the exact fresh worker,
 performing the authorized loss and verifying restarted control-plane readiness.
 The coordinator reacquires the worker lock lost during reboot, requires a changed
-boot ID but unchanged VM/data UUIDs, checks the exact guest metadata/resources,
+boot ID but unchanged machine ID/data UUID, checks the exact guest metadata/resources,
 uses only ordinary connect if the original guest is paused, and verifies the
 latest marker in all three stores. It never issues a shutdown, reset, restore,
 recreate or import after the power checkpoint.
@@ -146,3 +146,32 @@ The Go unit fixtures use only synthetic local HTTP/filesystem operations. They
 check stale or partial data rejection, exclusive private evidence creation,
 exact zero inventory parsing, and refusal to delete a foreign-tagged guest.
 These are preparation tests; no crash survival result is implied.
+
+Worker identity is pinned SSH host authentication plus exact `/etc/machine-id` (32 lowercase hex), data filesystem UUID, and boot ID. Machine ID alone is not authentication; this avoids assuming QEMU exposes a DMI UUID.
+
+## r4 private fixture installation fix
+
+The installation step first quiesces the fresh owned workspace, exports through
+`/export/private-workspace-v2`, and imports through
+`/import/private-workspace-v2`. It validates the canonical private archive before
+and after modification. Original ZIP headers, permissions and symlink targets
+are preserved; the capability is created0600 and other fixture files0644. No
+publication filter or source-publication endpoint handles this private material.
+The coordinator observes supervisor reexec before resuming.
+
+Regression tests prove that the capability is excluded by the publication filter
+but retained in a valid private archive, and exercise the authenticated HTTP
+sequence quiesce → private export → status → private import. New attempt stages
+must include the full passed PostgreSQL lifecycle report as a root0600 file; the
+receipt and proof are not optional packaging.
+
+## Actual r4 result
+
+The reviewed isolated worker interruption was executed once. Native same-ID
+recovery failed with authenticated GET404: Cubelet kept critical registration
+metadata on a private tmpfs mount. The original current disk and metadata escrow
+were retained. Independent current-disk capture, isolated ext4 replay/export,
+and a new owned replacement recovered the latest app/home files and committed
+PostgreSQL row without another commit. See
+`../../recovery/results/2026-09-25/current-disk-replacement.json`.
+This is a replacement recovery pass, not native recovery or production acceptance.

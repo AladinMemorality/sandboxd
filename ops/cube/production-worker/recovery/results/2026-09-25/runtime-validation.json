@@ -1,0 +1,22 @@
+{
+  "date": "2026-09-25",
+  "source_commit": "6d7b43a",
+  "includes_uncommitted_worker_stop_candidate": true,
+  "source_manifest_sha256": "9f8f92d94f3fcbbdc419bccfc05645147ec3589ba7d43ff28b9b18265c09ed76",
+  "log_sha256": "8d749839948a5e1f917536bfb028020219838e013ca0a2f2a46d3f03b3013c17",
+  "builder": "golang:1.22-bookworm",
+  "limits": {
+    "cpus": 2,
+    "memory_gib": 2,
+    "network": "none",
+    "TMPDIR_exec_tmpfs_mib": 512
+  },
+  "commands": [
+    "go vet ./...",
+    "go test -p 2 -race ./...",
+    "go build ./..."
+  ],
+  "exit_code": 0,
+  "live_tests_implicitly_enabled": false,
+  "production_changed": false
+}

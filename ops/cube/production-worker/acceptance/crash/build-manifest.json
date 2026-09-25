@@ -1,20 +1,55 @@
 {
-  "state": "prepared_not_executed",
-  "binary_sha256": "149ebe523b681c2dbbb59681822f9d938f91c56f4bdfbdbe6c9c40a8a48d6362",
+  "state": "r4_executed_native_identity_failed_replacement_latest_data_passed",
+  "binary_sha256": "6e0dc0c96ddc72a0295574bb70b0ee99a5990171844c4dd47e988ba74b501529",
   "source_sha256": {
-    "main.go": "1f8fbd70361e82ecd691abe39ce29760ffdad6f4eb28799882a819fba2dfb3b8",
-    "main_test.go": "39ab1070b49ad53b879bacd3dc539d30296589cd22e3ae8455fecc3ca983a154",
+    "main.go": "b7684e317400a5dfa720630e553fbc5fe7b982fb0275d1094b9202fd247f0ca3",
+    "main_test.go": "28a47c66a549979e884fa6822c541a6504aca1f357b9df91d29bd3aba40306b2",
     "probe.mjs": "7a914df1f151d6383aea06e0e426f69a73caba05d01dbb2bb690db442747ce7a",
     "probe.test.mjs": "e3e7e67f95ea724fd1a490a5d6b7da29a3d3520d442c39ff21f6ec40574f7551"
   },
   "tests": {
-    "linux_go_local_http_filesystem": 4,
-    "node_marker_filesystem": 3
+    "linux_go_race_local_http_filesystem": 7,
+    "linux_go_race_seconds": 1.065,
+    "node_marker_filesystem": 3,
+    "private_archive_regressions": [
+      "private capability excluded by publication filter but valid and retained0600 in canonical private workspace",
+      "original ZIP headers, directory/symlink/executable/private file modes and bytes preserved",
+      "authenticated quiesce/private export/status/private import HTTP sequence"
+    ],
+    "command": "go test -race ./cmd/operator-crash-r4 -count=1"
   },
   "build_limits": {
     "cpu": 2,
     "memory": "2GiB",
-    "network": "none"
+    "network": "none",
+    "tmpfs_TMPDIR": "512 MiB executable"
   },
-  "power_loss_executed": false
+  "power_loss_executed": true,
+  "stage": "/opt/baarcha-bench/cube-crash-api-20260925-r4",
+  "package": {
+    "binary_mode": "0700",
+    "probe_mode": "0600",
+    "postgres_lifecycle_report_mode": "0600",
+    "postgres_lifecycle_report_sha256": "258ce91407b1bb8566ecdd008b3e107834cc65c59f8b2440db64ea827fe79fb1",
+    "required_postgres_flags_verified": 7,
+    "fresh_handoff_receipt": "issued separately by coordinator after current inventory check"
+  },
+  "prior_coordinator_reports": [
+    {
+      "stage": "r2",
+      "failure": "required PostgreSQL lifecycle report missing from stage",
+      "corrected": "r4 packages and validates complete private proof"
+    },
+    {
+      "stage": "r3",
+      "failure": "synthetic source path would be filtered",
+      "power_loss_performed": false,
+      "owned_cleanup_verified": true,
+      "corrected": "r4 uses canonical same-owner private workspace export/import after quiescence"
+    }
+  ],
+  "installation": "Coordinator performed one reviewed abrupt loss of the isolated Cube worker; production remained Docker. The current disk was retained and recovered through the isolated rescue VM into a new owned provider.",
+  "native_same_id_recovery_passed": false,
+  "replacement_latest_app_home_sql_preserved": true,
+  "result_evidence": "../../recovery/results/2026-09-25/current-disk-replacement.json"
 }

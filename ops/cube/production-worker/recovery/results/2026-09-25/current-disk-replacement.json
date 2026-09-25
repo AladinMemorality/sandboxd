@@ -1,0 +1,31 @@
+{
+  "stage": "replacement-recovery-pass-pending-operator-review",
+  "new_provider_id": "4994e8ea9e6b4be289ff892d72d2fc2e",
+  "old_provider_id": "1a1474444e064d6f8da340f324f4fd7f",
+  "replacement_latest_app_home_sql_preserved": true,
+  "replacement_quiesced_before_import": true,
+  "removed_exact_stale_pid_sha256": "99ba8fa6f5be9be8e48d1eb51cca5076b126c67714d0cfdca33e571b8ef6ab0c",
+  "derived_home_zip_sha256": "1aa70b6eed5ee2ca0d4bc26fc9c1f93308bb9e999344703b962c9112f6c14b1b",
+  "current_archive_sha256": "54c564d530ff3358b806d8328b2d7175fd05e659a9831ef866857bd4077c7285",
+  "original_home_zip_sha256": "6ce9fe781ab7369d88a25e6406d0ffecd422eaaffb68ba4fa943ccc868adcc62",
+  "original_app_zip_sha256": "6d8998b764ceeab00eb8a80a275170dae0211a6de6167890ab931e31725deccb",
+  "native_same_id_recovery_passed": false,
+  "binding_changed": false,
+  "production_accepted": false,
+  "old_guest_deleted": false,
+  "new_guest_retained_for_review": true,
+  "date": "2026-09-25",
+  "verifier_sha256": "87bb7d1b9d7a2d93382007f17b634636335f220374e9715a9081c770e4bdfbd2",
+  "latest_acknowledged_at": "2026-09-25T00:28:08.946203985Z",
+  "new_commit_after_crash": false,
+  "private_report_sha256": "d41bace9238ede20409cd22b875930f847522a1bd4c24fd343a381bbac25cf66",
+  "prior_attempt_failure": "Python deflated directory rejected by Go ZIP raw Copy before import; fixed by preserving directory metadata with an empty stored entry.",
+  "regression": "Linux race suite passed including a Python-produced deflated-directory fixture.",
+  "post_review_archive_revalidation": {
+    "validator_sha256": "4819a21cb795f237ba1ca2b8570a249df4a274dc61e511abc62a3422dbd8004c",
+    "entries": 2096,
+    "unsupported_mode_bits_rejected": true,
+    "latest_files_match": true,
+    "no_extraction": true
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "binary_sha256": "cb51573f2ac5184c83c9a3c579dfbc266a565490fe0032a95be757f826e1c484",
+  "binary_path": "/opt/baarcha-cube/worker-01/replacement-preparation/replacement-verifier-r2",
+  "source_sha256": {
+    "replacement_main.go": "f58877f6255540b297dd0541eed7392da3a8929b65366297f26ae0db1c32f553",
+    "replacement_test.go": "6fca3f3e4da57eefd34a51d419b15edc1ad1cc25e7aae7c1747f5d204cfa492d",
+    "missing_evidence.go": "ed3da32a7b9d7ff0acd8e5f4eecba7b457cef61e9abd5f0cdfb292750b2121be",
+    "missing_evidence_test.go": "24a7d2b2b0f8206ec5830945c676a2b374aa2584d9c952162cc653db6fa86cb3",
+    "extract_helpers.go": "d51ce6a6eb2752ffc87bac332b1b5a8ae9cdad800127fc54f8491315e24bbaf3"
+  },
+  "linux_go_race_tests": 6,
+  "race_seconds": 1.036,
+  "build_limits": {
+    "cpu": 2,
+    "memory": "2GiB",
+    "network": "none",
+    "tmpfs": "512MiB executable"
+  },
+  "executed": false,
+  "native_recovery_passed": false
+}

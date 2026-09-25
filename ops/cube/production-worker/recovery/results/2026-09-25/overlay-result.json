@@ -1,0 +1,55 @@
+{
+  "passed": true,
+  "native_overlay": true,
+  "image_bytes": 134217728,
+  "whiteout_delete": true,
+  "opaque_lower_xattr": true,
+  "negative_default_xattrs_omitted_trusted": true,
+  "overwrite": true,
+  "recreated_opaque_directory": true,
+  "symlinks_hardlinks_modes": true,
+  "older_backup_distinct_unchanged": true,
+  "actual_rescue_export": true,
+  "archive_validation": {
+    "valid_merged_home_tar": true,
+    "archive_sha256": "94513a7b14dcefcaca6da653d36cedb8e9539dfd633c4b39c30f95ac5ad08bc2",
+    "archive_bytes": 71680,
+    "entries": 29,
+    "payload_bytes": 8612,
+    "postgres_required_layout_present": true,
+    "latest_files_match": true,
+    "reviewed_external_links": 0,
+    "destination_image_sha256": null,
+    "runtimed_import_authorized": false,
+    "postgres_crash_recovery_proven": false,
+    "extracted": false
+  },
+  "conversion": {
+    "source_archive_sha256": "94513a7b14dcefcaca6da653d36cedb8e9539dfd633c4b39c30f95ac5ad08bc2",
+    "flattened_hardlinks": 1,
+    "expanded_zip_bytes": {
+      "app": 191,
+      "home": 8410
+    },
+    "excluded_runtime_identity": true,
+    "postmaster_pid_preserved": true,
+    "extracted_host_paths": false,
+    "go_import_contract_validated": true,
+    "replacement_verified": false,
+    "production_accepted": false,
+    "task_history_converted": false,
+    "expected_marker_sha256": "a61363f27fb85b78f0b2727a69ba14df2d89aa5f53c22202b41fe8c703cce52b",
+    "go_validation": {
+      "app_tree_digest": "467ec72263beb937fca3f8b78dd3e9a3b49f673dbbd8f8f79558ae22fc950fb0",
+      "home_tree_digest": "554ec7c3ca44df43e9c160dbe8d4a1a238d0a9bf61a985128456610b978b1aee",
+      "postgres_recovery_verified": false,
+      "runtimed_contract": "private-workspace-v2+private-home-v2",
+      "valid": true
+    },
+    "app_sha256": "6031ac4c3da87a7b7dab5e00bb4cf796cfdd294bb0f74192ea5c4496669d4166",
+    "home_sha256": "445a5de6e14431968856268ca7ce75f720ea341413a10c6367faae9e5395eb90"
+  },
+  "postgres_crash_recovery_proven": false,
+  "power_loss_performed": false,
+  "production_accepted": false
+}

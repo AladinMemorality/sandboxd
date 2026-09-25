@@ -1,0 +1,54 @@
+{
+  "status": "offline prepared; not executed against a guest by this agent",
+  "source_sha256": {
+    "plan.py": "8b55b0e12b3fe1fd224340b4ca5b76fc326518cbdeedc779c04073e9b274d5cb",
+    "metadata_capture.py": "30684f682629e0d0e87fdc9dfb6b0064c7f14359aeb16f5cd2f95b7253522401",
+    "capture.py": "ded7d63266185bb33e6c30baf1fe35c6628fd75140cbcedbccb3b5ee45bc1d54",
+    "rescue_export.py": "4268187f86afa40656f95c01cd5813e288336501995470127744db0357bf0c4b",
+    "plan_test.py": "c32f2f0fd29de89673a126ffeea6bf2548c8779a56793001c4702a1011fb76a6",
+    "metadata_capture_test.py": "362280a55c939a3036f13f980d4188b10e9ebb39735f091840a76100337979ee",
+    "capture_test.py": "6e1668d7e7b8226f7754feb2f3395e1c93db3bff94a2243353de9537f8e771e7",
+    "rescue_export_test.py": "a012e5434eb186582be7bc015bf3243aa39162160b0dca20d5b12c0db4a07913",
+    "replacement/replacement_main.go": "c0308df0c8ab82e0b33ac2bba883dd6f6b0ff77fbec495c0c574e4dc37ef0fea",
+    "replacement/replacement_test.go": "6fca3f3e4da57eefd34a51d419b15edc1ad1cc25e7aae7c1747f5d204cfa492d",
+    "replacement/extract_helpers.go": "d51ce6a6eb2752ffc87bac332b1b5a8ae9cdad800127fc54f8491315e24bbaf3"
+  },
+  "python_tests": {
+    "command": "python3 -m unittest discover -s recovery -p '*_test.py' -v",
+    "linux_python": "3.12.3",
+    "passed": 23,
+    "elapsed_seconds": 0.373,
+    "includes": "planner/fence/export guards and network agent archive validation/conversion; no filesystem mount test"
+  },
+  "replacement_candidate": {
+    "path": "/opt/baarcha-cube/worker-01/replacement-preparation/replacement-verifier",
+    "sha256": "05035b61a05b430664e4b8a632b4b456adf95024a3410bbfc24670f1359c21d3",
+    "go": "1.22",
+    "builder": "golang:1.22-bookworm",
+    "network": "none",
+    "cpus": 2,
+    "memory": "2 GiB",
+    "race_test": "go test -race ./cmd/operator-replacement -count=1",
+    "race_test_result": "pass",
+    "race_test_seconds": 1.076,
+    "build": "go build -o /work/replacement-verifier ./cmd/operator-replacement",
+    "crash_helper_input_sha256": "ea5fb7c9f182031963c5b6f6e944a30d3fd66c9d6090b7c5b873b4e9dee268bb",
+    "generated_helpers_sha256": "9a962664afecf84d46bbcf8cd3b2af9a61f91be537c6033c5f0e4c8b3b6b77c5",
+    "tests": [
+      "exact old PGDATA path and PID start before latest acknowledgement",
+      "derived import removes only stale PID and preserves original archive plus WAL bytes",
+      "only exact original sandbox permitted in pre-create inventory"
+    ]
+  },
+  "limitations": [
+    "Operator fence receipt is an assertion, not an implemented distributed lease",
+    "Capture/export supports single-container current ext4 root with retained trusted ordered OCI lower dirs and no external data volumes",
+    "Actual journal replay/overlay whiteout/opaque/link fixture is separately assigned and pending live evidence",
+    "No PostgreSQL WAL crash-recovery result claimed until coordinator runs owned power-loss/capture/import/verify sequence",
+    "Synthetic replacement retains providers and makes no production binding/admission transaction",
+    "General owner home manifests, provider credentials and task history recovery require separate reviewed transport"
+  ],
+  "pmem_followup_evidence": "results/2026-09-25/pmem-build.json",
+  "note": "Initial preparation evidence retained with historical source hashes; updated PMEM/export/replacement proof is in follow-up evidence. Actual latest app/home/PostgreSQL recovery passed in a new owned sandbox; native same-ID recovery failed.",
+  "final_followup_evidence": "results/2026-09-25/current-disk-replacement.json"
+}

@@ -19,6 +19,14 @@ host or worker. Never attach the authoritative writable source to this VM.
 Outputs remain untrusted data until archive and application validation pass.
 The private operator key stays outside the VM, repository and logs.
 
-Provisioning evidence is in `provisioning.json`. No boot, filesystem-recovery
-or PostgreSQL recovery success is implied by provisioning. The VM is not
+Provisioning evidence is in `provisioning.json`; `boot-proof.json` records the
+subsequent verified boot, unprivileged QEMU process, zero effective capabilities,
+restricted loopback management and console-matched SSH host key. No filesystem
+or PostgreSQL recovery success is implied by those infrastructure checks. The VM is not
 enabled on boot and must be stopped after owned recovery acceptance.
+
+The actual current-disk export and replacement SQL check subsequently passed;
+see [recovery evidence](../recovery/results/2026-09-25/current-disk-replacement.json).
+After confirming no parsing job or residual recovery mount remained, the operator
+sent QMP `system_powerdown` to the exact rescue PID and verified the unit inactive
+with MainPID0. Its disk and private recovery artifacts remain retained.

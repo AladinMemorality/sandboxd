@@ -1,0 +1,29 @@
+{
+  "date": "2026-09-25",
+  "production_accepted": false,
+  "native_same_id_recovery_passed": false,
+  "native_failure": "cube get: upstream HTTP 404",
+  "controlled_abrupt_worker_loss": true,
+  "old_provider_id": "1a1474444e064d6f8da340f324f4fd7f",
+  "worker_boot_before": "14413e4b-5538-42b1-be6c-8e76b27df363",
+  "worker_boot_after": "051e36e9-1abc-4df8-91cf-fab9dd23f747",
+  "latest_acknowledged_at": "2026-09-25T00:28:08.946203985Z",
+  "current_disk_captured_after_fence": true,
+  "artifact_hashes": {
+    "current.ext4": "4e83376fca1c66a1e9da4b169e1523ddbcbcc8efb6a88cd56a9335edb08c3ba9",
+    "lower-000.ext4": "ba20ac338f733fc2cc81bd24eb98385cda9c5d8e88376f3769fdc8096020861a"
+  },
+  "artifact_bytes": {
+    "current.ext4": 10737418240,
+    "lower-000.ext4": 4026531840
+  },
+  "original_retained": true,
+  "first_real_export_passed": false,
+  "first_export_finding": "Template-restored current disk uses template snapshot app_snapshot_container_id rather than new logical sandbox ID; strict exporter refused mismatched upper path.",
+  "replacement_latest_sql_verified": true,
+  "metadata_durability_finding": "Cubelet private mount namespace places state/metadata on tmpfs; persistent state plus durable writes required.",
+  "original_capture_manifest_sha256": "09d37dd2d2cc3758ce56b993001e26fb0005c206a642aad7f0f2c003cf822553",
+  "superseded_by": "current-disk-replacement.json",
+  "actual_export_passed": true,
+  "original_export_failures_retained": true
+}
