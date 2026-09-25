@@ -218,6 +218,9 @@ func run(args []string) error {
 	if err != nil {
 		return err
 	}
+	if err = admission.RequireStorageGuard(); err != nil {
+		return err
+	}
 	if err = client.ConfigureAdmission(ctx, st, admission); err != nil {
 		return err
 	}

@@ -89,6 +89,14 @@ func TestCubeProxyMuxSupportsConnectAndFixedServices(t *testing.T) {
 			t.Error("channel leaked")
 		}
 	}()
+	// Dial can observe the upgrade response before ChannelHandler registers the
+	// guest session. Match application startup's readiness barrier instead of
+	// racing the first CONNECT against that registration.
+	readyCtx, stopReady := context.WithTimeout(ctx, time.Second)
+	defer stopReady()
+	if err := g.WaitReady(readyCtx); err != nil {
+		t.Fatalf("reverse channel not ready: %v", err)
+	}
 	u, _ := url.Parse(proxy.URL)
 	tr := &http.Transport{Proxy: http.ProxyURL(u), TLSClientConfig: &tls.Config{InsecureSkipVerify: true}}
 	defer tr.CloseIdleConnections()

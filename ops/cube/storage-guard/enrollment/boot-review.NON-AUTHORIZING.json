@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "verified": false,
+  "outer_boot_id": "571f77dc-2077-412c-be3b-fa5c33a519f3",
+  "worker_machine_id": "2b9e31d4abd345e3bd4b966591e61296",
+  "worker_boot_id": "UNVERIFIED_POST_CYCLE_BOOT_DO_NOT_INSTALL",
+  "data_uuid": "793c3349-db9c-4815-9842-989ed484f1f8",
+  "qemu_pid": 0,
+  "qemu_start_time": "0",
+  "controller_id": "UNVERIFIED_CURRENT_CONTROLLER_ID",
+  "evidence_sha256": "UNVERIFIED_RETAINED_READINESS_EVIDENCE"
+}

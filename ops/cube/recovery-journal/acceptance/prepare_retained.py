@@ -77,6 +77,39 @@ def validate_inventory(text, owned):
     require(ids == [owned], 'foreign or duplicated runtime inventory')
 
 
+def validate_capture_metadata(plan, manifest, metadata):
+    require(plan['source_metadata_sha256'] == manifest['source_metadata_sha256'],
+            'captured metadata differs from actual input manifest')
+    for name in ['cubebox', 'storage']:
+        value_sha = hashlib.sha256(json.dumps(metadata[name], sort_keys=True,
+                                  separators=(',', ':')).encode()).hexdigest()
+        require(value_sha == plan['source_metadata_sha256'][name],
+                'capture metadata canonical hash mismatch')
+
+
+def stage_converted(source, output):
+    destination = output / 'converted'
+    destination.mkdir(mode=0o700)
+    for name in ['app.zip', 'home.zip', 'home-manifest.json', 'conversion.json']:
+        original = source / name
+        info = original.lstat()
+        require(stat.S_ISREG(info.st_mode) and info.st_uid == os.geteuid() and
+                info.st_mode & 0o077 == 0 and info.st_size < 256 << 20,
+                'private bounded converted file required')
+        with original.open('rb') as inp, (destination / name).open('xb') as out:
+            os.fchmod(out.fileno(), 0o600)
+            shutil.copyfileobj(inp, out)
+            out.flush(); os.fsync(out.fileno())
+        require(digest(original) == digest(destination / name), 'converted staging digest mismatch')
+    return destination
+
+
+def journal_argv(binary, old_dir, output):
+    require(output.is_absolute() and output.parent == Path('/opt/baarcha-bench') and
+            output.name.startswith('cube-journal-'), 'journal output outside executable guard')
+    return [binary, 'run', str(old_dir), str(output / 'converted'), str(output)]
+
+
 class NoRedirect(urllib.request.HTTPRedirectHandler):
     def redirect_request(self, req, fp, code, msg, headers, newurl):
         raise ValueError("management redirect refused")
@@ -84,13 +117,15 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    for name in ['crash-stage', 'capture-input', 'capture-fence', 'export-stage',
+    for name in ['crash-stage', 'capture-metadata', 'capture-input', 'capture-fence', 'export-stage',
                  'execution-fence', 'output', 'binary', 'binary-sha256', 'owned-id']:
         parser.add_argument('--' + name, required=True)
+    parser.add_argument("--post-capture-reboot")
     args = parser.parse_args()
     require(os.geteuid() == 0, 'outer operator root required')
     owned = args.owned_id
     require(re.fullmatch('[a-f0-9]{32}', owned) is not None, 'exact provider ID required')
+    metadata = Path(args.capture_metadata)
     old_dir, inputs, export, output = map(Path, [args.crash_stage, args.capture_input,
                                                args.export_stage, args.output])
     require(output.is_absolute() and str(output) == os.path.normpath(output) and
@@ -133,15 +168,37 @@ def main():
     require(exported['sandbox_id'] == owned and exported['archive_sha256'] == digest(export / 'home.tar') and
             conversion['source_archive_sha256'] == exported['archive_sha256'] and
             conversion['go_import_contract_validated'] is True, 'current archive conversion mismatch')
+    plan = private(metadata / 'plan.json')
+    manifest = private(inputs / 'rescue-input.json')
+    require(plan['sandbox_id'] == owned and manifest['sandbox_id'] == owned,
+            'captured source identity mismatch')
+    validate_capture_metadata(plan, manifest,
+        {name: private(metadata / (name + '.json')) for name in ['cubebox', 'storage']})
     output.mkdir(mode=0o700)
-    files = {'cubebox.json': old_dir / 'metadata-before/cubebox.json',
-             'storage.json': old_dir / 'metadata-before/storage.json',
-             'plan.json': old_dir / 'metadata-before/plan.json',
+    files = {'cubebox.json': metadata / 'cubebox.json',
+             'storage.json': metadata / 'storage.json',
+             'plan.json': metadata / 'plan.json',
              'rescue-input.json': inputs / 'rescue-input.json',
              'fence.json': Path(args.capture_fence), 'export-report.json': export / 'export-report.json'}
+    capture_fence = private(args.capture_fence)
+    if capture_fence['current_boot_id'] != boot:
+        require(args.post_capture_reboot is not None, 'explicit post-capture reboot receipt required')
+        files['post-capture-reboot.json'] = Path(args.post_capture_reboot)
+    else:
+        require(args.post_capture_reboot is None, 'unexpected post-capture reboot receipt')
+    if exported.get('explicit_repair_receipt_sha256'):
+        require(digest(export / 'repair-receipt.json') == exported['explicit_repair_receipt_sha256'],
+                'explicit repair receipt mismatch')
+        for name in ['repair-receipt.json', 'repair-fsck.log', 'verify-fsck.log']:
+            files[name] = export / name
     hashes = {}
     for name, source in files.items():
-        private(source)
+        if not name.endswith('.log'):
+            private(source)
+        else:
+            require(source.is_file() and not source.is_symlink() and source.stat().st_uid == 0 and
+                    source.stat().st_mode & 0o077 == 0 and source.stat().st_size <= 8 << 20,
+                    'private bounded repair log required')
         target = output / name
         with target.open('xb') as dest, source.open('rb') as original:
             os.fchmod(dest.fileno(), 0o600)
@@ -162,9 +219,10 @@ def main():
         'recovery_evidence_sha256': digest(output / 'recovery-evidence.json'), 'expires_at': fence['expires_at']})
     write(output / 'native-archive.json', {'retained_home_tar_path': str(export / 'home.tar'),
                                         'retained_current_disk_path': str(inputs / 'current.ext4')})
+    stage_converted(export / 'converted', output)
     write(output / 'prepared-command.json', {
         'cwd': str(Path(args.binary).parent / 'cmd/operator-journal-acceptance'),
-        'argv': [args.binary, 'run', str(old_dir), str(export / 'converted'), str(output)],
+        'argv': journal_argv(args.binary, old_dir, output),
         'binary_sha256': args.binary_sha256, 'executed': False,
         'required_limits': {'CPUQuota': '200%', 'MemoryMax': '2G', 'TasksMax': 128, 'RuntimeMaxSec': '21min'}})
     fd = os.open(output, os.O_DIRECTORY); os.fsync(fd); os.close(fd)

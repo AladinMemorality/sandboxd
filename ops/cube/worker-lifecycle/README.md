@@ -1,10 +1,12 @@
-# Worker lifecycle candidate — not installed
+# Worker lifecycle — reviewed for empty enrollment
 
-These files are preparation only. No host/nested unit was installed, enabled,
-started or stopped. A concrete fixed Go stop coordinator now exists, with real
-admitted Pause operations and controller database exclusion. The source-level
-`STOP_COORDINATOR_IMPLEMENTED=false` installation gate remains false pending root
-review and actual disposable-unit acceptance. A manifest flag cannot enable it.
+The source gate now permits reviewed initial empty-worker enrollment. The fixed
+Go coordinator, installed nested retained-stop helper, and real manual reboot
+proof support that limited transition. The outer supervisor is not installed
+by this change. Its private host review/drain requirements and first real
+coordinator cycle remain mandatory. This does not enable customer Cube routing
+or claim completed crash recovery and backup acceptance. See the
+[source-gate review](SOURCE-GATE-REVIEW-2026-09-25.md).
 
 ## Observed existing behavior, 2026-09-25
 

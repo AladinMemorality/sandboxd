@@ -54,8 +54,8 @@ Keep original disk, full metadata and raw/derived archives outside the worker.
 
 Reviewed binary:
 
-- `/opt/baarcha-bench/cube-journal-retained-prepare-20260925/build-control-plane/journal-acceptance`
-- SHA256 `c4883204d62fa001788d8b4d9d8b57687761e186a44ca3e4694022f2ec2d7cd4`
+- `/opt/baarcha-bench/cube-journal-repair-prepare-20260925/control-plane/journal-acceptance`
+- SHA256 `83815957dbe4cf5d09cd9445dc8942c391c47e6f58c96645052742ed039b3a49`
 
 `prepare_retained.py` creates a new private evidence directory and generated
 command description only. It never starts services, creates a guest, copies a
@@ -68,7 +68,7 @@ owned replacement, retain the source mutation fence. Supply a fresh operator
 receipt, not one inferred from metadata or timeout:
 
 ```json
-{"purpose":"OWNED_RECOVERY_EXECUTION_FENCE","old_provider_id":"524905c6b8a84f9b90470e0f0a813894","worker_machine_id":"EXACT_MACHINE","previous_boot_id":"ORIGINAL_ESCROW_BOOT","current_boot_id":"1574a104-22ab-4e85-92ba-36163537171f","no_task_verified":true,"no_owned_vmm_or_disk_fd_verified":true,"provider_requests_drained":true,"management_fenced":true,"checked_at":0,"expires_at":0}
+{"purpose":"OWNED_RECOVERY_EXECUTION_FENCE","old_provider_id":"524905c6b8a84f9b90470e0f0a813894","worker_machine_id":"EXACT_MACHINE","previous_boot_id":"ORIGINAL_ESCROW_BOOT","current_boot_id":"7ee095fe-0461-4779-93e6-42e2b557440f","no_task_verified":true,"no_owned_vmm_or_disk_fd_verified":true,"provider_requests_drained":true,"management_fenced":true,"checked_at":0,"expires_at":0}
 ```
 
 Set checked_at to the actual fresh inspection time and expiry at most20minutes
@@ -77,13 +77,15 @@ coordinator alone may create its new owned replacement. It is not permission to
 reconnect/delete the source or a claim that a Boolean implements fencing.
 
 ```sh
-python3 /opt/baarcha-bench/cube-journal-retained-prepare-20260925/prepare_retained.py \
+python3 /opt/baarcha-bench/cube-journal-repair-prepare-20260925/prepare_retained.py \
   --crash-stage /opt/baarcha-bench/cube-crash-running-de3-01 \
+  --capture-metadata EXACT_MANIFEST_BOUND_METADATA \
+  --post-capture-reboot VERIFIED_CONTINUITY_JSON \
   --capture-input NEW_OUTER_INPUT --capture-fence SAVED_CAPTURE_FENCE \
   --export-stage OUTER_EXPORT_DIR --execution-fence FRESH_OPERATOR_JSON \
   --output /opt/baarcha-bench/cube-journal-running-de3-01 \
-  --binary /opt/baarcha-bench/cube-journal-retained-prepare-20260925/build-control-plane/journal-acceptance \
-  --binary-sha256 c4883204d62fa001788d8b4d9d8b57687761e186a44ca3e4694022f2ec2d7cd4 \
+  --binary /opt/baarcha-bench/cube-journal-repair-prepare-20260925/control-plane/journal-acceptance \
+  --binary-sha256 83815957dbe4cf5d09cd9445dc8942c391c47e6f58c96645052742ed039b3a49 \
   --owned-id 524905c6b8a84f9b90470e0f0a813894
 ```
 
@@ -115,3 +117,83 @@ Do not add a general tenant bypass or alter journal quarantine. Require204,
 independent subsequent404, complete Master inventory0 and Cube tasks empty;
 record the source cleanup separately from journal target cleanup. A failure
 stops for inspection with all archives retained, never manual force-cleanup.
+
+## Explicit post-capture reboot continuity
+
+The retained-source branch alone accepts a separately hash-bound
+`post-capture-reboot.json` if execution occurs after another clean worker boot.
+It binds original source/provider/machine/data identity, capture and execution
+boots, source plan/manifest/fence hashes, and equal full captured/post-reboot disk
+hashes. It requires affirmative orderly shutdown, unchanged critical metadata,
+no tasks or owned VMM/disk descriptors, and drained provider requests. The
+historical missing-provider branch still rejects this extension. Original
+receipts are never rewritten; a fresh execution fence is separately required.
+
+The actual running-de3 capture manifest binds `metadata-before`, despite a
+separately preserved fresh metadata-pre-fence inspection. `--capture-metadata`
+checks the plan and both canonical metadata hashes against the manifest; do not
+substitute the fresher metadata merely because its identity fields match.
+
+The 2026-09-25 rescue attempt stopped safely at default filesystem preen with
+exit4 before mounting/exporting. Read-only diagnostics identified an unattached
+8-byte regular inode (association unknown) and allocation inconsistencies,
+including the PostgreSQL replication-origin checkpoint inode. An explicit
+clone-only repair requires separate review; no journal continuation or latest
+SQL preservation is claimed from this failed export.
+
+## Explicit disposable-clone filesystem repair
+
+Default export still runs preen and refuses exit4. The reviewed optional
+`rescue_export.py --repair-current-sha256 EXACT_CAPTURED_SHA256` is an operator
+repair request, never a fallback automatically selected after failure. It makes
+another fresh scratch inode from the independently hash-verified input, requires
+its pre-repair hash to match, saves full private `e2fsck -fy` output, and accepts
+only exit0/1. A separate read-only `e2fsck -fn` must return0 before any mount.
+A failed repair/check retains its scratch, logs and failed receipt for review.
+Inputs, first failed scratch and all earlier outputs remain untouched.
+
+Successful repair saves `repair-receipt.json`, `repair-fsck.log` and
+`verify-fsck.log`. Independently retrieve all three alongside the whole-home
+archive, export report and converted archives. The report binds receipt and
+repaired-clone hashes; journal evidence binds the receipt and both log hashes,
+requires the exact command/return-code sequence, and rejects undeclared repair.
+The latest app/home markers and PostgreSQL SQL expectations remain unchanged.
+Even a successful repaired replacement is recorded separately from failed native
+recovery; an orphan's unknown association must not be represented as harmless.
+
+
+The explicit repaired-export run subsequently passed inside the restricted rescue
+VM at14:30:12–14:32:29UTC. Repair returned1 and the separate check returned0;
+the unknown8-byte orphan was reconnected under lost+found, outside exported home.
+Original current-disk SHA remained974163c7…; all mounts were released. Independent
+outer verification preserved twelve output files under
+`/mnt/nvme/baarcha-cube/recovery-running-de3-20260925/verified-export`, including
+repair/log evidence. Latest app/home markers and canonical archive contracts
+passed. PostgreSQL SQL recovery and journal execution are still separate pending
+checks; neither native nor production recovery is claimed by this export.
+
+
+## Actual repaired retained-source journal acceptance
+
+The separately authorized journal ran at14:40:16–14:40:48UTC, exit0, CPU14.879s,
+using candidate83815957… and a fresh execution fence with the exact lifecycle
+manager container frozen. It verified the ORIGINAL latest acknowledged app/home
+markers and PostgreSQL SQL, without recommitting them; quiesced archive digests,
+frozen config, synthetic task history and stable owner/app/sandbox identity also
+passed. The isolated binding switched atomically and repeated Commit succeeded.
+This was an isolated controller database, not a production binding or browser
+routing test; original crash task history was not exported by this fixture.
+
+The fixture created target3c545045bcf84e9785113a6700ba60ca, then deleted only
+that target and verified404 with zero target admission charge. Independent
+post-run inventory showed exactly the original524905… in exited(failed), no Cube
+tasks, and the original lifecycle-manager container still paused. Original
+source cleanup/unfreeze remains a separate root-reviewed action. Native recovery
+still failed; this is current-disk repair plus replacement/journal recovery.
+
+The initial prepared command referenced converted archives under /mnt/nvme,
+which the binary correctly disallows. This was caught before invocation. All
+four converted files were independently copied under the private journal stage;
+the original command was preserved and the corrected command explicitly reviewed
+before execution. Future preparation now makes that copy and generates a path
+within the executable guard; tests reject outside-root commands and symlinks.

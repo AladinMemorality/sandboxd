@@ -1,0 +1,298 @@
+{
+  "format": 1,
+  "deployed_platform_sha_before": "30cd5c24ff44183fc72f4c051377f8ae931d9863",
+  "deployed_platform_sha_after": "30cd5c24ff44183fc72f4c051377f8ae931d9863",
+  "reported_at": "2026-09-25T15:10:49.592708+00:00",
+  "max_concurrent_pages": 2,
+  "start_spacing_ms": 5000,
+  "request_interception": false,
+  "real_forms_or_model_calls_by_harness": false,
+  "public_apps": [
+    {
+      "app": "/apps/aladin/levelupia-redesign",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 7237,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/tunde-bridge",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 7162,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/mohamed-cherif/minecraft-tunnel-server",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 5321,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/thedot-style-website",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 7750,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/mini-minecraft",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 7140,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/pc-builder",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 7463,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/faith-mask-shop",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 8065,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/classroom",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 13128,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/malek-mimouna/lina-sami-a-wedding-site",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 14326,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/vega-redesign",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 9918,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/jaloul-ayed-site",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 7452,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/wedding-suite",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 9804,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/campaign-canvas",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 21544,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/wild-haven",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 10559,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/candle-shop",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 12998,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/slide-studio",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 8123,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/jordan-studio",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 10213,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/makla-hometti",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 8021,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/avocall-redesign",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 7861,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    },
+    {
+      "app": "/apps/aladin/nabd-tunis",
+      "wrapperStatus": 200,
+      "rendered": true,
+      "renderMs": 7581,
+      "loadingStatusCleared": true,
+      "page_javascript_errors": 0
+    }
+  ],
+  "directory_pages": [
+    {
+      "path": "/apps/aladin",
+      "http_status": 200,
+      "iframe_expected": false
+    },
+    {
+      "path": "/apps/mohamed-cherif",
+      "http_status": 200,
+      "iframe_expected": false
+    },
+    {
+      "path": "/apps/malek-mimouna",
+      "http_status": 200,
+      "iframe_expected": false
+    }
+  ],
+  "kanzari": {
+    "path": "/apps/aladin/kanzari-olive-oil",
+    "anonymous_status": 404,
+    "included_in_public_sitemap": false,
+    "last_confirmed_visibility": "private",
+    "routing_failure_claimed": false
+  },
+  "timings": {
+    "min": 5321,
+    "median": 8043.0,
+    "max": 21544,
+    "unit": "ms",
+    "scope": "WAN browser initial render, including wrapper delivery, any wake, app modules, assets and readiness. Not a Docker-versus-Cube benchmark."
+  },
+  "limits": [
+    "Initial anonymous content and loading indicator only; not complete business flows.",
+    "Owner-only edit/preview controls and private owner access were not tested.",
+    "ERR_ABORTED requests include context teardown/navigation; initial Tunde image/video SSL failures were separately reproduced and repaired."
+  ],
+  "tunde_repair": {
+    "applied_at": "2026-09-25T15:21:17.610184+00:00",
+    "owner_upload_binding_checked_before_write": true,
+    "existing_public_capability_uploads_only": true,
+    "private_upload_publicization": false,
+    "exact_files": [
+      {
+        "path": "BRAIN.md",
+        "before_sha256": "a5a149df3a8e39b6fe1599a6331ff212f468c6eae38cba696ba330d953c23e45",
+        "after_sha256": "2b3690ccd982c164229ff5a8e05f3c7075f53d96e1c511a18e8c37d114f10b71",
+        "original_mode_owner_preserved": true
+      },
+      {
+        "path": "src/lib/brand.ts",
+        "before_sha256": "f5afe2b6d16373613eb52bcc05ea3a6f8581de24f5dce40fbff923ede55de309",
+        "after_sha256": "98bfe52346e4e90353fd2b34f7747272e61ee6f9444b4a38a9abeb129de4a005",
+        "original_mode_owner_preserved": true
+      }
+    ],
+    "change": "Replace exactly two localhost asset origins with https://baarcha.tn in src/lib/brand.ts; correct one misleading BRAIN.md statement.",
+    "fsynced_private_original_backup": true,
+    "existing_inode_hash_rechecked_before_atomic_replace": true,
+    "no_active_project_task_before_after": true,
+    "concurrency_limit": "Dedicated operator advisory lock; existing file API has no shared editor lock or compare-and-swap. Source hashes/inodes were rechecked immediately before each atomic rename.",
+    "app_identity_sha256": "12e05259a6bb10eaf86f99247be9910ae86454520c3d03eb92016c5c623616b4",
+    "container_identity_sha256": "dded5a53120a2f05696bdc8e7b7d21764603138ef83513446a153aaa138f8b96",
+    "app_and_container_identity_unchanged": true,
+    "other_links_visibility_snapshot_or_cover_changed": false,
+    "published_snapshot_exists": false,
+    "runtime_snapshot_count": 0,
+    "remix_enabled": false,
+    "post_repair_browser": {
+      "checkedAt": "2026-09-25T15:22:00.348Z",
+      "app": "/apps/aladin/tunde-bridge",
+      "state": {
+        "images": [
+          {
+            "canonical": true,
+            "loaded": true
+          },
+          {
+            "canonical": true,
+            "loaded": true
+          },
+          {
+            "canonical": true,
+            "loaded": true
+          },
+          {
+            "canonical": true,
+            "loaded": true
+          }
+        ],
+        "videos": [
+          {
+            "canonical": true,
+            "readyState": 4,
+            "width": 1024,
+            "height": 576
+          }
+        ],
+        "localhostReferences": 0
+      },
+      "responses": [
+        {
+          "kind": "video",
+          "origin": "https://baarcha.tn",
+          "status": 206,
+          "type": "media"
+        },
+        {
+          "kind": "image",
+          "origin": "https://baarcha.tn",
+          "status": 200,
+          "type": "image"
+        }
+      ],
+      "errors": [],
+      "failures": [],
+      "result": "passed"
+    }
+  },
+  "private_artifact_sha256": {
+    "published-browser-results.json": "a8a7540176db3d71f0741aa3301302606c5b988b44ef33e5e4a542f295b72c8b",
+    "tunde-assets.json": "f523680d859c18914e490a296b8c160ed02388802a6fd75b93313eb97f68f915",
+    "tunde-after.json": "7212a244118fbe6665d6ee1b2702eb935749f01bcb4c51e274b8e300ab5d96ba",
+    "tunde-after.png": "043c0944abde76edb8e72f0c2fcbd66d77a8cd35f197c74b29c44204ee8e63be",
+    "tunde-repair-candidate/manifest.private.json": "9655cee61e7586570096b9218a0253f765211fb91e9e6a3e144be389468845e6",
+    "tunde-repair-candidate/apply.stdout": "90c4d5d403e2c38dab4faff28c014d146238fc28dc47e3d22ba63def671ec11e"
+  }
+}

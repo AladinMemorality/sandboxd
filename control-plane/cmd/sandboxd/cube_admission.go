@@ -17,6 +17,9 @@ func configureCubeAdmission(ctx context.Context, cfg cubeConfig, st *store.Store
 	if err != nil {
 		return err
 	}
+	if err = admission.RequireStorageGuard(); err != nil {
+		return err
+	}
 	for _, id := range cfg.templates {
 		if _, ok := admission.Templates[id]; !ok {
 			return errors.New("Cube preset template missing from reviewed admission contract")

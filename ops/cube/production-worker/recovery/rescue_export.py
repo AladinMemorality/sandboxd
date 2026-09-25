@@ -56,6 +56,33 @@ def run(command, *, acceptable=(0,), **kwargs):
     result=subprocess.run(command,stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL,timeout=600,**kwargs)
     require(result.returncode in acceptable,'rescue command failed; retain clone and report')
 
+def repair_current_clone(repaired, source_digest, expected_digest, work):
+    """Explicit operator repair of a disposable clone, with immutable evidence."""
+    require(re.fullmatch(r'[a-f0-9]{64}', expected_digest or '') is not None and
+            expected_digest == source_digest, 'operator repair digest mismatch')
+    before=sha256(repaired)
+    require(before==source_digest, 'fresh repair clone differs from captured source')
+    evidence={'purpose':'CUBE_CURRENT_DISK_EXPLICIT_CLONE_REPAIR',
+              'source_sha256':source_digest,'clone_before_sha256':before,'steps':[]}
+    for name,option,acceptable in [('repair','-fy',(0,1)),('verify','-fn',(0,))]:
+        log=work/(name+'-fsck.log')
+        with log.open('xb') as output:
+            os.fchmod(output.fileno(),0o600)
+            result=subprocess.run(['e2fsck',option,str(repaired)],stdout=output,
+                                  stderr=subprocess.STDOUT,timeout=600)
+            output.flush();os.fsync(output.fileno())
+        evidence['steps'].append({'option':option,'returncode':result.returncode,
+                                  'log':log.name,'log_sha256':sha256(log)})
+        evidence['clone_after_sha256']=sha256(repaired)
+        if result.returncode not in acceptable:
+            evidence['clean_verified']=False
+            private_json(work/'repair-receipt.json',evidence)
+            raise Invalid('explicit clone repair failed; preserve logs and scratch')
+    evidence['clean_verified']=True
+    with repaired.open('rb') as disk:os.fsync(disk.fileno())
+    private_json(work/'repair-receipt.json',evidence)
+    return sha256(work/'repair-receipt.json')
+
 def reject_unexportable_metadata(home):
     # Full tree is trusted only as data. Never follow symlinks. The archive
     # validator separately verifies link resolution and ownership before import.
@@ -87,7 +114,7 @@ def reject_unexportable_metadata(home):
     require(all(count==expected for count,expected in inode_links.values()),'hardlink names extend outside exported home or metadata changed')
     return sorted(excluded)
 
-def export(source, work):
+def export(source, work, *, repair_current_sha256=None):
     require_rescue()
     source=no_symlink(absolute(str(source),'/var/lib/cube-rescue'))
     work=Path(absolute(str(work),'/var/lib/cube-rescue'))
@@ -103,7 +130,11 @@ def export(source, work):
     require((repaired.stat().st_dev,repaired.stat().st_ino)!=(source.joinpath('current.ext4').stat().st_dev,source.joinpath('current.ext4').stat().st_ino),'scratch aliases input disk')
     filesystem=subprocess.check_output(['blkid','-p','-o','value','-s','TYPE',str(repaired)],text=True,stderr=subprocess.DEVNULL,timeout=30).strip()
     require(filesystem=='ext4','captured current disk is not ext4')
-    run(['e2fsck','-p',str(repaired)],acceptable=(0,1))
+    repair_receipt=None
+    if repair_current_sha256 is None:
+        run(['e2fsck','-p',str(repaired)],acceptable=(0,1))
+    else:
+        repair_receipt=repair_current_clone(repaired,files[0]['sha256'],repair_current_sha256,work)
     mounted=[]
     try:
         rw=work/'rw'; rw.mkdir(mode=0o700)
@@ -136,7 +167,7 @@ def export(source, work):
             os.chmod(archive,0o600)
             subprocess.run(['tar','--format=pax','--numeric-owner',*['--exclude=./'+p for p in excluded],'-cf','-','-C',str(home),'.'],stdout=out,stderr=subprocess.DEVNULL,check=True,timeout=600)
             out.flush();os.fsync(out.fileno())
-        private_json(work/'export-report.json',{'purpose':'CUBE_CURRENT_DISK_HOME_EXPORT','sandbox_id':manifest['sandbox_id'],'archive_bytes':archive.stat().st_size,'archive_sha256':sha256(archive),'captured_disk_sha256':files[0]['sha256'],'excluded_ephemeral_sockets':excluded,'journal_replay':'performed on independent scratch copy only','status':'exported; must pass archive validator before import'})
+        private_json(work/'export-report.json',{'purpose':'CUBE_CURRENT_DISK_HOME_EXPORT','sandbox_id':manifest['sandbox_id'],'archive_bytes':archive.stat().st_size,'archive_sha256':sha256(archive),'captured_disk_sha256':files[0]['sha256'],'excluded_ephemeral_sockets':excluded,'journal_replay':'performed on independent scratch copy only','explicit_repair_receipt_sha256':repair_receipt,'explicit_repair_clone_sha256':json.loads((work/'repair-receipt.json').read_text())['clone_after_sha256'] if repair_receipt else None,'status':'exported; must pass archive validator before import'})
         require(all(sha256(source/f['file'])==f['sha256'] for f in files),'input artifact changed')
     finally:
         cleanup_failed=False
@@ -150,8 +181,9 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--input',required=True,type=Path)
     parser.add_argument('--work',required=True,type=Path)
+    parser.add_argument('--repair-current-sha256',help='explicit reviewed repair of fresh scratch only; exact captured SHA256 required')
     args=parser.parse_args()
-    try:export(args.input,args.work)
+    try:export(args.input,args.work,repair_current_sha256=args.repair_current_sha256)
     except (Invalid,OSError,ValueError,TypeError,KeyError,subprocess.SubprocessError):
         parser.exit(1,'Rescue export failed; keep all private inputs and scratch files for review.\n')
 if __name__=='__main__':main()

@@ -391,7 +391,17 @@ func TestLiveCubeAppWorkload(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	if e = client.ConfigureAdmission(ctx, st, cube.AdmissionConfig{MaxActive: cfg.MaxActive, CPUCount: 2, MemoryMB: 2048, Templates: map[string]cube.AdmissionResources{cfg.TemplateID: {CPUCount: 2, MemoryMB: 2048}}}); e != nil {
+	admission := cube.AdmissionConfig{MaxActive: cfg.MaxActive, CPUCount: 2, MemoryMB: 2048, Templates: map[string]cube.AdmissionResources{cfg.TemplateID: {CPUCount: 2, MemoryMB: 2048}}, StorageGuard: cfg.StorageGuard}
+	if cfg.StorageGuard != nil {
+		admission.WritableDiskMB = 10240
+		report["storage_guard_enabled"] = true
+		report["storage_guard_contract"] = cfg.StorageGuard.Contract()
+		report["storage_outer_boot_id"] = cfg.StorageGuard.OuterBootID
+		report["storage_worker_boot_id"] = cfg.StorageGuard.ExpectedBootID
+	} else {
+		report["storage_guard_enabled"] = false
+	}
+	if e = client.ConfigureAdmission(ctx, st, admission); e != nil {
 		t.Fatal(e)
 	}
 	var run [12]byte

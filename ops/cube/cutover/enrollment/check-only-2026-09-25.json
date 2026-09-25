@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "runner_sha256": "3fd829a8e66c190183d613cad17e634b286c73df12278bef502141349d903433",
+  "actual_check_only_passed": true,
+  "observed_phases": ["preflight-passed", "check-only-complete"],
+  "private_evidence_directory": "/opt/baarcha-bench/cube-host-lifecycle-enrollment-20260925/execute-check-02",
+  "focused_tests_passed": 16,
+  "service_changes_performed": false,
+  "full_enrollment_cycle_executed": false,
+  "customer_cube_routing_enabled": false,
+  "scope": "Pinned actual host read-only checks; no full backup or restoration acceptance"
+}

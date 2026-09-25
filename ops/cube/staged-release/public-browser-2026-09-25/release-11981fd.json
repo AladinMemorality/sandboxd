@@ -1,0 +1,73 @@
+{
+  "workflow": 36153083058,
+  "workflow_conclusion": "success",
+  "head_and_deployed_sha": "11981fd9cdbf0f33b82fbbcd467783176a113fde",
+  "expected_and_actual_merge_tree": "1ed716d0518f126e2bc18c4816fc30dc44c80792",
+  "installed": {
+    "observed_at": "2026-09-25T15:27:13.944212+00:00",
+    "platform_sha": "11981fd9cdbf0f33b82fbbcd467783176a113fde",
+    "tracked_dirty": false,
+    "service": [
+      "MainPID=2988193",
+      "ActiveState=active",
+      "ActiveEnterTimestamp=Fri 2026-09-25 17:26:25 CEST"
+    ],
+    "responses": {
+      "http://127.0.0.1:3100/api/health": 200,
+      "http://127.0.0.1:3100/apps/aladin/tunde-bridge": 200,
+      "https://baarcha.tn/api/health": 200
+    }
+  },
+  "targeted_public_browser": {
+    "checkedAt": "2026-09-25T15:27:19.448Z",
+    "app": "/apps/aladin/tunde-bridge",
+    "state": {
+      "images": [
+        {
+          "canonical": true,
+          "loaded": true
+        },
+        {
+          "canonical": true,
+          "loaded": true
+        },
+        {
+          "canonical": true,
+          "loaded": true
+        },
+        {
+          "canonical": true,
+          "loaded": true
+        }
+      ],
+      "videos": [
+        {
+          "canonical": true,
+          "readyState": 4,
+          "width": 1024,
+          "height": 576
+        }
+      ],
+      "localhostReferences": 0
+    },
+    "responses": [
+      {
+        "kind": "video",
+        "origin": "https://baarcha.tn",
+        "status": 206,
+        "type": "media"
+      },
+      {
+        "kind": "image",
+        "origin": "https://baarcha.tn",
+        "status": 200,
+        "type": "image"
+      }
+    ],
+    "errors": [],
+    "failures": [],
+    "result": "passed"
+  },
+  "scope": "Exact release revision and service health plus targeted public Tunde asset verification. Earlier full20-app audit was on30cd5c24; no full audit falsely attributed to this release.",
+  "browser_closed": true
+}

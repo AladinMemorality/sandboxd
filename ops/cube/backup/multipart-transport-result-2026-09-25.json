@@ -1,0 +1,28 @@
+{
+  "scope": "SYNTHETIC multipart and off-host GPG transport integration; no production worker capture or application boot",
+  "verified_at": 1790349248.8303916,
+  "recipient_fingerprint": "25017F865BE80AA7E7E8C8925C595C2637931730",
+  "ciphertext_bytes": 135391779,
+  "ciphertext_sha256": "93b3b694e18a7f7ae609f60f80170eef03b4bccddef6e8b3325804a5792ed7f6",
+  "plaintext_bytes": 136079360,
+  "actual_multipart_parts": 2,
+  "part_limit_bytes": 134217728,
+  "multipart_complete_acknowledged": true,
+  "full_object_get_hash_verified": true,
+  "offhost_gpg_exit_zero": true,
+  "private_key_uploaded": false,
+  "local_full_archive_stored": false,
+  "strict_restore_all_file_hashes_match": true,
+  "qcow_pair_compare_passed": true,
+  "sqlite_fixture_row_preserved": true,
+  "production_worker_captured": false,
+  "application_restore_verified": false,
+  "services_changed": false,
+  "object_retained": true,
+  "artifacts_sha256": {
+    "seal": "589032b5a5a1bf0deab571a19152ccff01bf9d1ba84667e9261cc9f3abd377fd",
+    "readback": "e19ecdb8a88e945b9babd58394b6e218d4c7043bc48070ef358825380e7b1dcd",
+    "transport": "7d782b27534860a290f886265a0d5b925cdb586da2b36df16c9682bb0f7b05a2",
+    "capture": "3ebd167ee4f1ee5b6f4f64b046153d5a09b981f670eea81d153b7fa37bdc0dae"
+  }
+}

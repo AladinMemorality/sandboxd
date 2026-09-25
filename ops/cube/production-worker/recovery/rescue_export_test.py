@@ -5,9 +5,36 @@ import unittest
 from unittest.mock import patch
 from capture import sha256
 from plan import Invalid
-from rescue_export import verify_manifest, reject_unexportable_metadata, export
+from rescue_export import verify_manifest, reject_unexportable_metadata, export, repair_current_clone
 
 class RescueTests(unittest.TestCase):
+    def test_explicit_repair_binds_fresh_clone_and_requires_clean_postcheck(self):
+        from types import SimpleNamespace
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            root=Path(tmp).resolve(); disk=root/'clone'; disk.write_bytes(b'exact captured disk')
+            expected=sha256(disk)
+            with patch('rescue_export.subprocess.run') as run:
+                with self.assertRaises(Invalid):repair_current_clone(disk,expected,'f'*64,root)
+                run.assert_not_called()
+            with patch('rescue_export.subprocess.run',side_effect=[SimpleNamespace(returncode=1),SimpleNamespace(returncode=0)]) as run:
+                receipt=repair_current_clone(disk,expected,expected,root)
+                self.assertEqual([c.args[0][1] for c in run.call_args_list],['-fy','-fn'])
+                report=json.loads((root/'repair-receipt.json').read_text())
+                self.assertTrue(report['clean_verified'])
+                self.assertEqual(report['clone_before_sha256'],expected)
+                self.assertEqual(receipt,sha256(root/'repair-receipt.json'))
+                self.assertEqual(len(report['steps']),2)
+
+    def test_repair_never_accepts_unresolved_fsck_errors(self):
+        from types import SimpleNamespace
+        for codes in ([4],[0,1],[1,4]):
+            with self.subTest(codes=codes),tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+                root=Path(tmp).resolve();disk=root/'clone';disk.write_bytes(b'current')
+                with patch('rescue_export.subprocess.run',side_effect=[SimpleNamespace(returncode=n) for n in codes]) as run:
+                    with self.assertRaises(Invalid):repair_current_clone(disk,sha256(disk),sha256(disk),root)
+                    self.assertEqual(run.call_count,len(codes))
+                self.assertFalse(json.loads((root/'repair-receipt.json').read_text())['clean_verified'])
+
     def test_input_digest_order_and_no_symlink_substitution(self):
         with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
             p=Path(tmp).resolve(); a=p/'current.ext4';b=p/'lower-000.tar';a.write_bytes(b'current acknowledged state');b.write_bytes(b'exact image layer')

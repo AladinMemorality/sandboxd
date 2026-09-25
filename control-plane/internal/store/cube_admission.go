@@ -92,6 +92,11 @@ func (s *Store) AdmissionBegin(ctx context.Context, key, runtimeID, templateID, 
 		if operation == "create" || operation == "connect" || operation == "delete" {
 			charge = 1
 		}
+		if charge > 0 && (operation == "create" || operation == "connect" || operation == "delete") {
+			if err = s.storageAdmit(ctx, tx, key, token, charge > previous.Charged); err != nil {
+				return err
+			}
+		}
 		if charge > previous.Charged {
 			var used int
 			if err = tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(charged),0) FROM cube_admission`).Scan(&used); err != nil {
@@ -110,6 +115,7 @@ func (s *Store) AdmissionBegin(ctx context.Context, key, runtimeID, templateID, 
 				return cube.ErrCreationBusy
 			}
 		}
+
 		out = cube.AdmissionRecord{Key: key, RuntimeID: runtimeID, TemplateID: templateID, Operation: operation, Token: token, State: "pending", Charged: charge}
 		if exists {
 			_, err = tx.ExecContext(ctx, `UPDATE cube_admission SET runtime_id=?,template_id=?,operation=?,token=?,state='pending',charged=? WHERE admission_key=?`, runtimeID, templateID, operation, token, charge, key)
@@ -125,8 +131,16 @@ func (s *Store) AdmissionBegin(ctx context.Context, key, runtimeID, templateID, 
 }
 func (s *Store) AdmissionFinish(ctx context.Context, a cube.AdmissionRecord, runtimeID, state string) error {
 	return s.submit(ctx, func(db *sql.DB) error {
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		if _, err = tx.ExecContext(ctx, `UPDATE cube_admission_policy SET max_active=max_active WHERE singleton=1`); err != nil {
+			return err
+		}
 		var recovery int
-		if err := db.QueryRowContext(ctx, `SELECT COUNT(*) FROM cube_recovery WHERE phase='creating' AND operation_token=?`, a.Token).Scan(&recovery); err != nil {
+		if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM cube_recovery WHERE phase='creating' AND operation_token=?`, a.Token).Scan(&recovery); err != nil {
 			return err
 		}
 		if recovery != 0 {
@@ -138,7 +152,7 @@ func (s *Store) AdmissionFinish(ctx context.Context, a cube.AdmissionRecord, run
 		} else if state != "active" {
 			return errors.New("invalid Cube admission completion")
 		}
-		result, err := db.ExecContext(ctx, `UPDATE cube_admission SET runtime_id=?,state=?,charged=? WHERE admission_key=? AND token=? AND state='pending' AND NOT EXISTS(SELECT 1 FROM cube_recovery r WHERE r.phase='creating' AND r.operation_token=cube_admission.token) AND (charged>=? OR (SELECT COALESCE(SUM(charged),0) FROM cube_admission) < (SELECT max_active FROM cube_admission_policy WHERE singleton=1))`, runtimeID, state, charge, a.Key, a.Token, charge)
+		result, err := tx.ExecContext(ctx, `UPDATE cube_admission SET runtime_id=?,state=?,charged=? WHERE admission_key=? AND token=? AND state='pending' AND NOT EXISTS(SELECT 1 FROM cube_recovery r WHERE r.phase='creating' AND r.operation_token=cube_admission.token) AND (charged>=? OR (SELECT COALESCE(SUM(charged),0) FROM cube_admission) < (SELECT max_active FROM cube_admission_policy WHERE singleton=1))`, runtimeID, state, charge, a.Key, a.Token, charge)
 		if err != nil {
 			return err
 		}
@@ -149,7 +163,17 @@ func (s *Store) AdmissionFinish(ctx context.Context, a cube.AdmissionRecord, run
 		if n != 1 {
 			return cube.ErrAdmissionPending
 		}
-		return nil
+		if charge > a.Charged {
+			if err = s.storageAdmit(ctx, tx, a.Key, a.Token, true); err != nil {
+				return err
+			}
+		}
+		if charge == 0 {
+			if err = s.storageRelease(ctx, tx, a.Key); err != nil {
+				return err
+			}
+		}
+		return tx.Commit()
 	})
 }
 
@@ -161,8 +185,28 @@ func (s *Store) AdmissionObserveReleased(ctx context.Context, a cube.AdmissionRe
 		state = "deleted"
 	}
 	return s.submit(ctx, func(db *sql.DB) error {
-		_, err := db.ExecContext(ctx, `UPDATE cube_admission SET state=?,charged=0 WHERE admission_key=? AND token=? AND state IN ('active','released')`, state, a.Key, a.Token)
-		return err
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		if _, err = tx.ExecContext(ctx, `UPDATE cube_admission_policy SET max_active=max_active WHERE singleton=1`); err != nil {
+			return err
+		}
+		result, err := tx.ExecContext(ctx, `UPDATE cube_admission SET state=?,charged=0 WHERE admission_key=? AND token=? AND state IN ('active','released')`, state, a.Key, a.Token)
+		if err != nil {
+			return err
+		}
+		n, err := result.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if n == 1 {
+			if err = s.storageRelease(ctx, tx, a.Key); err != nil {
+				return err
+			}
+		}
+		return tx.Commit()
 	})
 }
 

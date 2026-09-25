@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "date": "2026-09-25",
+  "base_commit": "243303df04b3654424f3035a4dbbe72203541f7e",
+  "deployed": false,
+  "live_guard_acceptance_passed": false,
+  "worker_or_guest_mutations": false,
+  "native_stage": "/opt/baarcha-bench/cube-storage-guard-reviewed-20260925",
+  "native_source_archive_sha256": "47e66429d78348e9b421c8c1aa1049c33899bae48dffaab1fdfe151501630e2a",
+  "workload_binary_sha256": "c4859ef42dd4e046627f44c5d5284cd5ac328c56fbcdc4097bd9c8fa5214e428",
+  "migration_cli_sha256": "dd9231057b28bdedb197a1240f45b99f9bcc0d2c2b1068ef3cb4c90dd6903949",
+  "builder_image_sha256": "3d699e4d15d0f8f13c9195c0632a16702b8cbdece2955af1c23b37ae5d55a253",
+  "limits": {
+    "cpus": 2,
+    "memory": "2g",
+    "pids": 256,
+    "network": "none",
+    "tmpfs": "512m exec",
+    "GOMAXPROCS": 2
+  },
+  "race_packages": [
+    "internal/cube",
+    "internal/store",
+    "internal/api",
+    "internal/workerstop",
+    "internal/recovery",
+    "cmd/sandboxd",
+    "cmd/cube-migrate"
+  ],
+  "race_passed": true,
+  "python_tests": 9,
+  "python_passed": true,
+  "root_file_reader_test_executed": true,
+  "darwin_cube_store_race_passed": true,
+  "benchmark": {
+    "kind": "complete create/finish/pause/finish bookkeeping, secure observation file, no provider calls",
+    "iterations_per_sample": 100,
+    "samples_per_mode": 3,
+    "guarded_ns_per_cycle": [
+      786344,
+      730596,
+      904642
+    ],
+    "baseline_ns_per_cycle": [
+      622401,
+      777952,
+      757887
+    ],
+    "database": "isolated tmpfs; not production fsync latency",
+    "source_archive_sha256": "ea87441ada660b3e642dce7a1d46b5af43510e783f0cb9e775dbedff853582a4",
+    "scope_note": "Final core guard code; subsequent opt-in burst fixture wiring changed only test source. Historical live workload ccfe6d is preserved and does not validate this guard."
+  },
+  "limits_and_remaining": [
+    "Root observer/service/read-only controller mount not installed by this task",
+    "Expected outer and worker boot pins require explicit reviewed updates",
+    "Live guarded four-app workload and lifecycle enrollment still required",
+    "Initial enrollment requires zero charged rows; uncertain reservations must not be erased",
+    "External privileged NVMe writers and backup jobs need independent budgeting/fencing",
+    "Aggregate660GiB logical project quota is not fully physically backed",
+    "Initial Linux packaging attempt failed on AppleDouble ._ migration files and missing test resources; corrected archive excludes resource forks and includes test fixtures"
+  ],
+  "file_sha256": {
+    "control-plane/internal/cube/storage_clock_other.go": "bce172b4714085de569399f19e3ec90fb564bc24a77c04df280d0ced4768cee1",
+    "control-plane/internal/cube/storage_guard_test.go": "3a9aeb458ab101923f6e74941ff807c2221f96c224a8c635715c5607aaaa1b34",
+    "control-plane/internal/cube/storage_clock_linux.go": "318924a23b791df0857b759e7b37089908f5154c746bd374fcd9f6b9a788c309",
+    "control-plane/internal/cube/storage_guard.go": "9cbfe6614e2979499a2584da158a62abc397022c0e9337009d9bde5b623acf34",
+    "control-plane/internal/store/cube_storage_guard.go": "d517e85c4efc454ef7d91cf9c2ce3fda65b9b2679f046fae2ec6036bc8387cac",
+    "control-plane/internal/store/cube_storage_guard_test.go": "1d5328485565565d193c3e3e3f50edb728abed25e13ac24ae9fb476f0b93b3af",
+    "control-plane/internal/store/cube_admission.go": "4678fe88f4c3bb84685c6464c9afca4d6fb740ee0e290ccedb99dc5c8160615d",
+    "control-plane/internal/store/cube_recovery_journal.go": "8f42b81f2ee4912c70138f70c36748e99c56e9abb415256029164f145c07a960",
+    "control-plane/migrations/0034_cube_storage_guard.sql": "b569dda008325e79e5df782abb20e6a80fbcfff26baf28e416d70338f5a2c218",
+    "ops/cube/storage-guard/observe.py": "53608cfba893f6ea84754cc4dd81fca0ceed0120742a0e488800acb5c85ef938",
+    "ops/cube/storage-guard/test_observe.py": "a159a3d9e99ecba1b8df64e31adcdd4bedb7895a23a58b9c9ecf8ae5c2321a10"
+  },
+  "race_log_sha256": "4253022cfbf12d10f2bce0739a3b429ae7d241d43bd834ab5ee2f4aeffb92ad0",
+  "benchmark_log_sha256": "3d3ea7c4a868b76002dc69e787d999bfe95eb872d6693f2db524c999f7436fd3",
+  "template_capacity_evidence_sha256": "50fd9d23229490ab2f7902a0ec64ca4ad9ca3cf170d7c62d53ef411849e544d6"
+}
