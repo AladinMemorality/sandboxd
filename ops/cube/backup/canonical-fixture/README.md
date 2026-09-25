@@ -1,7 +1,13 @@
 # Canonical operator fixture for paired restore
 
-Prepared source only. No owner, credit, app, guest, task or SQL row has been
-created by this tool. It intentionally uses the canonical controller and real
+Root executed the initial owner/app phases on2026-09-25. Synthetic owners103
+and104 were committed with notification rows suppressed; the first app request
+returned400 because the fixture incorrectly used template directory
+`node-postgres-standard` as the API preset. Read-only DB/API evidence confirmed
+no app existed. A reviewed one-use `resume-rejected-app` action preserved the
+original failed intent and owners, corrected the API preset to `node-postgres`,
+and created app01M3CZB4HXT2Y8HP8CEY75PCWY. No sandbox, credit, task or application
+SQL rows were created in these phases. See `prepare-result-20260925.json`. It intentionally uses the canonical controller and real
 platform ownership; an isolated fixture database cannot replace that proof.
 
 Before any action, root must complete the real empty host enrollment cycle,
@@ -36,7 +42,7 @@ python3 /reviewed-source/ops/cube/backup/canonical-fixture/run.py \
 1. `prepare`: Cube must be disabled. Create two synthetic owners/sessions in one
    transaction; delete welcome/slack notification queue entries before commit.
    Create only a canonical app row using the real loopback API with
-   `external_user_id=baarcha:<owner>` and node-postgres-standard. Save the returned
+   `external_user_id=baarcha:<owner>` and the API preset `node-postgres` (template directory: `node-postgres-standard`). Save the returned
    app ID, then stop. It must not create a Docker fallback sandbox.
 2. Root separately configures exactly that one app in Cube's allowlist, with
    global rollout off, reviewed template and four-slot2CPU/2GiB/storage contract.
@@ -107,9 +113,16 @@ python3 -W error::ResourceWarning -m unittest discover \
   -s ops/cube/backup/canonical-fixture -p test_run.py
 ```
 
-Fifteen Node tests cover phase ambiguity, exact provider/owner scope, bounded
+Eighteen Node tests cover phase ambiguity, exact provider/owner scope, bounded
 response memory, cancellation/checkpoint behavior, runtime timeout and private
 image ACLs; four Python tests cover real local flock contention and refusal.
 These mocks/local files do not prove a live API, paid task, production grant,
-rendered page or restored database. Native root/wrapper invocation and a real
-canonical fixture remain unexecuted acceptance gates.
+rendered page or restored database. The real owner/app preparation was executed
+separately by root; guest creation, funding, task and restored-application proof
+remain separate acceptance gates.
+
+`resume-rejected-app` is confined to the recorded run6ff432593177fb12, owners103/104
+and original pending timestamp. It requires retained definitive400 evidence plus
+zero current DB and owner-API app rows, and independently checks owner identities.
+It records the reconciliation before one corrected POST; a second response loss
+remains pending and cannot be retried by this action. It never recreates owners.

@@ -4,7 +4,7 @@ import {Fixture,boundedBody,digest,intentAllowed,promptFor,runTaskToTerminal,val
 const id='01M3CKN983PFRGMD711PCEPDFD',sb='01M3CKN99ZF90BEEA4DS66YAQV',task='01M3CKN983PFRGMD711PCEPDFE';
 const config={version:1,controller_id:'a'.repeat(64),controller_image:'sha256:'+'b'.repeat(64),platform_revision:'c'.repeat(40),template_id:'tpl-reviewed',stage:'/opt/baarcha-bench/cube-canonical-fixture-test',platform_root:'/opt/baarcha/app/landing',allowed_app_id:id,funding_millimes:1000,stop_binary_sha256:'d'.repeat(64),start_binary_sha256:'e'.repeat(64),host_cycle_receipt:'/opt/baarcha-bench/complete.json',host_cycle_receipt_sha256:'f'.repeat(64),worker_boot_id:'11111111-1111-1111-1111-111111111111',enrollment_runner_sha256:'a'.repeat(64)};
 const journal=()=>({run:'abcdef1234567890',app:id,owners:[{id:21,role:'owner',sub:'fixture-owner',token:'private-owner'},{id:22,role:'foreign',sub:'fixture-foreign',token:'private-foreign'}],done:{app:{id}}});
-const app=j=>({id,external_user_id:'baarcha:21',external_project_id:`cube-recovery:${j.run}`,runtime_preset:'node-postgres-standard'});
+const app=j=>({id,external_user_id:'baarcha:21',external_project_id:`cube-recovery:${j.run}`,runtime_preset:'node-postgres'});
 const preview=`https://s-${sb.toLowerCase()}-3000.preview.65.108.225.153.sslip.io/`;
 const access=()=>({url:preview,access_url:preview+'__sandboxd/preview-auth?token=fixture',token:'fixture',expires_at:new Date(Date.now()+600000).toISOString()});
 
@@ -107,4 +107,26 @@ test('same image owned by another project is refused before granting access',asy
   const sql=async strings=>strings.join('').includes('published_app')?[{visibility:'private',cover_upload_id:'shared-image'}]:[{id:'shared-image',project_id:'another-project',waitlist_id:21}];
   const f=new Fixture({...config,stage},j,{sql,persist:async()=>{},request:async(_kind,route)=>{assert(route.includes('/screenshot?'));return{status:200,body:pixels};}});
   try{await assert.rejects(f.capture(),/Scoped upload/);assert.equal(j.pending.name,'capture');assert(!j.done.capture);}finally{await fs.rm(stage,{recursive:true});}
+});
+
+test('one reviewed400 can resume app only with zero rows and unchanged synthetic owners',async()=>{
+  const j=journal();j.run='6ff432593177fb12';delete j.app;j.owners[0].id=103;j.owners[1].id=104;j.done={owners:{ids:[103,104]}};j.pending={name:'app',at:'2026-09-25T19:01:32.421Z'};
+  const original=structuredClone(j.pending);let posts=0;
+  const f=new Fixture({...config,allowed_app_id:''},j,{persist:async()=>{},rejectedAppProof:async()=>({exact_project_rows:0,owner_apps:0,recorded_http400:true}),sql:async()=>j.owners.map(o=>({id:o.id,google_sub:o.sub})),request:async(_kind,route,opts)=>{
+    if(route.includes('?'))return{status:200,json:{apps:[]}};posts++;assert.equal(opts.body.runtime_preset,'node-postgres');assert.equal(opts.body.external_user_id,'baarcha:103');assert.equal(j.pending.name,'app');return{status:201,json:{id}};
+  }});
+  await f.resumeRejectedApp();assert.equal(posts,1);assert.equal(j.app,id);assert.deepEqual(j.rejected_app_reconciled.old_intent,original);assert.deepEqual(j.owners.map(o=>o.id),[103,104]);
+  await assert.rejects(f.resumeRejectedApp());assert.equal(posts,1);
+});
+test('reconciliation refuses unknown outcome, existing row, or a different run',async()=>{
+  for(const proof of [{exact_project_rows:1,owner_apps:0,recorded_http400:true},{exact_project_rows:0,owner_apps:0,recorded_http400:false}]){
+    const j=journal();j.run='6ff432593177fb12';delete j.app;j.owners[0].id=103;j.owners[1].id=104;j.done={owners:{}};j.pending={name:'app',at:'2026-09-25T19:01:32.421Z'};
+    const f=new Fixture({...config,allowed_app_id:''},j,{persist:async()=>assert.fail('no journal mutation'),rejectedAppProof:async()=>proof,request:async()=>assert.fail('no API mutation')});
+    await assert.rejects(f.resumeRejectedApp());assert(j.pending);assert(!j.rejected_app_reconciled);
+  }
+});
+test('corrected app acknowledgement loss remains pending and is not retried',async()=>{
+  const j=journal();j.run='6ff432593177fb12';delete j.app;j.owners[0].id=103;j.owners[1].id=104;j.done={owners:{}};j.pending={name:'app',at:'2026-09-25T19:01:32.421Z'};let posts=0;
+  const f=new Fixture({...config,allowed_app_id:''},j,{persist:async()=>{},rejectedAppProof:async()=>({exact_project_rows:0,owner_apps:0,recorded_http400:true}),sql:async()=>j.owners.map(o=>({id:o.id,google_sub:o.sub})),request:async(_kind,route)=>{if(route.includes('?'))return{status:200,json:{apps:[]}};posts++;throw Error('lost');}});
+  await assert.rejects(f.resumeRejectedApp());assert.equal(j.pending.name,'app');assert(j.rejected_app_reconciled);await assert.rejects(f.resumeRejectedApp());assert.equal(posts,1);
 });

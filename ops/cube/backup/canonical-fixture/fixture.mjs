@@ -9,7 +9,7 @@ import {createRequire} from 'node:module';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 const exec=promisify(execFile);
-const ORIGIN='https://baarcha.tn', PRESET='node-postgres-standard';
+const ORIGIN='https://baarcha.tn', PRESET='node-postgres';
 const ULID=/^[0-9A-HJKMNP-TV-Z]{26}$/, SHA=/^[a-f0-9]{64}$/;
 export const digest=x=>crypto.createHash('sha256').update(x).digest('hex');
 const need=(yes,message)=>assert(yes,message);
@@ -69,7 +69,7 @@ export async function runTaskToTerminal({submit,poll,cancel,save,now=Date.now,sl
   }
 }
 export class Fixture {
-  constructor(config,journal,{request,sql,persist,inspect}) {this.c=config;this.j=journal;this.request=request;this.sql=sql;this.persist=persist;this.inspect=inspect;}
+  constructor(config,journal,{request,sql,persist,inspect,rejectedAppProof}) {this.c=config;this.j=journal;this.request=request;this.sql=sql;this.persist=persist;this.inspect=inspect;this.rejectedAppProof=rejectedAppProof;}
   async intent(name) {intentAllowed(this.j,name);this.j.pending={name,at:new Date().toISOString()};await this.persist();}
   async done(name,data) {need(this.j.pending?.name===name,'Mutation intent changed');this.j.done??={};this.j.done[name]=data;delete this.j.pending;await this.persist();}
   owner(role='owner'){const row=this.j.owners?.find(r=>r.role===role);need(row,'Synthetic owner missing');return row;}
@@ -90,6 +90,21 @@ export class Fixture {
     await this.done('owners',{ids:owners.map(p=>p.id)});
     await this.intent('app');
     const app=await this.rt('/v1/apps',{method:'POST',body:{name:`Cube recovery acceptance ${this.j.run}`,external_user_id:`baarcha:${this.owner().id}`,external_project_id:`cube-recovery:${this.j.run}`,runtime_preset:PRESET}});
+    need(ULID.test(app.id)&&!app.current_sandbox_id,'Unexpected app creation');this.j.app=app.id;await this.done('app',{id:app.id});
+  }
+  async resumeRejectedApp() {
+    // One reviewed validation rejection only; this is not general retry logic.
+    need(this.j.run==='6ff432593177fb12'&&this.owner().id===103&&this.owner('foreign').id===104,'Not the reviewed rejected fixture');
+    need(!this.c.allowed_app_id&&!this.j.app&&!this.j.done.app&&!this.j.rejected_app_reconciled&&this.j.done.owners,'Rejected fixture boundary changed');
+    need(this.j.pending?.name==='app'&&this.j.pending.at==='2026-09-25T19:01:32.421Z','Original app intent differs');
+    const proof=await this.rejectedAppProof();need(proof.exact_project_rows===0&&proof.owner_apps===0&&proof.recorded_http400===true,'Absent app / definitive400 evidence required');
+    const current=await this.rt('/v1/apps?external_user_id=baarcha%3A103');need(Array.isArray(current.apps)&&current.apps.length===0,'Owner API inventory not empty');
+    const people=await this.sql`SELECT id,google_sub FROM waitlist WHERE id IN (103,104) ORDER BY id`;
+    need(people.length===2&&people.every(p=>this.j.owners.some(o=>o.id===p.id&&o.sub===p.google_sub)),'Existing synthetic owner identity changed');
+    this.j.rejected_app_reconciled={at:new Date().toISOString(),old_intent:this.j.pending,definitive_rejection:'unknown runtime_preset',old_preset:'node-postgres-standard',corrected_preset:PRESET,proof};
+    delete this.j.pending;await this.persist();
+    await this.intent('app');
+    const app=await this.rt('/v1/apps',{method:'POST',body:{name:`Cube recovery acceptance ${this.j.run}`,external_user_id:'baarcha:103',external_project_id:`cube-recovery:${this.j.run}`,runtime_preset:PRESET}});
     need(ULID.test(app.id)&&!app.current_sandbox_id,'Unexpected app creation');this.j.app=app.id;await this.done('app',{id:app.id});
   }
   async create() {
@@ -181,12 +196,12 @@ async function writePrivate(p,data,identical=false){try{await privatePath(p);if(
 
 // Main runner intentionally left below pure exported functions for offline tests.
 async function main() {
-  const args=process.argv.slice(2);need(args.length===6&&args[0]==='--config'&&args[2]==='--action'&&args[4]==='--execute-sha256','Use --config PRIVATE --action prepare|create|fund|task|verify|inspect --execute-sha256 EXACT');
+  const args=process.argv.slice(2);need(args.length===6&&args[0]==='--config'&&args[2]==='--action'&&args[4]==='--execute-sha256','Use --config PRIVATE --action prepare|resume-rejected-app|create|fund|task|verify|inspect --execute-sha256 EXACT');
   need(process.platform==='linux'&&process.getuid()===0,'Native host root required');
   need(process.env.CUBE_FIXTURE_LOCKED_PARENT===String(process.ppid),'Use the reviewed Python lock wrapper');
   need(digest(await fs.readFile(fileURLToPath(import.meta.url)))===args[5],'Script hash mismatch');
   await privatePath(args[1]);const c=validateConfig(JSON.parse(await fs.readFile(args[1],'utf8')));
-  need(['prepare','create','fund','task','verify','inspect'].includes(args[3]),'Unknown phase');
+  need(['prepare','resume-rejected-app','create','fund','task','verify','inspect'].includes(args[3]),'Unknown phase');
   await privatePath(c.stage,true);
   const lock=await fs.open(path.join(c.stage,'running.lock'),'wx',0o600);await lock.writeFile(String(process.pid));await lock.sync();
   let sql;try{
@@ -197,7 +212,7 @@ async function main() {
     need(cp.Id===c.controller_id&&cp.Image===c.controller_image&&cp.State.Running,'Controller identity drift');
     const env=Object.fromEntries(cp.Config.Env.map(x=>[x.slice(0,x.indexOf('=')),x.slice(x.indexOf('=')+1)]));
     need(env.SANDBOXD_CUBE_ROLLOUT!=='global','Global routing forbidden for operator fixture');
-    if(args[3]==='prepare'||(args[3]==='inspect'&&env.SANDBOXD_CUBE_ENABLED==='false'))need(env.SANDBOXD_CUBE_ENABLED==='false','Prepare requires Cube disabled');
+    if(['prepare','resume-rejected-app'].includes(args[3])||(args[3]==='inspect'&&env.SANDBOXD_CUBE_ENABLED==='false'))need(env.SANDBOXD_CUBE_ENABLED==='false','Prepare requires Cube disabled');
     else {const admission=JSON.parse(env.SANDBOXD_CUBE_ADMISSION||'null');need(admission?.max_active===4&&admission.cpu_count===2&&admission.memory_mb===2048&&admission.writable_disk_mb===10240&&admission.storage_guard,'Reviewed four-slot storage-guard admission required');need(env.SANDBOXD_CUBE_ENABLED==='true'&&env.SANDBOXD_CUBE_APP_IDS===c.allowed_app_id,'Exact single-app allowlist required');need(JSON.parse(env.SANDBOXD_CUBE_TEMPLATES)[PRESET]===c.template_id,'Template config drift');}
     const rev=(await exec('git',['-C','/opt/baarcha/app','rev-parse','HEAD'],{timeout:5000})).stdout.trim();need(rev===c.platform_revision,'Platform release drift');
     // Real source34 enrollment and explicit coordinator receipt are mandatory.
@@ -221,10 +236,17 @@ async function main() {
       const r=await fetch(url,{method:opts.method||'GET',redirect:'manual',headers,body:opts.body===undefined?undefined:JSON.stringify(opts.body),signal:AbortSignal.timeout(opts.timeout||15000)});
       const body=await boundedBody(r,opts.max);let json;try{json=JSON.parse(body);}catch{}return{status:r.status,body,json};
     };
-    const f=new Fixture(c,j,{request,sql,persist,inspect});
+    const rejectedAppProof=async()=>{
+      const script="import contextlib,sqlite3,json\nwith contextlib.closing(sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True)) as c:\n c.execute('BEGIN'); print(json.dumps({'exact_project_rows':c.execute('SELECT count(*) FROM app WHERE external_project_id=?',('cube-recovery:6ff432593177fb12',)).fetchone()[0],'owner_apps':c.execute('SELECT count(*) FROM app WHERE external_user_id=?',('baarcha:103',)).fetchone()[0]}))";
+      const output=await exec('python3',['-c',script],{timeout:10000,maxBuffer:4096});const proof=JSON.parse(output.stdout);
+      const names=(await fs.readdir(c.stage)).filter(n=>/^failure-[0-9]+\.json$/.test(n));need(names.length>0&&names.length<=10,'Missing bounded rejection evidence');
+      const failures=[];for(const name of names){const p=path.join(c.stage,name);await privatePath(p);failures.push(JSON.parse(await fs.readFile(p,'utf8')));}
+      proof.recorded_http400=failures.some(e=>e.action==='prepare'&&e.pending==='app'&&e.message==='Runtime HTTP400');return proof;
+    };
+    const f=new Fixture(c,j,{request,sql,persist,inspect,rejectedAppProof});
     if(args[3]==='inspect'){console.log(JSON.stringify({phase:j.pending?.name||'idle',app:j.app||null,sandbox:j.sandbox||null,task:j.task||null,done:Object.keys(j.done),verification:!!j.verification}));return;}
-    need(!j.pending,'Pending mutation retained; inspect/reconcile manually before further work');
-    try {await f[args[3]]();} catch(error) {await atomic(path.join(c.stage,`failure-${Date.now()}.json`),{at:new Date().toISOString(),action:args[3],pending:j.pending?.name||null,error_class:error?.name||'Error',message:error?.name==='AssertionError'?String(error.message).slice(0,300):'bounded fixture operation failed; retain journal'});throw error;}console.log(JSON.stringify({action:args[3],completed:true,app:j.app||null,sandbox:j.sandbox||null,retained_for_backup:true}));
+    need(!j.pending||args[3]==='resume-rejected-app','Pending mutation retained; inspect/reconcile manually before further work');
+    try {await f[args[3]==='resume-rejected-app'?'resumeRejectedApp':args[3]]();} catch(error) {await atomic(path.join(c.stage,`failure-${Date.now()}.json`),{at:new Date().toISOString(),action:args[3],pending:j.pending?.name||null,error_class:error?.name||'Error',message:error?.name==='AssertionError'?String(error.message).slice(0,300):'bounded fixture operation failed; retain journal'});throw error;}console.log(JSON.stringify({action:args[3],completed:true,app:j.app||null,sandbox:j.sandbox||null,retained_for_backup:true}));
   } finally {if(sql)await sql.end({timeout:5});await lock.close();await fs.unlink(path.join(c.stage,'running.lock'));}
 }
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url))main().catch(()=>{console.error('Fixture stopped; inspect the private journal. No automatic retry or cleanup.');process.exitCode=1;});
