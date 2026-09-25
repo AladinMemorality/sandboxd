@@ -21,15 +21,17 @@ import (
 )
 
 type stopFixture struct {
-	held          *Held
-	client        *cube.Client
-	mu            sync.Mutex
-	guests        map[string]cube.Sandbox
-	pauses        int
-	failPause     bool
-	detailMissing bool
-	beforePause   func()
-	syncs         int
+	held              *Held
+	client            *cube.Client
+	mu                sync.Mutex
+	guests            map[string]cube.Sandbox
+	pauses            int
+	failPause         bool
+	detailMissing     bool
+	beforePause       func()
+	syncs             int
+	databaseChecks    int
+	databaseFailureAt int
 }
 
 func fixture(t *testing.T) *stopFixture {
@@ -141,15 +143,32 @@ func fixture(t *testing.T) *stopFixture {
 	t.Cleanup(func() { db.Close(); lock.Close() })
 	return f
 }
+
+// The state-machine fixtures own this database and deliberately do not inspect
+// unrelated host processes. The native /proc scanner has its own privileged
+// maintenance integration test; production entrypoints always supply it.
+func (f *stopFixture) databaseUsers(database string) error {
+	if database != f.held.config.Database {
+		return errors.New("foreign fixture database")
+	}
+	if _, err := os.Stat(database); err != nil {
+		return err
+	}
+	f.databaseChecks++
+	if f.databaseChecks == f.databaseFailureAt {
+		return fmt.Errorf("fixture database descriptor inspection: %w", os.ErrPermission)
+	}
+	return nil
+}
 func (f *stopFixture) controller(context.Context, Config) error { return nil }
 func (f *stopFixture) sync(context.Context, Config) error       { f.syncs++; return nil }
 func TestWorkerStopAdmittedPausePreservesAlreadyPausedGuest(t *testing.T) {
 	f := fixture(t)
-	proof, e := f.held.prepare(context.Background(), f.client, f.controller, f.sync)
+	proof, e := f.held.prepare(context.Background(), f.client, f.controller, f.sync, f.databaseUsers)
 	if e != nil {
 		t.Fatal(e)
 	}
-	if !proof.Verified || len(proof.GuestStates) != 2 || f.pauses != 1 || f.syncs != 1 {
+	if !proof.Verified || len(proof.GuestStates) != 2 || f.pauses != 1 || f.syncs != 1 || f.databaseChecks != 3 {
 		t.Fatalf("unexpected pause result: pauses=%d syncs=%d", f.pauses, f.syncs)
 	}
 	if e = f.held.db.WorkerStopAllReleased(context.Background()); e != nil {
@@ -186,7 +205,7 @@ func TestWorkerStopUnknownMissingAndStoppedInventoryNeverPaused(t *testing.T) {
 				f.guests["vm-0"] = v
 			}
 			f.mu.Unlock()
-			if _, e := f.held.prepare(context.Background(), f.client, f.controller, f.sync); e == nil {
+			if _, e := f.held.prepare(context.Background(), f.client, f.controller, f.sync, f.databaseUsers); e == nil {
 				t.Fatal("unsafe inventory accepted")
 			}
 			if f.pauses != 0 || f.syncs != 0 {
@@ -198,7 +217,7 @@ func TestWorkerStopUnknownMissingAndStoppedInventoryNeverPaused(t *testing.T) {
 func TestWorkerStopFailureRetainsLockMarkerAndPendingAllocation(t *testing.T) {
 	f := fixture(t)
 	f.failPause = true
-	if _, e := f.held.prepare(context.Background(), f.client, f.controller, f.sync); !errors.Is(e, cube.ErrAdmissionPending) {
+	if _, e := f.held.prepare(context.Background(), f.client, f.controller, f.sync, f.databaseUsers); !errors.Is(e, cube.ErrAdmissionPending) {
 		t.Fatalf("want pending error, got %v", e)
 	}
 	a, e := f.held.db.AdmissionLookup(context.Background(), "vm-0")
@@ -233,7 +252,7 @@ func TestWorkerStopConfigAndTaskChangesRefuse(t *testing.T) {
 			case "restart":
 				controller = func(context.Context, Config) error { return errors.New("controller restarted") }
 			}
-			if _, e := f.held.prepare(ctx, f.client, controller, f.sync); e == nil {
+			if _, e := f.held.prepare(ctx, f.client, controller, f.sync, f.databaseUsers); e == nil {
 				t.Fatal("changed control state accepted")
 			}
 			if f.pauses != 0 {
@@ -244,7 +263,7 @@ func TestWorkerStopConfigAndTaskChangesRefuse(t *testing.T) {
 }
 func TestWorkerStopSyncFailureNeverReturnsPowerdownProof(t *testing.T) {
 	f := fixture(t)
-	if p, e := f.held.prepare(context.Background(), f.client, f.controller, func(context.Context, Config) error { return errors.New("syncfs failed") }); e == nil || p != nil {
+	if p, e := f.held.prepare(context.Background(), f.client, f.controller, func(context.Context, Config) error { return errors.New("syncfs failed") }, f.databaseUsers); e == nil || p != nil {
 		t.Fatal("sync failure accepted")
 	}
 	if f.held.proof != nil {
@@ -290,7 +309,7 @@ func TestQEMUProcessGenerationRejectsAbsentPID(t *testing.T) {
 func TestWorkerStopMissingDetailRetainsKnownAllocation(t *testing.T) {
 	f := fixture(t)
 	f.detailMissing = true
-	p, e := f.held.prepare(context.Background(), f.client, f.controller, f.sync)
+	p, e := f.held.prepare(context.Background(), f.client, f.controller, f.sync, f.databaseUsers)
 	if !errors.Is(e, cube.ErrRuntimeUnavailable) || p != nil {
 		t.Fatalf("missing known detail must require recovery: %v", e)
 	}
@@ -303,5 +322,30 @@ func TestWorkerStopMissingDetailRetainsKnownAllocation(t *testing.T) {
 	}
 	if maintenance.CheckWorkerStop(f.held.config.Database) == nil {
 		t.Fatal("startup fence disappeared")
+	}
+}
+
+func TestWorkerStopDatabaseScanFailureRetainsFenceAndNeverProvesPowerdown(t *testing.T) {
+	for _, failAt := range []int{1, 3} {
+		t.Run(fmt.Sprint(failAt), func(t *testing.T) {
+			f := fixture(t)
+			f.databaseFailureAt = failAt
+			p, e := f.held.prepare(context.Background(), f.client, f.controller, f.sync, f.databaseUsers)
+			if !errors.Is(e, os.ErrPermission) || p != nil || f.held.proof != nil {
+				t.Fatalf("scan refusal not propagated: %v", e)
+			}
+			if failAt == 1 && (f.pauses != 0 || f.syncs != 0) {
+				t.Fatal("mutation before initial descriptor check")
+			}
+			if failAt == 3 && (f.pauses != 1 || f.syncs != 1) {
+				t.Fatal("did not exercise final post-sync descriptor check")
+			}
+			if maintenance.CheckWorkerStop(f.held.config.Database) == nil {
+				t.Fatal("descriptor refusal cleared fence")
+			}
+			if f.held.evidencePath != "" {
+				t.Fatal("descriptor refusal published powerdown evidence")
+			}
+		})
 	}
 }

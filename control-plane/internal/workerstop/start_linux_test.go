@@ -3,6 +3,7 @@ package workerstop
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/maintenance"
@@ -16,7 +17,7 @@ import (
 func startFixture(t *testing.T) (*stopFixture, StopMarker, *sql.DB) {
 	f := fixture(t)
 	ctx := context.Background()
-	if _, e := f.held.prepare(ctx, f.client, f.controller, f.sync); e != nil {
+	if _, e := f.held.prepare(ctx, f.client, f.controller, f.sync, f.databaseUsers); e != nil {
 		t.Fatal(e)
 	}
 	snap, e := f.held.db.WorkerStopInventory(ctx)
@@ -39,11 +40,11 @@ func startFixture(t *testing.T) (*stopFixture, StopMarker, *sql.DB) {
 func TestStartupReconcileKeepsGuestsPausedAndRemovesExactMarker(t *testing.T) {
 	f, m, db := startFixture(t)
 	calls := 0
-	proof, e := reconcileStart(context.Background(), f.held.config, m, db, f.client, func() error { calls++; return nil }, func() error { return nil })
+	proof, e := reconcileStart(context.Background(), f.held.config, m, db, f.client, func() error { calls++; return nil }, func() error { return nil }, f.databaseUsers)
 	if e != nil {
 		t.Fatal(e)
 	}
-	if !proof.TenantReady || proof.GuestsWoken != 0 || proof.RoutingChanged || calls != 2 || f.pauses != 1 {
+	if !proof.TenantReady || proof.GuestsWoken != 0 || proof.RoutingChanged || calls != 2 || f.pauses != 1 || f.databaseChecks != 6 {
 		t.Fatal("unexpected mutation or verification")
 	}
 	if e = maintenance.CheckWorkerStop(f.held.config.Database); e != nil {
@@ -95,7 +96,7 @@ func TestStartupRefusalsRetainMarker(t *testing.T) {
 					return context.DeadlineExceeded
 				}
 				return nil
-			}, func() error { return nil })
+			}, func() error { return nil }, f.databaseUsers)
 			if e == nil {
 				t.Fatal("unsafe start accepted")
 			}
@@ -174,5 +175,35 @@ func TestReadonlyObservationRejectsUnchargedRunningAndFifthSlot(t *testing.T) {
 	}
 	if ValidateObservation(o, actual, f.held.config.Admission, false) == nil {
 		t.Fatal("fifth active allocation accepted")
+	}
+}
+
+func TestStartupDatabaseScanFailureNeverClearsMarker(t *testing.T) {
+	for _, failAt := range []int{1, 3} {
+		t.Run(fmt.Sprint(failAt), func(t *testing.T) {
+			f, m, db := startFixture(t)
+			f.databaseChecks = 0
+			f.databaseFailureAt = failAt
+			readyCalls := 0
+			proof, e := reconcileStart(context.Background(), f.held.config, m, db, f.client, func() error { readyCalls++; return nil }, func() error { return nil }, f.databaseUsers)
+			if !errors.Is(e, os.ErrPermission) || proof != nil {
+				t.Fatalf("scan refusal not propagated: %v", e)
+			}
+			if failAt == 1 && readyCalls != 0 {
+				t.Fatal("readiness before initial descriptor check")
+			}
+			if failAt == 3 && readyCalls != 2 {
+				t.Fatal("did not exercise final post-readiness descriptor check")
+			}
+			if maintenance.CheckWorkerStop(f.held.config.Database) == nil {
+				t.Fatal("scan refusal cleared marker")
+			}
+			if _, e := os.Stat(filepath.Join(f.held.config.EvidenceDirectory, "startup-current.json")); !errors.Is(e, os.ErrNotExist) {
+				t.Fatal("scan refusal published readiness")
+			}
+			if f.pauses != 1 {
+				t.Fatal("startup mutated provider")
+			}
+		})
 	}
 }

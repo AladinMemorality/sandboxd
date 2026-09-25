@@ -190,14 +190,17 @@ func ReconcileStart(ctx context.Context, c Config, sc StartConfig) (*StartEviden
 			return e
 		}
 		return verifyController(ctx, c)
-	})
+	}, maintenance.CheckDatabaseUsers)
 }
-func reconcileStart(ctx context.Context, c Config, m StopMarker, db *sql.DB, provider Provider, ready, controller func() error) (*StartEvidence, error) {
+func reconcileStart(ctx context.Context, c Config, m StopMarker, db *sql.DB, provider Provider, ready, controller func() error, databaseUsers func(string) error) (*StartEvidence, error) {
+	if databaseUsers == nil {
+		return nil, errors.New("database writer checkpoint required")
+	}
 	for round := 0; round < 2; round++ {
 		if e := controller(); e != nil {
 			return nil, e
 		}
-		if e := maintenance.CheckDatabaseUsers(c.Database); e != nil {
+		if e := databaseUsers(c.Database); e != nil {
 			return nil, e
 		}
 		snapshot, e := store.WorkerStopInventoryDB(ctx, db)
@@ -238,7 +241,7 @@ func reconcileStart(ctx context.Context, c Config, m StopMarker, db *sql.DB, pro
 	if e := controller(); e != nil {
 		return nil, e
 	}
-	if e := maintenance.CheckDatabaseUsers(c.Database); e != nil {
+	if e := databaseUsers(c.Database); e != nil {
 		return nil, e
 	}
 	final, e := store.WorkerStopInventoryDB(ctx, db)

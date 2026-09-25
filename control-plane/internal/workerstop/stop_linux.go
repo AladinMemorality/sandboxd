@@ -315,9 +315,12 @@ func (h *Held) Prepare(ctx context.Context) (*Proof, error) {
 	if e = client.ConfigureAdmission(ctx, h.db, h.config.Admission); e != nil {
 		return nil, e
 	}
-	return h.prepare(ctx, client, verifyController, workerSync)
+	return h.prepare(ctx, client, verifyController, workerSync, maintenance.CheckDatabaseUsers)
 }
-func (h *Held) prepare(ctx context.Context, provider Provider, controller func(context.Context, Config) error, syncData func(context.Context, Config) error) (*Proof, error) {
+func (h *Held) prepare(ctx context.Context, provider Provider, controller func(context.Context, Config) error, syncData func(context.Context, Config) error, databaseUsers func(string) error) (*Proof, error) {
+	if databaseUsers == nil {
+		return nil, errors.New("database writer checkpoint required")
+	}
 	bounded, cancel := context.WithTimeout(ctx, 8*time.Minute)
 	defer cancel()
 	ctx = bounded
@@ -345,7 +348,7 @@ func (h *Held) prepare(ctx context.Context, provider Provider, controller func(c
 		if e = controller(ctx, h.config); e != nil {
 			return nil, e
 		}
-		if e = maintenance.CheckDatabaseUsers(h.config.Database); e != nil {
+		if e = databaseUsers(h.config.Database); e != nil {
 			return nil, e
 		}
 		current, e := h.snapshot(ctx)
@@ -400,7 +403,7 @@ func (h *Held) prepare(ctx context.Context, provider Provider, controller func(c
 	if e = h.db.WorkerStopAllReleased(ctx); e != nil {
 		return nil, e
 	}
-	if e = maintenance.CheckDatabaseUsers(h.config.Database); e != nil {
+	if e = databaseUsers(h.config.Database); e != nil {
 		return nil, e
 	}
 	if e = controller(ctx, h.config); e != nil {
