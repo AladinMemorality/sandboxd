@@ -1,0 +1,59 @@
+{
+  "observed_at": "2026-09-25T13:03:28Z",
+  "production": {
+    "provider": "docker",
+    "projects": 66,
+    "snapshots": 31,
+    "cube_enabled": false,
+    "running_tasks": 0,
+    "existing_container_identity_changes": 0
+  },
+  "worker": {
+    "machine_id": "2b9e31d4abd345e3bd4b966591e61296",
+    "data_uuid": "793c3349-db9c-4815-9842-989ed484f1f8",
+    "previous_boot": "0043241e-f6dc-4bf1-8694-26b8369037da",
+    "current_boot": "fd565505-bf41-4f93-81e9-40b90bef652e",
+    "cubelet_sha256": "de3bd4c1a4db12c11d58cf7f558589f04ab4b3d736d4e72a947d45b8343bef9b",
+    "durable_config_sha256": "a7db49e240bffc6f76873e5a1b1a3b2ffb740583492f834167d1103a33436676"
+  },
+  "procedure": {
+    "exact_empty_inventory_before_stop": true,
+    "graceful_management_and_docker_stop": true,
+    "quiesced_legacy_databases": 2,
+    "persistent_metadata_archived": true,
+    "escrow_copied_to_outer_host": true,
+    "held_clean_nested_reboot": true,
+    "binary_only_install": true,
+    "existing_durable_databases_unchanged": true,
+    "original_quarantined_disk_stat_unchanged": true
+  },
+  "strict_live_readiness": {
+    "passed": true,
+    "actual_database_roots_on_xfs": 10,
+    "lazy_netfile_root_absent_on_empty_node": true,
+    "required_templates_ready": 8,
+    "native_quota": {
+      "mcpu_limit": 10000,
+      "mem_limit": "10Gi",
+      "creation_concurrent_num": 1,
+      "mvm_limit": 128,
+      "paused_resource_release_ratio": 1.0
+    }
+  },
+  "acceptance_pending": [
+    "fresh PostgreSQL lifecycle",
+    "Vite reload",
+    "clean paused worker reboot",
+    "acknowledged-pause abrupt loss",
+    "running abrupt loss",
+    "four-concurrent-workload quota retest",
+    "production coordinator stop/start",
+    "encrypted full-pair offhost backup and application restore",
+    "global migration and deployed routing/capture checks"
+  ],
+  "private_evidence_paths": [
+    "/opt/baarcha-bench/cube-durable-correction-20260925",
+    "/root/cube-production/durable-enrollment-correction-20260925",
+    "/root/cube-production/durable-corrected-20260925"
+  ]
+}
