@@ -28,7 +28,7 @@ Git or logs. The operator config has these fields:
 | `controller_id`, `controller_image` | Exact current full Docker ID/image digest |
 | `controller_env_sha256` | SHA256 of canonical JSON of the actual inspect `Config.Env` array, without sorting the array |
 | `inventory` | Exact result of `database_inventory()` against canonical SQLite read-only; includes all current Docker homes and snapshots, recovery path references and migration count |
-| `docker_homes` | One entry per canonical Docker row: `sandbox_id`, full `container_id`, exact `image`, canonical host `source` for the sole `/home/sandbox` bind |
+| `docker_homes` | One entry per canonical Docker row: `sandbox_id`, original `recorded_container_id` (some legacy rows have12characters), uniquely resolved full `container_id`, exact `image`, canonical host `source` for the sole `/home/sandbox` bind |
 | `reviewed_caddy_sha256` | SHA256 of canonical JSON of the **actually loaded fenced** Caddy configuration |
 | `preview_host` | Existing certificate-bearing `s-<id>-<port>.preview.65.108.225.153.sslip.io` hostname; no token or query |
 | `stopped_writer_units` | Every reviewed direct-writer service/timer. At least project-env-apply, classroom-egress and fennec-meet-egress, both `.timer` and `.service`, are mandatory; add Motion's actual installed writer units when present |

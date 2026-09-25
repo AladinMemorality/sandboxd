@@ -143,20 +143,25 @@ def observe(config,require_stopped):
  if require_stopped:need(not cp['State']['Running'] and cp['State']['Pid']==0 and cp['HostConfig']['RestartPolicy']['Name']=='no','Controller must already be stopped with restart disabled')
  ids=[r['container_id'] for r in inventory['homes']];containers=json.loads(run(['docker','inspect',*ids])) if ids else []
  byid={x['Id']:x for x in containers};home_paths=[]
+ recorded={r['sandbox_id']:r['container_id'] for r in inventory['homes']}
+ need(len(recorded)==len(inventory['homes']),'Duplicate canonical sandbox inventory')
  for expected in config['docker_homes']:
-  c=byid.get(expected['container_id']);need(c and c['Image']==expected['image'],'Retained Docker generation/image changed')
+  legacy=recorded.get(expected['sandbox_id'])
+  need(legacy==expected.get('recorded_container_id',expected['container_id']) and isinstance(legacy,str) and (legacy==expected['container_id'] or (re.fullmatch('[0-9a-f]{12}',legacy) and expected['container_id'].startswith(legacy))),'Canonical Docker identity changed')
+  c=byid.get(expected['container_id']);need(c and c['Image']==expected['image'] and sum(x['Id'].startswith(legacy) for x in containers)==1,'Retained Docker generation/image changed or ambiguous short ID')
   mounts=[m for m in c['Mounts'] if m['Destination']=='/home/sandbox'];need(len(mounts)==1 and mounts[0]['Type']=='bind' and mounts[0]['Source']==expected['source'] and len(c['Mounts'])==1,'Retained home mapping changed or extra mounts require review')
   if require_stopped:need(not c['State']['Running'] and c['State']['Pid']==0,'A Docker data writer is still running')
   home_paths.append(expected['source'])
- need({r['container_id'] for r in config['docker_homes']}==set(ids) and len(home_paths)==len(ids),'Incomplete/duplicate Docker home inventory')
+ need({r['sandbox_id'] for r in config['docker_homes']}==set(recorded) and {r['container_id'] for r in config['docker_homes']}==set(byid) and len(home_paths)==len(ids),'Incomplete/duplicate Docker home inventory')
  # No unrelated running container may share a selected writable owner mount.
+ writable_sources=home_paths+config['role_paths']['rollback-extra']+[r['image_path'] for r in inventory['snapshots']]+config['role_paths']['library-extra']
  allids=run(['docker','ps','-q']).decode().split()
  if allids:
   for c in json.loads(run(['docker','inspect',*allids])):
    for m in c['Mounts']:
     if m.get('RW'):
      source=Path(m['Source'])
-     need(not any(source==Path(h) or source in Path(h).parents or Path(h) in source.parents for h in home_paths),'Another container has a writable owner-home mount')
+     need(not any(source==Path(h) or source in Path(h).parents or Path(h) in source.parents for h in writable_sources),'Another container has a writable backup-source mount')
  if require_stopped:
   with urllib.request.urlopen('http://127.0.0.1:2019/config/',timeout=3) as r:
    raw=r.read(2*1024*1024+1);need(len(raw)<=2*1024*1024,'Oversized Caddy configuration')

@@ -154,6 +154,15 @@ class RoleTests(unittest.TestCase):
   with mock.patch.object(roles,'DB',database),mock.patch.object(roles,'verify_inputs'),mock.patch.object(roles.cold_pair,'no_open_users') as users,mock.patch.object(roles,'route_fence'),mock.patch.object(roles,'run',side_effect=command),mock.patch.object(roles.urllib.request,'urlopen',side_effect=lambda *a,**k:contextlib.closing(io.BytesIO(b'{}'))):
    roles.observe(config,True)
    self.assertEqual(users.call_count,1)
+   # Legacy rows may retain Docker's 12-character ID; the plan separately pins
+   # its unique full identity and refuses a changed prefix.
+   with contextlib.closing(sqlite3.connect(database)) as d:d.execute("UPDATE sandbox SET container_id='aaaaaaaaaaaa'");d.commit()
+   config['inventory']['homes'][0]['container_id']='aaaaaaaaaaaa'
+   config['docker_homes'][0].update(container_id='a'*64,recorded_container_id='aaaaaaaaaaaa');source['Id']='a'*64
+   roles.observe(config,True)
+   config['docker_homes'][0]['recorded_container_id']='bbbbbbbbbbbb'
+   with self.assertRaisesRegex(RuntimeError,'Canonical Docker identity'):roles.observe(config,True)
+   config['docker_homes'][0]['recorded_container_id']='aaaaaaaaaaaa'
    source['State']={'Running':True,'Pid':123}
    with self.assertRaisesRegex(RuntimeError,'writer is still running'):roles.observe(config,True)
    source['State']={'Running':False,'Pid':0};source['Mounts'][0]['Source']='/changed-home'
