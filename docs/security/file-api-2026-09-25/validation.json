@@ -1,0 +1,33 @@
+{
+  "scope": "Docker file PUT/content/list/export path isolation; Cube delegation unchanged",
+  "source_head": "2bcb3646f313e5d46f1d5569d9caa8a72a791e56",
+  "source_archive_sha256": "701d3735bdefb7e4d1b1a706556a3a86a554441702770a4d21460a4386c65c24",
+  "full_source_manifest_sha256": "d853f3ef7b91bd1c5008a9ee20253893ee370ca11ccc5b1940723c2b1a823495",
+  "owned_source_sha256": {
+    "control-plane/internal/api/v1_files.go": "c4495d4d3f82b5b168dc6613c63363f4bb38eb31ea130b71255e0613ef43a382",
+    "control-plane/internal/api/v1_files_write.go": "22cf29ed351171da2b301dae11c316709f2a733dbdb2072db2e9902372c3b886",
+    "control-plane/internal/api/v1_files_secure_linux.go": "57e7f4824a79bacf131827b2299715b8ae777e380a334df016bd6f9984edfa17",
+    "control-plane/internal/api/v1_files_secure_linux_test.go": "544c3179048b66c368e664ad3e7def67b053c7da52bbd3aa47a21ad8586a8051"
+  },
+  "source_files": 1436,
+  "image": "sha256:3d699e4d15d0f8f13c9195c0632a16702b8cbdece2955af1c23b37ae5d55a253",
+  "command": "go test -race -p 1 -count=1 ./internal/auth ./internal/egress ./internal/api ./cmd/runtimed ./cmd/sandboxd",
+  "limits": {
+    "cpus": 2,
+    "memory_bytes": 2147483648,
+    "swap": 0,
+    "pids": 256,
+    "network": "none",
+    "tmpfs_exec_bytes": 536870912
+  },
+  "result": "PASS",
+  "exit_code": 0,
+  "test_log_sha256": "41ba54a0cf2b962a0b534da14e35855f1bd5843560b34468fe2b233bb9b07575",
+  "unit": "cube-files-motion-native-20260925-01",
+  "cleanup": {
+    "unit_inactive": true,
+    "container_absent": true,
+    "tenant_or_worker_operations": false
+  },
+  "source_archive_retained": "/opt/baarcha-bench/cube-files-motion-native-20260925-01"
+}

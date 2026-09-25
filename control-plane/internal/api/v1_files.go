@@ -3,7 +3,6 @@ package api
 import (
 	"archive/zip"
 	"io"
-	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -33,37 +32,14 @@ func (s *Server) appDirFor(id string) string {
 
 // safeJoin resolves a caller-supplied path under root, rejecting any
 // escape (`..`, absolute paths) LEXICALLY. Callers that then open the
-// path must also pass it through realpathWithin — a lexical check alone
-// follows symlinks planted in the workspace (CWE-59).
+// path must use the descriptor-based helpers in v1_files_secure_linux.go;
+// this lexical check alone cannot constrain tenant-controlled symlinks.
 func safeJoin(root, p string) (string, bool) {
 	full := filepath.Join(root, filepath.Clean("/"+p))
 	if full != root && !strings.HasPrefix(full, root+string(os.PathSeparator)) {
 		return "", false
 	}
 	return full, true
-}
-
-// realpathWithin canonicalizes full (resolving every symlink component —
-// leaf AND intermediate) and confirms the result is still inside root. It
-// closes the symlink-following read hole: the in-sandbox tenant owns the
-// workspace and can plant `ln -s /proc/self/environ leak`; a lexical guard
-// passes it and os.Stat/ReadFile then follow the link into the root-owned
-// control-plane filesystem. ok=false on any escape, nonexistent path, or
-// broken link. The returned path is symlink-free and provably under root,
-// so a subsequent os.Open/Stat cannot be redirected out of the workspace.
-func realpathWithin(full, root string) (string, bool) {
-	real, err := filepath.EvalSymlinks(full)
-	if err != nil {
-		return "", false
-	}
-	realRoot, err := filepath.EvalSymlinks(root)
-	if err != nil {
-		return "", false
-	}
-	if real != realRoot && !strings.HasPrefix(real, realRoot+string(os.PathSeparator)) {
-		return "", false
-	}
-	return real, true
 }
 
 type fileEntry struct {
@@ -86,61 +62,41 @@ func (s *Server) v1ListFiles(w http.ResponseWriter, r *http.Request) {
 	root := s.appDirFor(id)
 	p := r.URL.Query().Get("path")
 	recursive := r.URL.Query().Get("recursive") == "true"
-	dir, ok := safeJoin(root, p)
+	full, ok := safeJoin(root, p)
 	if !ok {
 		writeV1Err(w, http.StatusBadRequest, "invalid_request", "invalid path")
 		return
 	}
-	// Resolve symlinks and re-check containment so a symlinked `path` dir
-	// can't redirect the listing outside the workspace (CWE-59).
-	dir, ok = realpathWithin(dir, root)
-	if !ok {
+	rel, err := filepath.Rel(root, full)
+	_, mnt := s.Loopback.Paths(id)
+	dir, err := openAppDirs(mnt, rel)
+	if err != nil {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no such directory")
 		return
 	}
-	info, err := os.Stat(dir)
-	if err != nil || !info.IsDir() {
-		writeV1Err(w, http.StatusNotFound, "not_found", "no such directory")
+	defer dir.close()
+	var entries []fileEntry
+	prefix := rel
+	if prefix == "." {
+		prefix = ""
+	}
+	err = walkAppFiles(dir.last(), prefix, recursive, func(path string, isDir bool, file *os.File) error {
+		e := fileEntry{Path: path, Type: "dir"}
+		if !isDir {
+			st, err := file.Stat()
+			if err != nil {
+				return err
+			}
+			e.Type, e.Size = "file", st.Size()
+		}
+		entries = append(entries, e)
+		return nil
+	})
+	if err != nil {
+		writeV1Err(w, http.StatusInternalServerError, "internal", "unable to list directory")
 		return
 	}
 
-	var entries []fileEntry
-	add := func(path string, d fs.DirEntry) {
-		rel, _ := filepath.Rel(root, path)
-		e := fileEntry{Path: rel, Type: "file"}
-		if d.IsDir() {
-			e.Type = "dir"
-		} else if fi, err := d.Info(); err == nil {
-			e.Size = fi.Size()
-		}
-		entries = append(entries, e)
-	}
-	if recursive {
-		_ = filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-			if err != nil || path == dir {
-				return nil
-			}
-			if d.Type()&fs.ModeSymlink != 0 {
-				return nil // never expose or follow a symlink
-			}
-			if excludedFromFiles[d.Name()] {
-				if d.IsDir() {
-					return fs.SkipDir
-				}
-				return nil
-			}
-			add(path, d)
-			return nil
-		})
-	} else {
-		ents, _ := os.ReadDir(dir)
-		for _, d := range ents {
-			if d.Type()&fs.ModeSymlink != 0 || excludedFromFiles[d.Name()] {
-				continue
-			}
-			add(filepath.Join(dir, d.Name()), d)
-		}
-	}
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Path < entries[j].Path })
 	writeJSON(w, http.StatusOK, map[string]any{
 		"path": p, "recursive": recursive, "entries": entries,
@@ -164,28 +120,30 @@ func (s *Server) v1FileContent(w http.ResponseWriter, r *http.Request) {
 		writeV1Err(w, http.StatusBadRequest, "invalid_request", "invalid path")
 		return
 	}
-	// Resolve symlinks and re-check containment BEFORE stat/read, so a
-	// symlink (leaf or intermediate) can't redirect the read out of the
-	// workspace into root-owned control-plane files (CWE-59).
-	full, ok = realpathWithin(full, root)
-	if !ok {
+	rel, err := filepath.Rel(root, full)
+	_, mnt := s.Loopback.Paths(id)
+	dir, err := openAppDirs(mnt, filepath.Dir(rel))
+	if err != nil {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no such file")
 		return
 	}
-	info, err := os.Stat(full)
-	if err != nil || info.IsDir() {
+	defer dir.close()
+	file, err := openRegularAt(dir.last(), filepath.Base(rel))
+	if err != nil {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no such file")
 		return
 	}
-	if info.Size() > maxFileBytes {
+	defer file.Close()
+	data, err := io.ReadAll(io.LimitReader(file, maxFileBytes+1))
+	if err != nil {
+		writeV1Err(w, http.StatusInternalServerError, "internal", "unable to read file")
+		return
+	}
+	if len(data) > maxFileBytes {
 		writeV1Err(w, http.StatusBadRequest, "invalid_request", "file exceeds the 2 MiB read cap")
 		return
 	}
-	data, err := os.ReadFile(full)
-	if err != nil {
-		writeV1Err(w, http.StatusInternalServerError, "internal", err.Error())
-		return
-	}
+
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	_, _ = w.Write(data)
 }
@@ -201,42 +159,26 @@ func (s *Server) v1Export(w http.ResponseWriter, r *http.Request) {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no workspace for that sandbox")
 		return
 	}
-	root := s.appDirFor(id)
-	if info, err := os.Stat(root); err != nil || !info.IsDir() {
+	_, mnt := s.Loopback.Paths(id)
+	dir, err := openAppDirs(mnt, "")
+	if err != nil {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no workspace for that sandbox")
 		return
 	}
+	defer dir.close()
 	w.Header().Set("Content-Type", "application/zip")
 	w.Header().Set("Content-Disposition", `attachment; filename="`+id+`.zip"`)
 	zw := zip.NewWriter(w)
 	defer zw.Close()
-	_ = filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || path == root {
+	_ = walkAppFiles(dir.last(), "", true, func(path string, isDir bool, file *os.File) error {
+		if isDir {
 			return nil
 		}
-		if d.Type()&fs.ModeSymlink != 0 {
-			return nil // never follow/export a symlink (CWE-59)
+		fw, err := zw.Create(path)
+		if err != nil {
+			return err
 		}
-		if excludedFromFiles[d.Name()] {
-			if d.IsDir() {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		if d.IsDir() {
-			return nil
-		}
-		rel, _ := filepath.Rel(root, path)
-		fw, werr := zw.Create(rel)
-		if werr != nil {
-			return nil
-		}
-		f, oerr := os.Open(path)
-		if oerr != nil {
-			return nil
-		}
-		defer f.Close()
-		_, _ = io.Copy(fw, f)
-		return nil
+		_, err = io.Copy(fw, file)
+		return err
 	})
 }

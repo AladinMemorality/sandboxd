@@ -2,48 +2,18 @@ package api
 
 import (
 	"errors"
-	"io"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/audit"
 )
 
-// PUT /v1/sandboxes/{id}/files?path=<rel> — atomic generic file write.
-//
-// Roots at the workspace mount (`/home/sandbox/` inside the container).
-// the upstream backend uses this to prepare AGENTS.md / CLAUDE.md / opencode.json /
-// any other file the chosen agent expects. The platform does NOT
-// inspect the body — the file is opaque bytes.
-//
-// IMPORTANT for callers: the root is the MOUNT, not the app dir. The app (and the
-// sandbox.yaml runtimed reads) lives at `workspace/app/`, so to write the manifest
-// the caller MUST use `path=workspace/app/sandbox.yaml` — a bare `path=sandbox.yaml`
-// writes to `/home/sandbox/sandbox.yaml`, which returns 200 but runtimed never sees
-// it (the console "Apply sandbox.yaml" CTA depends on this; don't "simplify" it).
-//
-// Security model (paying-tenant threat model):
-//   - The caller holds a service token; the upstream backend bugs are the
-//     primary concern, not malicious traffic.
-//   - Path is `filepath.Clean`-normalised, absolute paths and `..` are
-//     rejected, and the resolved final path MUST stay under the mount
-//     root via prefix check.
-//   - Reserved subtrees (`.runtimed/`, `lost+found/`) are refused —
-//     `.runtimed/` is the in-sandbox supervisor's working dir and
-//     writing into it could corrupt task state.
-//   - The final file is opened with O_NOFOLLOW so a symlink at the leaf
-//     cannot redirect the write off the mount.
-//   - Written atomically: tmp file in the same directory + rename, so
-//     a partially-written file is never observable.
-//   - chown'd to the workspace owner uid/gid (the userns-remapped
-//     sandbox user) so the agent sees its own user own the file.
-//
-// Per-file limit mirrors uploads.go (25 MiB) — small textual config
-// and modestly-sized assets are the use case; larger blobs would
-// belong in object storage, not the workspace.
+// PUT /v1/sandboxes/{id}/files?path=<rel> atomically replaces an app-relative
+// file with opaque request bytes. Filesystem operations use retained directory
+// descriptors; tenant-controlled symlinks are never followed. Files receive the
+// workspace owner and mode 0644. The request limit is 25 MiB.
 
 const (
 	// maxPutFileBytes — per-request body cap. Mirrors uploads.go.
@@ -108,21 +78,6 @@ func resolveWritePath(mnt, raw string) (string, string, error) {
 	return full, clean, nil
 }
 
-// mountOwner returns the uid/gid that owns the workspace mount root —
-// the sandbox user as userns-remapped on the host. Falls back to -1
-// so callers can skip chown gracefully.
-func mountOwner(mnt string) (uid, gid int) {
-	fi, err := os.Stat(mnt)
-	if err != nil {
-		return -1, -1
-	}
-	st, ok := fi.Sys().(*syscall.Stat_t)
-	if !ok {
-		return -1, -1
-	}
-	return int(st.Uid), int(st.Gid)
-}
-
 // v1PutFile is the handler for PUT /v1/sandboxes/{id}/files.
 func (s *Server) v1PutFile(w http.ResponseWriter, r *http.Request) {
 	if s.serveCubeFiles(w, r, "v1PutFile") {
@@ -144,7 +99,7 @@ func (s *Server) v1PutFile(w http.ResponseWriter, r *http.Request) {
 	// editor saves invisible to reads (they landed a directory above the app), so
 	// the editor looked read-only. appDirFor is under mnt, so the chown-up loop
 	// below (bounded by mnt) still fixes ownership of any dirs it creates.
-	full, rel, err := resolveWritePath(s.appDirFor(id), r.URL.Query().Get("path"))
+	_, rel, err := resolveWritePath(s.appDirFor(id), r.URL.Query().Get("path"))
 	if err != nil {
 		writeV1Err(w, http.StatusBadRequest, "invalid_request", err.Error())
 		return
@@ -158,78 +113,17 @@ func (s *Server) v1PutFile(w http.ResponseWriter, r *http.Request) {
 	}
 	r.Body = http.MaxBytesReader(w, r.Body, maxPutFileBytes)
 
-	uid, gid := mountOwner(mnt)
-
-	// Create parent dirs with the same owner so the agent can read its
-	// own tree.
-	parent := filepath.Dir(full)
-	if err := os.MkdirAll(parent, 0o775); err != nil {
-		writeV1Err(w, http.StatusInternalServerError, "internal", err.Error())
-		return
-	}
-	if uid >= 0 {
-		// Walk up and chown any newly-created parents back to the owner.
-		// We only chown directories we may have created (mode marker
-		// 0o775 + currently root-owned). Best-effort.
-		for p := parent; p != mnt && strings.HasPrefix(p, mnt+string(os.PathSeparator)); p = filepath.Dir(p) {
-			if fi, err := os.Stat(p); err == nil {
-				if st, ok := fi.Sys().(*syscall.Stat_t); ok && (int(st.Uid) != uid || int(st.Gid) != gid) {
-					_ = os.Chown(p, uid, gid)
-				}
-			}
-		}
-	}
-
-	// Atomic write: tmp in same dir + rename. O_NOFOLLOW on the tmp
-	// ensures we never write through a symlink left by a previous run.
-	tmp, err := os.CreateTemp(parent, ".put-*.tmp")
+	written, err := writeAppFile(mnt, rel, r.Body)
 	if err != nil {
-		writeV1Err(w, http.StatusInternalServerError, "internal", err.Error())
-		return
-	}
-	tmpPath := tmp.Name()
-	written, copyErr := io.Copy(tmp, r.Body)
-	closeErr := tmp.Close()
-	if copyErr != nil {
-		_ = os.Remove(tmpPath)
 		var mbe *http.MaxBytesError
-		if errors.As(copyErr, &mbe) {
-			writeV1Err(w, http.StatusRequestEntityTooLarge, "invalid_request",
-				"file exceeds the 25 MiB limit")
-			return
+		switch {
+		case errors.As(err, &mbe):
+			writeV1Err(w, http.StatusRequestEntityTooLarge, "invalid_request", "file exceeds the 25 MiB limit")
+		case errors.Is(err, errUnsafeFilePath):
+			writeV1Err(w, http.StatusBadRequest, "invalid_request", "file path contains a link, special file, or changed directory")
+		default:
+			writeV1Err(w, http.StatusInternalServerError, "internal", "unable to write file")
 		}
-		writeV1Err(w, http.StatusBadRequest, "invalid_request", "read body: "+copyErr.Error())
-		return
-	}
-	if closeErr != nil {
-		_ = os.Remove(tmpPath)
-		writeV1Err(w, http.StatusInternalServerError, "internal", "close tmp: "+closeErr.Error())
-		return
-	}
-
-	// Set ownership BEFORE rename so the file is never visible at the
-	// target path with wrong owner.
-	if uid >= 0 {
-		_ = os.Chown(tmpPath, uid, gid)
-	}
-	if err := os.Chmod(tmpPath, 0o644); err != nil {
-		_ = os.Remove(tmpPath)
-		writeV1Err(w, http.StatusInternalServerError, "internal", "chmod: "+err.Error())
-		return
-	}
-
-	// Refuse to overwrite if the existing leaf is a symlink — a
-	// symlinked target could redirect the write out of the mount.
-	if fi, err := os.Lstat(full); err == nil && fi.Mode()&os.ModeSymlink != 0 {
-		_ = os.Remove(tmpPath)
-		writeV1Err(w, http.StatusBadRequest, "invalid_request",
-			"refusing to overwrite a symlink")
-		return
-	}
-
-	if err := os.Rename(tmpPath, full); err != nil {
-		_ = os.Remove(tmpPath)
-		writeV1Err(w, http.StatusInternalServerError, "internal", "rename: "+err.Error())
 		return
 	}
 
