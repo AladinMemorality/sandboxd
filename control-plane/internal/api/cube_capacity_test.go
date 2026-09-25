@@ -213,3 +213,12 @@ func TestCubeCapacityUnknownIdlePolicyIsNotEligible(t *testing.T) {
 		t.Fatal("explicit sleep policy should permit idle candidate selection")
 	}
 }
+
+func TestCubeStorageRefusalDoesNotEvictOrRetry(t *testing.T) {
+	s, pauses, creates := capacityFixture(t, "")
+	attempts := 0
+	e := s.withCubeCapacityRetry(context.Background(), "new-owned", func() error { attempts++; return cube.ErrStorageUnavailable })
+	if !errors.Is(e, cube.ErrStorageUnavailable) || attempts != 1 || pauses.Load() != 0 || creates.Load() != 0 {
+		t.Fatal("storage refusal triggered capacity eviction/retry", e)
+	}
+}

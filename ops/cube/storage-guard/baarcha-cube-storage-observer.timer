@@ -1,0 +1,11 @@
+[Unit]
+Description=Refresh Cube storage observation every five seconds
+
+[Timer]
+OnBootSec=5s
+OnUnitInactiveSec=5s
+AccuracySec=1s
+Unit=baarcha-cube-storage-observer.service
+
+[Install]
+WantedBy=timers.target

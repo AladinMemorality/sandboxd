@@ -13,6 +13,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -81,10 +82,13 @@ type WorkspaceOwner struct {
 
 // Store wraps an open *sql.DB plus the write-loop goroutine.
 type Store struct {
-	db      *sql.DB
-	writes  chan writeOp
-	doneCh  chan struct{}
-	closeCh chan struct{}
+	storageGuard *cube.StorageGuardConfig                                                          // read and written only by the store writer
+	storageNow   func() (cube.StorageClock, error)                                                 // test clock; nil means kernel CLOCK_BOOTTIME
+	storageRead  func(cube.StorageGuardConfig, cube.StorageClock) (cube.StorageObservation, error) // test probe; nil means secure file reader
+	db           *sql.DB
+	writes       chan writeOp
+	doneCh       chan struct{}
+	closeCh      chan struct{}
 }
 
 // Open opens the database at dsn, applies migrations, and starts the

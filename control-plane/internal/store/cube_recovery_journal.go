@@ -351,6 +351,9 @@ func (s *Store) CubeRecoveryCreateIntent(ctx context.Context, id, token, request
 		if n != 0 {
 			return cube.ErrCreationBusy
 		}
+		if e = s.storageAdmit(ctx, tx, "app:"+j.AppID, token, true); e != nil {
+			return e
+		}
 		r, e := tx.ExecContext(ctx, `UPDATE cube_admission SET runtime_id='',template_id=?,operation='create',token=? WHERE admission_key=? AND state='pending' AND operation='recovery_hold' AND token=? AND charged=1`, template, token, "app:"+j.AppID, j.HoldToken)
 		if e != nil {
 			return e

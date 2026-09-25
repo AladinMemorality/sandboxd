@@ -1,3 +1,5 @@
+> Current four-slot/fleet storage limits are recorded in [capacity-2026-09-25.md](capacity-2026-09-25.md). Older240GiB and12-slot examples below are historical; do not use them as current production admission settings. The new disk guard requires separate live acceptance.
+
 # Fresh production-worker preparation
 
 This directory records the fresh worker provisioned on2026-09-24. Ubuntu image

@@ -1,0 +1,12 @@
+goos: linux
+goarch: amd64
+pkg: github.com/tastyeffectco/sandboxd/control-plane/internal/store
+cpu: AMD Ryzen 5 3600 6-Core Processor              
+BenchmarkCubeStorageAdmission/false-2         	     100	    622401 ns/op
+BenchmarkCubeStorageAdmission/false-2         	     100	    777952 ns/op
+BenchmarkCubeStorageAdmission/false-2         	     100	    757887 ns/op
+BenchmarkCubeStorageAdmission/true-2          	     100	    786344 ns/op
+BenchmarkCubeStorageAdmission/true-2          	     100	    730596 ns/op
+BenchmarkCubeStorageAdmission/true-2          	     100	    904642 ns/op
+PASS
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/store	0.683s

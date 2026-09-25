@@ -1,0 +1,77 @@
+{
+  "verified": 8,
+  "templates": [
+    {
+      "template_id": "tpl-ce1ee426e686460bbc8c3bfc",
+      "ready": true,
+      "cpu": 2,
+      "memory_mb": 2048,
+      "rootfs_writable_mb": 10240,
+      "single_rootfs_volume": true,
+      "deny_all_egress": true
+    },
+    {
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104",
+      "ready": true,
+      "cpu": 2,
+      "memory_mb": 2048,
+      "rootfs_writable_mb": 10240,
+      "single_rootfs_volume": true,
+      "deny_all_egress": true
+    },
+    {
+      "template_id": "tpl-af77de3e32d742d6946d729c",
+      "ready": true,
+      "cpu": 2,
+      "memory_mb": 2048,
+      "rootfs_writable_mb": 10240,
+      "single_rootfs_volume": true,
+      "deny_all_egress": true
+    },
+    {
+      "template_id": "tpl-5abec4cb4fcc41cc8e611f69",
+      "ready": true,
+      "cpu": 2,
+      "memory_mb": 2048,
+      "rootfs_writable_mb": 10240,
+      "single_rootfs_volume": true,
+      "deny_all_egress": true
+    },
+    {
+      "template_id": "tpl-1e84e515952f4ef996dcb546",
+      "ready": true,
+      "cpu": 2,
+      "memory_mb": 2048,
+      "rootfs_writable_mb": 10240,
+      "single_rootfs_volume": true,
+      "deny_all_egress": true
+    },
+    {
+      "template_id": "tpl-54737fedc9074c0f887c6ac5",
+      "ready": true,
+      "cpu": 2,
+      "memory_mb": 2048,
+      "rootfs_writable_mb": 10240,
+      "single_rootfs_volume": true,
+      "deny_all_egress": true
+    },
+    {
+      "template_id": "tpl-d1d9d24fe26641f7812e1287",
+      "ready": true,
+      "cpu": 2,
+      "memory_mb": 2048,
+      "rootfs_writable_mb": 10240,
+      "single_rootfs_volume": true,
+      "deny_all_egress": true
+    },
+    {
+      "template_id": "tpl-47a3d334cd8d4003859d7813",
+      "ready": true,
+      "cpu": 2,
+      "memory_mb": 2048,
+      "rootfs_writable_mb": 10240,
+      "single_rootfs_volume": true,
+      "deny_all_egress": true
+    }
+  ]
+}

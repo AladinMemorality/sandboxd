@@ -39,10 +39,12 @@ type AdmissionResources struct {
 // Only one reviewed uniform profile is currently supported. max_active is an
 // active-reservation bound, not a limit on the number of stored/paused apps.
 type AdmissionConfig struct {
-	MaxActive int                           `json:"max_active"`
-	CPUCount  int                           `json:"cpu_count"`
-	MemoryMB  int                           `json:"memory_mb"`
-	Templates map[string]AdmissionResources `json:"templates"`
+	MaxActive      int                           `json:"max_active"`
+	WritableDiskMB int                           `json:"writable_disk_mb,omitempty"`
+	StorageGuard   *StorageGuardConfig           `json:"storage_guard,omitempty"`
+	CPUCount       int                           `json:"cpu_count"`
+	MemoryMB       int                           `json:"memory_mb"`
+	Templates      map[string]AdmissionResources `json:"templates"`
 }
 
 func ParseAdmissionConfig(raw string) (AdmissionConfig, error) {
@@ -62,6 +64,11 @@ func ParseAdmissionConfig(raw string) (AdmissionConfig, error) {
 	return cfg, cfg.validate()
 }
 func (cfg AdmissionConfig) validate() error {
+	if cfg.StorageGuard != nil {
+		if err := cfg.RequireStorageGuard(); err != nil {
+			return err
+		}
+	}
 	if cfg.MaxActive < 1 || cfg.MaxActive > 12 || cfg.CPUCount != 2 || cfg.MemoryMB != 2048 || len(cfg.Templates) == 0 {
 		return errors.New("Cube admission requires reviewed 2CPU/2GiB profile with at most 12 active reservations")
 	}
@@ -87,6 +94,15 @@ func (c *Client) ConfigureAdmission(ctx context.Context, db AdmissionStore, cfg 
 	profile := fmt.Sprintf("cpu=%d;memory_mb=%d", cfg.CPUCount, cfg.MemoryMB)
 	if err := db.AdmissionPolicy(ctx, cfg.MaxActive, profile); err != nil {
 		return err
+	}
+	if guarded, ok := db.(interface {
+		ConfigureStorageGuard(context.Context, *StorageGuardConfig) error
+	}); ok {
+		if err := guarded.ConfigureStorageGuard(ctx, cfg.StorageGuard); err != nil {
+			return err
+		}
+	} else if cfg.StorageGuard != nil {
+		return errors.New("admission store cannot enforce storage guard")
 	}
 	templates := make(map[string]AdmissionResources, len(cfg.Templates))
 	for id, r := range cfg.Templates {

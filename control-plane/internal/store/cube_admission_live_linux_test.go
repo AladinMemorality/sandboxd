@@ -26,13 +26,14 @@ import (
 )
 
 type admissionLiveConfig struct {
-	APIURL     string `json:"api_url"`
-	APIKey     string `json:"api_key"`
-	ProxyURL   string `json:"proxy_url"`
-	Domain     string `json:"domain"`
-	TemplateID string `json:"template_id"`
-	WorkDir    string `json:"work_dir"`
-	MaxActive  int    `json:"max_active"`
+	StorageGuard *cube.StorageGuardConfig `json:"storage_guard,omitempty"`
+	APIURL       string                   `json:"api_url"`
+	APIKey       string                   `json:"api_key"`
+	ProxyURL     string                   `json:"proxy_url"`
+	Domain       string                   `json:"domain"`
+	TemplateID   string                   `json:"template_id"`
+	WorkDir      string                   `json:"work_dir"`
+	MaxActive    int                      `json:"max_active"`
 }
 type admissionLiveVM struct {
 	AppID           string `json:"app_id"`
@@ -80,7 +81,10 @@ func TestLiveCubeDurableAdmissionBurst(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	profile := cube.AdmissionConfig{MaxActive: cfg.MaxActive, CPUCount: 2, MemoryMB: 2048, Templates: map[string]cube.AdmissionResources{cfg.TemplateID: {CPUCount: 2, MemoryMB: 2048}}}
+	profile := cube.AdmissionConfig{MaxActive: cfg.MaxActive, CPUCount: 2, MemoryMB: 2048, Templates: map[string]cube.AdmissionResources{cfg.TemplateID: {CPUCount: 2, MemoryMB: 2048}}, StorageGuard: cfg.StorageGuard}
+	if cfg.StorageGuard != nil {
+		profile.WritableDiskMB = 10240
+	}
 	if err = client.ConfigureAdmission(ctx, st, profile); err != nil {
 		t.Fatal(err)
 	}
@@ -258,7 +262,7 @@ func TestLiveCubeDurableAdmissionBurst(t *testing.T) {
 	if sha256.Sum256(bodyBefore) != sha256.Sum256(bodyAfter) {
 		t.Fatal("synthetic frontend response changed across pause/resume")
 	}
-	report := map[string]any{"run": run, "max_active": cfg.MaxActive, "created_total": cfg.MaxActive + 1, "resource_profile": "2CPU/2GiB", "burst_seconds": burstDuration.Seconds(), "resume_ready_seconds": resumeDuration.Seconds(), "same_frontend_pid": true, "same_supervisor_boot": true, "body_sha256": fmt.Sprintf("%x", sha256.Sum256(bodyAfter)), "timing_conditions": "concurrent disposable validation, not a performance benchmark"}
+	report := map[string]any{"storage_guard_enabled": cfg.StorageGuard != nil, "run": run, "max_active": cfg.MaxActive, "created_total": cfg.MaxActive + 1, "resource_profile": "2CPU/2GiB", "burst_seconds": burstDuration.Seconds(), "resume_ready_seconds": resumeDuration.Seconds(), "same_frontend_pid": true, "same_supervisor_boot": true, "body_sha256": fmt.Sprintf("%x", sha256.Sum256(bodyAfter)), "timing_conditions": "concurrent disposable validation, not a performance benchmark"}
 	encoded, _ := json.MarshalIndent(report, "", "  ")
 	if err = os.WriteFile(filepath.Join(cfg.WorkDir, "result.json"), encoded, 0600); err != nil {
 		t.Fatal(err)
