@@ -1,6 +1,6 @@
-# Owned React build profile — prepared, not executed
+# Owned React build profile
 
-This is a deterministic workload for the existing operator-owned notes canary. It does not submit an AI task or measure model intelligence. No guest execution, app configuration change, or resource/speed acceptance is claimed by the unit tests.
+This is a deterministic workload for the existing operator-owned notes canary. It does not submit an AI task or measure model intelligence. The reviewed run on September 25 passed and restored the original manifest and services. Unit tests remain separate from that actual execution; see `results/actual-2026-09-25.md` for measured scope and limits.
 
 The guest runner uses the reviewed `/opt/templates/react-pro` package and prepared dependencies, copies them to an entirely separate nonce-owned directory, then generates a searchable/filterable React inventory with 48 imported TypeScript feature modules, the existing component kit and Zod. The notes source, PostgreSQL storage and task history are not used as build inputs. The runner refuses UID 0 instead of relying on the broken operator exec/stdout path.
 
@@ -21,7 +21,7 @@ Bounds: UID 1000, fixed loopback ports 3012/3013, no install command, sterile ch
 
 ## Review and staged execution sequence
 
-Execution still requires root's review. Use the existing four outer locks and nested worker fixture lock, pin their reviewed helper hashes and the current worker/controller identity. Do not reuse stale controller IDs from earlier tests. Run sequentially with the recovery-data fixture; each must restore its manifest before the other starts.
+Each execution requires root's review. Use the existing four outer locks and nested worker fixture lock, pin their reviewed helper hashes and the current worker/controller identity. Do not reuse stale controller IDs from earlier tests. Run sequentially with the recovery-data fixture; each must restore its manifest before the other starts.
 
 1. Verify the exact existing canary app `01M3CZB4HXT2Y8HP8CEY75PCWY`, sandbox `01M3D1Q0E1KM1FEM244XVHEC65`, owner `baarcha:103`, external fixture ownership marker, current immutable Cube binding/template and matching applied configuration revision. Require zero active tasks and precisely the four terminal history IDs in `guest.py`. Do not create a new user/app or expand the allowlist. Confirm notes/PG health and retain the original notes source hashes and current synthetic SQL markers.
 2. Read `sandbox.yaml` using the authenticated runtime file API into a new private outer stage, fsync the exact bytes, and hash it. The existing API request must use the reviewed owner/operator client without logging its headers. Read-only template proof already showed the pinned package and Vite/TypeScript binaries exist; the runner checks these again. Refuse an existing nonce directory or occupied fixture ports.
@@ -51,6 +51,10 @@ python3 .operator-frontend-build-20260925/NONCE/input/guest.py --run NONCE
 
 The original notes web service continues on its original port. Both temporary listeners bind only guest loopback; no external preview route, management allowance or native NIC policy changes are needed. Source/control files are uploaded and reports downloaded via the supported authenticated runtime file API, so operator stdout loss is irrelevant.
 
-## Validation so far
+## Coordinator and validation
 
-`results/validation.json` pins the tested sources. Thirteen native Linux Python tests passed in a new private outer stage under 1 CPU / 256 MiB / 30 seconds, with the transient unit inactive afterward. Three local Node tests passed. Tests cover external symlink/special-file refusal, bounded copy/logs, credential-free child environment, UID-0 rejection, terminal history, exact manifest preservation/drift refusal, meaningful HMR/API assertions, and real timeout/descendant cleanup. They did not execute this workload or touch any guest/API/service configuration. Actual warm-build and HMR compatibility remain pending the reviewed run.
+`run.py CONFIG --check` acquires the reviewed outer and nested locks, verifies source/identity pins, reads the owned manifest and health/history, and validates both effective manifests without changing the guest. `run.py CONFIG --execute` repeats preflight, then runs the sequence above through `profile.mjs`. Config/source files and the new output stage must be private and pinned. The original manifest is retained and fsynced before any mutation. A single private journal persists each pending mutation **before** dispatch. Reinvocation refuses an existing journal; unknown reload completion requires inspection, never a blind retry. Known terminal workload failure still restores the original manifest and verifies health, unless the manifest has drifted.
+
+The wrapper has an 840-second deadline and kills/reaps its own coordinator before releasing locks. The guest has its separate 480-second limit. A separately owned sampler must cover the actual workload; its observation duration is not a claimed coordinator execution deadline. `analyze_phases.py` reuses the reviewed resource analyzer but selects intervals directly from the original guest report's integer `wall_time_ns` markers, not the JavaScript-reserialized journal or an unrelated AI task. Missing short-phase samples remain unavailable. It performs no remote actions.
+
+`results/validation.json` pins the initial tested sources. Thirteen native Linux Python tests passed in a new private outer stage under 1 CPU / 256 MiB / 30 seconds, with the transient unit inactive afterward. Final local coverage passed 17 Python and 10 Node tests. Tests cover external symlink/special-file refusal, bounded copy/logs, credential-free child environment, UID-0 rejection, terminal history, exact manifest preservation/drift refusal, meaningful HMR/API assertions, real timeout/descendant cleanup, mutation journaling, ambiguous reload refusal, and phase-analysis bounds. The actual root-coordinated execution independently proved the prepared-cache build and HMR/API paths.
