@@ -242,3 +242,37 @@ HOLD. Keep its override definitions and the graceful-stop override documented;
 release only the hold file under the coordinating operator, then start reviewed
 fresh-worker units in dependency order. No blanket unmask/enable or automatic
 production routing belongs to this enrollment procedure.
+
+## Tested helper commands
+
+`post_boot.py` is read-only; `install_after_boot.sh` installs only after its
+preflight and never starts services or releases the hold. Stage it together
+with `render_config.py`, `post_boot.py` and their reviewed hashes. Readiness
+uses the committed eight-template manifest `templates-2026-09-24.json`.
+
+```bash
+# Inside the held, newly booted verified worker. Substitute exact escrow paths
+# and the machine ID/previous boot ID from the coordinator's private receipt.
+bash install_after_boot.sh OLD_PRIVATE_CONFIG EXPECTED_MACHINE_ID PREVIOUS_BOOT_ID NEW_PRIVATE_INSTALL_RECORD_DIR
+# After separate review/start by the coordinator:
+python3 post_boot.py ready --old-config OLD_PRIVATE_CONFIG --machine-id EXPECTED_MACHINE_ID --previous-boot-id PREVIOUS_BOOT_ID --templates REVIEWED_EIGHT_TEMPLATE_MANIFEST
+```
+
+The helper preserves original config/binary, records unchanged legacy cleanup DB
+hashes and atomically installs/fsyncs the exact candidate/config. Partial failure
+leaves services held for explicit operator review; it does not roll back newly
+written state automatically. Readiness checks actual process executable and open
+DB paths, not merely config text. All10 database roots must have actual open DBs
+and XFS in Cubelet's namespace. The11th root, netfile, contains lazy per-guest
+files, not a database; an empty node may not have created it, so its reviewed
+persistent parent filesystem is reported separately. Volatile mount-manager DB
+is explicitly permitted; any other open State DB fails readiness.
+
+Startup script review is a separate prerequisite: `cubelet-start.sh` invokes
+`prepare-compute-role.sh` and `write_cubelet_s3lvol_enable`. The observed latter
+can edit configuration. Read and hash the exact installed scripts before release;
+verify the preparation script does not replace metadata/data paths. Readiness
+compares parsed live config to the exact rendered config, catching unexpected
+startup rewrites, but detecting a rewrite after startup is not a substitute for
+reviewing a destructive script before execution. Never run installer/config
+regeneration scripts to resolve a missing DB/template automatically.
