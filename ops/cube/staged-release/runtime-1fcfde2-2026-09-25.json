@@ -1,0 +1,161 @@
+{
+  "ai_coding_acceptance": false,
+  "audited_at": "2026-09-25T22:05:43.395669+00:00",
+  "capture": {
+    "app": "01M3CZB4HXT2Y8HP8CEY75PCWY",
+    "cover": {
+      "anonymous_denied": true,
+      "foreign_denied": true,
+      "owner_read": true,
+      "private": true,
+      "sha256": "19bd5899a4b075d3de712ed0ad635189f4d2e7715087a157e9122cde62c0e76c"
+    },
+    "done_phases": [
+      "capture"
+    ],
+    "purpose": "post-release private capture only; original failed-task journal unchanged",
+    "sandbox": "01M3D1Q0E1KM1FEM244XVHEC65",
+    "visual_review": {
+      "actual_jpeg_sha256": "19bd5899a4b075d3de712ed0ad635189f4d2e7715087a157e9122cde62c0e76c",
+      "empty_state_visible": true,
+      "heading": "A little space for ideas.",
+      "login_or_error_page": false,
+      "note_input_and_save_visible": true,
+      "rendered_notes_app": true,
+      "reviewer": "root operator",
+      "save_search_task_completion_proven": false
+    }
+  },
+  "controller": {
+    "admission": {
+      "cpu_count": 2,
+      "max_active": 4,
+      "memory_mb": 2048,
+      "storage_guard_configured": true,
+      "trusted_template_count": 8,
+      "writable_disk_mb": 10240
+    },
+    "app_ids": "01M3CZB4HXT2Y8HP8CEY75PCWY",
+    "cube_enabled": "true",
+    "health": null,
+    "id": "93169a6a71c6d1e35785683418e0c0421674b2fc48baaf973005d542f9c11914",
+    "image": "sha256:74f76d6b6db87b4c710c4c4fbf57db463e15e16f30be6e2abb60ee11fd5119ee",
+    "preview_env_file": "/var/lib/sandboxd/cube-preview-auth.env",
+    "preview_signing_secret_present": true,
+    "rollout": "allowlist",
+    "running": true
+  },
+  "counts": {
+    "active_tasks": 0,
+    "apps": 69,
+    "cube_bindings": 1,
+    "docker_sandboxes": 68,
+    "pending_admission": 0,
+    "pending_recovery": 0
+  },
+  "full_paired_backup": false,
+  "global_activation": false,
+  "hashes": {
+    "/etc/baarcha-cube/worker-stop.json": "919373faf6155683715af795ec2ef5d3d085be58fb697d6275bfd6755e251995",
+    "/opt/baarcha-bench/cube-runtime-release-20260925-01/capture-journal.json": "54737f548b657d5eb7b0197625fcc67f83c31c30e00ed0dffa7914bb3e7132f7",
+    "/opt/baarcha-bench/cube-runtime-release-20260925-01/deploy-reviewed.sh": "f73afb6b72fe87ffb2420a9bc561fc49257bce882cff5fdacc5b72a4102f1cff",
+    "/opt/baarcha-bench/cube-runtime-release-20260925-01/private-capture.jpg": "19bd5899a4b075d3de712ed0ad635189f4d2e7715087a157e9122cde62c0e76c",
+    "/opt/baarcha-bench/cube-runtime-release-20260925-01/smoke-result.json": "60ac78edb78e8a7275f2203b93b358cbb5dec4c5e51cd6982951212bb9924b45",
+    "/opt/sandboxd/deploy-state/releases/20260925T214409-1fcfde24a08b-3333866/config.json": "6d8a5dd782ecbdf2fdb8f12c00d2e8f24e0d633f1f209581d97e60faf0812341",
+    "/opt/sandboxd/deploy-state/releases/20260925T214409-1fcfde24a08b-3333866/config.pre-activation.json": "6d8a5dd782ecbdf2fdb8f12c00d2e8f24e0d633f1f209581d97e60faf0812341",
+    "/opt/sandboxd/deploy-state/releases/20260925T214409-1fcfde24a08b-3333866/sandboxd.backup.sqlite": "6037b17223d845707bec794afdded5577c30639b0c6bf6d07e26dd6dc8e0c153",
+    "/opt/sandboxd/deploy-state/runtime-compose.json": "2334e97b31afa74c9c8f39b55e015301556c2c4e9e0aa691d167a380d680e3ee",
+    "/var/lib/sandboxd/cube-preview-auth.env": "4e97128c47bf698fad1e540393fa9775074b4882fc9b22f5e68a5b18a3696296"
+  },
+  "independent_full_restore": false,
+  "installed_deployer_sha256": "b67a9c64d917bda71862fdc822a6b977cb646e771df6f6b005e6a6f4fe9bd103",
+  "live_source": "1fcfde24a08b02d7087991fb14fe23060bcf36e3",
+  "postgres_tests": {
+    "failed": 0,
+    "passed": true
+  },
+  "read_only": true,
+  "relays": [
+    {
+      "health": "healthy",
+      "name": "src-cube-management-api-1",
+      "namespace_matches": true,
+      "running": true
+    },
+    {
+      "health": "healthy",
+      "name": "src-cube-management-proxy-1",
+      "namespace_matches": true,
+      "running": true
+    }
+  ],
+  "release_directory": "/opt/sandboxd/deploy-state/releases/20260925T214409-1fcfde24a08b-3333866",
+  "release_succeeded": "1fcfde24a08b02d7087991fb14fe23060bcf36e3",
+  "rendered_config_sha256": "b56066311e0f67a4a7993e718a1488ba0eab898dae102b5c8243859e47b8e796",
+  "smoke": {
+    "candidate": "1fcfde24a08b02d7087991fb14fe23060bcf36e3",
+    "checks": {
+      "file_read": true,
+      "postgres_health": true,
+      "private_capture": {
+        "anonymous_denied": true,
+        "foreign_denied": true,
+        "milliseconds": 4065,
+        "owner_read": true,
+        "private": true,
+        "sha256": "19bd5899a4b075d3de712ed0ad635189f4d2e7715087a157e9122cde62c0e76c"
+      },
+      "private_preview": true,
+      "project_owner_authorization": true
+    },
+    "controller": "93169a6a71c6d1e35785683418e0c0421674b2fc48baaf973005d542f9c11914",
+    "finished_at": "2026-09-25T21:50:13.875Z",
+    "image": "sha256:74f76d6b6db87b4c710c4c4fbf57db463e15e16f30be6e2abb60ee11fd5119ee",
+    "started_at": "2026-09-25T21:50:06.989Z",
+    "status": "passed"
+  },
+  "unit": [
+    "Result=success",
+    "ExecMainCode=0",
+    "ExecMainStatus=0",
+    "ActiveState=inactive",
+    "SubState=dead"
+  ],
+  "version": "sandboxd 1fcfde24a08b02d7087991fb14fe23060bcf36e3 (1fcfde24a08b)",
+  "vite": {
+    "complete": true,
+    "patch_application": "preinstalled-pnpm-patch",
+    "patch_atomic": null,
+    "production_accepted": false,
+    "results": [
+      {
+        "env_reload_ms": 2285,
+        "exit_code": 0,
+        "passed": true,
+        "pending_requests": 1,
+        "restarting": false,
+        "shutdown_passed": true,
+        "variant": "patched-cold-1"
+      },
+      {
+        "env_reload_ms": 2289,
+        "exit_code": 0,
+        "passed": true,
+        "pending_requests": 1,
+        "restarting": false,
+        "shutdown_passed": true,
+        "variant": "patched-cold-2"
+      },
+      {
+        "env_reload_ms": 2221,
+        "exit_code": 0,
+        "passed": true,
+        "pending_requests": 1,
+        "restarting": false,
+        "shutdown_passed": true,
+        "variant": "patched-cold-3"
+      }
+    ],
+    "version": "5.4.21"
+  }
+}
