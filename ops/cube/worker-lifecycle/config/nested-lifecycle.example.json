@@ -26,5 +26,30 @@
     "/data/cubelet/persistent-metadata",
     "/data/REQUIRES_REVIEWED_MYSQL_PERSISTENCE_PATH",
     "/data/REQUIRES_REVIEWED_OTHER_STATE_PATHS"
-  ]
+  ],
+  "registry": {
+    "id": "REQUIRES_EXISTING_FULL_CONTAINER_ID",
+    "name": "/cube-production-registry",
+    "image": "sha256:REQUIRES_EXISTING_IMAGE_DIGEST",
+    "restart": {
+      "Name": "always",
+      "MaximumRetryCount": 0
+    },
+    "ports": {
+      "5000/tcp": [
+        {
+          "HostIp": "127.0.0.1",
+          "HostPort": "5000"
+        }
+      ]
+    },
+    "mounts": [
+      {
+        "Type": "bind",
+        "Source": "/data/REQUIRES_ACTUAL_RETAINED_REGISTRY_PATH",
+        "Destination": "/var/lib/registry",
+        "RW": true
+      }
+    ]
+  }
 }

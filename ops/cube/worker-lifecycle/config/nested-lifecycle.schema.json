@@ -11,7 +11,8 @@
     "binaries",
     "artifacts",
     "durable_metadata_reviewed",
-    "durable_metadata_paths"
+    "durable_metadata_paths",
+    "registry"
   ],
   "properties": {
     "version": {
@@ -97,7 +98,7 @@
       "type": "object",
       "minProperties": 1,
       "propertyNames": {
-        "pattern": "^/(etc/systemd/system|usr/local/services)/[^\\u0000]+$"
+        "pattern": "^(/(etc/systemd/system|usr/local/services)/[^\\u0000]+|/usr/local/libexec/baarcha-cube-worker-lifecycle\\.py)$"
       },
       "additionalProperties": {
         "type": "string",
@@ -115,6 +116,79 @@
       "items": {
         "type": "string",
         "pattern": "^/data/[^\\u0000]+$"
+      }
+    },
+    "registry": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "name",
+        "image",
+        "restart",
+        "ports",
+        "mounts"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-f0-9]{64}$"
+        },
+        "name": {
+          "const": "/cube-production-registry"
+        },
+        "image": {
+          "type": "string",
+          "pattern": "^sha256:[a-f0-9]{64}$"
+        },
+        "restart": {
+          "const": {
+            "Name": "always",
+            "MaximumRetryCount": 0
+          }
+        },
+        "ports": {
+          "const": {
+            "5000/tcp": [
+              {
+                "HostIp": "127.0.0.1",
+                "HostPort": "5000"
+              }
+            ]
+          }
+        },
+        "mounts": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "Type",
+              "Source",
+              "Destination",
+              "RW"
+            ],
+            "properties": {
+              "Type": {
+                "enum": [
+                  "bind",
+                  "volume"
+                ]
+              },
+              "Source": {
+                "type": "string",
+                "pattern": "^/[^\\u0000]+$"
+              },
+              "Destination": {
+                "const": "/var/lib/registry"
+              },
+              "RW": {
+                "const": true
+              }
+            }
+          }
+        }
       }
     }
   }

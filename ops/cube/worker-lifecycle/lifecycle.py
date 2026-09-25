@@ -4,6 +4,7 @@ import argparse
 import contextlib
 import fcntl
 import hashlib
+import http.client
 import json
 import os
 from pathlib import Path
@@ -113,6 +114,50 @@ def host_preflight(config):
     require(os.statvfs(DATA).f_bavail*os.statvfs(DATA).f_frsize>=48*1024**3,'less than 48 GiB free worker storage reserve')
 
 
+REGISTRY_NAME='cube-production-registry'
+REGISTRY_PORTS={'5000/tcp':[{'HostIp':'127.0.0.1','HostPort':'5000'}]}
+
+def registry_definition():
+    # Deliberately exclude Config.Env and credentials from inspection/evidence.
+    fmt='{"id":{{json .Id}},"name":{{json .Name}},"image":{{json .Image}},"restart":{{json .HostConfig.RestartPolicy}},"ports":{{json .HostConfig.PortBindings}},"mounts":{{json .Mounts}}}'
+    raw=run(['/usr/bin/docker','inspect','--format',fmt,REGISTRY_NAME])
+    require(len(raw)<=16384,'registry definition exceeds bound')
+    return json.loads(raw)
+
+def validate_registry_definition(value):
+    require(isinstance(value,dict) and set(value)=={'id','name','image','restart','ports','mounts'},'exact retained registry definition required')
+    require(re.fullmatch(r'[a-f0-9]{64}',value.get('id','')) and value.get('name')=='/'+REGISTRY_NAME,'registry identity invalid')
+    require(re.fullmatch(r'sha256:[a-f0-9]{64}',value.get('image','')),'registry image digest required')
+    require(value.get('restart')=={'Name':'always','MaximumRetryCount':0},'registry must restart after Docker daemon boot')
+    require(value.get('ports')==REGISTRY_PORTS,'registry must bind only reviewed loopback port')
+    mounts=value.get('mounts')
+    require(isinstance(mounts,list) and len(mounts)==1,'single retained registry data mount required')
+    mount=mounts[0]
+    require(mount.get('Type') in ('bind','volume') and mount.get('RW') is True and mount.get('Destination')=='/var/lib/registry','registry data mount invalid')
+    source=real_path(mount.get('Source',''))
+    require(source.is_dir() and source.stat().st_dev in (Path('/').stat().st_dev,Path('/data').stat().st_dev),'registry data outside paired persistent disks')
+
+def registry_health():
+    # Fixed loopback only; no proxies, redirects, credentials or mutation.
+    connection=http.client.HTTPConnection('127.0.0.1',5000,timeout=5)
+    try:
+        connection.request('GET','/v2/')
+        response=connection.getresponse();body=response.read(16385)
+        require(response.status==200 and response.getheader('Docker-Distribution-Api-Version')=='registry/2.0' and len(body)<=16384,'registry readiness unavailable')
+        require(isinstance(json.loads(body),dict),'registry readiness response invalid')
+    finally:connection.close()
+
+def verify_registry(config, require_active=False):
+    expected=config.get('registry');validate_registry_definition(expected)
+    actual=registry_definition();validate_registry_definition(actual)
+    require(actual==expected,'retained registry definition changed')
+    if require_active:
+        state=inspect_container_id(expected['id'],REGISTRY_NAME)
+        require(state['running'] and not state['oom'],'retained registry not healthy/running')
+        registry_health()
+        require(registry_definition()==expected,'registry changed during readiness observation')
+
+
 def nested_preflight(config, require_active=False):
     require(socket.gethostname()=='baarcha-cube-worker-01','wrong nested worker')
     require(config.get('version')==1 and config.get('reviewed') is True,'reviewed nested manifest required')
@@ -129,8 +174,9 @@ def nested_preflight(config, require_active=False):
     require(bool(config.get('artifacts')),'launch/config artifact hashes required')
     for name,expected in config['artifacts'].items():
         path=Path(name)
-        require(path.is_relative_to('/etc/systemd/system') or path.is_relative_to('/usr/local/services'),'unexpected artifact scope')
+        require(path==Path(SCRIPT) or path.is_relative_to('/etc/systemd/system') or path.is_relative_to('/usr/local/services'),'unexpected artifact scope')
         require(digest(path)==expected,'launch/config artifact changed')
+    verify_registry(config,require_active)
     filesystem=os.statvfs('/data')
     require(filesystem.f_bavail*filesystem.f_frsize>=48*1024**3,'nested storage reserve below 48 GiB')
     if require_active:

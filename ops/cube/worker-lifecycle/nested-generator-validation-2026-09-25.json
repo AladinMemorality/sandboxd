@@ -1,0 +1,31 @@
+{
+  "date": "2026-09-25",
+  "status": "candidate-only-linux-tests-passed",
+  "source_gate_enabled": false,
+  "worker_mutations": false,
+  "linux_test_count": 48,
+  "linux_elapsed_seconds": 0.238,
+  "linux_log": "/opt/baarcha-bench/cube-retained-stop-20260925/python-registry-ownership-tests.log",
+  "files_sha256": {
+    "lifecycle.py": "e1e34848f59f507d0e2ae42b23e2887284248ea0454bd739d827ea716f17e205",
+    "render_nested.py": "3af5be0779738d69c916a59cc257d22c09c5d0f95bf330f3387ad972c21b72a3",
+    "ownership_plan.py": "1ac1c9bec04e4ae35aff847545ee773164e72714284acee146b6086e58d5b6da",
+    "test_lifecycle.py": "765db10207f59120cece48589b4633a1196eb8d2bc0c9ef9181dba14b74841b9",
+    "test_render_nested.py": "a922bf19fa7cd6dbcd43191e7a402c33d13969647ddaddd4768b16e1102327e6",
+    "test_ownership_plan.py": "a7b364aa03e739300ad691bc6a9689573ed763a99eef8538da1f100e66430a01"
+  },
+  "coverage": [
+    "Retained registry full ID/image/loopback mount contract and always restart policy refusal",
+    "Fixed local read-only registry readiness and stopped/replaced/redirect/wrong-server refusal",
+    "Manifest generation remains unreviewed and installation-free",
+    "Ownership inventory preserves bytes/modes and excludes customer data, symlinks and hardlinks",
+    "Earlier graceful retained-stop, lock, PID generation and no-force-kill regressions"
+  ],
+  "remaining_acceptance": [
+    "Root applies reviewed ownership-only changes under existing boot hold",
+    "Observe actual active native MainPID/executable identities before manifest enrollment",
+    "Root explicitly sets only existing registry full ID restart policy to always",
+    "Actual worker/Docker restart proves registry and management readiness",
+    "Actual coordinator under drained controller and retained customer-safe pause proof before enabling source gate"
+  ]
+}

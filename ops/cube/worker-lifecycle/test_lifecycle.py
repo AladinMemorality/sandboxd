@@ -119,7 +119,7 @@ class LifecycleTests(unittest.TestCase):
         self.assertEqual(argv.count('-drive'),3);self.assertNotIn('-daemonize',argv)
     def test_nested_identity_and_hash_checks_fail_closed(self):
         value={'version':1,'reviewed':True,'machine_id':'fixture-machine','data_filesystem_uuid':'fixture-uuid','binaries':{name:{'path':'/usr/local/services/'+name,'sha256':'fixed'} for name in ('cubelet','cubemaster','cube-api')},'artifacts':{'/etc/systemd/system/cube-sandbox-cube-api.service':'fixed'}}
-        with mock.patch.object(life.socket,'gethostname',return_value='baarcha-cube-worker-01'),mock.patch.object(Path,'read_text',return_value='fixture-machine'),mock.patch.object(life,'run',return_value=b'fixture-uuid\n'),mock.patch.object(life,'digest',return_value='fixed'),mock.patch.object(life.os,'statvfs',return_value=mock.Mock(f_bavail=64*1024**3,f_frsize=1)):
+        with mock.patch.object(life,'verify_registry'),mock.patch.object(life.socket,'gethostname',return_value='baarcha-cube-worker-01'),mock.patch.object(Path,'read_text',return_value='fixture-machine'),mock.patch.object(life,'run',return_value=b'fixture-uuid\n'),mock.patch.object(life,'digest',return_value='fixed'),mock.patch.object(life.os,'statvfs',return_value=mock.Mock(f_bavail=64*1024**3,f_frsize=1)):
             self.assertFalse(life.nested_preflight(value)['tenant_ready'])
             value['data_filesystem_uuid']='wrong'
             with self.assertRaises(life.Blocked):life.nested_preflight(value)
@@ -230,3 +230,33 @@ class RetainedStopTests(unittest.TestCase):
             self.assertEqual(run.call_count,1)
         with mock.patch.object(life,'run',return_value=b'{"stopped":false}'):
             with self.assertRaises(life.Blocked):life.shutdown_nested(proof)
+
+class RegistryTests(unittest.TestCase):
+    def definition(self):
+        return {'id':'a'*64,'name':'/cube-production-registry','image':'sha256:'+'b'*64,'restart':{'Name':'always','MaximumRetryCount':0},'ports':life.REGISTRY_PORTS,'mounts':[{'Type':'bind','Source':'/data/registry','Destination':'/var/lib/registry','RW':True}]}
+    def test_registry_definition_requires_daemon_restart_and_private_port(self):
+        with mock.patch.object(life,'real_path',return_value=mock.Mock(is_dir=lambda:True,stat=lambda:mock.Mock(st_dev=1))),mock.patch.object(Path,'stat',return_value=mock.Mock(st_dev=1)):
+            life.validate_registry_definition(self.definition())
+            for key,value in [('restart',{'Name':'unless-stopped','MaximumRetryCount':0}),('ports',{}),('mounts',[]),('image','registry:latest'),('id','short')]:
+                changed=self.definition();changed[key]=value
+                with self.assertRaises(life.Blocked):life.validate_registry_definition(changed)
+    def test_readiness_checks_exact_retained_container_and_http(self):
+        value=self.definition()
+        with mock.patch.object(life,'validate_registry_definition'),mock.patch.object(life,'registry_definition',return_value=value),mock.patch.object(life,'inspect_container_id',return_value={'running':True,'oom':False}) as state,mock.patch.object(life,'registry_health') as health:
+            life.verify_registry({'registry':value},True)
+            state.assert_called_once_with('a'*64,'cube-production-registry');health.assert_called_once()
+            state.return_value={'running':False,'oom':False}
+            with self.assertRaises(life.Blocked):life.verify_registry({'registry':value},True)
+    def test_registry_replacement_refused_before_health(self):
+        value=self.definition();replacement=dict(value,id='c'*64)
+        with mock.patch.object(life,'validate_registry_definition'),mock.patch.object(life,'registry_definition',return_value=replacement),mock.patch.object(life,'registry_health') as health:
+            with self.assertRaises(life.Blocked):life.verify_registry({'registry':value},True)
+            health.assert_not_called()
+    def test_health_has_fixed_target_and_rejects_redirect_or_wrong_service(self):
+        for status,header,body,success in [(200,'registry/2.0',b'{}',True),(302,'registry/2.0',b'{}',False),(200,None,b'{}',False),(200,'registry/2.0',b'[]',False)]:
+            connection=mock.Mock();response=connection.getresponse.return_value;response.status=status;response.getheader.return_value=header;response.read.return_value=body
+            with mock.patch.object(life.http.client,'HTTPConnection',return_value=connection) as factory:
+                if success:life.registry_health()
+                else:
+                    with self.assertRaises(life.Blocked):life.registry_health()
+                factory.assert_called_once_with('127.0.0.1',5000,timeout=5);connection.request.assert_called_once_with('GET','/v2/');connection.close.assert_called_once()
