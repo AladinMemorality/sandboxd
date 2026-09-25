@@ -1,6 +1,8 @@
 # Apply these fields to Cubelet/dynamicconf/conf.yaml. Not a full configuration.
 # Requires durable controller admission: combined creating/waking/running <=4.
-# Reserve native overhead: four guests account for about9200mCPU/8640MiB.
+# Conservative generic budget: about9200mCPU/8640MiB for four guests.
+# Actual matched-snapshot accounting can be lower; the September25 canary
+# charges2000mCPU/2048MiB. This quota alone does not enforce four slots.
 # These revised limits require actual four-guest acceptance before cutover.
 # Count128 is a ceiling, not a storage-capacity claim. Require >=48GiB real free
 # space before allocations/imports; logical guest writable allowance stays10GiB.

@@ -17,7 +17,7 @@ per-app RAM or a direct scaling curve.
 
 ## Resources and policy that must remain distinct
 
-| Candidate active count | Per-app quota | Minimum accounted native CPU | Proposed native CPU quota | Accounted native memory, approximately | Proposed native memory quota |
+| Candidate active count | Per-app quota | Conservative generic CPU estimate | Proposed native CPU quota | Conservative generic memory estimate | Proposed native memory quota |
 | --- | --- | ---: | ---: | ---: | ---: |
 | Current 4 | 2 CPU / 2 GiB | 9,200 mCPU | 10,000 mCPU | 8.44 GiB | 10 GiB |
 | Test 6 | 2 CPU / 2 GiB | 13,800 mCPU | 14,000 mCPU | 12.66 GiB | 14 GiB |
@@ -25,12 +25,15 @@ per-app RAM or a direct scaling curve.
 | Test 12 | 2 CPU / 2 GiB | 27,600 mCPU | 28,000 mCPU | 25.31 GiB | 30 GiB |
 
 These native values are scheduler accounting limits, **not dedicated CPUs**.
-Pinned Cube accounting charges about 2,300 mCPU and 2,160 MiB per reviewed
-2-CPU/2-GiB template. Verify actual `ResourceWithOverHead` before each test;
-a different matched snapshot can alter the result. Keep `mvm_limit=128`,
-`creation_concurrent_num=1`, and paused release ratio 1.0. Each proposed CPU
-quota also refuses the next guest by native accounting, independent of the
-fixture's N-slot ledger.
+The generic overhead estimate is2,300mCPU and2,160MiB per2CPU/2GiB guest. Actual
+matched-snapshot accounting differs: the September25 Node/PostgreSQL canary
+reports and charges2,000mCPU and2,048MiB, confirmed by fresh Master quota usage
+with one guest. Consequently five identical guests fit nominal10CPU/10GiB
+native quota arithmetic, while the durable platform policy still enforces four.
+The proposed quotas do not necessarily refuse the next guest for every template;
+the fixture's N-slot ledger provides its own limit. Verify actual provider and
+Master allocation counters before every test. Keep `mvm_limit=128`,
+`creation_concurrent_num=1`, and paused release ratio1.0. Estimates are not RSS.
 
 Keep the worker VM at 40 GiB and 12 vCPU, outer `MemoryHigh=42G`,
 `MemoryMax=44G`, `MemorySwapMax=0`, `CPUQuota=1000%`. The host has 6 physical / 12

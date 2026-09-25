@@ -95,8 +95,10 @@ production observations and remaining work; the dated inventories below remain
 historical evidence.
 
 Four active Cube guests is the configured and tested initial admission limit,
-not a measured hardware maximum. The native10GiB/10000mCPU quota independently
-fits four reviewed2CPU/2GiB guests including overhead. Paused guests release
+not a measured hardware maximum. The native10GiB/10000mCPU quota was sized using
+a conservative overhead estimate. Actual September25 matched-snapshot accounting
+charges2CPU/2GiB, so five identical guests fit its nominal arithmetic; the durable
+platform policy enforces four independently. Paused guests release
 CPU/RAM admission while retaining persistent storage; always-running backends
 still occupy slots. The prepared6/8/12 tests have not run. An older12-guest run
 missed its memory-preparation deadline before steady load and was not an OOM
