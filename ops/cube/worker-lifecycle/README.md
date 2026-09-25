@@ -32,8 +32,8 @@ identity; autostart must not silently classify that as an empty healthy fleet.
 40 GiB RAM, 12 vCPU, the same three loopback forwards, no raw networking changes.
 It holds an exclusive instance lock and the same shared backup lock/marker as
 `cold_pair.py`. Lockfiles are never replaced. Both descriptors pass to the child;
-a synthetic child inheritance test passes, while actual QEMU descriptor behavior
-still needs isolated acceptance. Native disk FD checks remain required by cold
+synthetic inheritance tests and the actual isolated QEMU acceptance both confirm
+that QEMU retains them. Native disk FD checks remain required by cold
 capture. A supervisor failure must never permit a second worker or hot backup.
 
 The candidate unit sends TERM only to the supervisor (`KillMode=process`), has
@@ -173,7 +173,22 @@ exercise exact supervisor recognition and lock exclusion.
 Remaining gates: independently perform/attest real traffic and stream drain;
 implement boot reconciliation/marker removal and backup-age monitoring;
 review exact private manifests; validate units with `systemd-analyze verify`;
-prove normal signal/failed-drain/no-forced-kill behavior with a disposable VM;
 prove pause→clean worker poweroff→paired encrypted backup→startup→authenticated
 app/SQL/history continuation and separate isolated restore. Actual abrupt
 power-loss recovery is separate acceptance and is not established by these files.
+
+
+The actual diskless/networkless systemd acceptance on 2026-09-25 passed both
+failed-drain and unhandled-powerdown cases in 6.13 seconds. Each transient unit
+was capped at one CPU/256 MiB; its diskless QEMU used 32 MiB and one CPU. Ordinary
+`systemctl stop` kept the same supervisor and QEMU alive, with both inherited
+lock descriptors excluding cold capture and a second instance. Zero OOM events
+occurred. Only the exact fixture QMP socket received cleanup `quit`; independent
+process/unit checks found no leftovers. See
+[`systemd-acceptance-2026-09-25.json`](systemd-acceptance-2026-09-25.json).
+This exercises the production Supervisor/lock implementation, with a synthetic
+drain callback; it does not exercise actual guest OS clean shutdown, real traffic
+drain, Cube pause/sync over a live worker, or the complete backup/restart cycle.
+The Go coordinator's Linux race suites separately passed with actual SQLite and
+HTTP provider fixtures, including config/task/identity drift, missing-provider
+404 preservation, ambiguous Pause and lock/marker retention.
