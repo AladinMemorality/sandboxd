@@ -42,11 +42,11 @@ other Docker work. No extra CPU is created by increasing native mCPU quota.
 at their ceilings; their measured RSS alone does not reserve that headroom.
 Do not raise the QEMU cgroup limits to make this test pass.
 
-## Required preparation, not yet implemented or authorized for execution
+## Required preparation and execution prerequisites
 
-1. Extend only the **synthetic fixture** slot validator in
+1. The benchmark follow-up now extends only the **synthetic fixture** slot validator in
    `control-plane/internal/store/cube_workload_live_linux_test.go` from {4,12}
-   to {4,6,8,12}, with validation tests. Preserve 512 MiB per app, 4 MiB touch
+   to {4,6,8,12}, with validation tests. It preserves 512 MiB per app, 4 MiB touch
    chunks, 20-second preparation, 45-second steady work, 5-second request
    deadlines, one-shot activation, automatic 60/80-second stops and bounded
    cleanup. Record a new binary/source hash; retain the historical ccfe and
@@ -56,11 +56,17 @@ Do not raise the QEMU cgroup limits to make this test pass.
    `AdmissionConfig.RequireStorageGuard()` explicitly caps four, and the
    enrollment renderer does too. Do not relax production guards for a test.
 3. The fixture's private ledger is **not shared with the live controller**.
+   The new `run-stage.py` refuses to execute unless the exact controller is
+   actually stopped; `CUBE_ENABLED=false` does not fence existing Cube bindings.
+   A new optional baseline preserves one exact paused canary, pinned by provider
+   fingerprint, resources, app identity and private config/marker receipts.
+   The default mode still requires empty provider inventory.
    Once the owned-app canary is connected, require a reviewed Cube-only
    admission hold and drain before this fixture; a flock by itself does not
    stop browser/controller wake requests. Preserve the canary's app identity
-   and all customer Docker services. Require zero live Cube guests/tasks/jobs
-   and no uncertain admission before allocation. If that cannot be achieved
+   and all customer Docker services. Require no running Cube guests/tasks/jobs
+   and no uncertain admission before allocation; only the exact paused baseline
+   may remain. If that cannot be achieved
    safely, defer the test rather than combining two independent ledgers.
 4. Under the reviewed operator handoff, apply only the selected native quota
    at an empty/drained worker, preserving the exact config and prior quota.

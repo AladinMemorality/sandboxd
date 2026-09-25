@@ -1,0 +1,2 @@
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/egress	30.394s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/store	2.584s
