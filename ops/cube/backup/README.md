@@ -1,6 +1,7 @@
 # Post-cutover Cube backups — inert candidate
 
-This tool has not been installed, run against the worker, or scheduled. It never
+The three reviewed backup helpers were installed on2026-09-25. They have not
+captured the production worker or been scheduled. The capture tool never
 stops a service, pauses a guest, changes a unit, overwrites a disk, deletes a
 backup, or boots a restore. `worker-exec` is an explicit startup wrapper intended
 for a separately reviewed unit change. Production activation remains gated on
@@ -177,7 +178,7 @@ small payload; a full worker backup, application restore, scheduled backup and
 redundant recovery-key custody remain unverified. The private key and passphrase
 are outside the repository and have never been sent to the VPS.
 
-## Full-size transfer helpers — prepared, not executed against this worker
+## Bounded transfer helpers
 
 `offhost_store.mjs` replaces the small verification probe's in-memory single PUT
 for a real disk pair. It uses the installed AWS SDK, sequential bounded128MiB
@@ -191,7 +192,8 @@ the helper does not change IAM/retention or issue broad cleanup.
 
 The existing primary API supports the conditional completion used here:
 [CompleteMultipartUpload](https://docs.aws.amazon.com/AmazonS3/latest/API/API_CompleteMultipartUpload.html).
-No actual full-object upload or multipart permission proof is claimed yet.
+An actual two-part synthetic upload and complete readback passed on2026-09-25;
+the full production worker pair remains untested.
 
 `stream_restore.py` keeps the recovery private key on the operator Mac. It streams
 the verified ciphertext from the VPS through local standard GPG and back into a
@@ -216,3 +218,26 @@ tests uses the production recipient secret or claims whole-worker restoration.
 See [the concrete two-cycle execution sequence](PAIRED-RESTORE-SEQUENCE.md) for
 the first empty enrollment cycle, canonical operator fixture, second capture
 cycle, full-size transfer configuration and isolated app/history/SQL verification.
+
+## Actual multipart and off-host streaming acceptance
+
+The installed helpers encrypted a synthetic pair of32MiB qcow2 files, a synthetic
+SQLite database and explicit synthetic role files, including129MiB of random
+bytes to exceed one128MiB multipart part. The existing backup-prefix credentials
+successfully created the multipart upload, acknowledged both parts, completed
+with the conditional no-overwrite request, and downloaded all135,391,779 encrypted
+bytes with the expected SHA256. The verification object is retained.
+
+The independently pinned seal manifest was copied to the operator Mac before
+the upload. Standard GPG decrypted the verified readback through bounded pipes
+on the Mac, using the production recipient key there; only the plaintext stream
+returned to new private VPS staging. The key was never uploaded and no full
+archive was stored on the Mac. Both SSH processes and GPG exited0. Strict restore
+matched every captured file hash, compared both qcow2 disks and preserved the
+synthetic SQLite row. See
+[the scoped result](multipart-transport-result-2026-09-25.json).
+
+The retained fixture scripts use fixed unique paths and refuse reuse. They do
+not stop services, capture a running worker, boot an application, or prove the
+full-fleet backup/recovery gate. This execution establishes multipart permission
+and the complete off-host decryption transport, not production restoration.
