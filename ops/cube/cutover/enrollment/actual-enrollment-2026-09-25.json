@@ -1,0 +1,122 @@
+{
+  "version": 1,
+  "date": "2026-09-25",
+  "scope": "actual empty worker host enrollment; no customer Cube activation",
+  "evidence_directory": "/opt/baarcha-bench/cube-host-lifecycle-enrollment-20260925/execute-live-01",
+  "actual_complete": true,
+  "original_runner_alone_passed": false,
+  "global_cube_enabled": false,
+  "unit_enabled_at_boot": false,
+  "guests_woken": 0,
+  "canonical_apps_at_drain": 67,
+  "platform_revision": "2e61df6ec62f80b420ce4a15cbcf375f83a3b434",
+  "actual_source_sha256": {
+    "executed-20260925.py": "ca6dea40bba2e4f3cc15ecfba122b18ad69fc4ece17567f45aac224ce30562da",
+    "resume-root-20260925.py": "d6b3ae4f1be572a974d6af915ae21c144e77846d1a48c6ab40431a50cf0f3472",
+    "cycle-root-20260925.py": "e9238735b253ee428f7f3ce1b026d546916814c222630ef71900d2b9bc5a3bd9"
+  },
+  "check_only_attempts": [
+    {
+      "attempt": 1,
+      "passed": false,
+      "reason": "Exact existing boot hold drop-in had to be pinned, not ignored or removed."
+    },
+    {
+      "attempt": 2,
+      "passed": true
+    },
+    {
+      "attempt": 3,
+      "passed": false,
+      "reason": "Legitimate platform deployment changed release pin; standard release lock was honored."
+    },
+    {
+      "attempt": 4,
+      "passed": false,
+      "reason": "Existing nested acceptance lock was0644; root verified exact inode and held flock before fchmod0600 without replacement."
+    },
+    {
+      "attempt": 5,
+      "passed": false,
+      "reason": "New legitimate Docker app increased current fleet66 to67; exact identity/resources were reviewed."
+    },
+    {
+      "attempt": 6,
+      "passed": true
+    }
+  ],
+  "actual_failures": [
+    {
+      "phase": "data-disk-expanded",
+      "at": "2026-09-25T15:48:14.079159+00:00",
+      "cause": "Missing outer /usr/local/libexec before first host artifact write",
+      "fences_retained": true,
+      "continuation": "resume-root-20260925.py"
+    },
+    {
+      "phase": "first-supervisor-ready",
+      "cause": "Read-only observer SQLite connections retained by context manager blocked independent coordinator DB-user scan",
+      "fences_retained": true,
+      "source_fix": "cd194ae",
+      "continuation": "cycle-root-20260925.py"
+    }
+  ],
+  "lock_handoff": {
+    "method": "pidfd_getfd of exactly four lock descriptors sharing the same open file descriptions",
+    "old_pid": 3009710,
+    "new_pid": 3025720,
+    "database_descriptors_copied": false,
+    "four_independent_contenders_refused": true
+  },
+  "reviewed_drain_transition": {
+    "sandbox_id": "01M3CKN99ZF90BEEA4DS66YAQV",
+    "old_container": "23392f42f524238519eccb26168866a8d7c667bee9c0632a41bc09024fc3ba8d",
+    "new_container": "02503dfa5cf882692436fcef4fa6e049b0480441b9347e506d2dec225cefedb0",
+    "image": "sha256:f05e2d5103acbc1bda4ba22d618eabba93307f914dd26bf2f2f3f4163c458434",
+    "completed_before_controller_fence": true,
+    "closed_sqlite_backup_matches": true,
+    "other_container_identities_unchanged": 74,
+    "original_baseline_preserved": true
+  },
+  "data_disk": {
+    "virtual_bytes": 481036337152,
+    "xfs_bytes": 480910508032,
+    "free_bytes_at_first_boot": 432360288256,
+    "uuid_preserved": true,
+    "fully_backed_capacity_promised": false
+  },
+  "retained_orphan": {
+    "inode": 270239769,
+    "bytes": 10737418240,
+    "mtime_ns": 1790296419384786773,
+    "preserved": true
+  },
+  "controller_fenced_at": "2026-09-25T15:47:44.659514+00:00",
+  "controller_restarted_at": "2026-09-25T16:08:06.425540228Z",
+  "traffic_restored_at": "2026-09-25T16:08:09.496091+00:00",
+  "clean_stop_at": "2026-09-25T16:07:15.118854+00:00",
+  "startup_reconciled_at": "2026-09-25T16:08:05.073293461Z",
+  "completed_at": "2026-09-25T16:08:10.308909+00:00",
+  "worker_after": {
+    "qemu_pid": 3026420,
+    "qemu_start_time": "483403245",
+    "boot_id": "c1b590df-28d3-4222-b9a3-c0408c8ccc07",
+    "tenant_ready": true,
+    "routing_changed": false
+  },
+  "receipt_sha256": {
+    "complete.json": "adabb42be911b8b5500a093a4adb1cd0b09dd2b7420fcd5946e7314465fc480a",
+    "startup-reconciled.json": "e9abc159dd16f215e08b32e6b9f32bdb0849b348e5207c14536437ac73107735",
+    "coordinator-stopped-clean.json": "68e061a01bbbe49b72fe5bf94be9de6ba1cd7c790170a59d0b21270cd27a2052",
+    "lock-handoff-complete.json": "2c2667352988d45a5c1b1a0f30da29c1e5da6d8d528cc98c2a4ea66d8df4d187",
+    "traffic-restored.json": "ea6127bae850a80629f022eca5d1dd6d8e1bf1a9aa321b374f72dcc5e44be511",
+    "pause_proof": "d50edbb0154bbf88db4333502d3176fd6feee614569af15243f5462ca1a75f20",
+    "clean_receipt": "835634eed1c76fa9e20393c77b8ebe18c0e94b998b1179375fa3e30aa8e7a1d8"
+  },
+  "limitations": [
+    "Empty worker only; no tenant pause/backup/restore proof from this cycle.",
+    "Real coordinator cycle required reviewed continuations and about20minutes of scoped runtime maintenance, not the original runner alone.",
+    "Source runner now adds missing installation-directory preflight and pins deterministic-close observer; that revised source was locally tested, not rerun as a fresh enrollment.",
+    "Full encrypted production pair, offhost copy and isolated app/history/latest-SQL restore remain separate gates."
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "controller_id": "REPLACE_WITH_ACTUAL_FULL_ID_AFTER_STORAGE34",
+  "controller_image": "REPLACE_WITH_ACTUAL_IMAGE_SHA256",
+  "platform_revision": "REPLACE_WITH_ACTUAL_VALIDATED_FULL_REVISION",
+  "template_id": "REPLACE_WITH_REVIEWED_NODE_POSTGRES_TEMPLATE",
+  "stage": "/opt/baarcha-bench/cube-canonical-fixture-REVIEWED-RUN",
+  "platform_root": "/opt/baarcha/app/landing",
+  "allowed_app_id": "",
+  "funding_millimes": 1000,
+  "worker_boot_id": "REPLACE_AFTER_HOST_ENROLLMENT",
+  "enrollment_runner_sha256": "REPLACE_WITH_EXACT_LOCK_HELPER_SHA256",
+  "stop_binary_sha256": "REPLACE_WITH_REBUILT_STORAGE34_BINARY_SHA256",
+  "start_binary_sha256": "REPLACE_WITH_REBUILT_STORAGE34_BINARY_SHA256",
+  "host_cycle_receipt": "/opt/baarcha-bench/cube-host-lifecycle-enrollment-20260925/execute-live-01/complete.json",
+  "host_cycle_receipt_sha256": "REPLACE_ONLY_AFTER_REAL_COMPLETE_RECEIPT"
+}

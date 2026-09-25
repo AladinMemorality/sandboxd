@@ -15,7 +15,6 @@ IMAGE='sha256:26222f6de55d5923f65f7b48489f2ea3b79b2f21a948e17adff370ca5101c747'
 PLATFORM='2e61df6ec62f80b420ce4a15cbcf375f83a3b434'
 INITIAL_BOOT='7ee095fe-0461-4779-93e6-42e2b557440f'; INITIAL_PID=2917754; INITIAL_START='482723086'
 MACHINE='2b9e31d4abd345e3bd4b966591e61296'; DATA='793c3349-db9c-4815-9842-989ed484f1f8'
-OBSERVER_SHA='06dd5e379fa594ec6fbfa37d36971fa5703ff5969b8766bac98196ee10c0f92e'
 HOST_SHA='94398ad7ebd42af9288c705924e2bbf5c4214561582afeef54d55f32714dbffd'
 NESTED_SHA='e1e34848f59f507d0e2ae42b23e2887284248ea0454bd739d827ea716f17e205'
 STOP_SHA='ab55a5dda0bfceb6053a1870c7c73413ce2902e53e4c5ea2d2e0f903d20c469f'
@@ -62,17 +61,6 @@ def run(argv, timeout=20):
     p=subprocess.run(argv,capture_output=True,timeout=timeout)
     need(p.returncode==0,'command failed: '+Path(argv[0]).name)
     need(len(p.stdout)<=4*1024*1024,'oversized command result'); return p.stdout
-
-def install_parent_preflight():
-    for p in (Path('/usr/local'),Path('/usr/local/libexec')):
-        need(p.exists() and p.resolve()==p,'required canonical installation directory absent')
-        st=p.stat()
-        need(stat.S_ISDIR(st.st_mode) and st.st_uid==0 and st.st_gid==0 and stat.S_IMODE(st.st_mode)==0o755,'installation directory must be root:root0755')
-
-def reviewed_observer():
-    path=BASE/'drain_observe.py'
-    need(sha(path)==OBSERVER_SHA,'drain observer differs; stage reviewed deterministic-close source')
-    return load_module(path,'enrollment_observer')
 
 def unit(name):
     raw=run(['systemctl','show',name,'-p','ActiveState','-p','SubState','-p','MainPID','-p','Restart','-p','UnitFileState','-p','FragmentPath','-p','DropInPaths','-p','KillMode','-p','SendSIGKILL','-p','TimeoutStopUSec']).decode()
@@ -279,7 +267,7 @@ class Enrollment:
         self.job=job;self.resize=resize; self.phase='created';self.changed=False;self.worker_touched=False;self.baseline=None;self.nested=None
         self.stop=json.loads((REVIEW/'candidates/worker-stop.json').read_text())
         self.life=load_module(RELEASE/'source/ops/cube/worker-lifecycle/lifecycle.py','enrollment_life')
-        self.observer=reviewed_observer()
+        self.observer=load_module(BASE/'drain_observe.py','enrollment_observer')
     def event(self,name,value): atomic(self.job/(name+'.json'),value)
     def advance(self,phase,value=None):
         self.phase=phase;self.event(phase,{'at':utc(),'phase':phase,**(value or {})})
@@ -310,7 +298,6 @@ class Enrollment:
         self.stop.update(qemu_pid=pid,qemu_start_time=starttime(pid),worker_boot_id=worker('cat /proc/sys/kernel/random/boot_id'),receipt=str(self.job/'pre-drain.json'),evidence_directory=str(self.job/'evidence'))
         atomic(CONF/'worker-stop.json',self.stop,True)
     def preflight(self):
-        install_parent_preflight()
         need(sha(RELEASE/'source/ops/cube/worker-lifecycle/lifecycle.py')==HOST_SHA,'host helper changed')
         need(sha(RELEASE/'binaries/cube-worker-stop')==STOP_SHA and sha(RELEASE/'binaries/cube-worker-start')==START_SHA,'coordinator changed')
         need(run(['git','-C','/opt/baarcha/app/landing','rev-parse','HEAD']).decode().strip()==PLATFORM,'platform deployment changed')
