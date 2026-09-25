@@ -1,0 +1,11 @@
+{
+  "time": 1790342196.9232035,
+  "helper_sha256": "e1e34848f59f507d0e2ae42b23e2887284248ea0454bd739d827ea716f17e205",
+  "manifest_sha256": "4eba0ec2094b5e87a839d25ab35e41ddc55f6d3fef613fc6019a302f66e51ac4",
+  "management_restarted": false,
+  "source_host_coordinator_gate": false,
+  "nested_preflight_pass": true,
+  "graceful_loaded_contract_pass": true,
+  "reviewed_boot_target_enabled": true,
+  "upstream_boot_target_disabled": true
+}

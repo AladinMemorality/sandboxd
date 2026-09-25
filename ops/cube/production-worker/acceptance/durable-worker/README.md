@@ -7,6 +7,12 @@ execution requires the root coordinator's explicit worker handoff after upgrade.
 The clean, paused-loss and running-loss experiments use **different new guests and private stages**.
 Earlier crash results and artifacts must remain untouched.
 
+## Recorded execution
+
+The corrected worker passed the fresh PG/Vite, clean paused reboot and acknowledged-pause
+abrupt-loss checks. See [actual results and limits](results/2026-09-25-de3/README.md).
+These records do not assert running-loss recovery or production coordinator acceptance.
+
 ## Build and review
 
 Copy the current complete `control-plane/` source into a new isolated directory,

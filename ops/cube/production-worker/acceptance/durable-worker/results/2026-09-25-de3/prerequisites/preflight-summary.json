@@ -1,0 +1,50 @@
+{
+  "passed": true,
+  "boot_id": "fd565505-bf41-4f93-81e9-40b90bef652e",
+  "guest_count": 0,
+  "node_scan": "1/1",
+  "ctr_tasks": 0,
+  "active_operator_build_units": 0,
+  "listed_templates": 9,
+  "known_template_jobs": [
+    {
+      "job_id": "06637090-0cce-4a22-9906-cd4a2504371f",
+      "status": "READY"
+    },
+    {
+      "job_id": "129c6c54-6d54-48a2-bf04-3f6f5f6c19a2",
+      "status": "READY"
+    },
+    {
+      "job_id": "13a62c9d-ef25-4e65-8489-38e2b28ddc04",
+      "status": "READY"
+    },
+    {
+      "job_id": "40321e0e-b477-4111-b6d8-1ab02bf896f7",
+      "status": "FAILED"
+    },
+    {
+      "job_id": "55f33b85-6676-4ea3-b5fa-b5529f4b365f",
+      "status": "READY"
+    },
+    {
+      "job_id": "632b8ba9-07dc-486b-af5a-9d359a4fdbec",
+      "status": "READY"
+    },
+    {
+      "job_id": "8345b2e7-4632-40d4-b1d6-f530b8df0601",
+      "status": "READY"
+    },
+    {
+      "job_id": "984969dd-aee9-4360-bcb6-d589c19baf14",
+      "status": "READY"
+    },
+    {
+      "job_id": "bcb683de-61d9-43a5-a3f0-15f06a3cdd29",
+      "status": "READY"
+    }
+  ],
+  "complete_all_jobs_enumeration_available": false,
+  "scope_limitation": "CLI has per-job status but no all-jobs listing; no claim about unlisted orphan jobs",
+  "timestamp": 1790341746.0536973
+}

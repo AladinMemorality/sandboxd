@@ -1,0 +1,151 @@
+{
+  "format": 1,
+  "source_bytes_reformatted_only": true,
+  "private_escrow_or_credentials_included": false,
+  "artifacts": [
+    {
+      "file": "prerequisites/cli-installation.json",
+      "source_path": "/opt/baarcha-bench/cube-durable-acceptance-de3-20260925/cli-installation.json",
+      "source_sha256": "3fb0ff6280187cfe415f9fac16db14756b2a222eb804075c28c48c0dc474dde7",
+      "committed_sha256": "62d8a9982a02905dd6bcddc8ae5837b83944cb041ed1522bbd67602eb6a4069c"
+    },
+    {
+      "file": "prerequisites/nested-lifecycle-installation.json",
+      "source_path": "/opt/baarcha-bench/cube-durable-acceptance-de3-20260925/nested-lifecycle-installation.json",
+      "source_sha256": "6ac565610661c37fc6836a20521bf1a46437e9c46ba6f44c3a258929e6e94f0b",
+      "committed_sha256": "6ac565610661c37fc6836a20521bf1a46437e9c46ba6f44c3a258929e6e94f0b"
+    },
+    {
+      "file": "prerequisites/postflight-pg.json",
+      "source_path": "/opt/baarcha-bench/cube-durable-acceptance-de3-20260925/postflight-pg.json",
+      "source_sha256": "2d363fa0ac7268b3da14f9b6ffa878d02c935c4db7482ba4e851a38bd0f88023",
+      "committed_sha256": "c0eeabe2918074ad326d70225d17f75c694d02b6ceb9a5f5e3cbd45456ffbe3b"
+    },
+    {
+      "file": "prerequisites/postflight-vite.json",
+      "source_path": "/opt/baarcha-bench/cube-durable-acceptance-de3-20260925/postflight-vite.json",
+      "source_sha256": "03d04430b74e748ccfd1429136b6eae0436e1191c4e464dbfb7eeb0384ca58e7",
+      "committed_sha256": "c1fb65d0442697caca1c34953eae57f4a2bfa79ad7e03ca2f12dc50d596d600a"
+    },
+    {
+      "file": "prerequisites/postgres-lifecycle-report.json",
+      "source_path": "/opt/baarcha-bench/cube-durable-acceptance-de3-20260925/postgres-lifecycle-report.json",
+      "source_sha256": "b46f345e65c81b92d779fe45faeaed796dd91a9754e813b68742b52bbe9d0474",
+      "committed_sha256": "a14aa3e33404d79fa4f9adbac4f72a5e60bf52b0a1360d4611546f825a8cf69a"
+    },
+    {
+      "file": "prerequisites/preflight-summary.json",
+      "source_path": "/opt/baarcha-bench/cube-durable-acceptance-de3-20260925/preflight-summary.json",
+      "source_sha256": "085485f7b956af93b6019dd002be1846402515a4c6ad8b19f8b4aa6b5aefebb3",
+      "committed_sha256": "085485f7b956af93b6019dd002be1846402515a4c6ad8b19f8b4aa6b5aefebb3"
+    },
+    {
+      "file": "prerequisites/readiness.json",
+      "source_path": "/opt/baarcha-bench/cube-durable-acceptance-de3-20260925/readiness.json",
+      "source_sha256": "66b6317f6aab83e991468bfafcb78fdc93ccb03a2fa3e262d2c02b5e2c9fb082",
+      "committed_sha256": "0c01e749d5def080ee6b8574e6c0fb317ce47034ab5caed37fc8e8449428be92"
+    },
+    {
+      "file": "prerequisites/vite-reload-report.json",
+      "source_path": "/opt/baarcha-bench/cube-durable-acceptance-de3-20260925/vite-reload-report.json",
+      "source_sha256": "3de316c9cecbb235bafd2f969ed5ea9ed97a5d354a433f0cd07d8ba350cc5cc6",
+      "committed_sha256": "80ff03640ad3335bff51895120078276a7cc4320b02930f8df3f770b3708b557"
+    },
+    {
+      "file": "clean/report.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-clean-de3-01/report.json",
+      "source_sha256": "b7f8b1497fe2451c3c8dab880c02a68b266a93600c86649d16b2a3746784faaa",
+      "committed_sha256": "b7f8b1497fe2451c3c8dab880c02a68b266a93600c86649d16b2a3746784faaa"
+    },
+    {
+      "file": "clean/nested-retained-stop.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-clean-de3-01/nested-retained-stop.json",
+      "source_sha256": "d87225c176ce0bb7b5dafb9744d8575eac89f5e240c0a22dadeb6c9e2bc1cc88",
+      "committed_sha256": "be90bf67b1c139c1a88894015d7a837166cbbba8178abe7354a91e4b3f928913"
+    },
+    {
+      "file": "clean/power-action.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-clean-de3-01/power-action.json",
+      "source_sha256": "14b1e2b462f70118424c18d00a867ce43b444e95b0ed22a7257559f0be65fea2",
+      "committed_sha256": "3ec7a6389b10a2dac7ab5b91621f06fbc6a6d15be80648ba3c0dec80b1997803"
+    },
+    {
+      "file": "clean/power-readiness.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-clean-de3-01/power-readiness.json",
+      "source_sha256": "175827578ac0854a5b4caa14c7bd7ac061dc7a1ef8d4d9f9b89c9579e8730ecd",
+      "committed_sha256": "a62a1422ef7cfee881d7dfd1d8582b0c020e5506409dd6b319b97e6e01b295ec"
+    },
+    {
+      "file": "clean/clean-reboot-complete.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-clean-de3-01/clean-reboot-complete.json",
+      "source_sha256": "0a7a261cb16c27943535cc0b03814a140ea921887dab4789762a3e88f45aada5",
+      "committed_sha256": "e702ae0c9f36073517a0231cc96ffd06f226bc9547e32a9f7b4218478860e16c"
+    },
+    {
+      "file": "clean/clean-qemu-exit.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-clean-de3-01/clean-qemu-exit.json",
+      "source_sha256": "d8bbb50e269477b2ee2cc35cf0ea38d4f0d86fc1214297f5a7ac1b7fcb367a3b",
+      "committed_sha256": "c14a6d680803657225d6c2445d3bb3eade54ad67163490e37c5d2407bad8faec"
+    },
+    {
+      "file": "paused-loss/report.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-paused-loss-de3-01/report.json",
+      "source_sha256": "af4ddcbe4cb94fab8decc4333df8b89015663d44c5cd25b93435db432e486e6f",
+      "committed_sha256": "af4ddcbe4cb94fab8decc4333df8b89015663d44c5cd25b93435db432e486e6f"
+    },
+    {
+      "file": "paused-loss/power-action.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-paused-loss-de3-01/power-action.json",
+      "source_sha256": "3dda42c204ea4028b46add4999e1c2de86e69d420409083719c7df742da974c1",
+      "committed_sha256": "754575d23719e8d126b4cf446c6e418e0f7735c018cd9d05e1e9a10ceda0f92d"
+    },
+    {
+      "file": "paused-loss/power-readiness.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-paused-loss-de3-01/power-readiness.json",
+      "source_sha256": "21108eb68a841b1bc68c9df8129b65e39111ced845ada7e9fd5e025123c7ae6e",
+      "committed_sha256": "8c30819ff9ec58bbd093861f479d7bfe02a84878d022927e4da7c8205aec428c"
+    },
+    {
+      "file": "paused-loss/paused-loss-complete.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-paused-loss-de3-01/paused-loss-complete.json",
+      "source_sha256": "0a610c3946b4ac8d681bb1dd878fc7f5f17616f2acc03058dfdae46c213fbf3a",
+      "committed_sha256": "d3932d0ffdcfc31f1ad9795aa3fb16cab8ed62b5286bb5474053e8f4c9121452"
+    },
+    {
+      "file": "paused-loss/abrupt-qemu-exit.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-paused-loss-de3-01/abrupt-qemu-exit.json",
+      "source_sha256": "fa2e7e49f5e939343507db3936c882dc7e66e5c7d07c3e1798606e431a4b91a3",
+      "committed_sha256": "01b34ee09ab7518597b31548e7eb048aff144e404e7f26d8286d5012f076e7f0"
+    },
+    {
+      "file": "running-loss/report.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-running-de3-01/report.json",
+      "source_sha256": "6e4822181bc9fd1f6a3e71dada8fac9b14015e905b2946b5e5c26aaa092f62ed",
+      "committed_sha256": "6e4822181bc9fd1f6a3e71dada8fac9b14015e905b2946b5e5c26aaa092f62ed"
+    },
+    {
+      "file": "running-loss/power-action.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-running-de3-01/power-action.json",
+      "source_sha256": "e0b2f6bc493c6f24d8c6154d29ce0fec741e00010237a804c8683980181fd0ad",
+      "committed_sha256": "cc238a02a7762e5a5c57d88103ed6dcf06088b28165b6ce7f880f25106e277df"
+    },
+    {
+      "file": "running-loss/power-readiness.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-running-de3-01/power-readiness.json",
+      "source_sha256": "f8403e2565d632210a237d16b5d3d267c04a4460a365000e873f9a7496d8b8ca",
+      "committed_sha256": "a754160ebce3ebfa5fee7e64bdc77bc32ba0cae13a8d70d662eab432f7669c9c"
+    },
+    {
+      "file": "running-loss/power-loss-complete.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-running-de3-01/power-loss-complete.json",
+      "source_sha256": "98e8a6587fa4f78c571f9144304ad1ed2166b0d9c363e9684971964e819bbdbf",
+      "committed_sha256": "242613ccc05531e65cbed1cbee400d70a444e200d6c9d70fa13fea696cac24ba"
+    },
+    {
+      "file": "running-loss/abrupt-qemu-exit.json",
+      "source_path": "/opt/baarcha-bench/cube-crash-running-de3-01/abrupt-qemu-exit.json",
+      "source_sha256": "c469663200f256b15cf17b53e899a0af59bb53880ada9249d63363e1110ce357",
+      "committed_sha256": "3a403391235ea7be29d0bca65296d1c962e5f31e3c45bf23facee1ac467e4d9b"
+    }
+  ]
+}

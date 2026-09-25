@@ -1,0 +1,6 @@
+{
+  "purpose": "DISPOSABLE_CUBE_PAUSED_LOSS_COMPLETE",
+  "fixture": "8c3a84e4ef68bb6bbc6133355d0c8020",
+  "previous_boot_id": "3139026a-95dd-4ce8-a2ba-a579bb9184c6",
+  "method": "operator-reviewed-paused-power-loss"
+}

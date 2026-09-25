@@ -1,0 +1,54 @@
+{
+  "abrupt_loss_tested": false,
+  "acceptance_mode": "clean-pause-reboot",
+  "acknowledged_pause_loss_ready": false,
+  "app_export": {
+    "bytes": 1060128,
+    "file": "app-before.zip",
+    "sha256": "75a4abfb2bb3cd2db1fca0b72f4eee191c6dc973b42b46aa1826c9bcc4dc7b51",
+    "tree_digest": "30c66694d8243e4eecdbe45d734495f4f90acc6db6b2fcb9f94925c72f7ffbcf"
+  },
+  "baseline": {
+    "fixture": "a5d41d5e8ad58b3d1503c630731ace4d",
+    "phase": "baseline",
+    "nonce": "c4ef3817fcade12ad162df0e2524b70e"
+  },
+  "checkpoint_ready": true,
+  "clean_reboot_latest_data_pass": true,
+  "clean_reboot_ready": true,
+  "clean_worker_reboot_resume_latest_app_home_sql_preserved": true,
+  "clean_worker_reboot_resume_through_sql_verify_milliseconds": 1021,
+  "cleanup_verified_http404": true,
+  "data_uuid": "793c3349-db9c-4815-9842-989ed484f1f8",
+  "first_pause_milliseconds": 785,
+  "fixture": "a5d41d5e8ad58b3d1503c630731ace4d",
+  "home_export": {
+    "bytes": 5014048,
+    "file": "home-before.zip",
+    "sha256": "32b6fc7aa291fa02b94a3c6e76cb13ce1b4a364238bc9f6f57af320a04ffa74c",
+    "tree_digest": "48163904fa7c000851599b7c66094ecae3d294a3594e9436224a889830013546"
+  },
+  "latest": {
+    "fixture": "a5d41d5e8ad58b3d1503c630731ace4d",
+    "phase": "latest",
+    "nonce": "4be027121e2183fa63941837af20d328"
+  },
+  "latest_acknowledged_at": "2026-09-25T13:15:06.06530263Z",
+  "ordinary_resume_latest_app_home_sql_preserved": true,
+  "ordinary_resume_through_sql_verify_milliseconds": 1239,
+  "paused_acknowledged_abrupt_loss_latest_data_pass": false,
+  "power_operation_performed_by_fixture": false,
+  "pre_reboot_pause_milliseconds": 585,
+  "prepare_through_latest_commit_milliseconds": 10283,
+  "production_accepted": false,
+  "production_stop_coordinator_tested": false,
+  "provider_inventory_zero": true,
+  "running_loss_tested": false,
+  "sandbox_id": "64c0a0da679b46f89de598cbf2e3e1d8",
+  "stage": "finished-clean-pause-reboot",
+  "template": "tpl-ce1ee426e686460bbc8c3bfc",
+  "updated_at": "2026-09-25T13:18:07.277984051Z",
+  "worker_boot_after": "3139026a-95dd-4ce8-a2ba-a579bb9184c6",
+  "worker_boot_before": "fd565505-bf41-4f93-81e9-40b90bef652e",
+  "worker_machine_id": "2b9e31d4abd345e3bd4b966591e61296"
+}

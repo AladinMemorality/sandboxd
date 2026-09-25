@@ -1,0 +1,10 @@
+{
+  "time": 1790342468.0183582,
+  "pid": 2868023,
+  "sandbox_id": "2f32950e4ad04350a60436be1a5ab3af",
+  "previous_boot": "3139026a-95dd-4ce8-a2ba-a579bb9184c6",
+  "method": "pidfd SIGKILL",
+  "first_acknowledged_pause_only": true,
+  "no_operator_sync_before_loss": true,
+  "production_mutated": false
+}

@@ -1,0 +1,33 @@
+{
+  "family": "postgres",
+  "passed": true,
+  "admission_max_active": 4,
+  "assertions": {
+    "all_vms_deleted": true,
+    "database_write_read": true,
+    "source_archive_private_data_excluded": true,
+    "fresh_remix_database_empty": true,
+    "remix_ready_new_identity": true,
+    "pause_resume_stable_identity": true,
+    "database_survives_pause_resume": true,
+    "database_survives_supervisor_reexec": true,
+    "manifest_activation_new_worker_preserves_database_vm": true,
+    "identical_manifest_activation_idempotent": true,
+    "owner_restore_frozen_source_stable_app_sandbox_vm_credentials": true,
+    "database_survives_owner_source_restore": true,
+    "postgres_home_v2_roundtrip": true
+  },
+  "timings_ms": {
+    "create_ms": 1619,
+    "create_ready_ms": 10664,
+    "pause_resume_ready_ms": 1997,
+    "publish_ms": 72,
+    "remix_ms": 1272,
+    "remix_ready_ms": 4323
+  },
+  "independently_deleted_ids": 2,
+  "provider_inventory_zero": true,
+  "node_scan": "1/1",
+  "ctr_tasks_zero": true,
+  "timestamp": 1790341896.9046504
+}

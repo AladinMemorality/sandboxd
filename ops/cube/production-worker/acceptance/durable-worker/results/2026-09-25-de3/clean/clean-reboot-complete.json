@@ -1,0 +1,6 @@
+{
+  "purpose": "DISPOSABLE_CUBE_CLEAN_REBOOT_COMPLETE",
+  "fixture": "a5d41d5e8ad58b3d1503c630731ace4d",
+  "previous_boot_id": "fd565505-bf41-4f93-81e9-40b90bef652e",
+  "method": "operator-reviewed-clean-powerdown"
+}
