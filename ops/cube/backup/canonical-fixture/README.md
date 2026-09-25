@@ -40,7 +40,19 @@ history, a changed checkpoint, or replay after an ambiguous submission. The
 grant transaction checks its unique reference and owner; a committed grant can
 be recognized after an interrupted journal write. This is test credit, not a
 customer balance change or a hard spend cap. Twenty-five Node and four Python
-tests pass locally; actual completion and independent verification are pending.
+tests pass locally.
+
+The action was executed once with fixture SHA
+`c0521035208068b5c1757ff49a8bc69046215728552a3b178b050c3f464cc5ad`.
+Its third task `01M3D3Z2T9CM6WSW9QB311KXB7` failed with `agent_timeout` after
+300.380seconds, reported no changed app files, and retained checkpoint
+`0526e55ca5033079bbc3cbd1f798e8b18f5deba6`. This time the error was not exhausted
+credit. The original pending `credited_completion_task` intent is retained;
+the operator has not submitted another task. The private7718-byte SSE artifact
+has SHA `069ca3cf34b9c1cdf112e9af4aae1777a18d751ee7bb6efda55012faa47b833b`.
+It records repeated source-read tool calls; root requested read-only diagnosis
+of model/tool behavior before any further execution. Independent app/SQL/private
+capture and paired-restore acceptance remain incomplete.
 
 Root executed the initial owner/app phases on2026-09-25. Synthetic owners103
 and104 were committed with notification rows suppressed; the first app request
