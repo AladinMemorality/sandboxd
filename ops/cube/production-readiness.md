@@ -81,13 +81,28 @@ implementation and do not establish application create/resume/publish/remix spee
 No further capture-worker tuning is required for this migration.
 
 The configuration loader supports explicit `SANDBOXD_CUBE_ROLLOUT=global` with
-reviewed mappings for every preset and the configured model relay. Production
-still has Cube disabled. The offline inventory deliberately continues to report
+reviewed mappings for every preset and the configured model relay. On September25
+the production controller was switched to Cube for the single operator-owned
+app `01M3CZB4HXT2Y8HP8CEY75PCWY`; customer projects remain on Docker. The actual
+controller cutover and preview-key reload are recorded in
+[`controller-cutover/activation-2026-09-25.json`](controller-cutover/activation-2026-09-25.json).
+This scoped activation does not establish global migration, paired restore or
+complete application acceptance. The offline inventory deliberately continues to report
 blocked rather than interpreting implemented configuration support or a boolean
 operator flag as deployment acceptance. See the
 [current cutover handover](staged-release/2026-09-25-handover.md) for newer
 production observations and remaining work; the dated inventories below remain
 historical evidence.
+
+Four active Cube guests is the configured and tested initial admission limit,
+not a measured hardware maximum. The native10GiB/10000mCPU quota independently
+fits four reviewed2CPU/2GiB guests including overhead. Paused guests release
+CPU/RAM admission while retaining persistent storage; always-running backends
+still occupy slots. The prepared6/8/12 tests have not run. An older12-guest run
+missed its memory-preparation deadline before steady load and was not an OOM
+result. See the [capacity plan](workload/higher-concurrency-plan-2026-09-25.md)
+and [bounded runner prerequisites](workload/staged-runner.md). Higher CPU quota
+is scheduler accounting, not additional physical CPU on this shared VPS.
 
 ## Observed production configuration, 2026-09-23
 
