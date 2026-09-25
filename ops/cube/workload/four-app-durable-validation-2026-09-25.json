@@ -1,0 +1,79 @@
+{
+  "date": "2026-09-25",
+  "status": "PASS_BOUNDED_FOUR_APP_WORKLOAD_ON_DURABLE_WORKER",
+  "production_accepted": false,
+  "guests": 4,
+  "per_guest_touched_mib": 512.0,
+  "binary_sha256": "ccfe6d259cdb6aa03bb3c24902b80c95b40280efb505f1412a5480e2089d419e",
+  "historical_workload_binary_preserved": true,
+  "worker": {
+    "quota": {
+      "mcpu_limit": 10000,
+      "mem_limit": "10Gi",
+      "mvm_limit": 128,
+      "creation_concurrent_num": 1,
+      "paused_resource_release_ratio": 1.0
+    },
+    "cubelet_sha256": "de3bd4c1a4db12c11d58cf7f558589f04ab4b3d736d4e72a947d45b8343bef9b"
+  },
+  "isolated_admission_max_active": 4,
+  "total_test_seconds": 90.61,
+  "preparation_seconds": 18.42888439,
+  "measured_work_seconds": 45.529818594,
+  "capacity_refusal_ms": 0.252,
+  "all_apps_memory_and_cpu_verified": true,
+  "over_budget_refused": true,
+  "http_latency": {
+    "samples": 84,
+    "median_ms": 5.7695,
+    "p95_ms": 10.84,
+    "max_ms": 189.476,
+    "p95_method": "nearest rank"
+  },
+  "supervisor_latency": {
+    "samples": 84,
+    "median_ms": 2.341,
+    "p95_ms": 3.954,
+    "max_ms": 5.853,
+    "p95_method": "nearest rank"
+  },
+  "min_process_rss_mib": 524.96875,
+  "outer_vm_cgroup_sampled_peak_gib": 17.206565856933594,
+  "qemu_memory_event_deltas": {
+    "oom": 0,
+    "oom_kill": 0,
+    "max": 0
+  },
+  "qemu_max_sampled_swap_bytes": 0,
+  "global_oom_kill_deltas": {
+    "outer": 0,
+    "worker": 0
+  },
+  "qemu_cpu_seconds": {
+    "usage": 149.935879,
+    "user": 56.47687,
+    "system": 93.45901,
+    "throttled": 0.0
+  },
+  "qemu_throttled_periods": 0,
+  "cleanup_verified": true,
+  "charged_remaining": 0,
+  "independent_cleanup": {
+    "api_empty": true,
+    "all_state_master_count": 0,
+    "cube_tasks_empty": true,
+    "charged_remaining": 0,
+    "at_unix": 1790348092.5925014
+  },
+  "raw_evidence_sha256": {
+    "result.json": "06971470bac87730028c80b1fbcb0ccfb41ec95ea6b17d6104c9bdc025d7bbc0",
+    "host-cgroup.json": "738b67d3520dd041defbf9f787edca8aa0474bd0d6accd5ee518d3d5e53dd85c",
+    "test.log": "e2d1f97e1f08d768ee9e7cd837054173c83fb86d666a7dd60089838a9b10e108"
+  },
+  "limitations": [
+    "One bounded four-app run with 512MiB touched per app; not the full fleet running or maximum 2GiB app demand.",
+    "Preparation 18.429s remains close to unchanged 20s bound.",
+    "HTTP maximum 189.476ms is retained; steady latency quantiles do not describe cold creation or memory preparation.",
+    "Historical 12-app workload failed and remains separate; this run changed no production routing or quotas."
+  ]
+}

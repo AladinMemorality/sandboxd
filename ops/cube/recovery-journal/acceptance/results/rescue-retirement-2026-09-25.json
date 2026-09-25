@@ -1,0 +1,19 @@
+{
+  "purpose": "OWNED_RESCUE_GRACEFUL_RETIREMENT",
+  "pid": 2914840,
+  "unit": "baarcha-cube-rescue-20260925.service",
+  "verified_independent_artifact_count": 12,
+  "qmp_command": "system_powerdown",
+  "requested_at": 1790348019.759913,
+  "forced_stop": false,
+  "disk_deletion": false,
+  "final_unit_state": {
+    "MainPID": "0",
+    "Result": "success",
+    "ExecMainStatus": "0",
+    "ActiveState": "inactive",
+    "SubState": "dead"
+  },
+  "graceful_exit_verified": true,
+  "finished_at": 1790348027.77574
+}
