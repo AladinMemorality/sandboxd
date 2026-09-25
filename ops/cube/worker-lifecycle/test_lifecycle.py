@@ -260,3 +260,16 @@ class RegistryTests(unittest.TestCase):
                 else:
                     with self.assertRaises(life.Blocked):life.registry_health()
                 factory.assert_called_once_with('127.0.0.1',5000,timeout=5);connection.request.assert_called_once_with('GET','/v2/');connection.close.assert_called_once()
+
+class BootOrderingTests(unittest.TestCase):
+    def test_registry_inspection_is_ordered_after_docker_without_dependency_cycle(self):
+        base=Path(__file__).parent
+        preflight=(base/'baarcha-cube-preflight.service').read_text()
+        self.assertIn('Requires=docker.service',preflight)
+        self.assertIn('After=data.mount docker.service',preflight)
+        # Only Cube component services receive the preflight dependency.
+        import importlib.util
+        spec=importlib.util.spec_from_file_location('generator_ordering',base/'render_nested.py')
+        generator=importlib.util.module_from_spec(spec);spec.loader.exec_module(generator)
+        docker=generator.overrides()['/etc/systemd/system/docker.service.d/99-baarcha-retained-stop.conf']
+        self.assertNotIn('baarcha-cube-preflight',docker)

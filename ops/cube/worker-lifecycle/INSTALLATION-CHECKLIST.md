@@ -123,3 +123,7 @@ Cube routing before the separate full-fleet acceptance.
 See [BOOT-HOLD-REVIEW.md](BOOT-HOLD-REVIEW.md) for the actual observed target graph,
 Docker restart-policy bypass, exact maintenance hold set and helper escalation
 that must be resolved before the source gate can be reviewed for enablement.
+
+See [FINAL-ACCEPTANCE.md](FINAL-ACCEPTANCE.md) for the post-correction command
+sequence and the full backup/off-host/application-restore gates; none have been
+executed by that document.

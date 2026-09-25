@@ -3,16 +3,17 @@
   "status": "candidate-only-linux-tests-passed",
   "source_gate_enabled": false,
   "worker_mutations": false,
-  "linux_test_count": 50,
-  "linux_elapsed_seconds": 0.174,
-  "linux_log": "/opt/baarcha-bench/cube-retained-stop-20260925/python-registry-ownership-tests-final.log",
+  "linux_test_count": 51,
+  "linux_elapsed_seconds": 0.629,
+  "linux_log": "/opt/baarcha-bench/cube-retained-stop-20260925/python-final-ordering-tests.log",
   "files_sha256": {
     "lifecycle.py": "e1e34848f59f507d0e2ae42b23e2887284248ea0454bd739d827ea716f17e205",
     "render_nested.py": "daafe1a4ee8f01f45c4f49efaf5735082b7bb6c0517fdcaa2b80576d9fa071cb",
     "ownership_plan.py": "c9fad6fce3e6c935883e16b8828a560a84a0d3ab6913df8794919581d9f40f19",
-    "test_lifecycle.py": "765db10207f59120cece48589b4633a1196eb8d2bc0c9ef9181dba14b74841b9",
+    "test_lifecycle.py": "4f3690ca5c2dc8ba2bda43c1717c3fc92273ea76171e854f9d032f744fd75611",
     "test_render_nested.py": "b0ee5e210cae42d9806edd7a47a7ce42d3a215250f5df6e78ab47b32903c8858",
-    "test_ownership_plan.py": "7cf110f5fed6c3f0d97db5dbe9b370e38cc57ab02ae3fc2aea7a428f91288bbe"
+    "test_ownership_plan.py": "7cf110f5fed6c3f0d97db5dbe9b370e38cc57ab02ae3fc2aea7a428f91288bbe",
+    "baarcha-cube-preflight.service": "51a97a04933dbdd211f03d5fdcc212b00d122b3c6e4b0e57fd4d091726605036"
   },
   "coverage": [
     "Retained registry full ID/image/loopback mount contract and always restart policy refusal",
@@ -20,7 +21,8 @@
     "Manifest generation remains unreviewed and installation-free",
     "Ownership inventory preserves bytes/modes and excludes customer data, symlinks and hardlinks",
     "Earlier graceful retained-stop, lock, PID generation and no-force-kill regressions",
-    "Cubelet dynamicconf/conf.yaml mandatory quota artifact and ownership scope"
+    "Cubelet dynamicconf/conf.yaml mandatory quota artifact and ownership scope",
+    "Registry inspection preflight explicitly depends on Docker without adding reverse preflight dependency"
   ],
   "remaining_acceptance": [
     "Root applies reviewed ownership-only changes under existing boot hold",

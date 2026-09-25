@@ -2,7 +2,8 @@
 [Unit]
 Description=Verify Cube worker disk identity and reviewed binaries
 RequiresMountsFor=/data
-After=data.mount
+Requires=docker.service
+After=data.mount docker.service
 Before=baarcha-cube-reviewed.target
 
 [Service]
