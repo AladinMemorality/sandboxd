@@ -679,3 +679,40 @@ const b=await fetch(local);if(!(await b.json()).ok)throw Error('local bypass fai
 		})
 	}
 }
+
+// A callback may return before consuming an upload. Reusing that HTTP/1
+// connection after full-duplex cancellation must not poison the next request
+// or race net/http's background body reader.
+func TestEarlyServiceResponsesCloseHTTP1Connection(t *testing.T) {
+	var calls atomic.Int32
+	opts := fixtureOptions("")
+	opts.Services = map[string]http.Handler{"bridge": http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		calls.Add(1)
+		http.Error(w, "rejected before upload completes", http.StatusForbidden)
+	})}
+	f := startFixture(t, opts)
+	service := httptest.NewServer(f.g.ServiceHandler("bridge"))
+	defer service.Close()
+	transport := &http.Transport{}
+	defer transport.CloseIdleConnections()
+	client := &http.Client{Transport: transport, Timeout: 3 * time.Second}
+	for i := 0; i < 24; i++ {
+		// Exceed reverse-channel credit to exercise cancellation with an upload
+		// writer potentially blocked behind a callback which never reads the body.
+		response, err := client.Post(service.URL+"/api/bridge", "application/json", strings.NewReader(strings.Repeat("x", StreamWindow*2)))
+		if err != nil {
+			t.Fatalf("request %d: %v", i, err)
+		}
+		body, err := io.ReadAll(response.Body)
+		response.Body.Close()
+		if err != nil || response.StatusCode != http.StatusForbidden || !strings.Contains(string(body), "rejected before upload") {
+			t.Fatalf("request %d: status=%d body=%q error=%v", i, response.StatusCode, body, err)
+		}
+		if !response.Close {
+			t.Fatalf("request %d: unsafe full-duplex HTTP/1 connection remains reusable", i)
+		}
+	}
+	if calls.Load() != 24 {
+		t.Fatalf("callback calls=%d", calls.Load())
+	}
+}

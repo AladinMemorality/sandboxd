@@ -96,6 +96,15 @@ func (g *Guest) forward(w http.ResponseWriter, r *http.Request, kind, host strin
 	// A fixed callback can reject before an upload completes. Disable HTTP/1
 	// auto-draining so its response can reach the client while the writer stops.
 	_ = http.NewResponseController(w).EnableFullDuplex()
+	// The upload can still be reading when an early response arrives. Its
+	// cancellation sets a connection read deadline and closes the request body;
+	// that HTTP/1 connection must not be reused for a subsequent request. In
+	// particular, Go's body EOF background reader can otherwise race the next
+	// request after full-duplex cleanup. Each request still shares the existing
+	// authenticated reverse channel; only this guest-loopback TCP socket closes.
+	if r.ProtoMajor == 1 {
+		w.Header().Set("Connection", "close")
+	}
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Minute)
 	defer cancel()
 	openCtx, openCancel := context.WithTimeout(ctx, 12*time.Second)
