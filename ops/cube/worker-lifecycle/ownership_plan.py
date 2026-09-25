@@ -12,7 +12,7 @@ import sys
 
 BASE=Path('/usr/local/services/cubetoolbox')
 NATIVE=('Cubelet/bin/cubelet','CubeMaster/bin/cubemaster','CubeAPI/bin/cube-api','CubeOps/bin/cubeops','CubeTemplateCenter/bin/templatecenter')
-FIXED=(*NATIVE,'.one-click.env','Cubelet/config/config.toml','CubeMaster/conf.yaml','CubeTemplateCenter/conf.yaml')
+FIXED=(*NATIVE,'.one-click.env','Cubelet/config/config.toml','Cubelet/dynamicconf/conf.yaml','CubeMaster/conf.yaml','CubeTemplateCenter/conf.yaml')
 SERVICES=('mysql','redis','minio','coredns','dns','cubeops','cubemaster','cube-api','cubelet','cube-templatecenter','cube-lifecycle-manager','cube-proxy','cube-egress-net','cube-egress','webui','s3lvol')
 
 def need(value,message):

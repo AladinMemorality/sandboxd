@@ -3,23 +3,24 @@
   "status": "candidate-only-linux-tests-passed",
   "source_gate_enabled": false,
   "worker_mutations": false,
-  "linux_test_count": 48,
-  "linux_elapsed_seconds": 0.238,
-  "linux_log": "/opt/baarcha-bench/cube-retained-stop-20260925/python-registry-ownership-tests.log",
+  "linux_test_count": 50,
+  "linux_elapsed_seconds": 0.174,
+  "linux_log": "/opt/baarcha-bench/cube-retained-stop-20260925/python-registry-ownership-tests-final.log",
   "files_sha256": {
     "lifecycle.py": "e1e34848f59f507d0e2ae42b23e2887284248ea0454bd739d827ea716f17e205",
-    "render_nested.py": "3af5be0779738d69c916a59cc257d22c09c5d0f95bf330f3387ad972c21b72a3",
-    "ownership_plan.py": "1ac1c9bec04e4ae35aff847545ee773164e72714284acee146b6086e58d5b6da",
+    "render_nested.py": "daafe1a4ee8f01f45c4f49efaf5735082b7bb6c0517fdcaa2b80576d9fa071cb",
+    "ownership_plan.py": "c9fad6fce3e6c935883e16b8828a560a84a0d3ab6913df8794919581d9f40f19",
     "test_lifecycle.py": "765db10207f59120cece48589b4633a1196eb8d2bc0c9ef9181dba14b74841b9",
-    "test_render_nested.py": "a922bf19fa7cd6dbcd43191e7a402c33d13969647ddaddd4768b16e1102327e6",
-    "test_ownership_plan.py": "a7b364aa03e739300ad691bc6a9689573ed763a99eef8538da1f100e66430a01"
+    "test_render_nested.py": "b0ee5e210cae42d9806edd7a47a7ce42d3a215250f5df6e78ab47b32903c8858",
+    "test_ownership_plan.py": "7cf110f5fed6c3f0d97db5dbe9b370e38cc57ab02ae3fc2aea7a428f91288bbe"
   },
   "coverage": [
     "Retained registry full ID/image/loopback mount contract and always restart policy refusal",
     "Fixed local read-only registry readiness and stopped/replaced/redirect/wrong-server refusal",
     "Manifest generation remains unreviewed and installation-free",
     "Ownership inventory preserves bytes/modes and excludes customer data, symlinks and hardlinks",
-    "Earlier graceful retained-stop, lock, PID generation and no-force-kill regressions"
+    "Earlier graceful retained-stop, lock, PID generation and no-force-kill regressions",
+    "Cubelet dynamicconf/conf.yaml mandatory quota artifact and ownership scope"
   ],
   "remaining_acceptance": [
     "Root applies reviewed ownership-only changes under existing boot hold",

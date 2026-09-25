@@ -33,7 +33,9 @@ executes a caller-supplied helper. Its fixed actual worker paths are:
 | Templates | `/usr/local/services/cubetoolbox/CubeTemplateCenter/bin/templatecenter` |
 
 The collector verifies all eleven exact persistent plugin paths from installed
-Cubelet TOML on XFS and containerd `no_sync=false`. It also verifies retained
+Cubelet TOML on XFS and containerd `no_sync=false`. The required artifact set
+includes `Cubelet/dynamicconf/conf.yaml`, so the reviewed allocation/quota policy
+is pinned and cannot be omitted from enrollment or ownership review. It also verifies retained
 MySQL/Redis/MinIO/registry data mounts on one of the two persistent filesystems.
 It hashes launch/config/unit/drop-in files without copying their contents or
 printing credentials. Vendor Docker fragment identities go to private evidence;

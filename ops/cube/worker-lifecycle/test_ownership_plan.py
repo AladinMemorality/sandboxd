@@ -10,6 +10,9 @@ spec=importlib.util.spec_from_file_location('ownership_plan',Path(__file__).with
 plan=importlib.util.module_from_spec(spec);spec.loader.exec_module(plan)
 
 class OwnershipPlanTests(unittest.TestCase):
+ def test_dynamic_quota_configuration_is_in_fixed_ownership_scope(self):
+  self.assertIn('Cubelet/dynamicconf/conf.yaml',plan.FIXED)
+
  def test_explicit_control_scope_excludes_customer_and_runtime_data(self):
   for path in ['/data/cubelet','/home/sandbox','/var/lib/docker/volumes','/usr/local/services/other','/usr/local/services/cubetoolbox-other']:
    self.assertFalse(plan.in_scope(Path(path)))

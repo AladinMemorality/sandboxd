@@ -17,6 +17,7 @@ import tomllib
 TOOLBOX=Path('/usr/local/services/cubetoolbox')
 SCRIPT='/usr/local/libexec/baarcha-cube-worker-lifecycle.py'
 META=Path('/data/cubelet/persistent-metadata')
+REQUIRED_CONFIGS=('.one-click.env','Cubelet/config/config.toml','Cubelet/dynamicconf/conf.yaml','CubeMaster/conf.yaml','CubeTemplateCenter/conf.yaml')
 NATIVE={'cubelet':'Cubelet/bin/cubelet','cubemaster':'CubeMaster/bin/cubemaster',
         'cube-api':'CubeAPI/bin/cube-api','cubeops':'CubeOps/bin/cubeops',
         'cube-templatecenter':'CubeTemplateCenter/bin/templatecenter'}
@@ -93,7 +94,7 @@ def collect():
             checksum=digest(path)
             if path.is_relative_to('/etc/systemd/system'):observed['artifacts'][str(path)]=checksum
             else:observed['units'][name]['vendor_fragment']={'path':str(path),'sha256':checksum}
-    paths=[TOOLBOX/'.one-click.env',TOOLBOX/'Cubelet/config/config.toml',TOOLBOX/'CubeMaster/conf.yaml',TOOLBOX/'CubeTemplateCenter/conf.yaml']
+    paths=[TOOLBOX/relative for relative in REQUIRED_CONFIGS]
     # Hash code/config only, never copy contents (in particular .one-click.env).
     for base in [TOOLBOX/'scripts/systemd',TOOLBOX/'scripts/one-click']:
         paths.extend(sorted(base.glob('*.sh')))
@@ -152,6 +153,7 @@ def render(observed,helper_sha):
         need(value['path']==str(TOOLBOX/path) and SHA.fullmatch(value['sha256']) and value['pid']>1,'wrong native binary identity')
         need(value['unit_type']==('forking' if name=='cubelet' else 'simple'),'unexpected native service type')
     need(set(observed.get('metadata_paths',[]))=={str(META/child) for _,child in PLUGINS.values()},'all persistent plugin paths required')
+    need(all(str(TOOLBOX/relative) in observed.get('artifacts',{}) for relative in REQUIRED_CONFIGS),'all fixed configuration hashes including dynamic quota required')
     validate_registry(observed.get('registry'))
     staged=overrides();artifacts=dict(observed['artifacts'])
     need(artifacts and all(SHA.fullmatch(v) and (Path(k).is_relative_to('/usr/local/services') or Path(k).is_relative_to('/etc/systemd/system')) for k,v in artifacts.items()),'unexpected artifact scope')

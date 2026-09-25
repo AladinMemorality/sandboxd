@@ -9,7 +9,7 @@ class RenderNestedTests(unittest.TestCase):
  def observation(self):
   return {'version':1,'machine_id':'a'*32,'data_uuid':'b'*36,
    'native':{name:{'path':str(render.TOOLBOX/path),'sha256':'c'*64,'pid':123,'start_time':'42','unit_type':'forking' if name=='cubelet' else 'simple'} for name,path in render.NATIVE.items()},
-   'artifacts':{'/usr/local/services/cubetoolbox/.one-click.env':'d'*64,'/etc/systemd/system/cube-sandbox-control.target':'e'*64},
+   'artifacts':{**{str(render.TOOLBOX/relative):'d'*64 for relative in render.REQUIRED_CONFIGS},'/etc/systemd/system/cube-sandbox-control.target':'e'*64},
    'registry':{'id':'a'*64,'name':'/cube-production-registry','image':'sha256:'+'b'*64,'restart':{'Name':'always','MaximumRetryCount':0},'ports':{'5000/tcp':[{'HostIp':'127.0.0.1','HostPort':'5000'}]},'mounts':[{'Type':'bind','Source':'/data/registry','Destination':'/var/lib/registry','RW':True}]},
    'metadata_paths':[str(render.META/child) for key,child in render.PLUGINS.values()]}
  def test_outputs_remain_unreviewed_and_no_hooks_or_deletions(self):
@@ -43,3 +43,9 @@ class RenderNestedTests(unittest.TestCase):
   for key,value in [('restart',{'Name':'unless-stopped','MaximumRetryCount':0}),('ports',{'5000/tcp':[{'HostIp':'0.0.0.0','HostPort':'5000'}]}),('mounts',[]),('id','short')]:
    changed=copy.deepcopy(observed);changed['registry'][key]=value
    with self.assertRaises(RuntimeError):render.render(changed,'f'*64)
+
+ def test_dynamic_quota_configuration_is_mandatory(self):
+  observed=self.observation();path=str(render.TOOLBOX/'Cubelet/dynamicconf/conf.yaml')
+  manifest,_=render.render(observed,'f'*64);self.assertEqual(manifest['artifacts'][path],'d'*64)
+  del observed['artifacts'][path]
+  with self.assertRaises(RuntimeError):render.render(observed,'f'*64)
