@@ -29,7 +29,8 @@ assume the laptop’s 60-GiB free space can hold this growing fleet.
 
 1. Apply the reviewed traffic/admission fence and drain all coding tasks,
    ordinary writes, streams and provider jobs. Stop uncontrolled/direct API
-   writers. Gracefully quiesce databases, then pause every current Cube guest.
+   writers. Use the reviewed whole-VM Pause operation to retain database/RAM
+   state; do not leave workspace quiescence enabled across ordinary resume.
 2. Record a fresh provider inventory with **all** runtime IDs paused and no
    provider jobs. Stop the controller, then gracefully shut down the worker OS.
    A killed QEMU process or a failed power-off is not this procedure. Preserve
@@ -175,3 +176,43 @@ delete permission was changed. This proves recipient custody and transfer for a
 small payload; a full worker backup, application restore, scheduled backup and
 redundant recovery-key custody remain unverified. The private key and passphrase
 are outside the repository and have never been sent to the VPS.
+
+## Full-size transfer helpers — prepared, not executed against this worker
+
+`offhost_store.mjs` replaces the small verification probe's in-memory single PUT
+for a real disk pair. It uses the installed AWS SDK, sequential bounded128MiB
+parts, per-part transport checksums, full source SHA256, and conditional
+`CompleteMultipartUpload` with `IfNoneMatch: *`. It then streams a complete GET
+to a new private file and verifies every byte against the independently retained
+seal hash. No completed object is deleted; uncertain completion leaves a journal
+and is reconciled with a new `readback_only: true` job. Failed multipart uploads
+may retain chargeable parts: root must reconcile the exact recorded upload ID;
+the helper does not change IAM/retention or issue broad cleanup.
+
+The existing primary API supports the conditional completion used here:
+[CompleteMultipartUpload](https://docs.aws.amazon.com/AmazonS3/latest/API/API_CompleteMultipartUpload.html).
+No actual full-object upload or multipart permission proof is claimed yet.
+
+`stream_restore.py` keeps the recovery private key on the operator Mac. It streams
+the verified ciphertext from the VPS through local standard GPG and back into a
+new private VPS plaintext staging file. The Mac stores only small evidence, not
+the archive. GPG, the reader SSH and receiver SSH must all exit0, and the complete
+ciphertext stream must match the independently pinned byte count and SHA256,
+before a separate authenticated publication step creates `decrypted.tar`.
+Partial/failed plaintext remains named `decrypted.UNVERIFIED.tar`; it is never
+parsed, restored or booted automatically. The receiver is restricted to new jobs
+under `/opt/baarcha-cube/backup-generations`, with root0700/root0600 permissions.
+The shared SSH master must already exist; an expired master cannot silently open
+a new direct connection. Local GPG key/passphrase paths are accepted only on the
+operator Mac, never by a remote mode.
+
+Tests cover multipart boundaries, no-overwrite completion, ambiguous completion,
+readback-only recovery, tampered/oversized responses, source tampering, private
+paths, all three process-exit failures, deadline cleanup, nonce/hash mismatch and
+non-overwriting plaintext publication. A disposable local GPG key also verifies
+real decryption and rejection of a changed final ciphertext byte. None of these
+tests uses the production recipient secret or claims whole-worker restoration.
+
+See [the concrete two-cycle execution sequence](PAIRED-RESTORE-SEQUENCE.md) for
+the first empty enrollment cycle, canonical operator fixture, second capture
+cycle, full-size transfer configuration and isolated app/history/SQL verification.
