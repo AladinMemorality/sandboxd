@@ -152,13 +152,13 @@ def publish_directory(source, destination):
         raise OSError(ctypes.get_errno(), "atomic no-replace publication failed")
 
 
-def write_manifest(directory):
+def write_manifest(directory, captured_at):
     files = {}
     for path in sorted(directory.iterdir()):
         require(path.name != "manifest.json", "manifest already exists")
         real_file(path)
         files[path.name] = {"bytes": path.stat().st_size, "sha256": digest(path)}
-    manifest = {"version": 1, "kind": "cold-cube-pair", "files": files, "application_restore_verified": False}
+    manifest = {"version": 1, "kind": "cold-cube-pair", "captured_at": captured_at, "files": files, "application_restore_verified": False}
     (directory / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     os.chmod(directory / "manifest.json", 0o600)
     for path in directory.iterdir():
@@ -220,6 +220,7 @@ def capture(args):
         checked = list(sources.values()) + [Path(str(sources["controller.sqlite"]) + suffix) for suffix in ("-wal", "-shm")]
         no_open_users(checked)
         validate_pause_receipt(sources["controller.sqlite"], sources["pause-receipt"])
+        captured_at = datetime.now(timezone.utc).timestamp()
         virtual = sum(qcow_info(sources[name]) for name in ("root.qcow2", "data.qcow2"))
         required = virtual + sum(p.stat().st_size for name, p in sources.items() if not name.endswith(".qcow2")) + (64 << 20)
         require(shutil.disk_usage(output.parent).free >= required, "insufficient conservative capture space")
@@ -238,7 +239,7 @@ def capture(args):
             require(digest(sources[name]) == digest(stage / name), "artifact changed while copying")
         verify_unit(config)
         no_open_users(checked)
-        write_manifest(stage)
+        write_manifest(stage, captured_at)
         validate_capture(stage)
         publish_directory(stage, output)
         fd = os.open(output.parent, os.O_RDONLY)
@@ -260,7 +261,7 @@ def public_key_fingerprint(colons, expected):
 
 def seal(args):
     source = private_directory(args.capture)
-    validate_capture(source)
+    capture_timestamp(validate_capture(source))
     key = real_file(args.recipient_key)
     output = Path(args.output).absolute()
     private_directory(output.parent)
@@ -294,7 +295,28 @@ def seal(args):
                 os.close(directory_fd)
         finally:
             os.unlink(temp)
-    print(json.dumps({"encrypted": True, "sha256": digest(output), "bytes": output.stat().st_size, "restore_verified": False}))
+    print(json.dumps(seal_manifest(output,source,args.fingerprint)))
+
+def capture_timestamp(manifest):
+    captured=manifest.get("captured_at")
+    require(type(captured) in (int,float) and 0<captured<=datetime.now(timezone.utc).timestamp(), "original capture timestamp missing or invalid; legacy freshness unproven")
+    return captured
+
+def seal_manifest(output,source,fingerprint):
+    capture=real_file(source/"manifest.json")
+    require(capture.stat().st_size<=1<<20,"oversized capture manifest")
+    captured=capture_timestamp(json.loads(capture.read_text()))
+    checksum=digest(output);info=output.stat()
+    manifest={"version":1,"kind":"encrypted-cold-cube-pair","captured_at":captured,"sealed_at":datetime.now(timezone.utc).timestamp(),"ciphertext_path":str(output),"ciphertext_sha256":checksum,"capture_manifest_sha256":digest(source/"manifest.json"),"recipient_fingerprint":fingerprint,"file_identity":{"device":info.st_dev,"inode":info.st_ino,"bytes":info.st_size,"mtime_ns":info.st_mtime_ns,"ctime_ns":info.st_ctime_ns}}
+    # Sidecar contains no plaintext or credentials. A missing sidecar after a
+    # crash deliberately leaves freshness monitoring unhealthy.
+    fd=os.open(str(output)+".manifest.json",os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+    with os.fdopen(fd,"w") as file:
+        json.dump(manifest,file,sort_keys=True);file.write("\n");file.flush();os.fsync(file.fileno())
+    directory_fd=os.open(output.parent,os.O_RDONLY)
+    try:os.fsync(directory_fd)
+    finally:os.close(directory_fd)
+    return {"encrypted": True, "sha256": checksum, "bytes": info.st_size, "restore_verified": False}
 
 
 def verify_tar_headers(path, expected):

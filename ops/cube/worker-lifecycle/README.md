@@ -127,7 +127,7 @@ still requires zero tasks/pending allocation, exact paused set and closed source
 FDs. Its paired disk capture remains a separate operation. The stop marker must
 remain until explicit boot reconciliation validates the same identities and
 paused snapshots, current config/history and authenticated app/SQL continuation.
-No startup reconciliation/marker-removal command is provided yet.
+The offline startup command below is the only candidate marker-removal path.
 
 See `stop-config.example.json` and `pre-drain-receipt.example.json` for **invalid,
 non-authorizing examples**. After review, build on Linux with the existing Go
@@ -150,17 +150,16 @@ reviewed target does not itself mean readiness. `nested-ready` additionally
 requires every listed management unit active, but still returns
 `tenant_ready=false`: authenticated API/worker health, expected template/resource
 contracts, canonical provider inventory and controller admission reconciliation
-must be wired and accepted separately before traffic can reopen. An enabled
+are checked by the explicit offline startup command below and still need actual
+worker acceptance before traffic can reopen. An enabled
 upstream target can bypass the reviewed target unless every service gets its
 preflight dependency; installation must audit that explicitly.
 
 `monitor` reads the private local lifecycle status, data free bytes and QEMU
-cgroup memory events and writes sanitized local journald JSON only. It reports
-missing reconciliation/backup-age integration and returns unhealthy until that
-wiring exists. No external notifications or runtime mutations occur. Production
-monitoring must additionally compare expected bindings with actual provider
-state, admission count/pending age, nested component/hash drift, backup freshness
-and off-host copy/restore proof. Never automatically delete, restart or expire
+cgroup memory events and writes sanitized local journald JSON only. It also invokes the fixed read-only binding/provider/admission helper and
+validates root-private backup/copy/restore evidence as detailed below. Missing or
+inconsistent evidence reports unhealthy. No external notifications or runtime
+mutations occur. Never automatically delete, restart or expire
 reservations in response to an alert.
 
 ## Validation and install gates
@@ -171,7 +170,7 @@ locks; no installed systemd service or VM is touched. Existing backup tests also
 exercise exact supervisor recognition and lock exclusion.
 
 Remaining gates: independently perform/attest real traffic and stream drain;
-implement boot reconciliation/marker removal and backup-age monitoring;
+accept the offline boot reconciliation and backup monitoring described below;
 review exact private manifests; validate units with `systemd-analyze verify`;
 prove pause→clean worker poweroff→paired encrypted backup→startup→authenticated
 app/SQL/history continuation and separate isolated restore. Actual abrupt
@@ -192,3 +191,85 @@ drain, Cube pause/sync over a live worker, or the complete backup/restart cycle.
 The Go coordinator's Linux race suites separately passed with actual SQLite and
 HTTP provider fixtures, including config/task/identity drift, missing-provider
 404 preservation, ambiguous Pause and lock/marker retention.
+
+
+## Explicit offline startup reconciliation (candidate)
+
+Install gate remains false. Build `cmd/cube-worker-start` separately; it takes no
+routing, resume or repair switches. Its fixed private files are
+`/etc/baarcha-cube/worker-stop.json` (update the **current** worker boot ID and QEMU
+PID/starttime, preserving reviewed machine/data/controller identity) and
+`/etc/baarcha-cube/worker-start.json` (exact retained pause-proof and clean-receipt
+paths). The latter's example is deliberately invalid. Do not substitute a
+fabricated stopped-clean receipt for a missing one.
+
+The supervisor now writes an immutable `clean-stop-<proof-hash>.json` beneath its
+private worker root only after actual requested powerdown and QEMU exit status0.
+If durable receipt publication fails, status becomes worker-lost. Next boot's
+mutable status cannot overwrite this evidence. The exact old pause proof and
+startup marker contain worker machine/data/boot/process identities and complete
+canonical binding/config/owner fingerprints.
+
+Keep controller stopped with restart disabled and traffic/direct writers fenced.
+Run the fixed startup binary as native root. It takes the exclusive controller
+lock, checks native DB users, verifies the same machine/data and a **different**
+boot/process generation, and compares retained clean receipt, original pause
+proof, marker, and current canonical SQLite state. A pinned-key worker read
+verifies exact installed binary/config hashes, persistent metadata filesystem,
+all management services active, >=48 GiB reserve and zero Cube containerd tasks.
+Two complete inventories and individual authenticated GETs must prove every
+canonical guest still paused with unchanged identity/template/resource contract.
+Unknown/missing/running/stopped guests, changed config/tasks, incomplete recovery,
+quarantine, or missing/pending/deleted admission rows block startup.
+
+Admission is validated, never reconstructed: exactly four permitted active slots
+with the reviewed 2 CPU/2048 MiB profile, and existing released/uncharged rows for
+every retained paused binding. Paused/stored project count may exceed four.
+No Create/Connect/Pause/Delete or guest command occurs. On success, fsynced
+immutable startup evidence and `startup-current.json` precede exact-value/inode
+comparison and removal of the matching marker, followed by parent fsync. Any
+failure before removal leaves startup blocked. This command returns tenant-ready
+**control-plane reconciliation evidence**; it does not start the controller,
+remove the traffic fence, wake an app, establish application/SQL continuation,
+or authorize an installation without the separate actual acceptance.
+
+## Read-only consistency and backup monitoring
+
+The timer runs only the fixed local helper and emits local journald JSON.
+`cube-worker-start --observe` checks current QEMU/startup-evidence generation,
+marker absence, pinned worker readiness/reserve, all-state provider inventory,
+and matching admission/resource counts. SQLite is opened `mode=ro` with
+`query_only`; no `store.Open` schema/bootstrap path or guarded-GET admission
+mutation is used. A before/after snapshot mismatch during ordinary concurrent
+work yields unhealthy and retries on the next timer, never repairs or wakes.
+
+Install `backup_monitor.py` beside the fixed lifecycle script. Root0600
+`/etc/baarcha-cube/backup-monitor.json` selects exact evidence paths and reviewed
+freshness policy. `cold_pair.py seal` now emits a root0600 `.manifest.json` sidecar
+binding the ciphertext SHA256, capture-manifest hash, recipient fingerprint,
+immutable original capture time, separate seal time, and exact file device/inode/size/mtime/ctime. A crash without this
+sidecar is unhealthy. Monitoring checks identity and bounded ages without
+rehashing a potentially hundred-gigabyte archive every minute. Backup age uses
+the original `captured_at` inside the hashed capture manifest, copied verbatim
+into the seal sidecar; re-encryption cannot refresh it. Legacy captures without
+that timestamp may still be restored, but cannot be sealed/monitored as fresh; it cannot detect
+malicious privileged manipulation and is not a fresh cryptographic scan.
+
+Independent copy receipt must have version1, kind `offhost-copy`, matching
+manifest/ciphertext hashes, `verified_at`, `verified_bytes`, `offhost:true`, a
+nonempty destination ID, and evidence SHA256. Restore receipt must have version1,
+kind `application-restore`, those same hashes/time/evidence hash and all six true
+results: `decryption_verified`, `disk_integrity_verified`, `bindings_verified`,
+`application_data_verified`, `task_history_verified`, `database_data_verified`.
+Both private evidence files must exist and match their receipt hashes. These
+are externally produced **trusted operator attestations**, not remote probes or
+proof manufactured by this monitor. Only genuine completed checks justify the
+receipts. Both must refer to the current encrypted archive: a newer backup
+without its own verified copy/restore evidence deliberately reports unhealthy.
+
+Defaults in the invalid example are daily backup and 30-day restore age; choose
+policy through review. The monitor refuses future timestamps, stale evidence,
+wrong recipient/archive/manifest, missing verification, changed ciphertext file,
+and current binding/provider/admission inconsistencies. It sends no external
+messages and cannot fix, delete, decrypt, restart or resume anything. Actual
+large encrypted off-host copy/decryption/restore remains separate acceptance.

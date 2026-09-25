@@ -43,3 +43,23 @@ func TestWorkerStopRejectsSymlinkDB(t *testing.T) {
 		t.Fatal("symlink accepted")
 	}
 }
+func TestWorkerStopClearExactGenerationOnly(t *testing.T) {
+	db := filepath.Join(t.TempDir(), "db")
+	os.WriteFile(db, nil, 0600)
+	value := map[string]string{"generation": "old"}
+	if e := WriteWorkerStop(db, value); e != nil {
+		t.Fatal(e)
+	}
+	if ClearWorkerStop(db, map[string]string{"generation": "new"}) == nil {
+		t.Fatal("wrong generation cleared")
+	}
+	if CheckWorkerStop(db) == nil {
+		t.Fatal("marker vanished")
+	}
+	if e := ClearWorkerStop(db, value); e != nil {
+		t.Fatal(e)
+	}
+	if e := CheckWorkerStop(db); e != nil {
+		t.Fatal(e)
+	}
+}

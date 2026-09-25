@@ -215,6 +215,34 @@ def sync_data(args):
     return {'synced':True,'boot_id':args.boot_id}
 
 
+
+def retain_clean_receipt(proof):
+    require(isinstance(proof,dict) and proof.get('verified') is True,'verified pause proof missing')
+    # Immutable evidence survives the next mutable running-unreconciled status.
+    data={'version':1,'state':'stopped-clean','generated_at':time.time(),'proof':proof}
+    identity=hashlib.sha256(json.dumps(proof,sort_keys=True,separators=(',',':')).encode()).hexdigest()
+    path=ROOT/('clean-stop-'+identity+'.json')
+    fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+    with os.fdopen(fd,'w') as file:
+        json.dump(data,file,sort_keys=True);file.write('\n');file.flush();os.fsync(file.fileno())
+    fd=os.open(ROOT,os.O_RDONLY)
+    try:os.fsync(fd)
+    finally:os.close(fd)
+
+def verify_start(args,require_paused=True):
+    config=private_json(CONFIG);nested_preflight(config,True)
+    require(Path('/etc/machine-id').read_text().strip()==args.machine_id,'worker machine changed')
+    require(Path('/proc/sys/kernel/random/boot_id').read_text().strip()==args.boot_id,'worker boot changed')
+    require(config.get('data_filesystem_uuid')==args.data_uuid,'worker data changed')
+    require(config.get('durable_metadata_reviewed') is True,'durable metadata not reviewed')
+    paths=config.get('durable_metadata_paths',[]);require(paths and len(paths)<=16,'persistent metadata paths missing')
+    for value in paths:
+        path=real_path(value);require(path.is_relative_to('/data') and path!=Path('/data') and path.stat().st_dev==os.stat('/data').st_dev,'metadata outside persistent data')
+    if require_paused:
+        tasks=run(['/usr/bin/ctr','--address','/data/cubelet/cubelet.sock','--namespace','default','tasks','list','--quiet'],timeout=5)
+        require(not tasks.strip(),'unexpected running Cube tasks at clean startup')
+    return {'verified':True,'boot_id':args.boot_id}
+
 def qmp_powerdown(path):
     # Exactly one graceful request, never quit/reset/stop/kill.
     with socket.socket(socket.AF_UNIX,socket.SOCK_STREAM) as connection:
@@ -235,8 +263,9 @@ def qmp_powerdown(path):
 
 class Supervisor:
     """Pure lifecycle state machine; injected effects are unit-test seams only."""
-    def __init__(self,child,identity,drain,powerdown,publish,clock=time.monotonic):
+    def __init__(self,child,identity,drain,powerdown,publish,clock=time.monotonic,retain_clean=None):
         self.child,self.identity,self.drain,self.powerdown,self.publish,self.clock=child,identity,drain,powerdown,publish,clock
+        self.retain_clean=retain_clean
         self.state='running-unreconciled';self.requested=False;self.deadline=None;self.receipt=None;self.clean=False
         self.report('boot requires management and binding reconciliation')
     def report(self,reason):
@@ -252,6 +281,9 @@ class Supervisor:
         exit_code=self.child.poll()
         if exit_code is not None:
             self.clean=self.state=='powerdown-wait' and exit_code==0
+            if self.clean and self.retain_clean is not None:
+                try:self.retain_clean(self.receipt)
+                except Exception:self.clean=False
             self.state='stopped-clean' if self.clean else 'worker-lost'
             self.report('confirmed graceful exit' if self.clean else 'unplanned exit; keep admission fenced')
             return False
@@ -283,7 +315,7 @@ def supervise(lock_path):
         if stop_requested[0]:return 0
         # Inherited locks survive supervisor death until QEMU itself exits.
         child=subprocess.Popen(fixed_qemu(),stdin=subprocess.DEVNULL,close_fds=True,pass_fds=(instance,backup))
-        state=Supervisor(child,{'qemu_pid':child.pid,'qemu_start_time':process_start_time(child.pid)},prepare_stop,lambda:qmp_powerdown(ROOT/'qmp.sock'),lambda value:write_status(STATUS,value))
+        state=Supervisor(child,{'qemu_pid':child.pid,'qemu_start_time':process_start_time(child.pid)},prepare_stop,lambda:qmp_powerdown(ROOT/'qmp.sock'),lambda value:write_status(STATUS,value),retain_clean=retain_clean_receipt)
         if stop_requested[0]:state.signal(signal.SIGTERM)
         signal.signal(signal.SIGTERM,state.signal);signal.signal(signal.SIGINT,state.signal)
         # On unhandled monitor/I/O exceptions remain alive rather than dropping
@@ -304,24 +336,42 @@ def monitor():
     value['disk_reserve_low']=value['outer_data_free_bytes']<48*1024**3
     events=Path('/sys/fs/cgroup/system.slice/baarcha-cube-worker-01.service/memory.events')
     value['memory_events']={line.split()[0]:int(line.split()[1]) for line in events.read_text().splitlines()} if events.exists() else None
-    value['state_reconciliation_monitor_wired']=False
-    value['backup_age_monitor_wired']=False
-    value['nested_disk_reserve_monitor_wired']=False
+    value['state_reconciliation_monitor_wired']=True
+    value['backup_age_monitor_wired']=True
+    value['binding_observation_healthy']=False;value['backup_evidence_healthy']=False
+    try:
+        binding=json.loads(run(['/usr/local/libexec/baarcha-cube-worker-start','--observe'],timeout=30))
+        require(binding.get('consistent') is True,'binding observation failed')
+        value['binding_observation_healthy']=True;value['binding_counts']={key:binding[key] for key in ['bindings','active','max_active']}
+    except Exception:pass
+    try:
+        import backup_monitor
+        policy=private_json('/etc/baarcha-cube/backup-monitor.json')
+        value['backup']=backup_monitor.check(policy,private_json,digest)
+        value['backup_evidence_healthy']=True
+    except Exception:pass
+    value['nested_disk_reserve_monitor_wired']=True
     value['status_stale']=time.time()-value.get('time',0)>120
+    value['tenant_ready_evidence']=value['binding_observation_healthy'] and not value['status_stale']
+    # This observation does not alter the supervisor status or open routing.
     # This is local status/journald output only. No external message, provider
     # lifecycle operation, restart, or data deletion is issued.
     print(json.dumps(value,sort_keys=True))
-    return 1  # tenant readiness/reconciliation and backup-age wiring remain gated
+    return 0 if value['binding_observation_healthy'] and value['backup_evidence_healthy'] and not value['status_stale'] and not value['disk_reserve_low'] and value.get('memory_events') is not None and value['memory_events'].get('oom_kill',0)==0 else 1
 
 
 def main():
     parser=argparse.ArgumentParser();sub=parser.add_subparsers(dest='action',required=True)
     p=sub.add_parser('supervise');p.add_argument('--lock-file',required=True)
     sub.add_parser('nested-preflight');sub.add_parser('nested-ready');sub.add_parser('monitor')
+    p=sub.add_parser('observe-worker');p.add_argument('--machine-id',required=True);p.add_argument('--boot-id',required=True);p.add_argument('--data-uuid',required=True)
+    p=sub.add_parser('verify-start');p.add_argument('--machine-id',required=True);p.add_argument('--boot-id',required=True);p.add_argument('--data-uuid',required=True)
     p=sub.add_parser('sync-data');p.add_argument('--machine-id',required=True);p.add_argument('--boot-id',required=True);p.add_argument('--data-uuid',required=True)
     args=parser.parse_args()
     if args.action=='supervise':return supervise(args.lock_file)
     if args.action=='monitor':return monitor()
+    if args.action=='observe-worker':print(json.dumps(verify_start(args,False)));return 0
+    if args.action=='verify-start':print(json.dumps(verify_start(args)));return 0
     if args.action=='sync-data':print(json.dumps(sync_data(args)));return 0
     result=nested_preflight(private_json(CONFIG),args.action=='nested-ready');print(json.dumps(result));return 0
 

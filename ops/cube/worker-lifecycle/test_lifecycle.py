@@ -127,3 +127,14 @@ class LifecycleTests(unittest.TestCase):
             with self.assertRaises(life.Blocked):life.nested_preflight(value)
 
 if __name__=='__main__':unittest.main()
+
+class CleanReceiptTests(unittest.TestCase):
+    def test_failed_clean_receipt_persistence_prevents_clean_state(self):
+        child=Child();child.code=None;rows=[]
+        state=life.Supervisor(child,{'qemu_pid':child.pid},lambda _: {'verified':True,'qemu_pid':child.pid},lambda:None,rows.append,retain_clean=mock.Mock(side_effect=OSError('disk')))
+        state.signal(signal.SIGTERM);state.tick();child.code=0
+        self.assertFalse(state.tick());self.assertFalse(state.clean);self.assertEqual(state.state,'worker-lost')
+    def test_clean_receipt_published_once_after_actual_exit(self):
+        child=Child();child.code=None;save=mock.Mock();proof={'verified':True,'qemu_pid':child.pid}
+        state=life.Supervisor(child,{'qemu_pid':child.pid},lambda _:proof,lambda:None,lambda _:None,retain_clean=save)
+        state.signal(signal.SIGTERM);state.tick();save.assert_not_called();child.code=0;self.assertFalse(state.tick());save.assert_called_once_with(proof)

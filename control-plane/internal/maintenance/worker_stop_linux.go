@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"io"
 	"os"
 	"path/filepath"
+	"reflect"
+	"syscall"
 )
 
 // WorkerStopMarker deliberately has no expiry. Only separately reviewed boot
@@ -87,4 +90,54 @@ func WriteWorkerStop(database string, value any) error {
 	}
 	defer parent.Close()
 	return errors.Join(e, parent.Sync())
+}
+
+// ClearWorkerStop is only for offline startup reconciliation under the exclusive
+// maintenance lock. Compare the exact retained JSON value and inode; never clear
+// an absent, symlinked, partial, replaced or unreviewed marker.
+func ClearWorkerStop(database string, expected any) error {
+	path, e := WorkerStopMarker(database)
+	if e != nil {
+		return e
+	}
+	f, e := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if e != nil {
+		return e
+	}
+	defer f.Close()
+	info, e := f.Stat()
+	if e != nil {
+		return e
+	}
+	if !info.Mode().IsRegular() || info.Mode().Perm() != 0600 || info.Sys().(*syscall.Stat_t).Uid != uint32(os.Geteuid()) || info.Size() > 1<<20 {
+		return errors.New("unsafe startup marker")
+	}
+	raw, e := io.ReadAll(io.LimitReader(f, 1<<20+1))
+	if e != nil {
+		return e
+	}
+	want, e := json.Marshal(expected)
+	if e != nil {
+		return e
+	}
+	var a, b any
+	if json.Unmarshal(raw, &a) != nil || json.Unmarshal(want, &b) != nil || !reflect.DeepEqual(a, b) {
+		return errors.New("startup marker differs from verified generation")
+	}
+	current, e := os.Lstat(path)
+	if e != nil {
+		return e
+	}
+	if !os.SameFile(info, current) {
+		return errors.New("startup marker was replaced")
+	}
+	if e = os.Remove(path); e != nil {
+		return e
+	}
+	dir, e := os.Open(filepath.Dir(path))
+	if e != nil {
+		return e
+	}
+	defer dir.Close()
+	return dir.Sync()
 }

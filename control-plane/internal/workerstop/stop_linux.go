@@ -65,6 +65,8 @@ type DrainReceipt struct {
 	ProviderJobsDrained      bool      `json:"provider_jobs_drained"`
 }
 type Proof struct {
+	WorkerMachineID string            `json:"worker_machine_id"`
+	DataUUID        string            `json:"data_uuid"`
 	Version         int               `json:"version"`
 	Verified        bool              `json:"verified"`
 	QEMUPID         int               `json:"qemu_pid"`
@@ -263,7 +265,7 @@ func Open(ctx context.Context, c Config) (*Held, error) {
 	}
 	// A complete exact binding/config snapshot, not just its hash, survives every
 	// failure from here onward. No provider mutation precedes durable publication.
-	if e = maintenance.WriteWorkerStop(c.Database, map[string]any{"version": 1, "phase": "preparing", "receipt_sha256": hash(receipt), "inventory_sha256": frozen.SHA256, "bindings": frozen.Bindings, "qemu_pid": c.QEMUPID, "qemu_start_time": c.QEMUStartTime, "worker_boot_id": c.WorkerBootID}); e != nil {
+	if e = maintenance.WriteWorkerStop(c.Database, map[string]any{"version": 1, "phase": "preparing", "receipt_sha256": hash(receipt), "inventory_sha256": frozen.SHA256, "bindings": frozen.Bindings, "qemu_pid": c.QEMUPID, "qemu_start_time": c.QEMUStartTime, "worker_boot_id": c.WorkerBootID, "worker_machine_id": c.WorkerMachineID, "data_uuid": c.DataUUID}); e != nil {
 		return held, e
 	}
 	held.marker = true
@@ -408,7 +410,7 @@ func (h *Held) prepare(ctx context.Context, provider Provider, controller func(c
 	if e != nil || current.SHA256 != before.SHA256 {
 		return nil, errors.New("controller changed before powerdown proof")
 	}
-	proof := &Proof{Version: 1, Verified: true, QEMUPID: h.config.QEMUPID, QEMUStartTime: h.config.QEMUStartTime, WorkerBootID: h.config.WorkerBootID, GeneratedAt: time.Now().UTC(), InventorySHA256: before.SHA256, ReceiptSHA256: hash(h.receipt), GuestStates: map[string]string{}}
+	proof := &Proof{WorkerMachineID: h.config.WorkerMachineID, DataUUID: h.config.DataUUID, Version: 1, Verified: true, QEMUPID: h.config.QEMUPID, QEMUStartTime: h.config.QEMUStartTime, WorkerBootID: h.config.WorkerBootID, GeneratedAt: time.Now().UTC(), InventorySHA256: before.SHA256, ReceiptSHA256: hash(h.receipt), GuestStates: map[string]string{}}
 	for _, b := range before.Bindings {
 		proof.GuestStates[b.RuntimeID] = "paused"
 	}

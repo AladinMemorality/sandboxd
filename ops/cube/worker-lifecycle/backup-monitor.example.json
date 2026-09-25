@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "max_backup_age_seconds": 86400,
+  "max_restore_age_seconds": 2592000,
+  "recipient_fingerprint": "INVALID-REQUIRES-REVIEWED-OFFHOST-KEY-FINGERPRINT",
+  "encrypted_manifest": "/REPLACE-WITH-COLD-SEAL-MANIFEST.json",
+  "offhost_receipt": "/REPLACE-WITH-REAL-INDEPENDENT-COPY-RECEIPT.json",
+  "restore_receipt": "/REPLACE-WITH-ACTUAL-APPLICATION-RESTORE-RECEIPT.json",
+  "offhost_evidence": "/REPLACE-WITH-PRIVATE-COPY-VERIFICATION-EVIDENCE",
+  "restore_evidence": "/REPLACE-WITH-PRIVATE-RESTORE-VERIFICATION-EVIDENCE"
+}

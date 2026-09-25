@@ -157,3 +157,31 @@ class ColdPairTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class SealManifestTests(unittest.TestCase):
+    def test_sealed_ciphertext_manifest_is_durable_and_no_replace(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();source=root/'capture';source.mkdir()
+            (source/'manifest.json').write_text(json.dumps({'fixture':True,'captured_at':1234567890}))
+            archive=root/'ciphertext.gpg';archive.write_bytes(b'encrypted-fixture');archive.chmod(0o600)
+            result=cold.seal_manifest(archive,source,'A'*40)
+            path=Path(str(archive)+'.manifest.json');value=json.loads(path.read_text())
+            self.assertEqual(value['captured_at'],1234567890)
+            self.assertGreater(value['sealed_at'],value['captured_at'])
+            self.assertEqual(value['ciphertext_sha256'],cold.digest(archive))
+            self.assertEqual(value['capture_manifest_sha256'],cold.digest(source/'manifest.json'))
+            self.assertEqual(value['file_identity']['inode'],archive.stat().st_ino)
+            self.assertEqual(path.stat().st_mode&0o777,0o600)
+            old=path.read_bytes()
+            with self.assertRaises(FileExistsError):cold.seal_manifest(archive,source,'B'*40)
+            self.assertEqual(path.read_bytes(),old)
+            self.assertFalse(result['restore_verified'])
+
+    def test_missing_original_capture_timestamp_cannot_be_sealed_as_fresh(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory).resolve();source=root/'capture';source.mkdir()
+            (source/'manifest.json').write_bytes(b'{"fixture":true}')
+            archive=root/'ciphertext.gpg';archive.write_bytes(b'encrypted-fixture')
+            with self.assertRaises(RuntimeError):cold.seal_manifest(archive,source,'A'*40)
+            self.assertFalse(Path(str(archive)+'.manifest.json').exists())
