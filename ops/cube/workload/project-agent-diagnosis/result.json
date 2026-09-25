@@ -1,0 +1,77 @@
+{
+  "date": "2026-09-25",
+  "scope": "Read-only investigation of one user-reported Docker project; no task submission, project edits, build, or service changes.",
+  "provider": "docker",
+  "model": "glm-5.3-flash[1m]",
+  "raw_transcript": {
+    "stored_privately": true,
+    "bytes": 1761417,
+    "sha256": "364aaed6e8a1a399adefa0dda8ce55cc153ef126818aa4a048f85de25d16dbc6",
+    "excluded_from_repository": "Contains tool output including credentials; only aggregate evidence is retained here."
+  },
+  "tasks": [
+    {
+      "ordinal": 1,
+      "status": "succeeded",
+      "duration_ms": 463363,
+      "prompt_chars": 9304,
+      "replayed_prompt_exactly_equal": true,
+      "prompt_sha256": "6ea85116dc0a2f721195d2b4b12a8e4c3d65369fcd4ab7ab253d502c22f41b62",
+      "tool_calls": 28,
+      "matching_tool_results": 28,
+      "missing_tool_results": 0,
+      "max_tool_result_delivery_seconds": 0.146489,
+      "tool_errors": 2,
+      "duplicate_tool_inputs": 2,
+      "files_changed": [],
+      "build_ok": true,
+      "preview_ok": true,
+      "session_id_sha256": "558043516fa6c71283761ec78c5f53f42416bcd0c72d590d1334637b033e1684"
+    },
+    {
+      "ordinal": 2,
+      "status": "failed",
+      "failure_reason": "agent_timeout",
+      "duration_ms": 1201674,
+      "prompt_chars": 7246,
+      "replayed_prompt_exactly_equal": true,
+      "prompt_sha256": "e0162f359c50878ad6ee9afc9c095b15513dd10bf20bdb35e59966dbf0840448",
+      "tool_calls": 87,
+      "matching_tool_results": 87,
+      "missing_tool_results": 0,
+      "max_tool_result_delivery_seconds": 0.420423,
+      "tool_errors": 10,
+      "duplicate_tool_inputs": 19,
+      "files_changed": [
+        "src/index.css"
+      ],
+      "build_ok": true,
+      "preview_ok": false,
+      "session_id_sha256": "d18383cf5a5200ad9902846abd1a583c92fb04bc3d7c7beba201325b7d471e79"
+    }
+  ],
+  "current_workspace": {
+    "read_uid": 1000,
+    "app_tsx_bytes": 378,
+    "app_tsx_sha256": "43f2a29a1532461d30613ae4934cf2f6c95b70a5036898fc22bd16628e5bb3a3",
+    "still_starter_waiting_screen": true,
+    "index_css_bytes": 2783,
+    "index_css_sha256": "5136801720bab2b9c25142e3c915e0f9cf447d17fb2e6705453ea759888ae480",
+    "brief_and_brain_absent": true,
+    "reported_checkpoint_objects_exist": true
+  },
+  "findings": [
+    "Both complete implementation briefs reached the CLI user envelope unchanged.",
+    "Every recorded tool call has a corresponding tool-result record; observed delivery was under half a second.",
+    "The initial agent only surveyed the starter, but CLI success and successful starter build were reported as task success.",
+    "The retry repeatedly read instructions and source, changed only CSS, then timed out.",
+    "System events predominantly record thinking_tokens, not transport retries.",
+    "The instruction file explicitly requires replacing the starter and completing clear implementation requests without approval."
+  ],
+  "limits": [
+    "Recorded tool results do not independently prove how an external model gateway processed conversation history.",
+    "Distinct CLI session IDs do not by themselves establish an unintended continuation bug.",
+    "No fresh paid model task or frontend build was run to test recovery.",
+    "Timeout preview status is not independently a live preview health result; the task cancellation context is used by post-task checks."
+  ]
+}
