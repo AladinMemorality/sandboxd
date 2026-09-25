@@ -47,7 +47,14 @@ func oldStateBranch(err error, inventory, id string) (string, error) {
 	return "", errors.New("old provider/inventory does not establish reviewed native failure")
 }
 func validateMissingReceipt(proof missingEvidence, old escrow, archive, boot string, now int64) error {
-	if old.Guest == nil || proof.Purpose != "OWNED_CURRENT_DISK_MISSING_PROVIDER" || proof.OldID != old.Guest.SandboxID || proof.Fixture != old.Fixture || proof.MachineID != old.WorkerMachineID || proof.PreviousBoot != old.BootID || proof.CurrentBoot != boot || boot == old.BootID || proof.ArchiveSHA != archive || !proof.NoTask || !proof.NoVMM || !proof.Fenced || proof.Checked > now || proof.Checked < now-300 || proof.Expires <= now || proof.Expires > now+1800 {
+	return validateSourceReceipt(proof, old, archive, boot, now, "OWNED_CURRENT_DISK_MISSING_PROVIDER")
+}
+func validateSourceReceipt(proof missingEvidence, old escrow, archive, boot string, now int64, purpose string) error {
+	if purpose != "OWNED_CURRENT_DISK_MISSING_PROVIDER" && purpose != "OWNED_CURRENT_DISK_RETAINED_PROVIDER" {
+		return errors.New("unsupported source evidence purpose")
+	}
+
+	if old.Guest == nil || proof.Purpose != purpose || proof.OldID != old.Guest.SandboxID || proof.Fixture != old.Fixture || proof.MachineID != old.WorkerMachineID || proof.PreviousBoot != old.BootID || proof.CurrentBoot != boot || boot == old.BootID || proof.ArchiveSHA != archive || !proof.NoTask || !proof.NoVMM || !proof.Fenced || proof.Checked > now || proof.Checked < now-300 || proof.Expires <= now || proof.Expires > now+1800 {
 		return errors.New("missing provider evidence does not establish fenced current-disk provenance")
 	}
 	names := []string{"cubebox.json", "storage.json", "plan.json", "rescue-input.json", "fence.json", "export-report.json"}
@@ -62,6 +69,10 @@ func validateMissingReceipt(proof missingEvidence, old escrow, archive, boot str
 	return nil
 }
 func validateMissingFiles(dir, proofSHA string, old escrow, archive, boot string) error {
+	return validateSourceFiles(dir, proofSHA, old, archive, boot, "OWNED_CURRENT_DISK_MISSING_PROVIDER")
+}
+func validateSourceFiles(dir, proofSHA string, old escrow, archive, boot, purpose string) error {
+
 	if !regexp.MustCompile(`^[a-f0-9]{64}$`).MatchString(proofSHA) {
 		return errors.New("explicit missing-provider evidence authorization required")
 	}
@@ -75,7 +86,7 @@ func validateMissingFiles(dir, proofSHA string, old escrow, archive, boot string
 	if err := privateJSON(path, &proof); err != nil {
 		return err
 	}
-	if err := validateMissingReceipt(proof, old, archive, boot, time.Now().Unix()); err != nil {
+	if err := validateSourceReceipt(proof, old, archive, boot, time.Now().Unix(), purpose); err != nil {
 		return err
 	}
 	objects := map[string]json.RawMessage{}

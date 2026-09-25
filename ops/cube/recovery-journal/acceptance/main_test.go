@@ -3,13 +3,17 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/maintenance"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/recovery"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/secrets"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -131,5 +135,95 @@ func TestJournalSeedEntersRealOfflineRecoveryAndRequiresVerification(t *testing.
 	}
 	if _, e = session.TargetClient(ctx, j.ID, "http://127.0.0.1:1"); e == nil {
 		t.Fatal("target client returned before provider creation")
+	}
+}
+
+func TestRetainedSourceBranchUsesTypedProviderStateAndRetainsBindingCharge(t *testing.T) {
+	for _, state := range []string{"unknown", "stopped"} {
+		t.Run(state, func(t *testing.T) {
+			ctx := context.Background()
+			old, _ := ownedEvidence()
+			old.Supervisor = "synthetic"
+			old.Guest.TrafficAccessToken = "synthetic-traffic"
+			stage := t.TempDir()
+			path := filepath.Join(stage, "fixture.db")
+			key, err := secrets.Load("", filepath.Join(stage, "key"))
+			if err != nil {
+				t.Fatal(err)
+			}
+			seedDatabase(ctx, path, "../../migrations", key, old, "fixture-app", "fixture-sandbox", "fixture-owner")
+			db := openFixture(ctx, path, "../../migrations")
+			defer db.Close()
+			before, err := db.GetRuntimeBinding(ctx, "fixture-sandbox")
+			if err != nil {
+				t.Fatal(err)
+			}
+			admissionBefore, err := db.AdmissionLookup(ctx, old.Guest.SandboxID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != "GET" || r.URL.Path != "/sandboxes/"+old.Guest.SandboxID {
+					t.Error("unexpected provider mutation")
+					w.WriteHeader(400)
+					return
+				}
+				_ = json.NewEncoder(w).Encode(cube.Sandbox{SandboxID: old.Guest.SandboxID, TemplateID: template, State: state, CPUCount: 2, MemoryMB: 2048})
+			}))
+			defer provider.Close()
+			client, err := cube.New(cube.Config{APIURL: provider.URL, APIKey: "fixture"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = client.ConfigureAdmission(ctx, db, fixturePolicy()); err != nil {
+				t.Fatal(err)
+			}
+			_, runtimeErr := client.Get(ctx, old.Guest.SandboxID)
+			if !errors.Is(runtimeErr, cube.ErrRuntimeUnavailable) {
+				t.Fatal("real typed state missing", runtimeErr)
+			}
+			inventory := "NODES_SCANNED 1/1\nSANDBOX_COUNT 1\n" + old.Guest.SandboxID + " unknown rest\n"
+			branch, err := oldStateBranch(runtimeErr, inventory, old.Guest.SandboxID)
+			if err != nil || branch != "unavailable-retained" {
+				t.Fatal("retained owned branch rejected", err)
+			}
+			for _, bad := range []string{strings.Replace(inventory, old.Guest.SandboxID, strings.Repeat("f", 32), 1), strings.Replace(inventory, "1/1", "0/1", 1), strings.Replace(inventory, "COUNT 1", "COUNT 2", 1), "NODES_SCANNED 1/1\nSANDBOX_COUNT 0\n"} {
+				if _, err = oldStateBranch(runtimeErr, bad, old.Guest.SandboxID); err == nil {
+					t.Fatal("retained state accepted incomplete or foreign inventory")
+				}
+			}
+			after, err := db.GetRuntimeBinding(ctx, "fixture-sandbox")
+			if err != nil || !reflect.DeepEqual(before, after) {
+				t.Fatal("original canonical binding modified", err)
+			}
+			admissionAfter, err := db.AdmissionLookup(ctx, old.Guest.SandboxID)
+			if err != nil || admissionAfter != admissionBefore || admissionAfter.Charged != 1 {
+				t.Fatal("retained source admission released", err)
+			}
+		})
+	}
+}
+
+func TestRetainedEvidenceCannotSubstituteMissingProviderPurpose(t *testing.T) {
+	old, _ := ownedEvidence()
+	old.BootID = "before"
+	proof := missingEvidence{Purpose: "OWNED_CURRENT_DISK_RETAINED_PROVIDER", OldID: old.Guest.SandboxID, Fixture: old.Fixture, MachineID: old.WorkerMachineID, PreviousBoot: "before", CurrentBoot: "after", ArchiveSHA: strings.Repeat("d", 64), NoTask: true, NoVMM: true, Fenced: true, Checked: 995, Expires: 1100, Files: map[string]string{}}
+	for _, name := range []string{"cubebox.json", "storage.json", "plan.json", "rescue-input.json", "fence.json", "export-report.json"} {
+		proof.Files[name] = strings.Repeat("e", 64)
+	}
+	if e := validateSourceReceipt(proof, old, proof.ArchiveSHA, "after", 1000, "OWNED_CURRENT_DISK_RETAINED_PROVIDER"); e != nil {
+		t.Fatal(e)
+	}
+	if e := validateMissingReceipt(proof, old, proof.ArchiveSHA, "after", 1000); e == nil {
+		t.Fatal("retained receipt authorized missing-provider branch")
+	}
+	proof.Purpose = "OWNED_CURRENT_DISK_MISSING_PROVIDER"
+	if e := validateSourceReceipt(proof, old, proof.ArchiveSHA, "after", 1000, "OWNED_CURRENT_DISK_RETAINED_PROVIDER"); e == nil {
+		t.Fatal("historical404 receipt authorized retained source")
+	}
+	proof.Purpose = "OWNED_CURRENT_DISK_RETAINED_PROVIDER"
+	proof.NoVMM = false
+	if e := validateSourceReceipt(proof, old, proof.ArchiveSHA, "after", 1000, "OWNED_CURRENT_DISK_RETAINED_PROVIDER"); e == nil {
+		t.Fatal("unfenced source accepted")
 	}
 }

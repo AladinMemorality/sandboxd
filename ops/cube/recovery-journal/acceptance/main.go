@@ -254,13 +254,12 @@ func runJournal() (err error) {
 	if hostname != "baarcha-cube-worker-01" || machine != old.WorkerMachineID || dataUUID != old.DataUUID || boot == old.BootID {
 		panic("worker fence identity mismatch")
 	}
-	must(validateMissingFiles(stage, handoff.Evidence, old, converted.SourceSHA, boot))
 	inventory, e := worker(ctx, "cubemastercli -a 127.0.0.1 list --all --wide")
 	must(e)
 	tasks, e := worker(ctx, "timeout 5s ctr --address /data/cubelet/cubelet.sock --namespace default tasks list 2>/dev/null")
 	must(e)
-	if !emptyMasterInventory(inventory) || !emptyCubeTasks(tasks) {
-		panic("owned fixture requires empty worker")
+	if !emptyCubeTasks(tasks) {
+		panic("owned fixture requires no live worker tasks")
 	}
 	env, e := os.ReadFile("/opt/baarcha-cube/worker-01/staging/cube-install.env")
 	must(e)
@@ -274,10 +273,14 @@ func runJournal() (err error) {
 	api, e := cube.New(provider)
 	must(e)
 	_, e = api.Get(ctx, old.Guest.SandboxID)
-	var upstream *cube.APIError
-	if !errors.As(e, &upstream) || upstream.StatusCode != 404 {
-		panic("old provider no longer exactly404")
+	sourceBranch, branchErr := oldStateBranch(e, inventory, old.Guest.SandboxID)
+	must(branchErr)
+	purpose := "OWNED_CURRENT_DISK_MISSING_PROVIDER"
+	if sourceBranch == "unavailable-retained" {
+		purpose = "OWNED_CURRENT_DISK_RETAINED_PROVIDER"
 	}
+	must(validateSourceFiles(stage, handoff.Evidence, old, converted.SourceSHA, boot, purpose))
+	var upstream *cube.APIError
 	fixture := nonce(16)
 	appID, sandboxID, owner := "journal-app-"+fixture, "journal-sandbox-"+fixture, nonce(32)
 	database := filepath.Join(stage, "isolated-controller.db")
@@ -473,8 +476,20 @@ func runJournal() (err error) {
 	}
 	inventory, e = worker(cleanup, "cubemastercli -a 127.0.0.1 list --all --wide")
 	must(e)
-	if !emptyMasterInventory(inventory) {
-		panic("postfixture provider inventory not empty")
+	// Use the original unguarded provider reader: the isolated journal has
+	// correctly quarantined the old ID locally after binding commit.
+	sourceClient, e := cube.New(provider)
+	must(e)
+	_, sourceErr := sourceClient.Get(cleanup, old.Guest.SandboxID)
+	afterBranch, branchErr := oldStateBranch(sourceErr, inventory, old.Guest.SandboxID)
+	must(branchErr)
+	if afterBranch != sourceBranch {
+		panic("retained source identity/state branch changed during recovery")
+	}
+	tasks, e = worker(cleanup, "timeout 5s ctr --address /data/cubelet/cubelet.sock --namespace default tasks list 2>/dev/null")
+	must(e)
+	if !emptyCubeTasks(tasks) {
+		panic("unexpected live task after owned target cleanup")
 	}
 	released, e := db.AdmissionLookup(cleanup, remote.SandboxID)
 	must(e)
@@ -483,7 +498,9 @@ func runJournal() (err error) {
 	}
 	c.report["fixture_target_admission_charge_zero"] = true
 	c.report["owned_target_deleted_verified404"] = true
-	c.report["provider_inventory_zero"] = true
+	c.report["provider_inventory_zero"] = sourceBranch == "missing-after-worker-loss"
+	c.report["original_source_retained_verified"] = sourceBranch == "unavailable-retained"
+	c.report["old_provider_state_branch"] = sourceBranch
 	c.record("journal-acceptance-pass")
 	fmt.Println("PASS: isolated recovery journal atomically rebound stable identities and retained latest app/home/SQL; synthetic task history roundtrip passed; owned target deleted")
 	return nil
