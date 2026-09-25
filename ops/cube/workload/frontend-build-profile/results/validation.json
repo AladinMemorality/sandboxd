@@ -1,0 +1,35 @@
+{
+  "date": "2026-09-25",
+  "status": "prepared-not-executed",
+  "source_manifest": {
+    "guest.py": "519614bb3aa3f04242ba19d41feaedb127d182c677cb879cc99bcc4407f2fc42",
+    "prepare.py": "553693270ec4398ac32f0f0d3208b2608f64973ea04c6a3eda88107ef0940435",
+    "test_guest.py": "34b54502cf9763573f91abfa58962122b73cdb0c38c1cb5ca0cd6d79538bf1e8",
+    "test_prepare.py": "04cc374ea4c5c8bdb1b0d2895042592bb843c20819483faff424ba115ff3a6e4",
+    "probe.mjs": "be7d42a6e51942dd07fda9dcfc3362cb7b65c00928417ab146c421cbca5abddb",
+    "test_probe.mjs": "18e6eb4cc9194fbb35c81452b9fca96e77066654d9c64ed224a1b86464f4a266"
+  },
+  "linux_unit_tests": {
+    "passed": 13,
+    "command": "python3 -m unittest discover -s OWNED_STAGE -p test_*.py -v",
+    "cpu_quota_percent": 100,
+    "memory_limit_bytes": 268435456,
+    "runtime_limit_seconds": 30,
+    "exit_code": 0,
+    "systemd_result": "success",
+    "elapsed_seconds": 1.205,
+    "unit_after": "inactive",
+    "archive_sha256": "6dd439d3ebdb5c3a71615b2fa2dd1bf93ca1e37ee8eda17790dadca4db9279a1"
+  },
+  "local_node_tests_passed": 3,
+  "native_guest_workload_executed": false,
+  "paid_model_calls": 0,
+  "guest_or_customer_mutations": false,
+  "production_speed_claim": false,
+  "pending": [
+    "Root review and exact owned-canary preflight",
+    "Original/candidate runtime manifest validation and exclusive writer fence",
+    "Actual supervised UID1000 cached React build/HMR/API workload",
+    "Resource sampler alignment and exact manifest restore + notes/PostgreSQL health verification"
+  ]
+}
