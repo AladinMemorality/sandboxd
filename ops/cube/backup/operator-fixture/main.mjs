@@ -7,17 +7,18 @@ import {createRequire} from 'node:module';
 import {execFile} from 'node:child_process';
 import {promisify} from 'node:util';
 import {OperatorFixture,APP,SANDBOX,digest} from './fixture.mjs';
+import {repairArgument} from './repair.mjs';
 import {boundedBody,validatePreview} from '../canonical-fixture/fixture.mjs';
 const exec=promisify(execFile),need=(x,m)=>assert(x,m),here=path.dirname(fileURLToPath(import.meta.url));
 async function privatePath(p,dir=false){const s=await fs.lstat(p);need(path.isAbsolute(p)&&await fs.realpath(p)===p&&s.uid===0&&(s.mode&0o777)===(dir?0o700:0o600)&&(dir?s.isDirectory():s.isFile()&&s.nlink===1&&s.size<=32*1024*1024),'Unsafe private path');}
 async function durable(p,bytes,replace=false){await privatePath(path.dirname(p),true);const tmp=replace?p+'.new':p;const f=await fs.open(tmp,'wx',0o600);try{await f.writeFile(bytes);await f.sync();}finally{await f.close();}if(replace){await privatePath(p);await fs.rename(tmp,p);}const d=await fs.open(path.dirname(p),'r');try{await d.sync();}finally{await d.close();}}
 async function main(){
  need(process.platform==='linux'&&process.getuid()===0&&process.env.CUBE_OPERATOR_RECOVERY_PARENT===String(process.ppid),'Use reviewed native-root lock wrapper');
- const [configPath,action]=process.argv.slice(2);need(['prepare','install','restoreManifest','verify','inspect'].includes(action),'Unknown action');await privatePath(configPath);
+ const [configPath,action]=process.argv.slice(2);need(['prepare','install','restoreManifest','verify','inspect','repairArgument'].includes(action),'Unknown action');await privatePath(configPath);
  const c=JSON.parse(await fs.readFile(configPath));need(c.version===1&&c.app_id===APP&&c.sandbox_id===SANDBOX,'Only exact owned canary');
  need(c.stage.startsWith('/opt/baarcha-bench/cube-operator-recovery-')&&path.normalize(c.stage)===c.stage,'Private operator stage');await privatePath(c.stage,true);
  need(digest(await fs.readFile(path.join(here,'../canonical-fixture/fixture.mjs')))===c.canonical_fixture_sha256,'Canonical transport helper changed');
- for(const name of ['main.mjs','fixture.mjs','home-worker.mjs'])need(digest(await fs.readFile(path.join(here,name)))===c.source_sha256[name],'Source code changed');
+ for(const name of ['main.mjs','fixture.mjs','home-worker.mjs','repair.mjs'])need(digest(await fs.readFile(path.join(here,name)))===c.source_sha256[name],'Source code changed');
  await privatePath(c.original_journal);need(c.original_journal!==path.join(c.stage,'journal.json'),'Original journal must never be reused');
  for(const value of [c.original_journal_sha256,c.task_inventory_sha256,c.controller_id,...Object.values(c.before_sha256||{})])need(/^[a-f0-9]{64}$/.test(value),'Missing reviewed identity/hash');need(/^sha256:[a-f0-9]{64}$/.test(c.controller_image)&&/^[a-f0-9]{32}$/.test(c.runtime_id),'Provider/controller image identity');need(['sandbox.yaml','server.mjs','public/index.html'].every(x=>c.before_sha256[x]),'All original source hashes required');
  const originalBytes=await fs.readFile(c.original_journal);need(digest(originalBytes)===c.original_journal_sha256,'Original journal changed');const original=JSON.parse(originalBytes);need(original.app===APP&&original.sandbox===SANDBOX,'Original canary changed');
@@ -43,6 +44,10 @@ async function main(){
   return request(previewCache.origin+route,{...o,headers:{cookie:'sandbox_preview='+previewCache.token}});
  };
  const io={
+  currentJournal:()=>fs.readFile(journalPath),
+  createRepair:async value=>durable(path.join(c.stage,'argument-repair.json'),JSON.stringify(value,null,2)+'\n'),
+  saveRepair:async value=>durable(path.join(c.stage,'argument-repair.json'),JSON.stringify(value,null,2)+'\n',true),
+  commitOriginal:async(expected,value)=>{need(digest(await fs.readFile(journalPath))===expected,'Original operator journal changed before repair commit');await durable(journalPath,JSON.stringify(value,null,2)+'\n',true);},
   save:async value=>durable(journalPath,JSON.stringify(value,null,2)+'\n',true),
   artifact:async(name,bytes)=>{need(!name.includes('/')&&!name.includes('..'),'Artifact path');await durable(path.join(c.stage,name),bytes);},
   originalJournal:()=>fs.readFile(c.original_journal),workerSource:()=>fs.readFile(path.join(here,'home-worker.mjs')),
@@ -76,7 +81,7 @@ async function main(){
    return{id:upload.id,sha256:digest(r.body),owner_read:true,foreign_denied:true,anonymous_denied:true,actual_visual_review:false};
   }
  };
- try{const f=new OperatorFixture(c,j,io);await f[action]();console.log(JSON.stringify({action,completed:true,operator_authored:true,ai_coding_passed:false,backup:false,restore:false}));}
+ try{const f=new OperatorFixture(c,j,io);if(action==='repairArgument')await repairArgument(c,j,io,()=>f.guard());else await f[action]();console.log(JSON.stringify({action,completed:true,operator_authored:true,ai_coding_passed:false,backup:false,restore:false}));}
  catch(error){await durable(path.join(c.stage,`failure-${Date.now()}.json`),JSON.stringify({action,pending:j.pending?.name||null,error:'Operator fixture refused; no automatic retry or repair'})+'\n');throw error;}
  finally{await sql.end({timeout:5});}
 }

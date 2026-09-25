@@ -106,3 +106,38 @@ exact acknowledged SQL row and private screenshot ACL again. The hardlink proof
 requires the original inode relationship within the restored filesystem; copying
 two equal files is insufficient. A source fixture PASS is distinct from that
 restore PASS and from normal AI coding acceptance, which remains separate.
+
+## Exact missing-argument repair (owned run8bb03c01d5527213 only)
+
+The first live install acknowledged manifest reload but the generated worker
+command omitted its required run argument. The worker refused before creating
+home data. This is a fixture defect, not a runtime/data-preservation failure.
+The generator now includes the argument and a direct argv regression covers it.
+Do not rerun `install`, reset the original AI journal or clear old receipts.
+
+`repair.mjs` is the separately journaled, single-case continuation. Root reviews
+and stages the changed `fixture.mjs`, `main.mjs`, `run.py` and new `repair.mjs`,
+updates all source hashes, and adds `argument_repair` to a new private config:
+`journal_sha256` (the failed operator journal, not the AI journal),
+`manifest_sha256`, `server_sha256`, `html_sha256`, `worker_sha256`,
+`app_marker_sha256`. Obtain hashes read-only from the exact installed files and
+closed failed-attempt journal, and preserve that original config. The new source
+and config are reviewed before running:
+
+```sh
+python3 /ROOT_REVIEWED_SOURCE/operator-fixture/run.py --config /ROOT_PRIVATE_STAGE/repair-config.json --action repairArgument
+```
+
+Only the command's missing literal `8bb03c01d5527213` argument may change. Both
+manifests must validate, with no other effective-process difference. All five
+installed source hashes, original task inventory and original AI journal are
+checked. A separate `argument-repair.json` records intent→PUT/readback→reload
+acknowledgement→actual filesystem proof. Failures retain it and do not change the
+original operator journal. Successful proof is written to an immutable receipt;
+only then does a compare-and-swap against the saved before-journal hash update
+its candidate manifest, installed flag and source proof. Existing done entries
+remain intact; `argument_repair` points to the explicit continuation receipt.
+The next normal phase is `restoreManifest`, followed by `verify`.
+
+The expanded local suite has31 Node tests and four Python tests. Neither a unit
+PASS nor this repair source is evidence that the live repair was executed.

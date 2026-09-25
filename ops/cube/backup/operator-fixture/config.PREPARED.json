@@ -24,6 +24,7 @@
     "main.mjs": "REVIEW",
     "fixture.mjs": "REVIEW",
     "home-worker.mjs": "REVIEW",
-    "run.py": "REVIEW"
+    "run.py": "REVIEW",
+    "repair.mjs": "REVIEW"
   }
 }

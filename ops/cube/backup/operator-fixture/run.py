@@ -12,12 +12,12 @@ def reviewed_helper(raw,uid=0):
  return p
 
 def main():
- p=argparse.ArgumentParser();p.add_argument('--config',required=True);p.add_argument('--action',choices=['prepare','install','restoreManifest','verify','inspect'],required=True);a=p.parse_args()
+ p=argparse.ArgumentParser();p.add_argument('--config',required=True);p.add_argument('--action',choices=['prepare','install','restoreManifest','verify','inspect','repairArgument'],required=True);a=p.parse_args()
  if sys.platform!='linux' or os.getuid()!=0:raise ValueError('Native Linux root required')
  base=P(__file__).resolve().parent
  locks=module('operator_fixture_locks',base.parent/'canonical-fixture/run.py');cfg=json.loads(locks.private(a.config).read_text())
  if locks.sha(base.parent/'canonical-fixture/run.py')!=cfg['canonical_wrapper_sha256']:raise ValueError('Canonical wrapper changed')
- for filename in ('main.mjs','fixture.mjs','home-worker.mjs','run.py'):
+ for filename in ('main.mjs','fixture.mjs','home-worker.mjs','repair.mjs','run.py'):
   if hashlib.sha256((base/filename).read_bytes()).hexdigest()!=cfg['source_sha256'][filename]:raise ValueError('Reviewed source hash changed')
  helper=P(cfg['enrollment_runner']);reviewed_helper(helper)
  if locks.sha(helper)!=cfg['enrollment_runner_sha256']:raise ValueError('Lock helper changed')

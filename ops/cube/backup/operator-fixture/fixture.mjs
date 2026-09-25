@@ -10,7 +10,7 @@ export function candidateManifest(original,run){
  need(!original.includes('operator_frontend_profile')&&!original.includes(WORKER),'Another operator worker is installed');
  const lines=original.split('\n'),starts=lines.flatMap((s,i)=>s==='workers:'?[i]:[]);need(starts.length===1,'Exactly one block workers mapping required');
  let end=starts[0]+1;while(end<lines.length&&(!lines[end]||/^\s|^#/.test(lines[end])))end++;
- lines.splice(end,0,`  - name: ${WORKER}`,`    command: node .operator-recovery/${run}/home-worker.mjs`,'    restart_after_task: false');
+ lines.splice(end,0,`  - name: ${WORKER}`,`    command: node .operator-recovery/${run}/home-worker.mjs ${run}`,'    restart_after_task: false');
  return lines.join('\n');
 }
 export function patchServer(original,run){
