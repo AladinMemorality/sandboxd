@@ -6,6 +6,7 @@ Run: python3 -m unittest discover -s ops -p test_deploy_project_x.py -v
 """
 import fcntl
 import http.server
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -93,6 +94,8 @@ elif a[:2]==['image','inspect']:
 elif a[:2]==['image','tag']:
  s['images'][a[-1]]=image(a[-2]);save()
 elif a[0]=='build':
+ if fail=='review_after_build':
+  review=Path(os.environ['PROJECT_X_CUBE_ALLOWLIST_RELEASE_FILE']);review.write_text(review.read_text()+'\n')
  tag=a[a.index('-t')+1]
  if fail=='build' and tag.startswith('sandboxd-control-plane:'):sys.exit(1)
  s['images'][tag]='sha256:'+('3' if tag.startswith('sandboxd-control-plane:') else '4')*64
@@ -209,7 +212,7 @@ class DeployTest(unittest.TestCase):
     def deploy(self, mode=""):
         self.mode = mode
         env = {**os.environ, "PATH": str(self.bin) + os.pathsep + os.environ["PATH"], "FAKE_ROOT": str(self.root), "FAIL_MODE": mode,
-               "PROJECT_X_SRC_DIR": str(self.src), "PROJECT_X_DEPLOY_STATE": str(self.root / "deploy-state"), "PROJECT_X_WORKER_STOP_CONFIG": str(self.root / "worker/worker-stop.json")}
+               "PROJECT_X_SRC_DIR": str(self.src), "PROJECT_X_DEPLOY_STATE": str(self.root / "deploy-state"), "PROJECT_X_WORKER_STOP_CONFIG": str(self.root / "worker/worker-stop.json"), **getattr(self,"extra_env",{})}
         return subprocess.run(["bash", str(SCRIPT), self.sha], env=env, text=True, capture_output=True, timeout=20)
 
     def commands(self):
@@ -337,6 +340,71 @@ class DeployTest(unittest.TestCase):
         self.db.commit()
         self.install_worker_config()
         return cube
+
+    def enable_allowlist_review(self):
+        cube=self.enable_existing_cube()
+        cube['SANDBOXD_CUBE_ROLLOUT']='allowlist'
+        cube['SANDBOXD_CUBE_APP_IDS']='01M3CZB4HXT2Y8HP8CEY75PCWY'
+        self.env_text=self.env_text.replace('SANDBOXD_CUBE_ROLLOUT=global','SANDBOXD_CUBE_ROLLOUT=allowlist')+'SANDBOXD_CUBE_APP_IDS='+cube['SANDBOXD_CUBE_APP_IDS']+'\n'
+        (self.src/'.env').write_text(self.env_text)
+        for name in ['runtime-compose.json','active-images.json']:
+            path=self.root/'deploy-state'/name;value=json.loads(path.read_text());value['services']['sandboxd']['environment']=dict(cube);path.write_text(json.dumps(value))
+        rendered=json.loads(subprocess.check_output([str(self.bin/'docker'),'compose','config'],env={**os.environ,'FAKE_ROOT':str(self.root)}))
+        folder=self.root/'review';folder.mkdir(mode=0o700)
+        review=folder/'allowlist.json'
+        value={'version':1,'candidate_sha':self.sha,'controller_id':'a'*64,'app_ids':[cube['SANDBOXD_CUBE_APP_IDS']],
+            'runtime_override_sha256':hashlib.sha256((self.root/'deploy-state/runtime-compose.json').read_bytes()).hexdigest(),
+            'rendered_config_sha256':hashlib.sha256(json.dumps(rendered,sort_keys=True,separators=(',',':')).encode()).hexdigest()}
+        review.write_text(json.dumps(value));review.chmod(0o600)
+        self.extra_env={'PROJECT_X_CUBE_ALLOWLIST_RELEASE_FILE':str(review)}
+        return review,cube
+
+    def test_explicit_allowlist_review_preserves_exact_scope_and_guest_ownership(self):
+        review,cube=self.enable_allowlist_review()
+        result=self.deploy();self.assertEqual(result.returncode,0,result.stderr)
+        after=json.loads((self.root/'deploy-state/active-images.json').read_text())
+        self.assertEqual(after['services']['sandboxd']['environment'],cube)
+        self.assertEqual(self.db.execute('select provider from app_runtime').fetchall(),[('cube',)])
+        self.assert_preserved()
+        receipt=next((self.root/'deploy-state/releases').glob('*/cube-allowlist-review.json'))
+        self.assertEqual(receipt.read_bytes(),review.read_bytes())
+        self.assertNotIn('synthetic-cube-key',result.stdout+result.stderr)
+
+    def test_allowlist_without_explicit_review_refused_before_build(self):
+        self.enable_allowlist_review();self.extra_env={}
+        result=self.deploy();self.assertNotEqual(result.returncode,0)
+        self.assertFalse(any(c[0]=='build' or 'up' in c for c in self.commands()))
+
+    def test_allowlist_review_drift_permissions_and_scope_refused_before_build(self):
+        for mutation in ['sha','controller','scope','override','render','mode','symlink','duplicate']:
+            with self.subTest(mutation=mutation):
+                if mutation!='sha':self.doCleanups();self.setUp()
+                review,_=self.enable_allowlist_review();value=json.loads(review.read_text())
+                if mutation=='sha':value['candidate_sha']='f'*40
+                elif mutation=='controller':value['controller_id']='d'*64
+                elif mutation=='scope':value['app_ids']=['01M3CKN983PFRGMD711PCEPDFD']
+                elif mutation=='override':value['runtime_override_sha256']='0'*64
+                elif mutation=='render':value['rendered_config_sha256']='0'*64
+                review.write_text(json.dumps(value))
+                if mutation=='mode':review.chmod(0o644)
+                elif mutation=='symlink':
+                    other=review.with_suffix('.saved');review.rename(other);review.symlink_to(other)
+                elif mutation=='duplicate':review.write_text(review.read_text()[:-1]+',"version":1}')
+                result=self.deploy();self.assertNotEqual(result.returncode,0,result.stderr)
+                self.assertFalse(any(c[0]=='build' or 'up' in c for c in self.commands()))
+
+    def test_allowlist_review_changed_during_build_never_activates(self):
+        self.enable_allowlist_review();result=self.deploy('review_after_build')
+        self.assertNotEqual(result.returncode,0)
+        self.assertTrue(any(c[0]=='build' for c in self.commands()))
+        self.assertFalse(any('up' in c or 'stop' in c for c in self.commands()))
+        self.assertEqual(self.git('rev-parse','HEAD'),self.old)
+        self.assertEqual((self.src/'.env').read_text(),self.env_text)
+
+    def test_allowlist_review_cannot_be_reused_after_controller_recreation(self):
+        self.enable_allowlist_review();result=self.deploy();self.assertEqual(result.returncode,0,result.stderr)
+        count=len(self.commands());result=self.deploy();self.assertNotEqual(result.returncode,0)
+        self.assertFalse(any(c[0]=='build' or 'up' in c for c in self.commands()[count:]))
 
     def install_worker_config(self):
         directory = self.root / "worker"
