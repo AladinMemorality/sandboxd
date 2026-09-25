@@ -129,7 +129,7 @@ func FleetPreflight(ctx context.Context, db *sql.DB, workspaces string, options 
 				project.Reasons = append(project.Reasons, "actual Docker source CPU/RAM inspection is required")
 			} else if project.SandboxID != "" {
 				inspected, inspectErr := options.InspectSource(ctx, containerID)
-				if inspectErr != nil || inspected == nil || containerID == "" || inspected.ID != containerID {
+				if inspectErr != nil || inspected == nil || !sourceContainerIdentityMatches(containerID, inspected.ID) {
 					project.Reasons = append(project.Reasons, "source resource inspection failed or identity differs")
 				} else {
 					source, e := sourceResources(inspected)

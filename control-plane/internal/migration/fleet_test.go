@@ -5,11 +5,40 @@ import (
 	"database/sql"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
+
+func TestFleetUsesHistoricalDockerIdentityContract(t *testing.T) {
+	full := strings.Repeat("a", 64)
+	for _, recorded := range []string{full, full[:12], full[:11], strings.Repeat("b", 12), "named-container"} {
+		t.Run(recorded, func(t *testing.T) {
+			engine, _, id, _ := fixture(t)
+			ctx := context.Background()
+			root := t.TempDir()
+			if err := os.MkdirAll(filepath.Join(root, id, "workspace", "app"), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := engine.Store.MarkRunning(ctx, id, recorded, "group"); err != nil {
+				t.Fatal(err)
+			}
+			options := FleetOptions{Templates: map[string]string{"react-vite": "reviewed"}, AppPresets: map[string]string{"durable-app": "react-vite"}, LibraryRoot: filepath.Join(root, "library"), TemplateResources: map[string]ResourceLimits{"reviewed": {2000, 2 << 30}}, InspectSource: func(context.Context, string) (*docker.ContainerJSON, error) {
+				return resourceFixtureContainer(full), nil
+			}}
+			report, err := FleetPreflight(ctx, engine.Store.DB(), root, options)
+			if err != nil {
+				t.Fatal(err)
+			}
+			wantEligible := recorded == full || recorded == full[:12]
+			if (report.BlockedProjects == 0) != wantEligible {
+				t.Fatalf("Docker identity eligibility differs: %+v", report.Projects)
+			}
+		})
+	}
+}
 
 func TestFleetAccountsForProjectsSnapshotsAndMembershipDrift(t *testing.T) {
 	engine, _, id, _ := fixture(t)
