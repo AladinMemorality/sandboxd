@@ -1,0 +1,33 @@
+{
+  "purpose": "OWNED_CURRENT_DISK_RECOVERY_JOURNAL_ACCEPTANCE",
+  "live_executed": true,
+  "scope": "one owned node-postgres replacement with isolated controller SQLite/key; original r4 current-disk archives",
+  "private_report_sha256": "a836b21d942c47cecf6cda77aa6a6bad850b64e9bdd379085b93fa6c3a03d61e",
+  "binary_sha256": "d75dc66968b7a7bcf3cd98a722bb2f3ff73781271d3911ec665aa3a8898f3831",
+  "coordinator_source_sha256": "fba6d19595c3532ec991c35e18f0bdf9e374b09e33c2ccead9032983e9ce374c",
+  "report": {
+    "actual_ui_router_tested": false,
+    "fixture_target_admission_charge_zero": true,
+    "isolated_binding_changed_atomically": true,
+    "latest_app_home_sql_preserved": true,
+    "original_crash_task_history_present": false,
+    "owned_target_deleted_verified404": true,
+    "production_accepted": false,
+    "production_binding_changed": false,
+    "provider_inventory_zero": true,
+    "quiesced_app_home_digests_match": true,
+    "stable_owner_app_sandbox_config_task_preserved": true,
+    "stable_url_identity_preserved": true,
+    "stage": "journal-acceptance-pass",
+    "synthetic_history_only": true,
+    "synthetic_task_history_roundtrip": true,
+    "updated_at": "2026-09-25T11:52:56.565972365Z"
+  },
+  "limitations": [
+    "Original crashed fixture had no task history; separate synthetic task tests canonical transport and controller preservation.",
+    "Stable URL identifiers were checked; platform UI/HTTP router was not exercised.",
+    "Controller database/key were synthetic; this is not a production controller backup restore test.",
+    "Native same-provider-ID recovery remains failed; this is explicit replacement and atomic rebind."
+  ],
+  "source_retention": "Original r4 disk, archives and private journal remain retained; only new fixture target was deleted."
+}

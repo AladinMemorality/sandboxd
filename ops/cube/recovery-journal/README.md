@@ -3,7 +3,12 @@
 This is an operator-only Go helper, not an automatic recovery policy or a tenant
 endpoint. It does not enable Cube or migrate any production project. Migration
 0033 separates Cube-to-Cube replacement from the earlier Docker migration journal.
-No live replacement using this journal has been validated yet.
+An owned live replacement using this journal passed on 2026-09-25: the retained
+current-crash-disk app/home/SQL state was imported into one real replacement,
+verified, and atomically rebound in an isolated controller database. See
+[acceptance scope and evidence](acceptance/README.md#actual-result). This was a
+synthetic controller/key and task-history fixture, not a production cutover,
+platform router test, or native same-provider-ID recovery pass.
 
 A native-host root process opens `internal/recovery.Open` with the existing
 controller database, encryption key, and reviewed Cube admission profile. Opening
@@ -21,7 +26,7 @@ The sequence is:
    native disks/archives and necessary library snapshots. A native backup plus an
    old Docker workspace is not a backup of later Cube writes. Store references to
    each retained artifact and its SHA256 in the private plan. `native_backup` and
-   `controller_backup` identify backup manifest files; `workspace` and `home`
+   `controller_backup` identify retained backup artifacts or their manifests; `workspace` and `home`
    identify canonical imported archives. Canonical task history is mandatory if
    any task exists; an empty task set has its own exact digest. Keep manifests,
    paths, receipts, and encrypted credentials private.
