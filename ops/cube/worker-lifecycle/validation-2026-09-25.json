@@ -1,0 +1,61 @@
+{
+  "date": "2026-09-25",
+  "status": "inert-candidate-linux-race-tests-passed",
+  "installed": false,
+  "host_service_changes": false,
+  "guest_operations": false,
+  "tests": {
+    "lifecycle": 16,
+    "cold_backup": 10,
+    "linux_race_packages": [
+      "internal/workerstop",
+      "internal/maintenance",
+      "internal/cube",
+      "internal/store",
+      "cmd/cube-worker-stop",
+      "cmd/sandboxd"
+    ],
+    "linux_log": "/opt/baarcha-bench/cube-workerstop-20260925/final-race-r2.log",
+    "vet": [
+      "internal/workerstop",
+      "internal/maintenance",
+      "cmd/cube-worker-stop"
+    ],
+    "cli_build": true
+  },
+  "scope": "Real SQLite and HTTP provider fixtures validate admitted pause, identity/config/task refusal, missing provider preservation, durable startup marker and lifetime exclusion. Python tests cover mocked lifecycle effects, temporary UNIX QMP and child inheritance. Actual systemd/QEMU acceptance is prepared separately and not yet run.",
+  "observed": {
+    "outer_unit": "baarcha-cube-worker-01.service",
+    "enabled": false,
+    "active": true,
+    "restart": "no",
+    "kill_mode": "control-group",
+    "send_sigkill": true,
+    "timeout_stop_seconds": 180,
+    "exec_stop_present": false,
+    "nested_enabled": [
+      "cube-sandbox-control.target",
+      "cube-sandbox-cube-templatecenter.service"
+    ]
+  },
+  "blocked_integrations": [
+    "Externally verified production traffic/stream/provider drain and reviewed exact private receipts/configuration",
+    "Boot reconciliation and explicit durable startup marker removal before tenant readiness",
+    "Nested provider reconciliation and backup-age monitoring",
+    "Actual isolated systemd signal/failure acceptance and guest OS clean poweroff/paired backup/startup/restore integration"
+  ],
+  "source_sha256": {
+    "ops/cube/worker-lifecycle/10-reviewed-preflight.conf": "b6520219aa1acd0ce3aa163d649625fd9e276a941c173fe936b547496420f301",
+    "ops/cube/worker-lifecycle/README.md": "7a535526ffc0f6856d299ce08c162568fe9a15f9429f5d350d2856784ad6d4e4",
+    "ops/cube/worker-lifecycle/acceptance.py": "8484cced73e525e6e93bf1dd737caedc925b065b26c0376c9cd980950ab2733c",
+    "ops/cube/worker-lifecycle/baarcha-cube-observe.service": "1a4f70ad39b22cc780799ba2dab36eb54e95003f9a3218d24c47cb3ee823b37d",
+    "ops/cube/worker-lifecycle/baarcha-cube-observe.timer": "1ef64571fca2e304386309860001209c00291f01e3ce4dd510d045c3923e062e",
+    "ops/cube/worker-lifecycle/baarcha-cube-preflight.service": "e4a30733843680db216b2762c4b9042ff9a79ec8c4a446a83896aa5d32edece5",
+    "ops/cube/worker-lifecycle/baarcha-cube-reviewed.target": "8bbc216a0c2e73da0114a94d313b548371865d3a022ca21f42e1a700f4b4f484",
+    "ops/cube/worker-lifecycle/baarcha-cube-worker-01.service": "3aa77889f7a4b0eb305782145f2ee7eb1906d1d6bd7dca663645c4a9404112a8",
+    "ops/cube/worker-lifecycle/lifecycle.py": "4154af064b0ef3f6d42ce8b3e57d68ea48839ebbabb9cfe7294744502d5716ce",
+    "ops/cube/worker-lifecycle/pre-drain-receipt.example.json": "0c6fc7acb546d838fbfef0cfe7ca863860ab886afb3afc8fc25aec50719499cf",
+    "ops/cube/worker-lifecycle/stop-config.example.json": "b79429c26fbbe9461123b57796147523e1c35fa0b4e3577f63b4677ca2634fd3",
+    "ops/cube/worker-lifecycle/test_lifecycle.py": "4c8d25dc1f0c2f66d7fdfde0f44552bd82c48d037e08407dd2fb66d2b67d0086"
+  }
+}

@@ -1,0 +1,14 @@
+# NESTED VM ONLY; must not coexist with enabled upstream control/compute targets.
+[Unit]
+Description=Reviewed Cube management stack (not tenant readiness)
+Requires=baarcha-cube-preflight.service
+After=baarcha-cube-preflight.service network-online.target
+Wants=cube-sandbox-mysql.service cube-sandbox-redis.service cube-sandbox-minio.service
+Wants=cube-sandbox-coredns.service cube-sandbox-dns.service cube-sandbox-cubeops.service
+Wants=cube-sandbox-cubemaster.service cube-sandbox-cube-api.service cube-sandbox-cubelet.service
+Wants=cube-sandbox-cube-templatecenter.service cube-sandbox-cube-lifecycle-manager.service
+Wants=cube-sandbox-cube-proxy.service cube-sandbox-cube-egress-net.service cube-sandbox-cube-egress.service
+AllowIsolate=no
+
+[Install]
+WantedBy=multi-user.target

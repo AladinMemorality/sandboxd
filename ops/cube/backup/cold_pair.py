@@ -118,7 +118,11 @@ def verify_unit(config):
     values = dict(line.split("=", 1) for line in state.splitlines() if "=" in line)
     require(values.get("ActiveState") == "inactive" and values.get("MainPID") == "0", "worker must already be stopped")
     command = values.get("ExecStart", "")
-    require(str(Path(__file__).resolve()) in command and "worker-exec" in command and "--lock-file " + config["worker_lock"] in command, "worker unit does not use this lifetime startup fence")
+    direct = str(Path(__file__).resolve()) in command and "worker-exec" in command
+    # One reviewed fixed supervisor can hold the same marker/inode protocol.
+    # It never accepts caller-provided execution hooks or changes the QEMU args.
+    supervised = ("/usr/bin/python3 /usr/local/libexec/baarcha-cube-worker-lifecycle.py supervise --lock-file " + config["worker_lock"]) in command
+    require((direct or supervised) and "--lock-file " + config["worker_lock"] in command, "worker unit does not use this lifetime startup fence")
 
 
 def qcow_info(path):

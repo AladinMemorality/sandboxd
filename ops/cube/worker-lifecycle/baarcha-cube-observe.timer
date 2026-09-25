@@ -1,0 +1,10 @@
+[Unit]
+Description=Observe Cube worker safety locally
+
+[Timer]
+OnBootSec=60
+OnUnitActiveSec=60
+Unit=baarcha-cube-observe.service
+
+[Install]
+WantedBy=timers.target

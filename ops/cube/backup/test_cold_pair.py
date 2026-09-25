@@ -73,6 +73,17 @@ class ColdPairTests(unittest.TestCase):
         self.assertEqual((output / "data.qcow2").read_bytes(), (self.sources / "data").read_bytes())
         self.assertFalse(json.loads((output / "manifest.json").read_text())["application_restore_verified"])
 
+    def test_only_exact_reviewed_supervisor_entrypoint_is_accepted(self):
+        command = "/usr/bin/python3 /usr/local/libexec/baarcha-cube-worker-lifecycle.py supervise --lock-file " + str(self.worker_lock)
+        for value, allowed in ((command, True), (command.replace("worker-lifecycle.py", "other.py"), False), (command.replace(" supervise ", " hook "), False)):
+            state = ("ActiveState=inactive\nMainPID=0\nExecStart=" + value + "\n").encode()
+            with mock.patch.object(cold, "run", return_value=state):
+                if allowed:
+                    cold.verify_unit(self.config)
+                else:
+                    with self.assertRaises(Exception):
+                        cold.verify_unit(self.config)
+
     def test_busy_startup_lock_refuses_before_output(self):
         with cold.lock_file(self.worker_lock, cold.WORKER_MARKER, False), mock.patch.object(cold, "native_host"):
             with self.assertRaises(BlockingIOError):

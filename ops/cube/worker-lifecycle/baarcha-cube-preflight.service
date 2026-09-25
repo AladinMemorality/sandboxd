@@ -1,0 +1,14 @@
+# NESTED VM ONLY; not installed. Requires exact reviewed patch/config manifest.
+[Unit]
+Description=Verify Cube worker disk identity and reviewed binaries
+RequiresMountsFor=/data
+After=data.mount
+Before=baarcha-cube-reviewed.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/baarcha-cube-worker-lifecycle.py nested-preflight
+RemainAfterExit=yes
+User=root
+UMask=0077
+TimeoutStartSec=120
