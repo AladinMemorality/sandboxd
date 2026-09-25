@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "kind": "postgres18-tool-prerequisite",
+  "image": "docker.io/library/postgres@sha256:9e73daeb439141c2b11eea2463f5f1a3b269fd90d897b41cddb7cb440f21aa5d",
+  "architecture": "amd64",
+  "image_bytes": 157265161,
+  "tool_version": "pg_controldata (PostgreSQL) 18.6 (Debian 18.6-1.pgdg12+2)",
+  "server_version": "postgres (PostgreSQL) 18.6 (Debian 18.6-1.pgdg12+2)",
+  "dynamic_libraries_resolved": true,
+  "runtime_seconds": 22.354,
+  "memory_bytes": 268435456,
+  "cpus": 1,
+  "network": "none",
+  "user": "65534:65534",
+  "customer_mounts": 0,
+  "source_data_read": false,
+  "temporary_container_absent": true,
+  "smoke_log_sha256": "3cdd7f3202286f579760151fbcf3929277dc1cb9f3454dc3e803ae345f764909",
+  "customer_control_state_verified": false,
+  "official_image_source": "https://raw.githubusercontent.com/docker-library/official-images/master/library/postgres"
+}

@@ -87,6 +87,28 @@ runtimed is supervising also permits a restart; do not claim that race is fenced
 No dedicated per-worker stop endpoint is currently exposed. The Cube private
 quiesce endpoint uses SIGKILL and is not the Docker shutdown solution.
 
+The tool prerequisite now passed in a disposable container: official
+`docker.io/library/postgres@sha256:9e73daeb439141c2b11eea2463f5f1a3b269fd90d897b41cddb7cb440f21aa5d`,
+linux/amd64, PostgreSQL18.6,157,265,161image bytes. The publisher's
+[official image definition](https://raw.githubusercontent.com/docker-library/official-images/master/library/postgres)
+records the18-bookworm image family. The resolved manifest digest is pinned;
+subsequent commands do not resolve the mutable tag. See
+[actual isolated tool result](postgres18-tools-result-20260925.json).
+One CPU/256MiB, networknone, read-only root, no capabilities and zero customer
+mounts were used; the tool's shared libraries resolved and the container was
+independently absent afterwards. The source binary is owner-writable UID1000
+code and was not executed as hostroot merely to obtain its version. Its data's
+`PG_VERSION` independently records18.
+
+The exact deferred probe argv, full source container identity, canonical data
+path/inode and preconditions are private in
+`review-03/postgres18-control-probe.PREPARED.json` (same full directory above).
+It uses the immutable image as UID1000 with only that stopped PG data directory
+mounted read-only at `/pgdata`, no network,1CPU/256MiB and no default database
+entrypoint. Require exit0, no control-file CRC warning and cluster state exactly
+`shut down`. It has **not** probed the customer database. Do not execute before
+the actual reviewed stop and maintenance-lock checks.
+
 After the actual stop require natural removal of `postmaster.pid` and the exact
 observed PostgreSQL socket/lock, and verify the control state using a compatible
 trusted PostgreSQL tool in an isolated read-only mount. Absence of a socket alone
