@@ -1,0 +1,76 @@
+{
+  "installation": {
+    "version": 1,
+    "installed": true,
+    "timer_enabled": true,
+    "timer_active": true,
+    "controller_unchanged": true,
+    "controller_id": "54f9d073a7c2739b55481d5bbbb80f22847cb1e1d3225fe5af9590f2f48de5f3",
+    "cube_enabled": false,
+    "first_observation": {
+      "completed_boottime_ns": 4843637473414292,
+      "generation": 1,
+      "inner_free_bytes": 432174882816,
+      "inner_fs_uuid": "793c3349-db9c-4815-9842-989ed484f1f8",
+      "observer_id": "af3479abfe7d8824427e0b14b46945e4",
+      "outer_boot_id": "571f77dc-2077-412c-be3b-fa5c33a519f3",
+      "outer_free_bytes": 415970713600,
+      "outer_fs_uuid": "e0fd3502-6629-46ed-85a6-fa12687a10d9",
+      "started_boottime_ns": 4843636901722667,
+      "version": 1,
+      "worker_boot_id": "c1b590df-28d3-4222-b9a3-c0408c8ccc07",
+      "worker_machine_id": "2b9e31d4abd345e3bd4b966591e61296"
+    },
+    "timer_observation": {
+      "completed_boottime_ns": 4843638639870023,
+      "generation": 2,
+      "inner_free_bytes": 432174882816,
+      "inner_fs_uuid": "793c3349-db9c-4815-9842-989ed484f1f8",
+      "observer_id": "af3479abfe7d8824427e0b14b46945e4",
+      "outer_boot_id": "571f77dc-2077-412c-be3b-fa5c33a519f3",
+      "outer_free_bytes": 415970623488,
+      "outer_fs_uuid": "e0fd3502-6629-46ed-85a6-fa12687a10d9",
+      "started_boottime_ns": 4843638029722524,
+      "version": 1,
+      "worker_boot_id": "c1b590df-28d3-4222-b9a3-c0408c8ccc07",
+      "worker_machine_id": "2b9e31d4abd345e3bd4b966591e61296"
+    },
+    "file_sha256": {
+      "/opt/baarcha-cube/storage-guard/observe.py": "b5e32483aeb77b170cc49cc0c429630f2ba3d3fad880c7c80472e2e278541ed3",
+      "/etc/baarcha-cube/storage-guard.json": "9df51e0cf0af1735388506192ba7758214a683c81da2536224f998ffa6bf3bd8",
+      "/etc/systemd/system/baarcha-cube-storage-observer.service": "dca21f6d32a809cd37c7eeb27f5e7898b104acb960270175fa8a5dd6fa5d3c25",
+      "/etc/systemd/system/baarcha-cube-storage-observer.timer": "452820725ae1c963ec0b94ddb1cefedfdbd710eb9b44393c7a3e337418379de1"
+    },
+    "coordinators_changed": false,
+    "guests_created": 0,
+    "completed_at_unix": 1790362041
+  },
+  "installation_receipt_sha256": "ca055660ad45d6d37b14825e88985fdafa18e56c256bbd18d2ef166f24a33738",
+  "new_prepared_directory": "/opt/baarcha-bench/cube-storage-enrollment-reviewed-20260925-01/reviewed-configs-after-runtime34",
+  "new_review_manifest": {
+    "boot_evidence_sha256": "c953a4a8632a9c7819d5c3d6bbd4d0fd7caef0dd0ba454dd91d4c3af2e1d4fc2",
+    "files": {
+      "admission.json": "700fa749770e6fd7d67efb2ad05d82989d83361d5314b28642c915e018932704",
+      "docker-compose.storage-guard.yml": "e8b6727ffe66be52a20c4610fadb031d561ac090d4a0727dc72e68cf334761f7",
+      "storage-guard.json": "9df51e0cf0af1735388506192ba7758214a683c81da2536224f998ffa6bf3bd8",
+      "worker-stop.json": "94ca892e95c7ae03ae103d2936efadd83d76f87a4bfc5c627e194ccf6c8a6a2d"
+    },
+    "installed": false,
+    "version": 1
+  },
+  "new_review_manifest_sha256": "e8a798a1dffc338281658d985668b7712366b9020ec0a5793ce262be371ade2c",
+  "version": 1,
+  "date": "2026-09-25",
+  "install_source_sha256": "112e58ae9966bc76e61655e41c60f4ed1e1587bc312aab6f6e4a1250a0ebb723",
+  "initial_attempt": {
+    "mutated": false,
+    "reason": "Root-owned sticky /run/lock1777 was rejected by an overly strict ancestor check; second attempt accepted only that exact standard sticky directory."
+  },
+  "not_performed": [
+    "Controller or worker restart",
+    "Guest creation",
+    "Coordinator binary/configuration installation",
+    "Production Cube activation",
+    "Guarded four-app workload"
+  ]
+}

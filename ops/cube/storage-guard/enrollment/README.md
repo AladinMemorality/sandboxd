@@ -1,7 +1,16 @@
 # Storage guard enrollment preparation
 
-**Nothing in this directory has been installed.** The post-cycle worker boot ID
-is deliberately invalid in `pins.NON-AUTHORIZING.json`. Do not replace it with
+**The observer alone was installed and validated on 2026-09-25.** See
+`actual-installation-2026-09-25.json` for exact hashes, actual first measurement
+and timer advancement. `installed-20260925.py` records that one-time operation;
+it refuses an existing installation and is not an upgrade command. No guest,
+controller, worker or coordinator lifecycle operation was part of installation.
+The controller remains on Docker with Cube disabled. The refreshed stop
+configuration is prepared privately but has not been installed; live guarded
+workload and coordinator acceptance remain separate gates.
+
+The post-cycle worker boot ID is deliberately invalid in the reusable
+`pins.NON-AUTHORIZING.json`. Do not replace it with
 the previous boot, copy it into production, or treat the rendering tool as proof
 that an actual restart/readiness check passed. The outer boot, machine and UUID
 pins were read-only observations on2026-09-25. Reverify them before enrollment.
@@ -67,7 +76,7 @@ changes. Refresh the exact stop configuration from a new independently checked
 controller identity **before any coordinator invocation**. The renderer does
 not inspect Docker or act as an automatic identity updater.
 
-## Reviewed installation sequence — operator only, not executed here
+## Reviewed enrollment sequence — observer step completed separately
 
 1. Keep the existing traffic/admission fence and Cube rollout flags false. Take
    the required controller backup and deploy the reviewed schema34 runtime.
