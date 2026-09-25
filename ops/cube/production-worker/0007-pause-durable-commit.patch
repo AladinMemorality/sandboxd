@@ -1,0 +1,739 @@
+--- a/Cubelet/internal/durability/atomic.go
++++ b/Cubelet/internal/durability/atomic.go
+@@ -0,0 +1,71 @@
++package durability
++
++import (
++	"errors"
++	"os"
++	"path/filepath"
++)
++
++func SyncDirectories(path string) error {
++	for {
++		f, err := os.Open(path)
++		if err != nil {
++			return err
++		}
++		err = f.Sync()
++		ce := f.Close()
++		if err != nil {
++			return err
++		}
++		if ce != nil {
++			return ce
++		}
++		parent := filepath.Dir(path)
++		if parent == path {
++			return nil
++		}
++		path = parent
++	}
++}
++
++// AtomicWrite acknowledges only after data, rename and all new parent links sync.
++func AtomicWrite(path string, data []byte, mode os.FileMode) error {
++	return atomicWrite(path, data, mode, func(f *os.File) error { return f.Sync() }, SyncDirectories, os.Rename)
++}
++func atomicWrite(path string, data []byte, mode os.FileMode, syncFile func(*os.File) error, syncDirs func(string) error, rename func(string, string) error) error {
++	if !filepath.IsAbs(path) || filepath.Clean(path) != path {
++		return errors.New("canonical absolute metadata path required")
++	}
++	f, err := os.CreateTemp(filepath.Dir(path), ".durable-metadata-*")
++	if err != nil {
++		return err
++	}
++	name := f.Name()
++	defer os.Remove(name)
++	if err = f.Chmod(mode); err == nil {
++		_, err = f.Write(data)
++	}
++	if err == nil {
++		err = syncFile(f)
++	}
++	ce := f.Close()
++	if err != nil {
++		return err
++	}
++	if ce != nil {
++		return ce
++	}
++	if err = rename(name, path); err != nil {
++		return err
++	}
++	return syncDirs(filepath.Dir(path))
++}
++
++// CommitPauseBoundary must succeed before any caller destroys live storage or
++// acknowledges PAUSED. It intentionally has no cleanup callback on failure.
++func CommitPauseBoundary(syncArtifacts, persistPaused func() error) error {
++	if err := syncArtifacts(); err != nil {
++		return err
++	}
++	return persistPaused()
++}
+--- a/Cubelet/internal/durability/atomic_test.go
++++ b/Cubelet/internal/durability/atomic_test.go
+@@ -0,0 +1,58 @@
++package durability
++
++import (
++	"errors"
++	"os"
++	"path/filepath"
++	"reflect"
++	"testing"
++)
++
++func TestAtomicWriteSyncsBeforeRenameAndDirectoryAcknowledgement(t *testing.T) {
++	p := filepath.Join(t.TempDir(), "catalog.json")
++	events := []string{}
++	err := atomicWrite(p, []byte("latest"), 0600, func(f *os.File) error { events = append(events, "file-sync"); return f.Sync() }, func(d string) error { events = append(events, "directory-sync"); return SyncDirectories(d) }, func(a, b string) error { events = append(events, "rename"); return os.Rename(a, b) })
++	if err != nil || !reflect.DeepEqual(events, []string{"file-sync", "rename", "directory-sync"}) {
++		t.Fatal(events, err)
++	}
++	b, _ := os.ReadFile(p)
++	if string(b) != "latest" {
++		t.Fatal("data missing")
++	}
++}
++func TestFileSyncFailurePreservesOldMetadataAndNeverRenames(t *testing.T) {
++	p := filepath.Join(t.TempDir(), "catalog.json")
++	os.WriteFile(p, []byte("retained"), 0600)
++	called := false
++	err := atomicWrite(p, []byte("unacknowledged"), 0600, func(*os.File) error { return errors.New("EIO") }, func(string) error { called = true; return nil }, func(string, string) error { called = true; return nil })
++	b, _ := os.ReadFile(p)
++	if err == nil || called || string(b) != "retained" {
++		t.Fatal("durability failure escaped ordering")
++	}
++}
++func TestPauseBoundaryFailureNeverAdvancesOrAcknowledges(t *testing.T) {
++	persisted := false
++	err := CommitPauseBoundary(func() error { return errors.New("writeback failed") }, func() error { persisted = true; return nil })
++	if err == nil || persisted {
++		t.Fatal("persisted after barrier failure")
++	}
++	err = CommitPauseBoundary(func() error { return nil }, func() error { return errors.New("DB sync failed") })
++	if err == nil {
++		t.Fatal("DB failure acknowledged")
++	}
++}
++
++func TestDirectorySyncFailureCannotAcknowledgeRenamedMetadata(t *testing.T) {
++	p := filepath.Join(t.TempDir(), "catalog.json")
++	if err := os.WriteFile(p, []byte("previous"), 0600); err != nil {
++		t.Fatal(err)
++	}
++	err := atomicWrite(p, []byte("new-but-not-acknowledged"), 0600, func(f *os.File) error { return f.Sync() }, func(string) error { return errors.New("directory EIO") }, os.Rename)
++	if err == nil {
++		t.Fatal("acknowledged failed directory sync")
++	}
++	b, err := os.ReadFile(p)
++	if err != nil || string(b) != "new-but-not-acknowledged" {
++		t.Fatal("renamed recovery evidence removed", err)
++	}
++}
+--- a/Cubelet/internal/durability/pause_linux.go
++++ b/Cubelet/internal/durability/pause_linux.go
+@@ -0,0 +1,104 @@
++package durability
++
++import (
++	"errors"
++	"fmt"
++	"os"
++	"path/filepath"
++	"syscall"
++
++	"golang.org/x/sys/unix"
++)
++
++// SyncPauseArtifacts is deliberately XFS-only. It syncs current/rootfs/RAM
++// backing files and all small VMM/catalog metadata, then the filesystem ledger.
++// It never opens guest filesystems, runs guest code, or removes any source.
++func SyncPauseArtifacts(metadata string, objects ...string) error {
++	if !filepath.IsAbs(metadata) || filepath.Clean(metadata) != metadata {
++		return errors.New("invalid pause metadata directory")
++	}
++	if err := checkXFS(metadata); err != nil {
++		return err
++	}
++	info, err := os.Lstat(metadata)
++	if err != nil {
++		return err
++	}
++	if !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
++		return errors.New("pause metadata must be a real directory")
++	}
++	device := info.Sys().(*syscall.Stat_t).Dev
++	syncFile := func(path string) error {
++		fd, err := syscall.Open(path, syscall.O_RDONLY|syscall.O_CLOEXEC|syscall.O_NOFOLLOW, 0)
++		if err != nil {
++			return err
++		}
++		f := os.NewFile(uintptr(fd), path)
++		defer f.Close()
++		st, err := f.Stat()
++		if err != nil {
++			return err
++		}
++		if !st.Mode().IsRegular() || st.Sys().(*syscall.Stat_t).Dev != device {
++			return errors.New("pause artifact is not a regular file on the reviewed XFS")
++		}
++		if err = f.Sync(); err != nil {
++			return err
++		}
++		return SyncDirectories(filepath.Dir(path))
++	}
++	for _, path := range objects {
++		if !filepath.IsAbs(path) || filepath.Clean(path) != path {
++			return errors.New("invalid current snapshot object path")
++		}
++		if err = syncFile(path); err != nil {
++			return err
++		}
++	}
++	count := 0
++	dirs := []string{}
++	err = filepath.WalkDir(metadata, func(path string, d os.DirEntry, e error) error {
++		if e != nil {
++			return e
++		}
++		count++
++		if count > 4096 {
++			return errors.New("pause metadata exceeds bounded file count")
++		}
++		if d.Type()&os.ModeSymlink != 0 {
++			return errors.New("pause metadata symlink requires explicit support")
++		}
++		if d.IsDir() {
++			st, e := d.Info()
++			if e != nil {
++				return e
++			}
++			if st.Sys().(*syscall.Stat_t).Dev != device {
++				return errors.New("unexpected mount inside pause metadata")
++			}
++			dirs = append(dirs, path)
++			return nil
++		}
++		return syncFile(path)
++	})
++	if err != nil {
++		return err
++	}
++	for i := len(dirs) - 1; i >= 0; i-- {
++		if err = SyncDirectories(dirs[i]); err != nil {
++			return err
++		}
++	}
++	// The pinned native cubecow ABI has no reviewed per-ledger flush primitive.
++	// syncfs supplies a conservative kernel-writeback barrier for this same XFS.
++	// User-space buffered native writes still require pinned-library validation.
++	f, err := os.Open(metadata)
++	if err != nil {
++		return err
++	}
++	defer f.Close()
++	if err = unix.Syncfs(int(f.Fd())); err != nil {
++		return fmt.Errorf("pause XFS writeback failed: %w", err)
++	}
++	return nil
++}
+--- a/Cubelet/services/cubebox/pause_package.go
++++ b/Cubelet/services/cubebox/pause_package.go
+@@ -8,7 +8,7 @@
+ 	"context"
+ 	"encoding/json"
+ 	"fmt"
+-	"os"
++	"github.com/tencentcloud/CubeSandbox/Cubelet/internal/durability"
+ 	"path/filepath"
+ 	"strings"
+ 	"time"
+@@ -145,11 +145,7 @@
+ 		return err
+ 	}
+ 	path := filepath.Join(snapshotPath, pauseSandboxSpecFileName)
+-	tmp := path + ".tmp"
+-	if err := os.WriteFile(tmp, body, 0o644); err != nil {
+-		return err
+-	}
+-	return os.Rename(tmp, path)
++	return durability.AtomicWrite(path, body, 0o644)
+ }
+ 
+ func loadPauseSandboxSpec(snapshotPath string) (*cubebox.RunCubeSandboxRequest, error) {
+--- a/Cubelet/services/cubebox/pause_cow.go
++++ b/Cubelet/services/cubebox/pause_cow.go
+@@ -9,10 +9,13 @@
+ 	"encoding/json"
+ 	"errors"
+ 	"fmt"
++	"maps"
+ 	"os"
+ 	"strings"
+ 	"time"
+ 
++	"github.com/tencentcloud/CubeSandbox/Cubelet/internal/durability"
++
+ 	containerd "github.com/containerd/containerd/v2/client"
+ 	"github.com/containerd/containerd/v2/pkg/namespaces"
+ 	"github.com/tencentcloud/CubeSandbox/Cubelet/pkg/constants"
+@@ -260,10 +263,23 @@
+ 		return rsp, nil
+ 	}
+ 	stepLog = stepLog.WithFields(CubeLog.Fields{"backend": backend})
++	if backend != cow.BackendXFS {
++		rsp.Ret.RetCode = errorcode.ErrorCode_PreConditionFailed
++		rsp.Ret.RetMsg = "durable pause currently requires the reviewed XFS backend"
++		return rsp, nil
++	}
++	sb.MetaLock.Lock()
++	previousAnnotations, previousLabels := maps.Clone(sb.Annotations), maps.Clone(sb.Labels)
++	sb.MetaLock.Unlock()
+ 	prevLiveSnap := stampedPauseSnapshotID(sb)
+ 	stampLaunchMemoryAncestorOnce(sb, resolveLaunchAncestorSnapshotID(sb))
+ 	stampPauseSnapshotID(sb, snapID)
+-	_ = s.cubeboxMgr.cubeboxManger.SyncByID(ctx, sb.ID)
++	if err := s.cubeboxMgr.cubeboxManger.SyncByID(ctx, sb.ID); err != nil {
++		restorePauseIntentMetadata(sb, previousAnnotations, previousLabels)
++		rsp.Ret.RetCode = errorcode.ErrorCode_Unknown
++		rsp.Ret.RetMsg = "pause intent could not be persisted; sandbox remains running"
++		return rsp, nil
++	}
+ 
+ 	// Pause allows host-mount / host_dir / plugin_volume (same host path is
+ 	// re-bound on Resume). User snapshot CommitSandbox still rejects those
+@@ -374,9 +390,12 @@
+ 	defer workCancel()
+ 
+ 	failPause := func(code errorcode.ErrorCode, msg string) (*cubebox.UpdateCubeSandboxResponse, error) {
+-		cleanupArtifacts()
++		// Once pause starts, retain current disk and captured artifacts for
++		// audited recovery. A failed fsync is not permission to destroy them.
+ 		markLocalPauseFailed(sb, errors.New(msg))
+-		_ = s.cubeboxMgr.cubeboxManger.SyncByID(workCtx, sb.ID)
++		if persistErr := s.cubeboxMgr.cubeboxManger.SyncByID(workCtx, sb.ID); persistErr != nil {
++			stepLog.Error("could not persist pause recovery-required state")
++		}
+ 		rsp.Ret.RetCode = code
+ 		rsp.Ret.RetMsg = msg
+ 		return rsp, nil
+@@ -385,6 +404,7 @@
+ 	for _, c := range sb.AllContainers() {
+ 		if c.Status != nil {
+ 			c.Status.Update(func(status cubeboxstore.Status) (cubeboxstore.Status, error) {
++				status.PauseCommitPending = true
+ 				status.PausingAt = time.Now().UnixNano()
+ 				// Entering pause lifecycle: never advertise EXITED from a prior
+ 				// FinishedAt while PausingAt is set (State prefers PausingAt).
+@@ -422,12 +442,7 @@
+ 		shimUpdateActionAnnotation:        shimUpdatePauseToSnapshotAction,
+ 		shimUpdatePauseSnapshotAnnotation: string(cfgJSON),
+ 	})); err != nil {
+-		cleanupArtifacts()
+-		markLocalPauseFailed(sb, err)
+-		_ = s.cubeboxMgr.cubeboxManger.SyncByID(workCtx, sb.ID)
+-		rsp.Ret.RetCode = errorcode.ErrorCode_TaskPauseFailed
+-		rsp.Ret.RetMsg = err.Error()
+-		return rsp, nil
++		return failPause(errorcode.ErrorCode_TaskPauseFailed, "pause snapshot failed; current disk retained; recovery required")
+ 	}
+ 
+ 	// Disk after memory freeze: live rootfs volume is still present until
+@@ -478,34 +493,47 @@
+ 	}); err != nil {
+ 		// catalog.json is required for Resume / List / cross-node; do not mark
+ 		// PAUSED without it (sandbox_spec already fails hard above).
+-		_ = storage.UnmountS3Metadata(layout.MetaDir)
+-		_ = os.RemoveAll(snapshotPath) // NOCC:Path Traversal()
+ 		return failPause(errorcode.ErrorCode_Unknown,
+ 			fmt.Sprintf("failed to persist pause snapshot catalog for %s: %v", snapID, err))
+ 	}
+ 	// S3: seal memory/metadata work volumes to RO snapshots before Upload.
+ 	if err := storage.FinalizeS3PackageSnapshots(workCtx, backend, snapID); err != nil {
+-		_ = storage.UnmountS3Metadata(layout.MetaDir)
+-		_ = os.RemoveAll(snapshotPath) // NOCC:Path Traversal()
+ 		return failPause(errorcode.ErrorCode_Unknown,
+ 			fmt.Sprintf("failed to seal s3 pause package snapshots for %s: %v", snapID, err))
+ 	}
+ 
+-	// Mark PAUSED before keep_tombstone Destroy so the destroy path takes the
+-	// IsPaused branch (task Delete reaps the still-living shim). Pause catalog
+-	// CoW objects (tpl-<snapID>-*) survive for Resume.
++	// Preserve source disk and all captured artifacts on durability failure.
++	// The failure handler retains these artifacts for explicit recovery.
++	err = durability.CommitPauseBoundary(func() error {
++		return durability.SyncPauseArtifacts(layout.MetaDir, sourceRootfs.DevPath, rootfsObject.DevPath, memoryObject.DevPath)
++	}, func() error {
++		for _, c := range sb.AllContainers() {
++			if c.Status != nil {
++				c.Status.Update(func(status cubeboxstore.Status) (cubeboxstore.Status, error) {
++					status.PausedAt = time.Now().UnixNano()
++					status.PausingAt = 0
++					status.FinishedAt = 0
++					status.Unknown = false
++					return status, nil
++				})
++			}
++		}
++		return s.cubeboxMgr.cubeboxManger.SyncByID(workCtx, sb.ID)
++
++	})
++	if err != nil {
++		return failPause(errorcode.ErrorCode_Unknown, "pause durability failed; current disk retained; recovery required")
++	}
++	// The durable record now contains PausedAt and every artifact has crossed
++	// its barrier. Heartbeat/API observers may finally report PAUSED.
+ 	for _, c := range sb.AllContainers() {
+ 		if c.Status != nil {
+ 			c.Status.Update(func(status cubeboxstore.Status) (cubeboxstore.Status, error) {
+-				status.PausedAt = time.Now().UnixNano()
+-				status.PausingAt = 0
+-				status.FinishedAt = 0
+-				status.Unknown = false
++				status.PauseCommitPending = false
+ 				return status, nil
+ 			})
+ 		}
+ 	}
+-	_ = s.cubeboxMgr.cubeboxManger.SyncByID(workCtx, sb.ID)
+ 
+ 	remoteUUIDsJSON := uploadRemoteUUIDsIfS3(workCtx, backend, snapID)
+ 
+@@ -524,11 +552,7 @@
+ 	rsp.RemoteUuids = remoteUUIDsJSON
+ 	if err != nil {
+ 		// Snapshot is on disk; do not wipe it. Master records FAILED (no Resume).
+-		markLocalPauseFailed(sb, err)
+-		_ = s.cubeboxMgr.cubeboxManger.SyncByID(workCtx, sb.ID)
+-		rsp.Ret.RetCode = errorcode.ErrorCode_Unknown
+-		rsp.Ret.RetMsg = err.Error()
+-		return rsp, nil
++		return failPause(errorcode.ErrorCode_Unknown, "pause cleanup failed; recovery required")
+ 	}
+ 	if prev := replacedLivePauseSnapshotID(prevLiveSnap, snapID); prev != "" {
+ 		stepLog.Infof("pause replaced live snap %s with %s; CleanupTemplate previous", prev, snapID)
+@@ -553,7 +577,11 @@
+ 		now := time.Now()
+ 		sb.UserMarkDeletedTime = &now
+ 		sb.DeleteRequestID = req.RequestID
+-		_ = s.cubeboxMgr.cubeboxManger.SyncByID(ctx, sb.ID)
++		if err := s.cubeboxMgr.cubeboxManger.SyncByID(ctx, sb.ID); err != nil {
++			sb.UserMarkDeletedTime = nil
++			sb.DeleteRequestID = ""
++			return nil, errors.New("pause cleanup intent could not be persisted")
++		}
+ 	}
+ 
+ 	destroyReq := &cubebox.DestroyCubeSandboxRequest{
+@@ -595,11 +623,36 @@
+ 		sb2.UserMarkDeletedTime = nil
+ 		sb2.DeleteRequestID = ""
+ 		sb2.Unlock()
+-		_ = s.cubeboxMgr.cubeboxManger.SyncByID(ctx, req.SandboxID)
++		if err := s.cubeboxMgr.cubeboxManger.SyncByID(ctx, req.SandboxID); err != nil {
++			return ext, fmt.Errorf("pause tombstone finalization could not be persisted")
++		}
+ 	}
+ 	return ext, nil
+ }
+ 
++// restorePauseIntentMetadata restores only this lifecycle operation's keys;
++// unrelated concurrent metadata updates must survive a failed intent write.
++func restorePauseIntentMetadata(sb *cubeboxstore.CubeBox, annotations, labels map[string]string) {
++	sb.MetaLock.Lock()
++	defer sb.MetaLock.Unlock()
++	restore := func(current, previous map[string]string) map[string]string {
++		result := maps.Clone(current)
++		if result == nil {
++			result = make(map[string]string)
++		}
++		for _, key := range []string{constants.MasterAnnotationPauseSnapshotID, constants.MasterAnnotationLaunchMemorySnapshotID} {
++			if value, exists := previous[key]; exists {
++				result[key] = value
++			} else {
++				delete(result, key)
++			}
++		}
++		return result
++	}
++	sb.Annotations = restore(sb.Annotations, annotations)
++	sb.Labels = restore(sb.Labels, labels)
++}
++
+ // markLocalPauseFailed records a terminal Pause failure without EXITED.
+ // Master keeps the sandbox proxy + FAILED pausesnap for user visibility.
+ func markLocalPauseFailed(sb *cubeboxstore.CubeBox, cause error) {
+@@ -615,6 +668,7 @@
+ 			continue
+ 		}
+ 		_ = c.Status.Update(func(status cubeboxstore.Status) (cubeboxstore.Status, error) {
++			status.PauseCommitPending = false
+ 			status.PausingAt = 0
+ 			status.PausedAt = 0
+ 			status.FinishedAt = 0
+--- a/Cubelet/services/cubebox/pause_durability_test.go
++++ b/Cubelet/services/cubebox/pause_durability_test.go
+@@ -0,0 +1,23 @@
++package cubebox
++
++import (
++	"github.com/tencentcloud/CubeSandbox/Cubelet/pkg/constants"
++	cubeboxstore "github.com/tencentcloud/CubeSandbox/Cubelet/pkg/store/cubebox"
++	"testing"
++)
++
++func TestPauseIntentRollbackPreservesOtherMetadataUpdates(t *testing.T) {
++	box := &cubeboxstore.CubeBox{}
++	box.AddLabels(map[string]string{constants.MasterAnnotationPauseSnapshotID: "new-pause", constants.MasterAnnotationLaunchMemorySnapshotID: "new-ancestor", "unrelated": "latest"})
++	box.AddAnnotations(map[string]string{constants.MasterAnnotationPauseSnapshotID: "new-pause", "unrelated": "latest"})
++	restorePauseIntentMetadata(box, nil, map[string]string{constants.MasterAnnotationPauseSnapshotID: "old-pause"})
++	if box.Labels[constants.MasterAnnotationPauseSnapshotID] != "old-pause" || box.Labels["unrelated"] != "latest" || box.Annotations["unrelated"] != "latest" {
++		t.Fatal("rollback lost unrelated or previous metadata")
++	}
++	if _, ok := box.Labels[constants.MasterAnnotationLaunchMemorySnapshotID]; ok {
++		t.Fatal("new ancestor survived failed intent")
++	}
++	if _, ok := box.Annotations[constants.MasterAnnotationPauseSnapshotID]; ok {
++		t.Fatal("new annotation survived failed intent")
++	}
++}
+--- a/Cubelet/services/cubebox/metric.go
++++ b/Cubelet/services/cubebox/metric.go
+@@ -196,14 +196,16 @@
+ 		}
+ 		// Snapshot the status once (single RLock + copy) and reuse it for both
+ 		// the good-state gate and the paused check below.
+-		state := status.Get().State()
+-		if !isContainerInGoodState(state) {
++		snapshot := status.Get()
++		state := snapshot.State()
++		// Ambiguous/missing-task and failed-pause bindings remain charged until
++		// explicit recovery or deletion. Pending pause never frees quota.
++		if !isContainerInGoodState(state) && state != cubebox.ContainerState_CONTAINER_UNKNOWN && snapshot.Reason != "PauseFailed" {
+ 			continue
+ 		}
+ 		// A paused sandbox under the policy keeps only `factor` of its quota.
+ 		paused := policyActive &&
+-			(state == cubebox.ContainerState_CONTAINER_PAUSED ||
+-				state == cubebox.ContainerState_CONTAINER_PAUSING)
++			state == cubebox.ContainerState_CONTAINER_PAUSED && snapshot.Reason != "PauseFailed"
+ 
+ 		if sb.ResourceWithOverHead != nil {
+ 			if paused {
+--- a/Cubelet/services/cubebox/release_paused_resources_test.go
++++ b/Cubelet/services/cubebox/release_paused_resources_test.go
+@@ -77,19 +77,18 @@
+ 	assert.Equal(t, int64(60), got.StorageDiskMB, "disk still counts under the policy")
+ }
+ 
+-func TestAggregateSandboxResourcesRatioOneAlsoReleasesPausingQuota(t *testing.T) {
++func TestAggregateSandboxResourcesPausingKeepsFullQuota(t *testing.T) {
+ 	now := time.Now().UnixNano()
+ 	sbs := []*cubeboxstore.CubeBox{
+-		// PAUSING is the in-flight pause transient; it must release quota too so
+-		// the freed capacity is visible the moment the pause begins committing.
++		// PAUSING is not yet a durable completed pause and must remain charged.
+ 		sandboxWithResourceForTest("pausing", cubeboxstore.Status{PausingAt: now}, "2000m", "4Gi", 8, 30, 40),
+ 	}
+ 
+ 	got := aggregateSandboxResources(sbs, 1)
+ 
+-	assert.Equal(t, int64(0), got.MilliCPU)
+-	assert.Equal(t, int64(0), got.MemoryMB)
+-	assert.Equal(t, int64(0), got.MvmRunningNum)
++	assert.Equal(t, int64(2000), got.MilliCPU)
++	assert.Equal(t, int64(4096), got.MemoryMB)
++	assert.Equal(t, int64(1), got.MvmRunningNum)
+ 	assert.Equal(t, int64(1), got.MvmNum)
+ }
+ 
+@@ -348,4 +347,19 @@
+ 	require.NotNil(t, result.ret)
+ 	assert.Equal(t, errorcode.ErrorCode_Conflict, result.ret.RetCode)
+ 	assert.Zero(t, task.resumeCalls, "task.Resume must not be called when admission rejects")
++}
++
++func TestAggregateSandboxResourcesRetainsUnknownAndFailedPause(t *testing.T) {
++	statuses := []cubeboxstore.Status{
++		{Unknown: true},
++		{StartedAt: 1, Reason: "PauseFailed", Unknown: true},
++		{FinishedAt: 1, Reason: "PauseFailed"},
++		{PausedAt: 1, PauseCommitPending: true},
++	}
++	for _, status := range statuses {
++		got := aggregateSandboxResources([]*cubeboxstore.CubeBox{sandboxWithResourceForTest("retained", status, "2000m", "2Gi", 4, 10, 20)}, 1)
++		assert.Equal(t, int64(2000), got.MilliCPU)
++		assert.Equal(t, int64(2048), got.MemoryMB)
++		assert.Equal(t, int64(1), got.MvmRunningNum)
++	}
+ }
+--- a/Cubelet/storage/snapshot_catalog.go
++++ b/Cubelet/storage/snapshot_catalog.go
+@@ -9,6 +9,7 @@
+ 	"encoding/json"
+ 	"errors"
+ 	"fmt"
++	"github.com/tencentcloud/CubeSandbox/Cubelet/internal/durability"
+ 	"io/fs"
+ 	"os"
+ 	"path/filepath"
+@@ -250,16 +251,11 @@
+ 		return fmt.Errorf("ensure snapshot dir: %w", err)
+ 	}
+ 	path := filepath.Join(catalogDir, snapshotCatalogFileName)
+-	tmp := path + ".tmp"
+ 	body, err := json.MarshalIndent(entry, "", "  ")
+ 	if err != nil {
+-		return err
+-	}
+-	if err := os.WriteFile(tmp, body, 0o644); err != nil {
+ 		return err
+ 	}
+-	if err := os.Rename(tmp, path); err != nil {
+-		_ = os.Remove(tmp)
++	if err := durability.AtomicWrite(path, body, 0o644); err != nil {
+ 		return err
+ 	}
+ 	snapshotCatalogMu.Lock()
+--- a/Cubelet/pkg/store/cubebox/status.go
++++ b/Cubelet/pkg/store/cubebox/status.go
+@@ -22,6 +22,11 @@
+ 	PausedAt  int64
+ 	PausingAt int64
+ 
++	// PauseCommitPending is an in-memory publication fence. The persisted
++	// PausedAt is written after artifact barriers, while observers still see
++	// PAUSING. Clear this only after synchronous metadata persistence succeeds.
++	PauseCommitPending bool `json:"-"`
++
+ 	ExitCode int32
+ 
+ 	Reason string
+@@ -52,7 +57,7 @@
+ 	// Pause / pause-to-snapshot must never surface as EXITED: CoW Pause exits
+ 	// the shim (TaskExit may stamp FinishedAt) while the sandbox is still in
+ 	// the pause lifecycle. Prefer PausingAt/PausedAt over FinishedAt.
+-	if s.PausingAt != 0 {
++	if s.PauseCommitPending || s.PausingAt != 0 {
+ 		return cubebox.ContainerState_CONTAINER_PAUSING
+ 	}
+ 	if s.PausedAt != 0 {
+--- a/Cubelet/pkg/store/cubebox/pause_durability_test.go
++++ b/Cubelet/pkg/store/cubebox/pause_durability_test.go
+@@ -0,0 +1,29 @@
++package cubebox
++
++import (
++	"encoding/json"
++	pb "github.com/tencentcloud/CubeSandbox/pkgs/proto/services/cubebox/v1"
++	"testing"
++)
++
++func TestPausePublicationFenceIsNotPersisted(t *testing.T) {
++	s := Status{PausedAt: 1, PauseCommitPending: true}
++	if s.State() != pb.ContainerState_CONTAINER_PAUSING {
++		t.Fatal("published uncommitted pause")
++	}
++	encoded, err := json.Marshal(s)
++	if err != nil {
++		t.Fatal(err)
++	}
++	var committed Status
++	if err = json.Unmarshal(encoded, &committed); err != nil {
++		t.Fatal(err)
++	}
++	if committed.PauseCommitPending || committed.State() != pb.ContainerState_CONTAINER_PAUSED {
++		t.Fatal("durable record lost paused state")
++	}
++	s.PauseCommitPending = false
++	if s.State() != pb.ContainerState_CONTAINER_PAUSED {
++		t.Fatal("commit did not publish paused")
++	}
++}
+--- a/Cubelet/plugins/cube/internals/cubes/local.go
++++ b/Cubelet/plugins/cube/internals/cubes/local.go
+@@ -130,14 +130,11 @@
+ 	}
+ 	l.cubeboxStore.Add(cb)
+ 
+-	if !opt.NoEvent {
+-		l.dispatch(&CubeboxEvent{
+-			EventType: CubeboxEventTypeUpdate,
+-			Cubebox:   cb,
+-		})
+-	}
+-
+-	return l.cubeboxStore.Sync(cb.ID)
++	return persistThenPublish(func() error { return l.cubeboxStore.Sync(cb.ID) }, func() {
++		if !opt.NoEvent {
++			l.dispatch(&CubeboxEvent{EventType: CubeboxEventTypeUpdate, Cubebox: cb})
++		}
++	})
+ }
+ 
+ func (l *local) SyncByID(ctx context.Context, id string, opts ...UpdateCubeboxOpt) error {
+@@ -149,13 +146,11 @@
+ 	for _, o := range opts {
+ 		o(opt)
+ 	}
+-	if !opt.NoEvent {
+-		l.dispatch(&CubeboxEvent{
+-			EventType: CubeboxEventTypeUpdate,
+-			Cubebox:   cb,
+-		})
+-	}
+-	return l.cubeboxStore.Sync(id)
++	return persistThenPublish(func() error { return l.cubeboxStore.Sync(id) }, func() {
++		if !opt.NoEvent {
++			l.dispatch(&CubeboxEvent{EventType: CubeboxEventTypeUpdate, Cubebox: cb})
++		}
++	})
+ }
+ 
+ func (l *local) SetContainerdClient(client *containerd.Client) {
+--- a/Cubelet/plugins/cube/internals/cubes/persist_publish.go
++++ b/Cubelet/plugins/cube/internals/cubes/persist_publish.go
+@@ -0,0 +1,12 @@
++package cubes
++
++// persistThenPublish prevents listeners from observing an acknowledged update
++// whose durable database transaction has failed. Readers of mutable in-memory
++// pause status are additionally fenced by Status.PauseCommitPending.
++func persistThenPublish(persist func() error, publish func()) error {
++	if err := persist(); err != nil {
++		return err
++	}
++	publish()
++	return nil
++}
+--- a/Cubelet/plugins/cube/internals/cubes/persist_publish_test.go
++++ b/Cubelet/plugins/cube/internals/cubes/persist_publish_test.go
+@@ -0,0 +1,25 @@
++package cubes
++
++import (
++	"errors"
++	"testing"
++)
++
++func TestPersistenceFailureNeverPublishes(t *testing.T) {
++	called := false
++	err := persistThenPublish(func() error { return errors.New("injected sync failure") }, func() { called = true })
++	if err == nil || called {
++		t.Fatal("published failed transaction")
++	}
++}
++func TestPublicationRunsOnlyAfterCommit(t *testing.T) {
++	committed := false
++	err := persistThenPublish(func() error { committed = true; return nil }, func() {
++		if !committed {
++			t.Fatal("published before commit")
++		}
++	})
++	if err != nil {
++		t.Fatal(err)
++	}
++}

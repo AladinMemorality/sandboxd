@@ -1,0 +1,59 @@
+{
+  "date": "2026-09-25",
+  "source_pin": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+  "candidate_sha256": "a61a43c531b8e7854dd8ee064db0d1e160d42fcb4d50e7c4b3c98d447e63e75a",
+  "candidate_installed": false,
+  "required_patches": [
+    "0006",
+    "0007",
+    "0008"
+  ],
+  "optional_patch_0009": "unbuilt, untested, excluded",
+  "unit": "cube-durable-candidate-build-r4.service",
+  "unit_result": "success",
+  "elapsed_seconds": 91.85,
+  "cpu_seconds": 74.281,
+  "bounds": {
+    "CPUQuota": "200%",
+    "MemoryMax": "2G",
+    "TasksMax": 256,
+    "RuntimeMaxSec": 1200,
+    "PrivateNetwork": true,
+    "PrivateDevices": true,
+    "ProtectSystem": "strict",
+    "NoNewPrivileges": true,
+    "CapabilityBoundingSet": [],
+    "live_cubelet_data_inaccessible": true
+  },
+  "passed": [
+    "Full race suites: internal/durability, pkg/utils, pkg/store/cubebox, plugins/cube/internals/cubes, services/cubebox, services/server/config, cmd/cubelet",
+    "Selected storage race tests matching Test.*(Catalog|Pause|StorageRecovery|RecoverStorageState|RecoverSandboxStorage|ReadBackendFileInfo)",
+    "Config renderer 2 tests",
+    "Native CGO symbol and dynamic libraries",
+    "All3 exact generated BPF objects embedded",
+    "966 baseline source files unchanged",
+    "82 protected input files unchanged",
+    "Installed binary unchanged"
+  ],
+  "full_storage_suite": "NOT PASS: baseline S3/background/global-config races and privileged loop-mount requirements; baseline races reproduced separately",
+  "remaining_gates": [
+    "Reviewed empty-node enrollment",
+    "Real acknowledged pause + whole-worker power-loss + resume/current latest SQL",
+    "Native CoW user-space buffer durability",
+    "No automatic same-ID running cold recovery claim"
+  ],
+  "evidence_sha256": {
+    "baseline-race-summary.txt": "7092a11520df39285830e9f4f53aeb3212c73d23a9c18c219d18d82844071934",
+    "binary-bpf-verification.txt": "95223312da534fe6db2165341d56b8b0ed301531dc9c93c7817413ba3fe48e27",
+    "binary-build-info.txt": "b57b1d71e0456a138c7c44345dfb7a7073a4789e7ea84501b377e39714a454ec",
+    "binary-libraries.txt": "ab450e8c33dfbda86e4d6e37dd762cd05a72bf641482b0ac887a39c8bbd21fa5",
+    "go-tests.txt": "88248511513113a0dd12de7931280af2cc03faa48207051e6cbfb46ebfe92db8",
+    "installed-after.txt": "3a792799fd925575bfa7763496d6e5bf0ff75e850baeb65ed7b8cb32f0811134",
+    "installed-before.sha256": "eee2ae9e022bf7e21a512270548d57f46691205674e98fc4ef9408e2044c61c7",
+    "patches.sha256": "5dce9a91fc3be565ff4ac0628ee58ab1b18ad23d4a0dea57b7847978424c2373",
+    "protected-inputs.sha256": "19819ce7f2f52541a7098fa90b1ad2903962c93e91645c3e711fed6452796704",
+    "source-manifest-digests.json": "f5f06bcaaf7543844f10a5a47991390d76e9868c20362d9d397ea5839dff5d94",
+    "storage-focused-tests.txt": "69415318ef2d02ffb7f73e413d89247b81cc7496ea730e52ada3258dcba54677",
+    "toolchain.txt": "e28f1c9c1150ebff074ea5a5890f0473662b0048a71137180814b6aa21587562"
+  }
+}

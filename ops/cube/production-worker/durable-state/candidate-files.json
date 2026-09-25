@@ -1,0 +1,41 @@
+{
+  "source_pin": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+  "patch_0006_files": [
+    "Cubelet/internal/durability/layout.go",
+    "Cubelet/internal/durability/layout_test.go",
+    "Cubelet/internal/durability/filesystem_linux.go",
+    "Cubelet/cmd/cubelet/durable_metadata.go",
+    "Cubelet/cmd/cubelet/main.go",
+    "Cubelet/pkg/utils/db.go",
+    "Cubelet/pkg/utils/db_directory.go",
+    "Cubelet/pkg/utils/db_directory_test.go",
+    "Cubelet/pkg/utils/db_durable_test.go",
+    "Cubelet/pkg/utils/localstorage.go",
+    "Cubelet/services/server/config/config.go"
+  ],
+  "patch_0007_files": [
+    "Cubelet/internal/durability/atomic.go",
+    "Cubelet/internal/durability/atomic_test.go",
+    "Cubelet/internal/durability/pause_linux.go",
+    "Cubelet/services/cubebox/pause_package.go",
+    "Cubelet/services/cubebox/pause_cow.go",
+    "Cubelet/services/cubebox/pause_durability_test.go",
+    "Cubelet/services/cubebox/metric.go",
+    "Cubelet/services/cubebox/release_paused_resources_test.go",
+    "Cubelet/storage/snapshot_catalog.go",
+    "Cubelet/pkg/store/cubebox/status.go",
+    "Cubelet/pkg/store/cubebox/pause_durability_test.go",
+    "Cubelet/plugins/cube/internals/cubes/local.go",
+    "Cubelet/plugins/cube/internals/cubes/persist_publish.go",
+    "Cubelet/plugins/cube/internals/cubes/persist_publish_test.go"
+  ],
+  "patch_0008_files": [
+    "Cubelet/pkg/store/cubebox/cubebox.go",
+    "Cubelet/pkg/store/cubebox/deepcopy.go",
+    "Cubelet/pkg/store/cubebox/cubebox_test.go",
+    "Cubelet/pkg/store/cubebox/status_readers_test.go"
+  ],
+  "optional_unbuilt_patch_0009_files": [
+    "CubeShim/shim/src/hypervisor/snapshot.rs"
+  ]
+}

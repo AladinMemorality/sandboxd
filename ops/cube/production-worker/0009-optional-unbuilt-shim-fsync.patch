@@ -1,0 +1,43 @@
+--- a/CubeShim/shim/src/hypervisor/snapshot.rs
++++ b/CubeShim/shim/src/hypervisor/snapshot.rs
+@@ -81,7 +81,12 @@
+         let mut file = fs::File::create(target)
+             .map_err(|e| format!("open {} failed:{}", target.display(), e))?;
+         file.write_all(data.as_bytes())
+-            .map_err(|e| format!("write {} failed:{}", target.display(), e))
++            .map_err(|e| format!("write {} failed:{}", target.display(), e))?;
++        file.sync_all()
++            .map_err(|e| format!("sync snapshot metadata failed:{}", e))?;
++        let parent = target.parent().ok_or_else(|| "snapshot metadata parent missing".to_string())?;
++        fs::File::open(parent).and_then(|directory| directory.sync_all())
++            .map_err(|e| format!("sync snapshot metadata directory failed:{}", e))
+     }
+ 
+     pub fn new(cpu: u32, memory: u64) -> Self {
+@@ -217,6 +222,26 @@
+     }
+ 
+     #[test]
++    fn stored_snapshot_metadata_can_be_reopened() {
++        let dir = std::env::temp_dir().join(format!("cube-snapshot-durability-{}", uuid::Uuid::new_v4()));
++        fs::create_dir(&dir).unwrap();
++        let target = dir.join("metadata.json");
++        let info = base_info();
++        info.store(&target).unwrap();
++        let reopened: SnapshotInfo = serde_json::from_reader(fs::File::open(&target).unwrap()).unwrap();
++        info.eq(&reopened).unwrap();
++        fs::remove_dir_all(&dir).unwrap();
++    }
++
++    #[test]
++    fn snapshot_metadata_write_failure_is_returned() {
++        let target = std::env::temp_dir()
++            .join(format!("cube-snapshot-absent-{}", uuid::Uuid::new_v4()))
++            .join("metadata.json");
++        assert!(base_info().store(&target).is_err());
++    }
++
++    #[test]
+     fn eq_agent_version_both_some_unequal_fails() {
+         let mut a = base_info();
+         let mut b = base_info();

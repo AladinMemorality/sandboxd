@@ -1,0 +1,44 @@
+{
+  "copied-source.sha256": {
+    "sha256": "e47b666ff8d20e063be2c2784fab5b5176591d5c5f5464b5ad149ac04ec9dfe2",
+    "size": 105089
+  },
+  "final-source.sha256": {
+    "sha256": "b6e36f22284c7c01ea7efce22b9adad778ecd2827a87545249dc9fdfe3349608",
+    "size": 106749
+  },
+  "protected-inputs.sha256": {
+    "sha256": "19819ce7f2f52541a7098fa90b1ad2903962c93e91645c3e711fed6452796704",
+    "size": 7846
+  },
+  "go-tests.txt": {
+    "sha256": "88248511513113a0dd12de7931280af2cc03faa48207051e6cbfb46ebfe92db8",
+    "size": 528
+  },
+  "storage-focused-tests.txt": {
+    "sha256": "69415318ef2d02ffb7f73e413d89247b81cc7496ea730e52ada3258dcba54677",
+    "size": 65
+  },
+  "baseline-race-r2.txt": {
+    "sha256": "6ae6cb107b8b403816d58751a82930c707298ad924ab67f9e2fa2e63425a0f4e",
+    "size": 10251
+  },
+  "go-tests-full-ci-first.txt": {
+    "sha256": "b5f39cc990405c8ec356b4854df369703002f5e6bf025d69116f435f69f80bf2",
+    "size": 726934
+  },
+  "patches.sha256": {
+    "sha256": "5dce9a91fc3be565ff4ac0628ee58ab1b18ad23d4a0dea57b7847978424c2373",
+    "size": 386
+  },
+  "cubelet-candidate": {
+    "sha256": "a61a43c531b8e7854dd8ee064db0d1e160d42fcb4d50e7c4b3c98d447e63e75a",
+    "size": 102270832
+  },
+  "binary-build-info.txt": {
+    "sha256": "b57b1d71e0456a138c7c44345dfb7a7073a4789e7ea84501b377e39714a454ec",
+    "size": 14397
+  },
+  "original_source_verified_files": 966,
+  "protected_inputs_verified_files": 82
+}

@@ -1,0 +1,517 @@
+--- a/Cubelet/internal/durability/layout.go
++++ b/Cubelet/internal/durability/layout.go
+@@ -0,0 +1,159 @@
++// Copyright (c) 2026 Tencent Inc.
++// SPDX-License-Identifier: Apache-2.0
++package durability
++
++import (
++	"errors"
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++)
++
++// MetadataPaths are explicit plugin overrides. Runtime sockets may remain on
++// volatile State; these identity/reference databases must not be placed there.
++var MetadataPaths = map[string]string{
++	"io.cubelet.cubestore.v1.cubebox":        "cubebox",
++	"io.cubelet.cubemetastore.v1.mutilmeta":  "multimeta",
++	"io.cubelet.internal.v1.storage":         "storage",
++	"io.cubelet.internal.v1.volume":          "volume",
++	"io.cubelet.internal.v1.cgroup":          "cgroup",
++	"io.cubelet.internal.v1.network":         "network",
++	"io.cubelet.internal.v1.netfile":         "netfile",
++	"io.cubelet.internal.v1.images":          "images",
++	"io.cubelet.internal.v1.cleanup":         "cleanup",
++	"io.containerd.metadata.v1.bolt":         "containerd",
++	"io.containerd.snapshotter.v1.overlayfs": "overlayfs",
++}
++
++func within(path, root string) bool {
++	return path == root || strings.HasPrefix(path, root+string(filepath.Separator))
++}
++func ValidatePaths(root, state string, configured map[string]string, containerdNoSync *bool) error {
++	if !filepath.IsAbs(root) || filepath.Clean(root) != root || root == "/" || !filepath.IsAbs(state) || filepath.Clean(state) != state || within(root, state) || within(state, root) {
++		return errors.New("durable metadata root must be distinct from volatile state")
++	}
++	if containerdNoSync == nil || *containerdNoSync {
++		return errors.New("containerd metadata no_sync must explicitly be false")
++	}
++	for plugin, subdir := range MetadataPaths {
++		if configured[plugin] != filepath.Join(root, subdir) {
++			return fmt.Errorf("durable metadata plugin path missing or conflicting: %s", plugin)
++		}
++	}
++	return nil
++}
++
++// CheckFilesystem uses lstat on every existing component; no symlink or nested
++// unsupported mount may redirect one database back onto volatile storage.
++func CheckFilesystem(root string, paths map[string]string) error {
++	info, err := os.Lstat(root)
++	if err != nil {
++		return err
++	}
++	if !info.IsDir() || info.Mode().Perm() != 0700 {
++		return errors.New("operator-created private durable root required")
++	}
++	if err = checkOwnedRoot(info); err != nil {
++		return err
++	}
++	for _, path := range append([]string{root}, mapValues(paths)...) {
++		current := path
++		for {
++			st, err := os.Lstat(current)
++			if os.IsNotExist(err) {
++				current = filepath.Dir(current)
++				continue
++			}
++			if err != nil {
++				return err
++			}
++			if st.Mode()&os.ModeSymlink != 0 || !st.IsDir() {
++				return errors.New("durable metadata path contains a symlink or non-directory")
++			}
++			if current == root || within(current, root) {
++				if err = checkXFS(current); err != nil {
++					return err
++				}
++			}
++			if current == "/" {
++				break
++			}
++			current = filepath.Dir(current)
++		}
++	}
++	return checkMetadataTree(root, checkXFS)
++}
++
++func checkMetadataTree(root string, checkMount func(string) error) error {
++	// The overlay index shares its root with snapshotter filesystem contents.
++	// Validate the snapshots directory itself, never traverse image/guest trees.
++	snapshotContents := filepath.Join(root, "overlayfs", "io.containerd.snapshotter.v1.overlayfs", "snapshots")
++	count := 0
++	return filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
++		if err != nil {
++			return err
++		}
++		count++
++		if count > 100000 {
++			return errors.New("durable metadata tree exceeds inspection bound")
++		}
++		if d.Type()&os.ModeSymlink != 0 {
++			return errors.New("symlink inside durable metadata tree")
++		}
++		if d.IsDir() {
++			if err = checkMount(path); err != nil {
++				return err
++			}
++			if path == snapshotContents {
++				return filepath.SkipDir
++			}
++		}
++		return nil
++	})
++}
++func mapValues(m map[string]string) []string {
++	v := make([]string, 0, len(m))
++	for _, x := range m {
++		v = append(v, x)
++	}
++	return v
++}
++
++// Never silently switch away from a prior node's identity DBs. Operators must
++// fence and escrow/reconcile old state offline, then use an empty legacy namespace.
++// This function does not copy, unlink, open Bolt databases or execute cleanup.
++func CheckLegacyState(state string) error {
++	// Do not descend into runtime task/rootfs mounts or parse tenant files.
++	// Only prior plugin metadata directories and top-level database files matter.
++	names := []string{"io.cubelet.internal.v1.cubebox", "io.cubelet.cubestore.v1.cubebox", "io.cubelet.cubemetastore.v1.mutilmeta", "io.cubelet.internal.v1.storage", "io.cubelet.internal.v1.volume", "io.cubelet.internal.v1.cgroup", "io.cubelet.internal.v1.network", "io.cubelet.internal.v1.images", "io.cubelet.internal.v1.cleanup", "io.cubelet.internal.v1.netfile", "io.containerd.metadata.v1.bolt", "io.containerd.snapshotter.v1.overlayfs", "meta.db", "metadata.db"}
++	count := 0
++	for _, name := range names {
++		candidate := filepath.Join(state, name)
++		if _, err := os.Lstat(candidate); os.IsNotExist(err) {
++			continue
++		} else if err != nil {
++			return err
++		}
++		err := filepath.WalkDir(candidate, func(path string, d os.DirEntry, err error) error {
++			if err != nil {
++				return err
++			}
++			count++
++			if count > 100000 {
++				return errors.New("legacy state exceeds bounded inspection")
++			}
++			if d.Type()&os.ModeSymlink != 0 {
++				return errors.New("legacy metadata symlink requires operator review")
++			}
++			if !d.IsDir() && (strings.HasSuffix(d.Name(), ".db") || strings.HasSuffix(d.Name(), ".db.lock")) {
++				return errors.New("legacy metadata exists; refuse implicit migration")
++			}
++			return nil
++		})
++		if err != nil {
++			return err
++		}
++	}
++	return nil
++}
+--- a/Cubelet/internal/durability/layout_test.go
++++ b/Cubelet/internal/durability/layout_test.go
+@@ -0,0 +1,99 @@
++package durability
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++)
++
++func TestEveryCriticalPluginMustBeExplicitAndOutsideVolatileState(t *testing.T) {
++	root := "/data/cubelet/persistent-metadata"
++	paths := map[string]string{}
++	for p, d := range MetadataPaths {
++		paths[p] = filepath.Join(root, d)
++	}
++	noSync := false
++	if err := ValidatePaths(root, "/data/cubelet/state", paths, &noSync); err != nil {
++		t.Fatal(err)
++	}
++	for p := range paths {
++		old := paths[p]
++		paths[p] = "/data/cubelet/state/legacy"
++		if ValidatePaths(root, "/data/cubelet/state", paths, &noSync) == nil {
++			t.Fatal(p)
++		}
++		paths[p] = old
++	}
++	for _, state := range []string{root, filepath.Dir(root), root + "/runtime"} {
++		if ValidatePaths(root, state, paths, &noSync) == nil {
++			t.Fatal("overlap accepted")
++		}
++	}
++	noSync = true
++	if ValidatePaths(root, "/data/cubelet/state", paths, &noSync) == nil {
++		t.Fatal("unsynced database accepted")
++	}
++	if ValidatePaths(root, "/data/cubelet/state", paths, nil) == nil {
++		t.Fatal("implicit unsafe default accepted")
++	}
++}
++func TestLegacyDatabaseAndSymlinkAreNeverMigratedOrDeleted(t *testing.T) {
++	dir := t.TempDir()
++	p := filepath.Join(dir, "io.cubelet.internal.v1.cubebox", "db")
++	os.MkdirAll(p, 0700)
++	file := filepath.Join(p, "meta.db")
++	os.WriteFile(file, []byte("retained acknowledged identities"), 0600)
++	if CheckLegacyState(dir) == nil {
++		t.Fatal("legacy metadata ignored")
++	}
++	b, err := os.ReadFile(file)
++	if err != nil || string(b) != "retained acknowledged identities" {
++		t.Fatal("source mutated")
++	}
++	os.Remove(file)
++	if err := CheckLegacyState(dir); err != nil {
++		t.Fatal(err)
++	}
++	os.Symlink(t.TempDir(), filepath.Join(p, "link"))
++	if CheckLegacyState(dir) == nil {
++		t.Fatal("symlink accepted")
++	}
++}
++func TestVolatileFilesystemRejected(t *testing.T) {
++	if _, err := os.Stat("/dev/shm"); err != nil {
++		t.Skip("Linux tmpfs required")
++	}
++	if checkXFS("/dev/shm") == nil {
++		t.Fatal("tmpfs accepted as durable")
++	}
++}
++
++func TestLegacyGuardDoesNotParseRuntimeGuestMounts(t *testing.T) {
++	root := t.TempDir()
++	runtime := filepath.Join(root, "io.containerd.runtime.v2.task", "default", "owned")
++	os.MkdirAll(runtime, 0700)
++	os.Symlink("/untrusted-guest-root", filepath.Join(runtime, "rootfs"))
++	if err := CheckLegacyState(root); err != nil {
++		t.Fatal(err)
++	}
++}
++
++func TestMetadataGuardDoesNotTraverseOverlaySnapshotContents(t *testing.T) {
++	root := t.TempDir()
++	snapshots := filepath.Join(root, "overlayfs", "io.containerd.snapshotter.v1.overlayfs", "snapshots")
++	if err := os.MkdirAll(filepath.Join(snapshots, "1", "fs"), 0700); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.Symlink("/not-inspected", filepath.Join(snapshots, "1", "fs", "image-link")); err != nil {
++		t.Fatal(err)
++	}
++	if err := checkMetadataTree(root, func(string) error { return nil }); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.Symlink("/wrong-index", filepath.Join(filepath.Dir(snapshots), "metadata.db")); err != nil {
++		t.Fatal(err)
++	}
++	if err := checkMetadataTree(root, func(string) error { return nil }); err == nil {
++		t.Fatal("metadata DB symlink accepted")
++	}
++}
+--- a/Cubelet/internal/durability/filesystem_linux.go
++++ b/Cubelet/internal/durability/filesystem_linux.go
+@@ -0,0 +1,26 @@
++// Copyright (c) 2026 Tencent Inc.
++// SPDX-License-Identifier: Apache-2.0
++package durability
++
++import (
++	"errors"
++	"os"
++	"syscall"
++)
++
++func checkOwnedRoot(info os.FileInfo) error {
++	if info.Sys().(*syscall.Stat_t).Uid != 0 {
++		return errors.New("durable root must be root-owned")
++	}
++	return nil
++}
++func checkXFS(path string) error {
++	var s syscall.Statfs_t
++	if err := syscall.Statfs(path, &s); err != nil {
++		return err
++	}
++	if uint64(s.Type) != 0x58465342 {
++		return errors.New("durable metadata requires verified XFS, never tmpfs/ramfs/overlay")
++	}
++	return nil
++}
+--- a/Cubelet/cmd/cubelet/durable_metadata.go
++++ b/Cubelet/cmd/cubelet/durable_metadata.go
+@@ -0,0 +1,41 @@
++// Copyright (c) 2026 Tencent Inc.
++// SPDX-License-Identifier: Apache-2.0
++package main
++
++import (
++	"context"
++	"github.com/tencentcloud/CubeSandbox/Cubelet/internal/durability"
++	srvconfig "github.com/tencentcloud/CubeSandbox/Cubelet/services/server/config"
++)
++
++func validateDurableMetadata(ctx context.Context, config *srvconfig.Config) error {
++	if config.DurableMetadataRoot == "" {
++		return nil
++	}
++	paths := map[string]string{}
++	var noSync *bool
++	for plugin := range durability.MetadataPaths {
++		var pc struct {
++			RootPath  string `toml:"root_path"`
++			StatePath string `toml:"state_path"`
++			NoSync    *bool  `toml:"no_sync"`
++		}
++		if _, err := config.Decode(ctx, plugin, &pc); err != nil {
++			return err
++		}
++		paths[plugin] = pc.RootPath
++		if plugin == "io.cubelet.internal.v1.images" {
++			paths[plugin] = pc.StatePath
++		}
++		if plugin == "io.containerd.metadata.v1.bolt" {
++			noSync = pc.NoSync
++		}
++	}
++	if err := durability.ValidatePaths(config.DurableMetadataRoot, config.State, paths, noSync); err != nil {
++		return err
++	}
++	if err := durability.CheckFilesystem(config.DurableMetadataRoot, paths); err != nil {
++		return err
++	}
++	return durability.CheckLegacyState(config.State)
++}
+--- a/Cubelet/cmd/cubelet/main.go
++++ b/Cubelet/cmd/cubelet/main.go
+@@ -356,6 +356,10 @@
+ 		err = setPidFile(config.PidFile)
+ 		if err != nil {
+ 			log.G(ctx).WithError(err).Warn("set pid file failed")
++		}
++
++		if err := validateDurableMetadata(ctx, config); err != nil {
++			return fmt.Errorf("durable metadata: %w", err)
+ 		}
+ 
+ 		if err := mountTmpfsDir(config.State, context); err != nil {
+--- a/Cubelet/pkg/utils/db.go
++++ b/Cubelet/pkg/utils/db.go
+@@ -12,13 +12,13 @@
+ 
+ func MakeBoltDBOption() *bolt.Options {
+ 	opt := &bolt.Options{
+-		NoGrowSync: true,
++		NoGrowSync: false,
+ 
+ 		NoFreelistSync: true,
+ 
+ 		FreelistType: bolt.FreelistMapType,
+ 
+-		NoSync:  true,
++		NoSync:  false,
+ 		Timeout: timeout.Get(constants.BoltOpenTimeout),
+ 	}
+ 	return opt
+--- a/Cubelet/pkg/utils/db_directory.go
++++ b/Cubelet/pkg/utils/db_directory.go
+@@ -0,0 +1,34 @@
++// Copyright (c) 2026 Tencent Inc.
++// SPDX-License-Identifier: Apache-2.0
++package utils
++
++import (
++	"os"
++	"path/filepath"
++)
++
++// A synced new Bolt file alone does not durably link newly created directories.
++// Sync ancestors before returning a database that may acknowledge tenant state.
++func syncDatabaseDirectory(file string) error {
++	absolute, err := filepath.Abs(file)
++	if err != nil {
++		return err
++	}
++	for dir := filepath.Dir(absolute); ; dir = filepath.Dir(dir) {
++		f, err := os.Open(dir)
++		if err != nil {
++			return err
++		}
++		err = f.Sync()
++		closeErr := f.Close()
++		if err != nil {
++			return err
++		}
++		if closeErr != nil {
++			return closeErr
++		}
++		if dir == filepath.Dir(dir) {
++			return nil
++		}
++	}
++}
+--- a/Cubelet/pkg/utils/db_directory_test.go
++++ b/Cubelet/pkg/utils/db_directory_test.go
+@@ -0,0 +1,29 @@
++package utils
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++)
++
++func TestSyncDirectoryFailsForMissingParent(t *testing.T) {
++	if syncDatabaseDirectory(filepath.Join(t.TempDir(), "absent", "db")) == nil {
++		t.Fatal("missing parent silently accepted")
++	}
++}
++func TestSyncDirectoryPreservesNestedPathAndContent(t *testing.T) {
++	path := filepath.Join(t.TempDir(), "new", "nested", "meta.db")
++	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(path, []byte("acknowledged"), 0600); err != nil {
++		t.Fatal(err)
++	}
++	if err := syncDatabaseDirectory(path); err != nil {
++		t.Fatal(err)
++	}
++	b, err := os.ReadFile(path)
++	if err != nil || string(b) != "acknowledged" {
++		t.Fatal("unexpected mutation")
++	}
++}
+--- a/Cubelet/pkg/utils/db_durable_test.go
++++ b/Cubelet/pkg/utils/db_durable_test.go
+@@ -0,0 +1,37 @@
++package utils
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++)
++
++func TestDurableDatabaseDefaultsAndAcknowledgedReopen(t *testing.T) {
++	opts := MakeBoltDBOption()
++	if opts.NoSync || opts.NoGrowSync {
++		t.Fatal("metadata acknowledgements must sync data and growth")
++	}
++	dir := filepath.Join(t.TempDir(), "new", "nested")
++	if err := os.MkdirAll(dir, 0700); err != nil {
++		t.Fatal(err)
++	}
++	db, err := NewCubeStoreExt(dir, "meta.db", 2, nil)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if err = db.SetWithTx("sandbox/v1", "owned", []byte("latest-current-disk-binding"), nil); err != nil {
++		t.Fatal(err)
++	}
++	if err = db.Close(); err != nil {
++		t.Fatal(err)
++	}
++	db, err = NewCubeStoreExt(dir, "meta.db", 2, nil)
++	if err != nil {
++		t.Fatal(err)
++	}
++	defer db.Close()
++	values, err := db.ReadAll("sandbox/v1")
++	if err != nil || string(values["owned"]) != "latest-current-disk-binding" {
++		t.Fatal("acknowledged metadata absent", err)
++	}
++}
+--- a/Cubelet/pkg/utils/localstorage.go
++++ b/Cubelet/pkg/utils/localstorage.go
+@@ -50,6 +50,13 @@
+ 		if err != nil {
+ 			return nil, fmt.Errorf("open bolt db %s failed: %s", dbfile, err.Error())
+ 		}
++		if !opts.NoSync {
++			if err := syncDatabaseDirectory(dbfile); err != nil {
++				_ = db.Close()
++				_ = cs.Close()
++				return nil, fmt.Errorf("sync database directory: %w", err)
++			}
++		}
+ 		cs.indexMap[i] = db
+ 		begin += 1
+ 	}
+@@ -64,6 +71,12 @@
+ 	if err != nil {
+ 		return nil, err
+ 	}
++	if !opts.NoSync {
++		if err := syncDatabaseDirectory(path); err != nil {
++			_ = db.Close()
++			return nil, fmt.Errorf("sync database directory: %w", err)
++		}
++	}
+ 	return &CubeStore{db: db}, nil
+ }
+ 
+--- a/Cubelet/services/server/config/config.go
++++ b/Cubelet/services/server/config/config.go
+@@ -44,6 +44,8 @@
+ 	*srvconfig.Config `toml:",inline"`
+ 
+ 	PidFile string `toml:"pid_file"`
++
++	DurableMetadataRoot string `toml:"durable_metadata_root"`
+ 
+ 	HttpConfig HttpConfig `toml:"http"`
+ 

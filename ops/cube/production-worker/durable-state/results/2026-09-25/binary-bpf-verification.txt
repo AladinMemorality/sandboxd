@@ -1,0 +1,6 @@
+cubelet-candidate: mvmtap_x86_bpfel.o exact bytes present
+cubelet-candidate: nodenic_x86_bpfel.o exact bytes present
+cubelet-candidate: localgw_x86_bpfel.o exact bytes present
+cubelet: mvmtap_x86_bpfel.o exact bytes present
+cubelet: nodenic_x86_bpfel.o exact bytes present
+cubelet: localgw_x86_bpfel.o exact bytes present
