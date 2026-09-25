@@ -9,12 +9,19 @@ class CandidateTest(unittest.TestCase):
   self.stop={'controller_id':m.CP,'worker_boot_id':m.BOOT,'api_key':'fixture-private-key','admission':{'max_active':4,'writable_disk_mb':10240,'storage_guard':{'expected_boot_id':m.BOOT},'templates':{r['template_id']:{} for r in self.templates}}}
   self.relays={n:{'image':m.RELAY,'network_mode':'service:sandboxd','read_only':True} for n in ['cube-management-api','cube-management-proxy']}
  def render(self,**changes):
-  d=copy.deepcopy(self.d);d.update(changes);return m.render({'services':{'sandboxd':{'environment':{'EXISTING':'keep'}}}}, {'services':{'sandboxd':{'environment':{'SANDBOXD_CUBE_ENABLED':'false'}},'unrelated':{'image':'untouched'}}},d,self.stop,self.templates,self.relays)
+  d=copy.deepcopy(self.d);d.update(changes);return m.render({'services':{'sandboxd':{'environment':{'EXISTING':'keep','SANDBOXD_PREVIEW_TOKEN_SECRETS':'fixture='+'a'*32}}}}, {'services':{'sandboxd':{'environment':{'SANDBOXD_CUBE_ENABLED':'false'}},'unrelated':{'image':'untouched'}}},d,self.stop,self.templates,self.relays)
  def test_exact_canary_and_preserved_unrelated_state(self):
   before=copy.deepcopy(self.stop);out,active,env=self.render()
   self.assertEqual(env['SANDBOXD_CUBE_APP_IDS'],self.d['app_id']);self.assertEqual(env['SANDBOXD_CUBE_ROLLOUT'],'allowlist');self.assertEqual(env['SANDBOXD_CUBE_EGRESS_ALLOW_DOMAINS'],'');self.assertEqual(env['SANDBOXD_CUBE_APP_HTTP_SERVICES'],'{}')
   self.assertEqual(active['services']['sandboxd']['environment']['SANDBOXD_CUBE_ENABLED'],'true');self.assertEqual(active['services']['unrelated'],{'image':'untouched'});self.assertEqual(out['services']['sandboxd']['environment']['EXISTING'],'keep');self.assertEqual(self.stop,before)
   self.assertTrue(out['services']['sandboxd']['volumes'][0]['read_only']);self.assertFalse(out['services']['sandboxd']['volumes'][0]['bind']['create_host_path'])
+ def test_missing_or_malformed_preview_secret_refused(self):
+  for raw in ['', 'v1=', 'v1=short', 'bad', 'v1='+'a'*32+',v1='+'a'*32]:
+   with self.subTest(length=len(raw)),self.assertRaisesRegex(ValueError,'preview signing'):
+    m.render({}, {}, self.d, self.stop, self.templates, self.relays, preview_secrets=raw)
+  out,active,values=m.render({}, {}, self.d, self.stop, self.templates, self.relays, preview_secrets='fixture='+'a'*32)
+  self.assertEqual(out['services']['sandboxd']['environment']['SANDBOXD_PREVIEW_TOKEN_SECRETS'],values['SANDBOXD_PREVIEW_TOKEN_SECRETS'])
+  self.assertEqual(active['services']['sandboxd']['environment']['SANDBOXD_PREVIEW_TOKEN_SECRETS'],values['SANDBOXD_PREVIEW_TOKEN_SECRETS'])
  def test_actual_preset_go_ids(self):
   ids=set(re.findall(r'ID: "([a-z-]+)"',(ROOT/'control-plane/internal/preset/preset.go').read_text()))
   self.assertEqual(ids,{r['preset'] for r in self.templates})

@@ -16,7 +16,7 @@ import time
 
 LOCKS = ('/opt/baarcha/deploy-release.lock', '/opt/sandboxd/deploy-state/deploy.lock',
          '/run/lock/cube-operator-acceptance.lock', '/opt/baarcha-bench/cube-workload-operator.lock')
-ACTIONS = ('prepare', 'resume-rejected-app', 'create', 'fund', 'task', 'complete-timed-out-task', 'verify', 'inspect')
+ACTIONS = ('prepare', 'resume-rejected-app', 'create', 'fund', 'task', 'complete-timed-out-task', 'complete-after-credit', 'verify', 'inspect')
 
 
 def private(p):

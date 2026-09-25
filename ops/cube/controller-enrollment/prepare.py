@@ -27,7 +27,17 @@ def validate_app(db,d):
  need(row==('node-postgres',d['external_user_id'],d['external_project_id']),'owned synthetic app identity/preset differs')
  need(db.execute('SELECT count(*) FROM sandbox WHERE app_id=?',(d['app_id'],)).fetchone()[0]==0,'fixture already has a sandbox')
  need(db.execute('SELECT count(*) FROM runtime_binding').fetchone()[0]==0,'existing canonical Cube binding')
-def render(existing,active,d,stop,templates,relays):
+def valid_preview_secrets(raw):
+ if not isinstance(raw,str) or not raw or len(raw.encode())>8192:return False
+ parts=raw.split(',');seen=set()
+ if len(parts)>8:return False
+ for part in parts:
+  kid,sep,secret=part.strip().partition('=');kid=kid.strip();secret=secret.strip()
+  if not sep or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}',kid) or kid in seen or not 32<=len(secret.encode())<=1024 or any(ord(c)<33 or ord(c)>126 for c in secret):return False
+  seen.add(kid)
+ return True
+
+def render(existing,active,d,stop,templates,relays,preview_secrets=None):
  decision_valid(d)
  need(stop['controller_id']==CP and stop['worker_boot_id']==BOOT,'stop generation differs')
  need(stop['admission']['max_active']==4 and stop['admission']['writable_disk_mb']==10240 and stop['admission']['storage_guard']['expected_boot_id']==BOOT,'guarded four-slot profile required')
@@ -36,7 +46,10 @@ def render(existing,active,d,stop,templates,relays):
  for r in templates:need(r['state']=='READY' and r['cpu']==2 and r['memory_mb']==2048 and r['writable_layer']=='10Gi' and r['deny_out']==['0.0.0.0/0'],'template contract differs')
  out=copy.deepcopy(existing);svc=out.setdefault('services',{});controller=svc.setdefault('sandboxd',{})
  env=controller.setdefault('environment',{});need(isinstance(env,dict),'mapping environment required')
+ if preview_secrets is None:preview_secrets=active.get('services',{}).get('sandboxd',{}).get('environment',{}).get('SANDBOXD_PREVIEW_TOKEN_SECRETS',env.get('SANDBOXD_PREVIEW_TOKEN_SECRETS',''))
+ need(valid_preview_secrets(preview_secrets),'valid existing Cube preview signing configuration required')
  values={'SANDBOXD_CUBE_ENABLED':'true','SANDBOXD_CUBE_ROLLOUT':'allowlist','SANDBOXD_CUBE_APP_IDS':d['app_id'],'SANDBOXD_CUBE_API_URL':'http://127.0.0.1:20300','SANDBOXD_CUBE_PROXY_URL':'http://127.0.0.1:20080','SANDBOXD_CUBE_API_KEY':stop['api_key'],'SANDBOXD_CUBE_DOMAIN':'cube.app','SANDBOXD_CUBE_TEMPLATES':json.dumps(ids,separators=(',',':')),'SANDBOXD_CUBE_ADMISSION':json.dumps(stop['admission'],separators=(',',':')),'SANDBOXD_CUBE_EGRESS_ALLOW_DOMAINS':'','SANDBOXD_CUBE_AGENT_RELAY_ORIGIN':'https://cube-model.baarcha.tn','SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED':'true','SANDBOXD_CUBE_REVERSE_EGRESS':'true','SANDBOXD_CUBE_EGRESS_CLIENT_PROFILE':'proxy-http-v1','SANDBOXD_CUBE_BRIDGE_URL':'https://baarcha.tn/api/bridge','SANDBOXD_CUBE_EGRESS_PROTECTED_CIDRS':'65.108.225.153/32,104.21.33.103/32,172.67.189.206/32,104.21.18.94/32,172.67.181.138/32','SANDBOXD_CUBE_EGRESS_PROTECTED_DOMAINS':'baarcha.tn,cube-model.baarcha.tn,hh1.dovisual.com,bp.tn,cube.app,preview.65.108.225.153.sslip.io','SANDBOXD_CUBE_APP_HTTP_SERVICES':'{}'}
+ values['SANDBOXD_PREVIEW_TOKEN_SECRETS']=preview_secrets
  env.update(values);controller['image']=IMAGE
  volumes=controller.setdefault('volumes',[])
  need(all(isinstance(v,dict) and v.get('target')!='/run/sandboxd-cube-storage' for v in volumes),'existing storage mount needs explicit review')
@@ -70,7 +83,7 @@ def main():
   env=os.environ.copy();env.update(CUBE_MANAGEMENT_RELAY_IMAGE=RELAY,CUBE_MANAGEMENT_GID='982')
   base=['docker','compose','-p','src','--env-file',str(SRC/'.env'),'-f',str(SRC/'docker-compose.yml')]
   resolved=json.loads(subprocess.check_output(base+['-f',str(relay),'config','--format','json'],env=env))
-  out,new_active,values=render(existing,active,d,stop,json.loads(tp.read_text()),resolved['services'])
+  out,new_active,values=render(existing,active,d,stop,json.loads(tp.read_text()),resolved['services'],preview_secrets=active.get('services',{}).get('sandboxd',{}).get('environment',{}).get('SANDBOXD_PREVIEW_TOKEN_SECRETS',existing.get('services',{}).get('sandboxd',{}).get('environment',{}).get('SANDBOXD_PREVIEW_TOKEN_SECRETS',live.get('SANDBOXD_PREVIEW_TOKEN_SECRETS',''))))
   inventory=json.loads(subprocess.check_output(['ip','-j','address','show','scope','global'],text=True));denies=set(values['SANDBOXD_CUBE_EGRESS_PROTECTED_CIDRS'].split(','));dns={}
   for interface in inventory:
    for address in interface.get('addr_info',[]):

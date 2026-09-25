@@ -44,6 +44,60 @@ test('lost continuation acknowledgement retains completion intent and never repl
   try{await assert.rejects(f.completeTimedOutTask());assert.equal(j.pending.name,'completion_task');await assert.rejects(f.completeTimedOutTask());assert.equal(posts.length,1);}finally{if(old===undefined)delete process.env.BRIDGE_PUBLIC_URL;else process.env.BRIDGE_PUBLIC_URL=old;}
 });
 
+function creditFixture() {
+  const state=timeoutFixture(),{f,j,posts}=state;
+  j.timeout_reconciled={failed_task:{...state.failed}};
+  j.task='01M3D30ENCD5BWQK4WN4DGV371';j.pending={name:'completion_task',at:'2026-09-25T20:09:48.819Z'};
+  const failed={id:j.task,status:'failed',failure_reason:'agent_error',checkpoint_id:'8c755391b2f3981b1c33f410654152716bddbb32',error_message:'Your AI credit is used up'};
+  const grants=[{ref:`grant:operator:cube-recovery:${j.run}`,millimes:1000}],writes=[];
+  const control={line:{waitlist_id:103,millimes:4000,kind:'grant'},bridge:{token:'a'.repeat(64),waitlist_id:103}};
+  f.sql={begin:async fn=>fn(async(strings,...values)=>{
+    const q=strings.join('');
+    if(q.includes('SELECT id FROM waitlist'))return[{id:103}];
+    if(q.includes('FROM bridge_token'))return[control.bridge];
+    if(q.includes('SELECT ref,millimes'))return grants;
+    if(q.includes('INSERT INTO credit_ledger')){writes.push(values);return[];}
+    if(q.includes('SELECT waitlist_id,millimes'))return[control.line];
+    assert.fail('Unexpected SQL');
+  })};
+  f.rt=async(route,opts={})=>{
+    if(route.endsWith('/tasks')&&opts.method==='POST'){posts.push(opts.body);return{id:task};}
+    if(route.endsWith('/tasks'))return{tasks:[j.timeout_reconciled.failed_task,failed]};
+    if(route.endsWith('/'+failed.id))return failed;
+    return{id:task,status:'succeeded',checkpoint_id:'new-checkpoint'};
+  };
+  return{f,j,posts,failed,grants,writes,control};
+}
+async function withBridge(fn) {
+  const old=process.env.BRIDGE_PUBLIC_URL;process.env.BRIDGE_PUBLIC_URL='https://baarcha.tn/api/bridge';
+  try{return await fn();}finally{if(old===undefined)delete process.env.BRIDGE_PUBLIC_URL;else process.env.BRIDGE_PUBLIC_URL=old;}
+}
+test('credit completion journals exact synthetic grant and preserves both failed tasks',()=>withBridge(async()=>{
+  const {f,j,posts,writes}=creditFixture();const saved=[];f.persist=async()=>saved.push(structuredClone(j));
+  await f.completeAfterCredit();assert.equal(writes.length,1);assert.equal(posts.length,1);assert.equal(posts[0].timeout_s,300);
+  assert.equal(saved[0].credit_grant_intent.millimes,4000);assert.equal(saved[0].pending.name,'completion_task');
+  assert.equal(j.credit_reconciled.total_grant_millimes,5000);assert.equal(j.credit_reconciled.failed_task.failure_reason,'agent_error');
+  assert.equal(j.done.task.prior_failed_tasks.length,2);assert.equal(j.done.task.result.status,'succeeded');assert(!j.pending);
+  await assert.rejects(f.completeAfterCredit());assert.equal(writes.length,1);assert.equal(posts.length,1);
+}));
+test('credit completion rejects wrong terminal proof, extra grants and foreign bridge before grant',()=>withBridge(async()=>{
+  for(const change of [{status:'running'},{checkpoint_id:'wrong'},{error_message:'different failure'}]){
+    const {f,failed,writes,posts}=creditFixture();Object.assign(failed,change);await assert.rejects(f.completeAfterCredit());assert.equal(writes.length,0);assert.equal(posts.length,0);
+  }
+  for(const mutate of [s=>s.grants.push({ref:'unreviewed',millimes:1}),s=>s.grants.splice(0),s=>s.control.bridge.waitlist_id=104]){
+    const s=creditFixture();mutate(s);await assert.rejects(s.f.completeAfterCredit());assert.equal(s.writes.length,0);assert.equal(s.posts.length,0);
+  }
+}));
+test('credit completion recognizes exact committed grant after interrupted journal, rejects collision',()=>withBridge(async()=>{
+  const s=creditFixture();s.grants.push({ref:`grant:operator:cube-recovery:${s.j.run}:completion`,millimes:4000});await s.f.completeAfterCredit();assert.equal(s.posts.length,1);
+  const bad=creditFixture();bad.control.line.waitlist_id=104;await assert.rejects(bad.f.completeAfterCredit(),/collision/);assert.equal(bad.posts.length,0);assert.equal(bad.j.pending.name,'completion_task');
+}));
+test('credit completion lost task response retains intent and refuses another grant or task',()=>withBridge(async()=>{
+  const s=creditFixture(),rt=s.f.rt;s.f.rt=async(route,opts)=>{if(opts?.method==='POST'){s.posts.push(opts.body);throw Error('lost response');}return rt(route,opts);};
+  await assert.rejects(s.f.completeAfterCredit());assert.equal(s.j.pending.name,'credited_completion_task');
+  await assert.rejects(s.f.completeAfterCredit());assert.equal(s.writes.length,1);assert.equal(s.posts.length,1);
+}));
+
 test('config refuses uncontrolled stage, credit, app IDs and missing binary pins',()=>{
   assert.deepEqual(validateConfig({...config}),config);
 });

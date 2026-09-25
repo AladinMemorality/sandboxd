@@ -23,9 +23,10 @@ import (
 // Reverse egress is an explicit deployment option. It adds no guest NIC
 // allowance: public destinations and fixed services use host-initiated channels.
 type CubeEgressConfig struct {
-	Policy          egress.Policy
-	BridgeURL       string
-	AppHTTPServices map[string][]egress.HTTPService
+	Policy            egress.Policy
+	BridgeURL         string
+	AppHTTPServices   map[string][]egress.HTTPService
+	MotionStudioAppID string
 }
 
 type cubeEgressSession struct {
@@ -42,6 +43,7 @@ type cubeEgressManager struct {
 	config   CubeEgressConfig
 	mu       sync.Mutex
 	sessions map[string]*cubeEgressSession
+	motion   *egress.MotionStudio
 }
 
 // ConfigureCubeEgress runs before reconciliation/admission. No background work
@@ -88,7 +90,14 @@ func (s *Server) ConfigureCubeEgress(ctx context.Context, cfg CubeEgressConfig) 
 	if err != nil {
 		return err
 	}
-	s.cubeEgress = &cubeEgressManager{ctx: ctx, config: cfg, sessions: make(map[string]*cubeEgressSession)}
+	var motion *egress.MotionStudio
+	if cfg.MotionStudioAppID != "" {
+		motion, err = egress.NewMotionStudio(cfg.MotionStudioAppID, s.authorizeCubeMotionStudio)
+		if err != nil {
+			return err
+		}
+	}
+	s.cubeEgress = &cubeEgressManager{ctx: ctx, config: cfg, sessions: make(map[string]*cubeEgressSession), motion: motion}
 	return nil
 }
 
@@ -203,7 +212,7 @@ func (s *Server) runCubeEgress(ctx context.Context, id, runtimeID string, entry 
 			entry.mu.Unlock()
 			_ = egress.RunHost(channelCtx, conn, egress.HostOptions{
 				Identity: egress.Identity{SandboxID: id, Generation: entry.generation}, Policy: m.config.Policy,
-				Services:     map[string]http.Handler{"model": s.cubeEgressModelHandler(), "bridge": http.HandlerFunc(s.cubeEgressBridge)},
+				Services:     s.cubeNamedServices(),
 				HTTPServices: s.cubeAppHTTPServices(channelCtx, id, entry.generation),
 			})
 			cancel()

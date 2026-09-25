@@ -38,7 +38,7 @@ class Locks(unittest.TestCase):
             with patch.object(m.os,'fstat',return_value=type('Stat',(),{'st_mode':stat.S_IFREG|0o600,'st_uid':uid,'st_nlink':nlink})()):
                 with self.assertRaises(ValueError):m.acquire((str(self.path),))
     def test_exact_supported_actions_do_not_include_recovery_deletion(self):
-        self.assertEqual(m.ACTIONS,('prepare','resume-rejected-app','create','fund','task','complete-timed-out-task','verify','inspect'))
+        self.assertEqual(m.ACTIONS,('prepare','resume-rejected-app','create','fund','task','complete-timed-out-task','complete-after-credit','verify','inspect'))
         self.assertNotIn('cleanup',m.ACTIONS)
 
 if __name__=='__main__':unittest.main()

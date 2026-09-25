@@ -1,0 +1,95 @@
+{
+  "date": "2026-09-25",
+  "scope": "Source integration; no Motion worker/template/controller activation",
+  "source_sha256": {
+    "control-plane/cmd/cube-migrate/main.go": "911444eef28c4fd680713158eb8d9bf102d0c92b0c6b0bd14f1f8ced8c90a535",
+    "control-plane/cmd/runtimed/cube_egress.go": "edd66cbfaf9705e4e32c0d2f036be123626aefcb3246cc750302fb465639abf4",
+    "control-plane/cmd/runtimed/cube_egress_test.go": "0adf993cbb8d5afc187123577f7c48b195ae676e07c2d2ecbb68295a77ceee34",
+    "control-plane/cmd/runtimed/main.go": "f1ad166f56cc22ae5e9febf5d38b5c98e3b07dea48774b4e5f52125b1f383fa6",
+    "control-plane/cmd/sandboxd/cube_config.go": "19e7332fc3944a27e576942ff22fd89f4dd6f68166c73401627c71d80302b3ce",
+    "control-plane/cmd/sandboxd/cube_config_test.go": "2bc0f1c669e3cdf384aa502708c25c4a3db7dcb4ebe00f4ef0bae90383f44059",
+    "control-plane/cmd/sandboxd/cube_reverse_config.go": "42d6951f78662b8643ac1f793916e2cb8ba102fbbd0b376df2aeec16ac90a2e8",
+    "control-plane/cmd/sandboxd/main.go": "2003db83e29c270a80ec681b2eae84fcb52a0c55261b82b2bb2fdf7409e45246",
+    "control-plane/internal/api/cube_config_remote.go": "a957ae6987cc24fb07038c20a1cccf5eb4306e415225d787e3676546d976b3e1",
+    "control-plane/internal/api/cube_egress.go": "24c20c1e3df2f55053dedeb982d0a6c0aeeda767d15bb35259310f108573130b",
+    "control-plane/internal/api/cube_motion_studio.go": "60877d4eb38b03ba8805df7ffbc763bac8d3d761cc1e12314933347d4e9bbf50",
+    "control-plane/internal/api/cube_motion_studio_test.go": "fe6585d00a11920a745c3ba1cb6cb2b80d12ad198ae66b1e3a88d07815a646c4",
+    "control-plane/internal/auth/preview_config.go": "fe6af5e49f484538060f78a95d9c2b952b77931f69cca36f971cae7868297780",
+    "control-plane/internal/auth/preview_config_test.go": "fb612504f183092c045842ee0da9fb5dc0c5a8c3c0743c51d9a119f7f93e8560",
+    "control-plane/internal/egress/channel.go": "a3c443b82c54e3c61513b0d44ffdf60b8a10c769cdfdec543b4a4be943b6be2d",
+    "control-plane/internal/egress/protocol.go": "fa25b5e08ed7c71b7600c6b5e0b5042529d72a46938eea4385392ec0614d51ca",
+    "control-plane/internal/egress/proxy.go": "5171424bd73f82ee063f6ff14ee718c1954af88c78206fe9a3b7149ab6d601fa",
+    "control-plane/internal/egress/motion_studio.go": "331df8e9b7c1e9acd2559f6bec37b9b14688eacce95b8a5eed0fab94910c8c16",
+    "control-plane/internal/egress/motion_studio_test.go": "f088833a48171c0176f4ce362649fac35cc52d043a3c89b8cfb672314b348ed4",
+    "control-plane/internal/migration/backend_linux.go": "091631457140199300efbd9ac87e4dc89984995ed30dbcd3c521169ef1966e2d",
+    "control-plane/internal/migration/broker.go": "3e72ea769c5f8fa2aeb9ed1ff16c26a14f4e55505cd46c9004f5801e9b820338",
+    "control-plane/internal/migration/broker_motion.go": "e6f3a72bba253e659215749328cdd5a1db4e6a9214c4e17b0895a492e677118e",
+    "control-plane/internal/migration/broker_motion_test.go": "e8b85f9cbe2e1ac5670e9a13642252669a47441e877203713fbb8059b594e3fc",
+    "control-plane/internal/runtime/protocol.go": "d73c7c3fd2ae04c772d44395f7161c25160fddacc1cf10055fea18b1dccabd78",
+    "control-plane/internal/runtime/motion_config.go": "81d47974521872839190fba72a44a82fb2e054a0795608389db0d07bba538369",
+    "control-plane/internal/runtime/motion_config_test.go": "53685a309452b3994216d695c4cded383aa7176c5e40367ff00d1d3ae3e5f432",
+    "ops/cube/controller-cutover/run.py": "acbac495488f47e329fa5749a6f2224838663ef7c9dbc99e4f0d9576a9c09f47",
+    "ops/cube/controller-cutover/test_run.py": "0dcd0da9d6dc079b6feff044347d2274981b1dd5cf6d5e3069026f202558a736",
+    "ops/cube/controller-enrollment/prepare.py": "cacdd2a44162f30be3ce6983981916ab46700ccc71ed595903745e8d5b027932",
+    "ops/cube/controller-enrollment/test_prepare.py": "7c89d8e820b6837b662f4442849d2654735f86a049e896017a2048ddb65a6892",
+    "ops/cube/motion-studio/README.md": "51745a68e7db7375fe19d4565d559bd615ab45904ac24a60fb3c02026ad578e8"
+  },
+  "linux_r2": {
+    "source_archive_sha256": "fd9f654e384322d7608bb5f6de82cfb7edbb13c870afe3ad5259d39652d2d0c6",
+    "source_manifest_sha256": "2e52f517dd21276cfb8d4b17555ac008acb79bba56da931577e6c0524097a35a",
+    "race_packages": [
+      "internal/auth",
+      "internal/egress",
+      "internal/api",
+      "internal/runtime",
+      "internal/store",
+      "internal/migration",
+      "cmd/runtimed",
+      "cmd/sandboxd",
+      "cmd/cube-migrate"
+    ],
+    "result": "PASS",
+    "known_seconds": {
+      "internal/api": 36.169,
+      "internal/migration": 2.893,
+      "internal/store": 2.639,
+      "cmd/cube-migrate": 1.045
+    },
+    "full_log": "docs/security/file-api-2026-09-25/compatibility-race-tests.txt"
+  },
+  "linux_r3": {
+    "source_archive_sha256": "8a6bcbe3277c276891fc83ec464796226f0c1295804ba3f39ab70d33fac0c841",
+    "race_packages": [
+      "internal/egress",
+      "internal/store"
+    ],
+    "result": "PASS",
+    "seconds": {
+      "internal/egress": 30.394,
+      "internal/store": 2.584
+    },
+    "includes": "Motion HEAD media metadata fix",
+    "full_log": "ops/cube/workload/staged-native-tests-2026-09-25.txt"
+  },
+  "local_final": {
+    "egress_race": "PASS 23.926s",
+    "includes": "RFC5987 decoded filename control rejection after r3",
+    "linux_egress_crosscompile": "PASS CGO_ENABLED=0; not Linux execution",
+    "python_cutover_tests": 11,
+    "python_renderer_tests": 6,
+    "python_result": "PASS"
+  },
+  "reproductions": {
+    "HEAD": "Actual named reverse channel returned200 but ContentLength=-1 instead of37; regression now verifies37 and empty body.",
+    "filename": "RFC5987 encoded CR/LF emitted257 MIME bytes with nil error; regression now rejects decoded CR/LF/NUL/TAB/DEL before forwarded bytes."
+  },
+  "resource_scope": {
+    "linux": "One sequential isolated Docker test container at a time, network none,2CPU/2GiB,tmpfs512MiB; no production environment/mounts/guest calls",
+    "cleanup": "Shared test owner reports units inactive and --rm containers absent"
+  },
+  "limitations": [
+    "Final pure MIME control rejection executed under local full egress race and Linux crosscompile; hosted exact-tree CI still required.",
+    "Existing eight templates do not advertise motion-worker-v1; new reviewed template and owned-film HTTP/upload/playback acceptance remain required.",
+    "Online supervisor/config and offline journal transport fixtures are synthetic; no real Motion migration or performance claim."
+  ]
+}

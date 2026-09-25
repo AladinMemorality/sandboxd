@@ -62,7 +62,7 @@ func RunHost(ctx context.Context, conn *websocket.Conn, opts HostOptions) error 
 	opts.Policy.Ports = append([]uint16(nil), opts.Policy.Ports...)
 	services := make(map[string]http.Handler, len(opts.Services))
 	for k, v := range opts.Services {
-		if k != "model" && k != "bridge" {
+		if k != "model" && k != "bridge" && k != "motion" {
 			conn.Close()
 			return errors.New("unknown fixed service")
 		}
@@ -159,7 +159,11 @@ func RunHost(ctx context.Context, conn *websocket.Conn, opts HostOptions) error 
 			if s.send(frame{Type: "opened", ID: st.id}) != nil {
 				return
 			}
-			serveFixed(streamCtx, st, f.Kind, opts.Identity, h)
+			if f.Kind == "motion" {
+				serveHTTPCallbackLimit(streamCtx, st, opts.Identity, h, func(r *http.Request) bool { _, _, allowed := motionRoute(r); return allowed }, MotionStudioWireLimit, []string{"Range"})
+			} else {
+				serveFixed(streamCtx, st, f.Kind, opts.Identity, h)
+			}
 		}
 		// EOF is distinct from cancellation. Retain the bounded stream until the
 		// receiver drains its buffered response and acknowledges by closing it.
@@ -274,6 +278,10 @@ const maxServiceHeaders = 16 << 10
 const maxServiceBody = 16 << 20
 
 func readServiceRequest(st *stream) (*http.Request, error) {
+	return readServiceRequestLimit(st, maxServiceBody)
+}
+
+func readServiceRequestLimit(st *stream, bodyLimit int64) (*http.Request, error) {
 	br := bufio.NewReaderSize(st, maxServiceHeaders)
 	var header bytes.Buffer
 	for {
@@ -293,10 +301,10 @@ func readServiceRequest(st *stream) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
-	if r.ContentLength > maxServiceBody {
+	if r.ContentLength > bodyLimit {
 		return nil, errors.New("request body too large")
 	}
-	r.Body = http.MaxBytesReader(nil, r.Body, maxServiceBody)
+	r.Body = http.MaxBytesReader(nil, r.Body, bodyLimit)
 	return r, nil
 }
 func validFixedPath(r *http.Request, kind string, id Identity) bool {
@@ -330,6 +338,10 @@ func serveFixed(ctx context.Context, st *stream, kind string, id Identity, h htt
 }
 
 func serveHTTPCallback(ctx context.Context, st *stream, id Identity, h http.Handler, valid func(*http.Request) bool) {
+	serveHTTPCallbackLimit(ctx, st, id, h, valid, maxServiceBody, nil)
+}
+
+func serveHTTPCallbackLimit(ctx context.Context, st *stream, id Identity, h http.Handler, valid func(*http.Request) bool, bodyLimit int64, extraHeaders []string) {
 	out := &streamResponse{stream: st, header: make(http.Header)}
 	defer func() {
 		if recover() != nil {
@@ -339,17 +351,25 @@ func serveHTTPCallback(ctx context.Context, st *stream, id Identity, h http.Hand
 		out.finish()
 		_ = st.CloseWrite()
 	}()
-	r, err := readServiceRequest(st)
+	r, err := readServiceRequestLimit(st, bodyLimit)
 	if err != nil {
 		http.Error(out, "invalid service request", 400)
 		return
 	}
+	// Only the Motion capability admits HEAD. Preserve bounded upstream media
+	// metadata without chunk framing or a response body for this method.
+	out.head = bodyLimit == MotionStudioWireLimit && r.Method == http.MethodHead
 	if !valid(r) {
 		http.Error(out, "service request denied", 403)
 		return
 	}
+	if bodyLimit == MotionStudioWireLimit {
+		// A rejected/aborted large upload must not synchronously drain an
+		// untrusted unfinished HTTP body while its sender waits for a response.
+		r.Body = &motionStreamBody{body: r.Body, stream: st, length: r.ContentLength}
+	}
 	clean := make(http.Header)
-	for _, name := range []string{"Content-Type", "Accept", "X-Api-Key", "X-Baarcha-Bridge", "Authorization", "Anthropic-Version", "Anthropic-Beta"} {
+	for _, name := range append([]string{"Content-Type", "Accept", "X-Api-Key", "X-Baarcha-Bridge", "Authorization", "Anthropic-Version", "Anthropic-Beta"}, extraHeaders...) {
 		if values := r.Header.Values(name); len(values) > 0 {
 			clean[name] = append([]string(nil), values...)
 		}
@@ -366,6 +386,7 @@ type streamResponse struct {
 	stream  *stream
 	header  http.Header
 	written bool
+	head    bool
 	err     error
 }
 
@@ -380,8 +401,10 @@ func (w *streamResponse) WriteHeader(status int) {
 	}
 	h := w.header.Clone()
 	stripHopHeaders(h)
-	h.Del("Content-Length")
-	h.Set("Transfer-Encoding", "chunked")
+	if !w.head {
+		h.Del("Content-Length")
+		h.Set("Transfer-Encoding", "chunked")
+	}
 	h.Set("Connection", "close")
 	var b bytes.Buffer
 	fmt.Fprintf(&b, "HTTP/1.1 %d %s\r\n", status, http.StatusText(status))
@@ -404,6 +427,9 @@ func (w *streamResponse) Write(p []byte) (int, error) {
 	}
 	if w.err != nil {
 		return 0, w.err
+	}
+	if w.head {
+		return len(p), nil
 	}
 	if len(p) == 0 {
 		return 0, nil
@@ -428,7 +454,7 @@ func (w *streamResponse) finish() {
 	if !w.written {
 		w.WriteHeader(200)
 	}
-	if w.err == nil {
+	if w.err == nil && !w.head {
 		_, w.err = io.WriteString(w.stream, "0\r\n\r\n")
 	}
 }

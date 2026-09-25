@@ -89,9 +89,14 @@ func cubeProxyHandler(guest *egress.Guest) http.Handler {
 	})
 	mux.Handle("/", guest.ProxyHandler())
 	proxy := guest.ProxyHandler()
+	motion := http.StripPrefix("/__cube/motion", guest.ServiceHandler("motion"))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodConnect || r.URL.IsAbs() {
 			proxy.ServeHTTP(w, r)
+			return
+		}
+		if strings.HasPrefix(r.URL.Path, "/__cube/motion/") {
+			motion.ServeHTTP(w, r)
 			return
 		}
 		mux.ServeHTTP(w, r)

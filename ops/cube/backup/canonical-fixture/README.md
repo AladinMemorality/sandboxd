@@ -24,8 +24,23 @@ previous continuation are refused. A lost continuation acknowledgement stays
 pending and cannot be automatically replayed. The original120-second failure
 remains part of the evidence; a later success does not turn it into a pass.
 
-This continuation is prepared and tested locally; its actual result must be
-recorded separately before claiming fixture acceptance.
+The actual continuation `01M3D30ENCD5BWQK4WN4DGV371` failed after195.752seconds
+with `agent_error`, reporting that the synthetic owner's AI credit was used up.
+Its retained checkpoint is `8c755391b2f3981b1c33f410654152716bddbb32`.
+The settled ledger still showed1000millimes, but the platform credit calculation
+included1058millimes of pending usage and reported available=-58. The original
+continuation's settled-balance check did not account for that pending usage.
+
+`complete-after-credit` is a separately reviewed, one-use action restricted to
+that exact second terminal failure and original pending intent. It journals an
+idempotent4000millime grant for synthetic owner103, bringing total test grants to
+5TND, then submits one task with a300-second runtime bound. It preserves both
+failed tasks. It refuses foreign grants, a changed bridge owner, another task
+history, a changed checkpoint, or replay after an ambiguous submission. The
+grant transaction checks its unique reference and owner; a committed grant can
+be recognized after an interrupted journal write. This is test credit, not a
+customer balance change or a hard spend cap. Twenty-five Node and four Python
+tests pass locally; actual completion and independent verification are pending.
 
 Root executed the initial owner/app phases on2026-09-25. Synthetic owners103
 and104 were committed with notification rows suppressed; the first app request

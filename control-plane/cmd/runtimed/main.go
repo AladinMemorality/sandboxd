@@ -349,7 +349,12 @@ func (a *app) status() runtime.Status {
 		procs = append(procs, runtime.ProcessState{Name: w.name, Kind: "worker", Running: running, Pid: pid, Restarts: restarts})
 	}
 
+	var capabilities []string
+	if a.cubeEgress != nil {
+		capabilities = []string{runtime.MotionWorkerCapability}
+	}
 	return runtime.Status{
+		Capabilities:      capabilities,
 		AppConfigRevision: a.appConfigRevision,
 		ManifestSHA256:    a.manifestSHA256,
 		Runtimed: runtime.RuntimedInfo{

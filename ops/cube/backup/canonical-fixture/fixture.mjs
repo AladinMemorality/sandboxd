@@ -193,6 +193,39 @@ export class Fixture {
     const result={id:this.j.task,result:tr,result_sha256:digest(JSON.stringify(tr)),runtime_timeout_s:300,prior_failed_task:prior};
     this.j.done.task=result;await this.done('completion_task',result);
   }
+  async completeAfterCredit() {
+    const prior='01M3D30ENCD5BWQK4WN4DGV371';
+    need(this.j.run==='6ff432593177fb12'&&this.owner().id===103&&this.owner('foreign').id===104,'Not the reviewed credit fixture');
+    need(this.j.app==='01M3CZB4HXT2Y8HP8CEY75PCWY'&&this.j.sandbox==='01M3D1Q0E1KM1FEM244XVHEC65'&&this.j.task===prior,'Fixture identity changed');
+    need(this.j.pending?.name==='completion_task'&&this.j.pending.at==='2026-09-25T20:09:48.819Z'&&this.j.timeout_reconciled&&!this.j.credit_reconciled&&!this.j.done.task,'Original completion intent differs');
+    await this.checkApp();await this.preview();
+    const tasks=await this.rt(`/v1/sandboxes/${this.j.sandbox}/tasks`);
+    need(tasks.tasks?.length===2&&new Set(tasks.tasks.map(t=>t.id)).size===2&&tasks.tasks.every(t=>['01M3D27V0SHQ863WHPCAENGVTY',prior].includes(t.id)),'Unexpected task history');
+    const failed=await this.rt(`/v1/sandboxes/${this.j.sandbox}/tasks/${prior}`);
+    need(failed.status==='failed'&&failed.failure_reason==='agent_error'&&failed.checkpoint_id==='8c755391b2f3981b1c33f410654152716bddbb32'&&failed.error_message?.includes('Your AI credit is used up'),'Exact terminal credit failure required');
+    const bridge=process.env.BRIDGE_PUBLIC_URL;need(bridge&&new URL(bridge).pathname==='/api/bridge','Existing bridge required');
+    const ref=`grant:operator:cube-recovery:${this.j.run}:completion`;let token;
+    this.j.credit_grant_intent={ref,owner:103,millimes:4000};await this.persist();
+    await this.sql.begin(async tx=>{
+      const [account]=await tx`SELECT id FROM waitlist WHERE id=${this.owner().id} AND google_sub=${this.owner().sub} FOR UPDATE`;need(account,'Owner changed');
+      const rows=await tx`SELECT token,waitlist_id FROM bridge_token WHERE project_id=${this.j.app}`;need(rows.length===1&&rows[0].waitlist_id===103,'Scoped bridge changed');token=rows[0].token;
+      need(/^[a-f0-9]{64}$/.test(token),'Invalid scoped bridge');
+      const grants=await tx`SELECT ref,millimes FROM credit_ledger WHERE waitlist_id=103 AND kind='grant'`;
+      need(grants.some(r=>r.ref===`grant:operator:cube-recovery:${this.j.run}`&&r.millimes===1000)&&grants.length<=2&&grants.every(r=>r.ref===`grant:operator:cube-recovery:${this.j.run}`&&r.millimes===1000||r.ref===ref&&r.millimes===4000),'Unexpected synthetic grants');
+      await tx`INSERT INTO credit_ledger(waitlist_id,ref,kind,millimes,note) VALUES(103,${ref},'grant',4000,'operator acceptance completion: total synthetic allowance5TND') ON CONFLICT(ref) DO NOTHING`;
+      const [line]=await tx`SELECT waitlist_id,millimes,kind FROM credit_ledger WHERE ref=${ref}`;need(line?.waitlist_id===103&&line.millimes===4000&&line.kind==='grant','Grant reference collision');
+    });
+    this.j.credit_reconciled={at:new Date().toISOString(),old_intent:this.j.pending,failed_task:failed,additional_grant_millimes:4000,total_grant_millimes:5000,grant_ref:ref,observed_available_before_millimes:-58,hard_spend_cap:false};
+    delete this.j.pending;await this.persist();await this.intent('credited_completion_task');
+    const env={BRIDGE_URL:bridge,BRIDGE_TOKEN:token,BRIDGE_PROJECT:this.j.app,ANTHROPIC_CUSTOM_HEADERS:`x-baarcha-bridge: ${token}`,MAX_THINKING_TOKENS:'0'};
+    const prompt=`Finish the synthetic fixture only; its test account credit is now restored. ${promptFor(this.j.run)} Consolidate all remaining filesystem edits into one Python or Node script, run node --check server.mjs, and finish. The operator performs HTTP/SQL checks; do not restart servers, install packages or explore unrelated files. Add node:fs readFileSync/readlinkSync/lstatSync and register /recovery-proof before static middleware.`;
+    const tr=await runTaskToTerminal({deadlineMs:360000,
+      submit:()=>this.rt(`/v1/sandboxes/${this.j.sandbox}/tasks`,{method:'POST',body:{prompt,agent:'claude-code',model:process.env.SANDBOXD_MODEL||'glm-5.3-flash[1m]',timeout_s:300,continue:false,env},timeout:20000}),
+      save:async task=>{this.j.task=task.id;await this.persist();},poll:id=>this.rt(`/v1/sandboxes/${this.j.sandbox}/tasks/${id}`,{timeout:5000}),cancel:id=>this.rt(`/v1/sandboxes/${this.j.sandbox}/tasks/${id}/cancel`,{method:'POST',timeout:10000})
+    });
+    const result={id:this.j.task,result:tr,result_sha256:digest(JSON.stringify(tr)),runtime_timeout_s:300,prior_failed_tasks:['01M3D27V0SHQ863WHPCAENGVTY',prior]};
+    this.j.done.task=result;await this.done('credited_completion_task',result);
+  }
   async verify() {
     need(this.j.done.task&&!this.j.pending,'Completed exact task required');await this.checkApp();
     const preview=await this.preview();let proof;const until=Date.now()+60000;
@@ -234,7 +267,7 @@ async function main() {
   need(process.env.CUBE_FIXTURE_LOCKED_PARENT===String(process.ppid),'Use the reviewed Python lock wrapper');
   need(digest(await fs.readFile(fileURLToPath(import.meta.url)))===args[5],'Script hash mismatch');
   await privatePath(args[1]);const c=validateConfig(JSON.parse(await fs.readFile(args[1],'utf8')));
-  need(['prepare','resume-rejected-app','create','fund','task','complete-timed-out-task','verify','inspect'].includes(args[3]),'Unknown phase');
+  need(['prepare','resume-rejected-app','create','fund','task','complete-timed-out-task','complete-after-credit','verify','inspect'].includes(args[3]),'Unknown phase');
   await privatePath(c.stage,true);
   const lock=await fs.open(path.join(c.stage,'running.lock'),'wx',0o600);await lock.writeFile(String(process.pid));await lock.sync();
   let sql;try{
@@ -278,8 +311,8 @@ async function main() {
     };
     const f=new Fixture(c,j,{request,sql,persist,inspect,rejectedAppProof});
     if(args[3]==='inspect'){console.log(JSON.stringify({phase:j.pending?.name||'idle',app:j.app||null,sandbox:j.sandbox||null,task:j.task||null,done:Object.keys(j.done),verification:!!j.verification}));return;}
-    need(!j.pending||['resume-rejected-app','complete-timed-out-task'].includes(args[3]),'Pending mutation retained; inspect/reconcile manually before further work');
-    const method={'resume-rejected-app':'resumeRejectedApp','complete-timed-out-task':'completeTimedOutTask'}[args[3]]||args[3];
+    need(!j.pending||['resume-rejected-app','complete-timed-out-task','complete-after-credit'].includes(args[3]),'Pending mutation retained; inspect/reconcile manually before further work');
+    const method={'resume-rejected-app':'resumeRejectedApp','complete-timed-out-task':'completeTimedOutTask','complete-after-credit':'completeAfterCredit'}[args[3]]||args[3];
     try {await f[method]();} catch(error) {await atomic(path.join(c.stage,`failure-${Date.now()}.json`),{at:new Date().toISOString(),action:args[3],pending:j.pending?.name||null,error_class:error?.name||'Error',message:error?.name==='AssertionError'?String(error.message).slice(0,300):'bounded fixture operation failed; retain journal'});throw error;}console.log(JSON.stringify({action:args[3],completed:true,app:j.app||null,sandbox:j.sandbox||null,retained_for_backup:true}));
   } finally {if(sql)await sql.end({timeout:5});await lock.close();await fs.unlink(path.join(c.stage,'running.lock'));}
 }

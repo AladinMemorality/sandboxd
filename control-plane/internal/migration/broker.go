@@ -2,9 +2,6 @@ package migration
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"sync"
@@ -18,6 +15,8 @@ import (
 type migrationChannel struct {
 	ctx        context.Context
 	generation string
+	phase      string
+	appID      string
 	cancel     context.CancelFunc
 	done       chan struct{}
 	ready      chan struct{}
@@ -35,6 +34,9 @@ type MigrationBroker struct {
 	httpServices map[string]map[string]http.Handler
 	mu           sync.Mutex
 	sessions     map[string]*migrationChannel
+	motion       http.Handler
+	motionAppID  string
+	journal      MigrationJournal
 	closed       bool
 	wg           sync.WaitGroup
 }
@@ -53,6 +55,26 @@ func NewMigrationBroker(ctx context.Context, policy egress.Policy, scopedService
 	if len(scopedServices) == 1 {
 		raw = scopedServices[0]
 	}
+	return NewMigrationBrokerWithOptions(ctx, policy, MigrationBrokerOptions{HTTPServices: raw})
+}
+
+type MigrationJournal interface {
+	GetRuntimeMigration(context.Context, string) (*store.RuntimeMigration, error)
+}
+type MigrationBrokerOptions struct {
+	HTTPServices      string
+	MotionStudioAppID string
+	Journal           MigrationJournal
+}
+
+func NewMigrationBrokerWithOptions(ctx context.Context, policy egress.Policy, options MigrationBrokerOptions) (*MigrationBroker, error) {
+	if err := policy.Validate(); err != nil {
+		return nil, err
+	}
+	policy.ProtectedPrefixes = append(policy.ProtectedPrefixes[:0:0], policy.ProtectedPrefixes...)
+	policy.ProtectedDomains = append([]string(nil), policy.ProtectedDomains...)
+	policy.Ports = append([]uint16(nil), policy.Ports...)
+	raw := options.HTTPServices
 	services, err := egress.ParseHTTPServices(raw, policy)
 	if err != nil {
 		return nil, err
@@ -65,15 +87,30 @@ func NewMigrationBroker(ctx context.Context, policy egress.Policy, scopedService
 		}
 	}
 	ctx, cancel := context.WithCancel(ctx)
-	return &MigrationBroker{ctx: ctx, cancel: cancel, policy: policy, httpServices: handlers, sessions: map[string]*migrationChannel{}}, nil
+	b := &MigrationBroker{ctx: ctx, cancel: cancel, policy: policy, httpServices: handlers, sessions: map[string]*migrationChannel{}, motionAppID: options.MotionStudioAppID, journal: options.Journal}
+	if options.MotionStudioAppID != "" {
+		if options.Journal == nil {
+			cancel()
+			return nil, errors.New("Motion Studio migration requires authoritative journal")
+		}
+		b.motion, err = egress.NewMotionStudio(options.MotionStudioAppID, b.authorizeMotion)
+		if err != nil {
+			cancel()
+			return nil, err
+		}
+	}
+	return b, nil
 }
 func (b *MigrationBroker) Attach(ctx context.Context, m *store.RuntimeMigration, client *runtime.Client) error {
 	if m == nil || m.SandboxID == "" || m.Binding.RuntimeID == "" || client == nil {
 		return errors.New("migration target identity required")
 	}
-	raw, _ := json.Marshal([]any{m.Source.AppID, m.Binding.RuntimeID, m.Binding.TemplateID, m.Binding.Domain, m.Binding.TokenCiphertext, m.Binding.TokenNonce})
-	digest := sha256.Sum256(raw)
-	generation := hex.EncodeToString(digest[:])
+	generation := migrationChannelGeneration(m)
+	if b.motion != nil && m.Source.AppID.Valid && m.Source.AppID.String == b.motionAppID && motionMigrationPhase(m.Phase) {
+		if !b.motionJournalMatches(ctx, m.SandboxID, generation, b.motionAppID) {
+			return errors.New("Motion Studio migration journal is not an eligible owned target")
+		}
+	}
 	b.mu.Lock()
 	if b.closed || b.ctx.Err() != nil || ctx.Err() != nil {
 		b.mu.Unlock()
@@ -94,7 +131,7 @@ func (b *MigrationBroker) Attach(ctx context.Context, m *store.RuntimeMigration,
 	entry := old
 	if entry == nil {
 		life, cancel := context.WithCancel(b.ctx)
-		entry = &migrationChannel{ctx: life, generation: generation, cancel: cancel, done: make(chan struct{}), ready: make(chan struct{})}
+		entry = &migrationChannel{ctx: life, generation: generation, phase: m.Phase, appID: m.Source.AppID.String, cancel: cancel, done: make(chan struct{}), ready: make(chan struct{})}
 		b.sessions[m.SandboxID] = entry
 		b.wg.Add(1)
 		services := map[string]http.Handler{}
@@ -103,7 +140,11 @@ func (b *MigrationBroker) Attach(ctx context.Context, m *store.RuntimeMigration,
 				services[address] = handler
 			}
 		}
-		go b.run(life, m.SandboxID, client, entry, services)
+		named := map[string]http.Handler{}
+		if b.motion != nil && m.Source.AppID.Valid && m.Source.AppID.String == b.motionAppID && motionMigrationPhase(m.Phase) {
+			named["motion"] = b.motion
+		}
+		go b.run(life, m.SandboxID, client, entry, services, named)
 	}
 	b.mu.Unlock()
 	for {
@@ -131,7 +172,7 @@ func (b *MigrationBroker) Attach(ctx context.Context, m *store.RuntimeMigration,
 		}
 	}
 }
-func (b *MigrationBroker) run(ctx context.Context, id string, client *runtime.Client, entry *migrationChannel, services map[string]http.Handler) {
+func (b *MigrationBroker) run(ctx context.Context, id string, client *runtime.Client, entry *migrationChannel, services map[string]http.Handler, named map[string]http.Handler) {
 	defer b.wg.Done()
 	defer close(entry.done)
 	for ctx.Err() == nil {
@@ -141,7 +182,7 @@ func (b *MigrationBroker) run(ctx context.Context, id string, client *runtime.Cl
 			entry.connected = true
 			close(entry.ready)
 			entry.mu.Unlock()
-			_ = egress.RunHost(ctx, conn, egress.HostOptions{Identity: egress.Identity{SandboxID: id, Generation: entry.generation}, Policy: b.policy, HTTPServices: services})
+			_ = egress.RunHost(ctx, conn, egress.HostOptions{Identity: egress.Identity{SandboxID: id, Generation: entry.generation}, Policy: b.policy, HTTPServices: services, Services: named})
 			entry.mu.Lock()
 			entry.connected = false
 			entry.ready = make(chan struct{})

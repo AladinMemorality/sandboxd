@@ -133,10 +133,21 @@ def validate_config(c):
     return c
 
 
+def valid_preview_secrets(raw):
+ if not isinstance(raw,str) or not raw or len(raw.encode())>8192:return False
+ parts=raw.split(',');seen=set()
+ if len(parts)>8:return False
+ for part in parts:
+  kid,sep,secret=part.strip().partition('=');kid=kid.strip();secret=secret.strip()
+  if not sep or not re.fullmatch(r'[A-Za-z0-9_-]{1,64}',kid) or kid in seen or not 32<=len(secret.encode())<=1024 or any(ord(c)<33 or ord(c)>126 for c in secret):return False
+  seen.add(kid)
+ return True
+
 def check_candidate(merged, c):
     services = merged['services']
     cp = services['sandboxd']
     env = cp['environment']
+    need(valid_preview_secrets(env.get('SANDBOXD_PREVIEW_TOKEN_SECRETS')), 'valid Cube preview signing configuration required')
     need(env.get('SANDBOXD_CUBE_ENABLED') == 'true' and env.get('SANDBOXD_CUBE_REVERSE_EGRESS') == 'true', 'candidate reverse broker disabled')
     need(env.get('SANDBOXD_CUBE_ROLLOUT') == 'allowlist', 'global Cube routing forbidden')
     need(env.get('SANDBOXD_CUBE_APP_IDS') == c['allowed_app_id'], 'candidate must select exactly one synthetic app')

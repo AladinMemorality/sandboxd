@@ -41,6 +41,7 @@ const (
 
 // Status is the GET /status response — the whole runtimed snapshot.
 type Status struct {
+	Capabilities      []string     `json:"capabilities,omitempty"`
 	ManifestSHA256    string       `json:"manifest_sha256,omitempty"`
 	AppConfigRevision string       `json:"app_config_revision,omitempty"`
 	Runtimed          RuntimedInfo `json:"runtimed"`

@@ -873,6 +873,12 @@ func main() {
 					log.Error("reload: read env file failed (keeping current config)",
 						"err", err.Error())
 				} else {
+					if cubeConfig.client != nil {
+						if err := auth.ValidatePreviewSecrets(env["SANDBOXD_PREVIEW_TOKEN_SECRETS"]); err != nil {
+							log.Error("reload: invalid Cube preview signing configuration (keeping current config)")
+							continue
+						}
+					}
 					nc := auth.ParseConfig(auth.MapGetter(env))
 					authMw.Reload(nc)
 					log.Info("reload: auth config reloaded",

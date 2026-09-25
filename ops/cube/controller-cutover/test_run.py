@@ -20,7 +20,7 @@ spec2.loader.exec_module(routing)
 def candidate():
     guard = {'expected_boot_id': 'reviewed-boot', 'observation_path': '/run/sandboxd-cube-storage/observation.json'}
     admission = {'max_active': 4, 'cpu_count': 2, 'memory_mb': 2048, 'writable_disk_mb': 10240, 'storage_guard': guard}
-    env = {'SANDBOXD_CUBE_ENABLED': 'true', 'SANDBOXD_CUBE_REVERSE_EGRESS': 'true', 'SANDBOXD_CUBE_ROLLOUT': 'allowlist', 'SANDBOXD_CUBE_APP_IDS': 'owned', 'SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED': 'true', 'SANDBOXD_CUBE_ADMISSION': json.dumps(admission)}
+    env = {'SANDBOXD_PREVIEW_TOKEN_SECRETS': 'fixture='+'a'*32, 'SANDBOXD_CUBE_ENABLED': 'true', 'SANDBOXD_CUBE_REVERSE_EGRESS': 'true', 'SANDBOXD_CUBE_ROLLOUT': 'allowlist', 'SANDBOXD_CUBE_APP_IDS': 'owned', 'SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED': 'true', 'SANDBOXD_CUBE_ADMISSION': json.dumps(admission)}
     relay = {'image': 'sha256:relay', 'network_mode': 'service:sandboxd', 'read_only': True, 'pull_policy': 'never', 'user': '65532:65532', 'userns_mode': 'host', 'group_add': ['982'], 'cap_drop': ['ALL'], 'security_opt': ['no-new-privileges:true'], 'volumes': [{'type': 'bind', 'source': '/run/cube-management', 'target': '/run/cube-management', 'read_only': True, 'bind': {'create_host_path': False}}]}
     return {'services': {'sandboxd': {'environment': env, 'volumes': [{'source': '/run/sandboxd-cube-storage', 'target': '/run/sandboxd-cube-storage', 'read_only': True}]}, **{k: copy.deepcopy(relay) for k in m.SERVICES[1:]}}}, {'allowed_app_id': 'owned', 'worker_boot_id': 'reviewed-boot', 'relay_image': 'sha256:relay'}
 
@@ -66,6 +66,15 @@ class CutoverTests(unittest.TestCase):
                 alias.unlink()
                 with self.assertRaisesRegex(RuntimeError, 'unexpected maintenance'):
                     m.routing_file(base / 'secrets.key')
+
+    def test_preview_key_dependency_fails_closed_without_secret_disclosure(self):
+        value, config = candidate()
+        for bad in ('', 'broken', 'v1=', 'v1=short', 'v1='+'a'*32+',v1='+'b'*32):
+            value['services']['sandboxd']['environment']['SANDBOXD_PREVIEW_TOKEN_SECRETS'] = bad
+            with self.assertRaisesRegex(RuntimeError, 'preview signing'):
+                m.check_candidate(value, config)
+        value['services']['sandboxd']['environment']['SANDBOXD_PREVIEW_TOKEN_SECRETS'] = 'v1='+'a'*32
+        m.check_candidate(value, config)
 
     def test_added_live_alias_id_preserved_and_fenced(self):
         def config(routes): return {'apps': {'http': {'servers': {'srv0': {'routes': routes}}}}}
