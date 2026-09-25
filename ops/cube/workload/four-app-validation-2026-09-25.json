@@ -1,0 +1,61 @@
+{
+  "date": "2026-09-25",
+  "status": "PASS_BOUNDED_FOUR_APP_WORKLOAD",
+  "executed_by": "root coordinator",
+  "production_accepted": false,
+  "guests": 4,
+  "per_guest_touched_mib": 512,
+  "template_id": "tpl-98b45d63cfcc48c5b6ba9104",
+  "binary_sha256": "ccfe6d259cdb6aa03bb3c24902b80c95b40280efb505f1412a5480e2089d419e",
+  "preparation_seconds": 18.605397054,
+  "measured_work_seconds": 45.27694551,
+  "capacity_refusal_ms": 0.35,
+  "all_apps_memory_and_cpu_verified": true,
+  "over_budget_refused": true,
+  "http_latency": {
+    "samples": 80,
+    "median_ms": 5.3,
+    "p95_ms": 9.123,
+    "max_ms": 14.92
+  },
+  "supervisor_latency": {
+    "samples": 80,
+    "median_ms": 2.445,
+    "p95_ms": 3.243,
+    "max_ms": 4.237
+  },
+  "min_process_rss_mib": 526.977,
+  "outer_vm_cgroup_sampled_peak_gib": 17.219,
+  "qemu_memory_event_deltas": {
+    "oom": 0,
+    "oom_kill": 0,
+    "max": 0
+  },
+  "global_oom_kill_deltas": {
+    "outer": 0,
+    "worker": 0
+  },
+  "qemu_cpu_seconds": {
+    "usage_usec": 143.075,
+    "user_usec": 53.294,
+    "system_usec": 89.78,
+    "throttled_usec": 0.0
+  },
+  "qemu_throttled_periods": 0,
+  "cleanup_verified": true,
+  "charged_remaining": 0,
+  "independent_cleanup": {
+    "api_empty": true,
+    "all_state_cli_count": 0,
+    "charged_remaining": 0,
+    "at_unix": 1790295905.3169625
+  },
+  "private_result_sha256": "61f246315257a3ce3b257c5b0697b33022094bf667e07479dcd2f197d8881971",
+  "private_cgroup_sha256": "c4eaa6508fecfaa19608dd974b374bbafc86c2ce51e5248ee802827ee703d54a",
+  "limitations": [
+    "Four-app512MiB residency and modest compute only; not all61 apps running or maximum2GiB demand.",
+    "18.605-second preparation is close to20-second limit; cold-start headroom remains narrow.",
+    "Twelve-app acceptance failed and is retained separately; no latency or memory bound was relaxed.",
+    "Root owns production concurrency decision; this fixture did not change production settings."
+  ]
+}

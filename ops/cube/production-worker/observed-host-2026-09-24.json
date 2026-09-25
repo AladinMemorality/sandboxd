@@ -1,0 +1,44 @@
+{
+  "observed_at_utc": "2026-09-24T21:29:10Z",
+  "scope": "read-only placement inventory; no production acceptance",
+  "kernel": "6.8.0-136-generic",
+  "machine": "x86_64",
+  "logical_cpus": 12,
+  "memory": {
+    "MemTotal_kib": 65767812,
+    "MemAvailable_kib": 46986484,
+    "SwapTotal_kib": 33520636,
+    "SwapFree_kib": 31887200
+  },
+  "disks": {
+    "/": {
+      "total": 1932834496512,
+      "used": 182996062208,
+      "free": 1651580256256,
+      "filesystem": "ext4"
+    },
+    "/mnt/nvme": {
+      "total": 1006979411968,
+      "used": 457517113344,
+      "free": 549445521408,
+      "filesystem": "ext4"
+    }
+  },
+  "planned_ports_in_use": {
+    "20222": false,
+    "20300": false,
+    "20080": false
+  },
+  "kvm_present": true,
+  "tun_present": true,
+  "nested_amd": "1",
+  "nested_intel": null,
+  "cgroup_filesystem": "cgroup2fs",
+  "cgroup_controllers": "cpuset cpu io memory hugetlb pids rdma misc",
+  "cgroup_enabled": "cpuset cpu io memory hugetlb pids rdma misc",
+  "bpf_supported": true,
+  "bpf_mount": "bpf",
+  "qemu_version": "QEMU emulator version 8.2.2 (Debian 1:8.2.2+ds-0ubuntu1.18)\nCopyright (c) 2003-2023 Fabrice Bellard and the QEMU Project developers",
+  "production_vm_already_present": false,
+  "production_unit_already_present": false
+}

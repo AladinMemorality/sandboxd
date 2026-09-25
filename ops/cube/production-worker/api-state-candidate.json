@@ -1,0 +1,50 @@
+{
+  "upstream_commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+  "patch": "0004-truthful-sandbox-state.patch",
+  "patch_sha256": "77a7352434e864347ff89105f65e3dbd92b96f0261d11c926d448ce3023b1096",
+  "cargo_lock_sha256": "c100cea432c41299a5222552ef006af40c09b5808908d1a78c45c1ef738e8021",
+  "toolchain": "rustc/cargo 1.89.0 (explicit RUSTUP_TOOLCHAIN override; upstream rust-toolchain.toml says1.85)",
+  "builder_image": "rust:1.89-bookworm@sha256:948f9b08a66e7fe01b03a98ef1c7568292e07ec2e4fe90d88c07bb14563c84ff",
+  "resource_limits": {
+    "cpus": 2,
+    "memory": "4g",
+    "pids": 512,
+    "CARGO_BUILD_JOBS": 2
+  },
+  "commands": [
+    "cargo test --locked recovery_",
+    "cargo test --locked",
+    "cargo build --locked --release"
+  ],
+  "tests": [
+    {
+      "command": "cargo test --locked recovery_",
+      "passed": 4,
+      "failed": 0,
+      "elapsed_seconds": 0.02
+    },
+    {
+      "command": "cargo test --locked",
+      "passed": 147,
+      "failed": 0,
+      "elapsed_seconds": 0.3
+    }
+  ],
+  "test_log": "api-state-tests.txt",
+  "build_status": "release build passed",
+  "deployment": "Parent deployed fresh worker only on empty inventory; authenticated empty list and anonymous401 verified. Previous binary backed up before replacement. Production Docker routing unchanged.",
+  "limitations": [
+    "Does not recover or recreate a stopped guest",
+    "Adds truthful stopped and unknown enum values; older callers may reject these states, which is fail-closed",
+    "Resume now performs a preflight status read and verifies post-resume RUNNING",
+    "Retains upstream dead-code compiler warnings"
+  ],
+  "candidate_binary_sha256": "e3cfe133e96b8a48e2d8b4c3a1723438a16b6020701426bd09aa9592ea283a08",
+  "release_build_elapsed": "2m48s",
+  "dynamic_dependencies": [
+    "libgcc_s.so.1",
+    "libm.so.6",
+    "libc.so.6",
+    "ld-linux-x86-64.so.2"
+  ]
+}

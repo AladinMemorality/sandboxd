@@ -1,0 +1,14 @@
+# OUTER HOST ONLY. Local journald/status; no lifecycle mutations or messages.
+[Unit]
+Description=Observe Cube worker safety and readiness gates
+After=baarcha-cube-worker-01.service
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/bin/python3 /usr/local/libexec/baarcha-cube-worker-lifecycle.py monitor
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes

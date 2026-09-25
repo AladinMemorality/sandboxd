@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/oklog/ulid/v2"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/manifest"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
@@ -22,20 +23,24 @@ import (
 // FleetOptions contains only reviewed operator assignments. Empty legacy
 // presets are never guessed from file names or silently mapped to React.
 type FleetOptions struct {
-	Templates     map[string]string
-	AppPresets    map[string]string
-	LibraryRoot   string
-	HomeManifests map[string]runtime.HomeManifest
+	TemplateResources map[string]ResourceLimits
+	InspectSource     func(context.Context, string) (*docker.ContainerJSON, error)
+	Templates         map[string]string
+	AppPresets        map[string]string
+	LibraryRoot       string
+	HomeManifests     map[string]runtime.HomeManifest
 }
 type FleetProject struct {
-	AppID        string        `json:"app_id"`
-	SandboxID    string        `json:"sandbox_id,omitempty"`
-	SourcePreset string        `json:"source_preset"`
-	TargetPreset string        `json:"target_preset"`
-	TemplateID   string        `json:"template_id,omitempty"`
-	State        string        `json:"state"`
-	Reasons      []string      `json:"reasons,omitempty"`
-	Inventory    *InventoryRow `json:"inventory,omitempty"`
+	SourceResources *ResourceLimits `json:"source_resources,omitempty"`
+	TargetResources *ResourceLimits `json:"target_resources,omitempty"`
+	AppID           string          `json:"app_id"`
+	SandboxID       string          `json:"sandbox_id,omitempty"`
+	SourcePreset    string          `json:"source_preset"`
+	TargetPreset    string          `json:"target_preset"`
+	TemplateID      string          `json:"template_id,omitempty"`
+	State           string          `json:"state"`
+	Reasons         []string        `json:"reasons,omitempty"`
+	Inventory       *InventoryRow   `json:"inventory,omitempty"`
 }
 type FleetSnapshot struct {
 	ID      string   `json:"snapshot_id"`
@@ -96,7 +101,7 @@ func FleetPreflight(ctx context.Context, db *sql.DB, workspaces string, options 
 	if err != nil {
 		return nil, err
 	}
-	rows, err := db.QueryContext(ctx, `SELECT a.id,COALESCE(a.runtime_preset,''),COALESCE((SELECT s.id FROM sandbox s WHERE s.app_id=a.id ORDER BY s.created_at DESC LIMIT 1),'') FROM app a ORDER BY a.id`)
+	rows, err := db.QueryContext(ctx, `SELECT a.id,COALESCE(a.runtime_preset,''),COALESCE((SELECT s.id FROM sandbox s WHERE s.app_id=a.id ORDER BY s.created_at DESC,s.id DESC LIMIT 1),''),COALESCE((SELECT s.container_id FROM sandbox s WHERE s.app_id=a.id ORDER BY s.created_at DESC,s.id DESC LIMIT 1),'') FROM app a ORDER BY a.id`)
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +109,8 @@ func FleetPreflight(ctx context.Context, db *sql.DB, workspaces string, options 
 	selected := map[string]bool{}
 	for rows.Next() {
 		var project FleetProject
-		if err = rows.Scan(&project.AppID, &project.SourcePreset, &project.SandboxID); err != nil {
+		var containerID string
+		if err = rows.Scan(&project.AppID, &project.SourcePreset, &project.SandboxID, &containerID); err != nil {
 			rows.Close()
 			return nil, err
 		}
@@ -112,6 +118,32 @@ func FleetPreflight(ctx context.Context, db *sql.DB, workspaces string, options 
 		selected[project.SandboxID] = true
 		project.TargetPreset, project.TemplateID, project.Reasons = targetPreset(project.SourcePreset, project.AppID, options)
 		project.Inventory = bySandbox[project.SandboxID]
+		if project.Inventory == nil || project.Inventory.Provider != "cube" {
+			expected, ok := options.TemplateResources[project.TemplateID]
+			if !ok || !expected.valid() {
+				project.Reasons = append(project.Reasons, "reviewed target CPU/RAM resource contract is required")
+			} else {
+				project.TargetResources = &expected
+			}
+			if options.InspectSource == nil {
+				project.Reasons = append(project.Reasons, "actual Docker source CPU/RAM inspection is required")
+			} else if project.SandboxID != "" {
+				inspected, inspectErr := options.InspectSource(ctx, containerID)
+				if inspectErr != nil || inspected == nil || !sourceContainerIdentityMatches(containerID, inspected.ID) {
+					project.Reasons = append(project.Reasons, "source resource inspection failed or identity differs")
+				} else {
+					source, e := sourceResources(inspected)
+					if e != nil {
+						project.Reasons = append(project.Reasons, "source CPU/RAM is unlimited, missing or unsupported")
+					} else {
+						project.SourceResources = &source
+						if project.TargetResources != nil && !expected.covers(source) {
+							project.Reasons = append(project.Reasons, "target template would reduce source CPU or memory limits")
+						}
+					}
+				}
+			}
+		}
 		if project.Inventory == nil {
 			project.Reasons = append(project.Reasons, "project has no current sandbox; its creation preset still requires review")
 		} else {

@@ -1,0 +1,20 @@
+{
+  "status": "installed_disabled_actual_fresh_worker_api_verified",
+  "base_image": "debian:bookworm-slim@sha256:3783cc01769c7b2b1b83a5c5ad96c815348e28ed7da68e2e3687004faa906251",
+  "relay_image_id": "sha256:0b0c246afeb8d343d25890bfe62d5f8af8aee528cb034a596733c3b338408327",
+  "host_socat_package": "1.8.0.0-4ubuntu0.1",
+  "sidecar_socat_package": "1.7.4.4-2",
+  "service_uid": 987,
+  "socket_group_gid": 982,
+  "sha256": {
+    "systemd/cube-management-api.service": "2c6132e1883d9b0a68519d53c59f2af20c3dea164ea973c549a66a60a09c0d49",
+    "systemd/cube-management-proxy.service": "64d447d61db6233a58d1931a7592be561ff8f442088882aafe3a3e28204932b3",
+    "systemd/cube-management.slice": "a12a7304591b281217650a09fbe9d145a1bf74e2db1e615aaa0ef4dd225b6299",
+    "systemd/cube-management.tmpfiles.conf": "4c5f65c41422f606839223dd3a5397a305a5044d2deb121cc36e2c28d4ce45c0",
+    "Dockerfile": "a1927cb2d90759041620f62f303ca18ffa6e8653892807d603fcbb3fb527861a",
+    "relay.sh": "5e70ba47a5d629b441a909c9cbb91d52498044c8b8edeb916de4e5c94224c47e",
+    "healthcheck.sh": "64c0f8b624e5da61d2a768420a9b6b6b37cf3f008bcb5e4bae745b5fe3d775e8"
+  },
+  "superseded_staging_image_id": "sha256:f3858abc38b80bc028ab947b3812bd76b584e08663521e41978e03a8d01ad092",
+  "actual_worker_api_evidence": "fresh-worker-api-2026-09-24.json"
+}

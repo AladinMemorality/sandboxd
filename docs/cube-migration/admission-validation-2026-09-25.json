@@ -1,0 +1,54 @@
+{
+  "date": "2026-09-25",
+  "scope": "Offline Linux race validation and build only; no provider guest creation or production mutation",
+  "base_commit": "b9bcbacb7256021b89ef968fafe11a774060cecc",
+  "uncommitted_source_sha256": {
+    "control-plane/internal/cube/admission.go": "55e1babf3b38f640a6bf7597c1ad945e28b64f7edb2d19fa85a0c4df64a53689",
+    "control-plane/internal/store/cube_admission.go": "ad7ed768f5a0edd1805a1401ec25e955ab0f8ba7f3fabd33894c9ae025136ec3",
+    "control-plane/internal/store/cube_admission_test.go": "624961f4789a11a7d4f4575c14e8e236129b6824db08c461819676d836da853c",
+    "control-plane/internal/store/cube_admission_live_linux_test.go": "5d006a0a6db5182bacf65926fe50f0cafcc280394438963c3f5867be30dd1614",
+    "control-plane/internal/egress/http_services.go": "8c617e4fdaccfb650851068e176e3a1eb6b5de0a61384c3b867dfabde72b4c84",
+    "control-plane/internal/egress/http_services_test.go": "33fda82d00cf2322e6f18e47ee280781e3fb8b2322b2e9848a8c59290487c3a8"
+  },
+  "test_environment": {
+    "go": "1.22-bookworm",
+    "cpus": 2,
+    "memory_gib": 2,
+    "network": "none",
+    "fixture_tmpfs_mib": 512
+  },
+  "combined_race_log": "admission-serialized-tests.log",
+  "combined_race_package_seconds": {
+    "internal/cube": 1.385,
+    "internal/store": 1.696,
+    "cmd/cube-migrate": 1.094,
+    "cmd/sandboxd": 1.05,
+    "internal/api": 37.707,
+    "internal/migration": 3.985,
+    "internal/egress": 15.398
+  },
+  "final_delta_log": "admission-serialized-final-build.log",
+  "final_store_race_seconds": 1.605,
+  "verified_behaviors": [
+    "Concurrent client creates serialize through provider acknowledgment",
+    "Independent SQLite clients cannot overlap pending create workflows",
+    "Cancelled queued creates send no provider request and reserve no capacity",
+    "Uncertain create remains fenced across database reopen despite spare active capacity",
+    "Repeated app create cannot bypass fence by choosing new sandbox ID",
+    "An existing running app can Connect while another create remains pending",
+    "Authoritative pause/delete and stale-response generation checks preserve capacity bounds",
+    "Scoped offline HTTP service follows frozen source app and cancels replaced generations"
+  ],
+  "prepared_live_binary": {
+    "name": "admission-serialized.test",
+    "sha256": "efc52e37aa68d8d51c0e60e7c77ffe52520cfbaabed47d46ed2cb1d28dd82aa9",
+    "native_test_listing_verified": true,
+    "live_test_executed": false,
+    "supersedes": "admission.test"
+  },
+  "limitations": [
+    "Local HTTP provider fixtures do not prove real worker burst behavior",
+    "Twelve allocated guests would not prove twelve busy-app throughput capacity",
+    "No production migration or worker-crash recovery acceptance is claimed"
+  ]
+}

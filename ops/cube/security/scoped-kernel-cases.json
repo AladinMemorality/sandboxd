@@ -1,0 +1,159 @@
+{
+  "status": "proposal_not_executed",
+  "purpose": "finite offline kernel verifier/program-test-run review manifest; not authorization",
+  "mechanism": "fresh anonymous maps, never pinned or attached; no raw sockets or packet transmission",
+  "max_case_executions": 22,
+  "max_program_test_runs_per_case": 4,
+  "max_total_program_test_runs": 88,
+  "max_duration_seconds": 120,
+  "max_cpus": 2,
+  "max_memory_mib": 2048,
+  "addresses": "synthetic fixture constants only; no production service probing",
+  "source_ports": [
+    3000,
+    3031,
+    49983,
+    41000
+  ],
+  "notes": [
+    "Each source-port variant counts toward the four-run per-case cap; no Cartesian expansion.",
+    "All three program paths must share only fresh test maps.",
+    "Missing helper/verifier permissions, skipped cases or ambiguous verdicts are failures/inconclusive, never acceptance.",
+    "Map TTL is refreshed by accepted outbound replies; no hard absolute expiry claim.",
+    "This does not invoke existing attached_packets.py or attach to any interface."
+  ],
+  "cases": [
+    {
+      "id": "reply-missing",
+      "path": "mvmtap",
+      "input": "ordinary ACK, no permission",
+      "expected": "drop"
+    },
+    {
+      "id": "reply-positive",
+      "path": "localgw+mvmtap",
+      "input": "gateway ingress SYN then matching guest SYNACK",
+      "expected": "allow reply"
+    },
+    {
+      "id": "reply-exposed-positive",
+      "path": "nodenic+mvmtap",
+      "input": "exposed-port ingress SYN then matching reply",
+      "expected": "allow reply"
+    },
+    {
+      "id": "reply-unsolicited-synack",
+      "path": "mvmtap",
+      "input": "SYNACK without ingress grant",
+      "expected": "drop"
+    },
+    {
+      "id": "reply-unsolicited-ack",
+      "path": "mvmtap",
+      "input": "ACK without ingress grant",
+      "expected": "drop"
+    },
+    {
+      "id": "reply-unsolicited-rst",
+      "path": "mvmtap",
+      "input": "RST without ingress grant",
+      "expected": "drop"
+    },
+    {
+      "id": "reply-new-syn",
+      "path": "mvmtap",
+      "input": "guest SYN even with matching reply grant",
+      "expected": "drop protected target"
+    },
+    {
+      "id": "reply-guest-isolation",
+      "path": "mvmtap",
+      "input": "guest A permission and same tuple on guest B",
+      "expected": "drop B; allow A"
+    },
+    {
+      "id": "reply-peer-mismatch",
+      "path": "mvmtap",
+      "input": "granted tuple with different peer IPv4",
+      "expected": "drop"
+    },
+    {
+      "id": "reply-peer-port-mismatch",
+      "path": "mvmtap",
+      "input": "granted tuple with different peer port",
+      "expected": "drop"
+    },
+    {
+      "id": "reply-guest-port-mismatch",
+      "path": "mvmtap",
+      "input": "granted tuple with different guest port",
+      "expected": "drop"
+    },
+    {
+      "id": "reply-generation-change",
+      "path": "mvmtap",
+      "input": "grant then replace guest generation",
+      "expected": "drop stale; allow only after fresh ingress"
+    },
+    {
+      "id": "reply-expired",
+      "path": "mvmtap",
+      "input": "idle timestamp beyond one hour",
+      "expected": "drop"
+    },
+    {
+      "id": "reply-no-metadata",
+      "path": "localgw+mvmtap",
+      "input": "guest metadata absent",
+      "expected": "drop"
+    },
+    {
+      "id": "reply-map-write-failure",
+      "path": "localgw+nodenic",
+      "input": "new permission cannot persist",
+      "expected": "drop"
+    },
+    {
+      "id": "protected-allow-precedence",
+      "path": "classifier",
+      "input": "permissive domain/IP allow for protected synthetic address",
+      "expected": "reject"
+    },
+    {
+      "id": "protected-cached-session",
+      "path": "classifier",
+      "input": "cached permissive session at unchanged policy version",
+      "expected": "reject"
+    },
+    {
+      "id": "fragment-first",
+      "path": "mvmtap",
+      "input": "IPv4 fragment with MF set, dummy synthetic tuple",
+      "expected": "drop"
+    },
+    {
+      "id": "fragment-following",
+      "path": "mvmtap",
+      "input": "IPv4 fragment with nonzero offset, dummy synthetic tuple",
+      "expected": "drop"
+    },
+    {
+      "id": "ethernet-ipv6",
+      "path": "mvmtap",
+      "input": "IPv6 Ethernet frame without network transmission",
+      "expected": "drop"
+    },
+    {
+      "id": "encapsulation-ipip",
+      "path": "mvmtap",
+      "input": "IPv4 protocol4, synthetic protected target",
+      "expected": "drop"
+    },
+    {
+      "id": "encapsulation-gre",
+      "path": "mvmtap",
+      "input": "IPv4 protocol47, synthetic protected target",
+      "expected": "drop"
+    }
+  ]
+}

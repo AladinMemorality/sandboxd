@@ -1,0 +1,3 @@
+e465bf5e482a541b01f6bbd3419b5d35e0d1926e891543c2540a4a226c273aba  ../durable-build-inputs-r4/0006-durable-critical-metadata.patch
+a5b2da22c4f73f7b14b52e9a858630f8d6741ca31012eb7a1149914bce2c54c8  ../durable-build-inputs-r4/0007-pause-durable-commit.patch
+aaea2b7e00bb121af7bbeb5a9bcc1ec3aa499dffcb1599e78e9c48bda43f4ea3  ../durable-build-inputs-r4/0008-synchronize-status-readers.patch

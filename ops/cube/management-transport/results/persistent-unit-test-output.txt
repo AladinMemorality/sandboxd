@@ -1,0 +1,11 @@
+test_bidirectional_upgrade_stream (__main__.SidecarTests.test_bidirectional_upgrade_stream) ... ok
+test_complete_two_leg_persistent_transport (__main__.SidecarTests.test_complete_two_leg_persistent_transport) ... ok
+test_http_bytes_headers_and_half_close (__main__.SidecarTests.test_http_bytes_headers_and_half_close) ... ok
+test_reconnect_after_upstream_disappears (__main__.SidecarTests.test_reconnect_after_upstream_disappears) ... ok
+test_nonroot_access_requires_exact_socket_group (__main__.SocketPermissionsTests.test_nonroot_access_requires_exact_socket_group) ... ok
+test_fixed_addresses_and_no_payload_logging (__main__.WiringTests.test_fixed_addresses_and_no_payload_logging) ... ok
+
+----------------------------------------------------------------------
+Ran 6 tests in 2.933s
+
+OK

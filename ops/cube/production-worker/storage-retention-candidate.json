@@ -1,0 +1,78 @@
+{
+  "upstream_commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+  "patch": "0005-retain-unresolved-storage-metadata.patch",
+  "patch_sha256": "f96cb1c552244f6d85dfe2f2c8c2d2a188d056f0dd9d382958f539b2c469cd11",
+  "tests": {
+    "command": "CGO_ENABLED=0 GOMAXPROCS=2 go1.25.7 test ./storage -run \"TestStorageRecoveryRetains|TestRecoverStorageState|TestRecoverSandboxStorage|TestReadBackendFileInfoReturnsMissing\" -count=1",
+    "result": "pass",
+    "elapsed_seconds": 11.133
+  },
+  "checks": [
+    "Pinned-source git apply --check passed",
+    "DB and fallback records preserved byte-for-byte when rootfs or memory object is missing",
+    "Existing current-file bytes unchanged",
+    "Repeated startup continues recovery of unrelated healthy storage",
+    "Normal missing-object reads still fail closed",
+    "Explicit operator repair allows later recovery with original rootfs identity"
+  ],
+  "limitations": [
+    "Storage tests use a fake CoW manager; native linkage is verified, but this is not a native volume/crash integration claim",
+    "Candidate is not installed by this agent and no service restart or guest operation was performed",
+    "Unresolved template/build entries also remain for explicit operator cleanup",
+    "This retains recovery metadata; it does not recreate stopped guests"
+  ],
+  "native_candidate": {
+    "path": "/root/cube-production/retention-native-candidate/cubelet-candidate",
+    "sha256": "254b5e7b11c7c6f865e3e1816c3737a4041424b7e84b5aba7dc406e596eecbed",
+    "status": "built and tested; not installed by this agent",
+    "installed_binary_unchanged_sha256": "53b09684b59bf1b5609742c1c6b3e17fb22b23ef2320000ddf49716df713346d",
+    "upstream_source": "/root/cube-production/CubeSandbox",
+    "isolated_source_copy": "/root/cube-production/retention-native-candidate",
+    "toolchain": "Go 1.25.7; GCC 13.3.0; CGO_ENABLED=1",
+    "build_command": "go build -mod=readonly -p 2 -trimpath -buildvcs=false -o /root/cube-production/retention-native-candidate/cubelet-candidate ./cmd/cubelet",
+    "tests": {
+      "command": "CGO_ENABLED=1 GOMAXPROCS=2 go test -mod=readonly -p 2 ./storage -run 'TestStorageRecoveryRetains|TestRecoverStorageState|TestRecoverSandboxStorage|TestReadBackendFileInfoReturnsMissing' -count=1",
+      "result": "pass",
+      "seconds": 5.098
+    },
+    "limits": {
+      "cpu_quota": "200%",
+      "memory_max": "2 GiB",
+      "tasks_max": 256,
+      "runtime_max_seconds": 900
+    },
+    "observed": {
+      "service_runtime_seconds": 163.332,
+      "cpu_seconds": 168.822,
+      "reported_peak_memory": "1.4 GiB",
+      "swap_peak_bytes": 0
+    },
+    "inventory_before": 0,
+    "inventory_after": 0,
+    "native_linkage": "cubecow_init native symbol verified; exact existing libcubecow.a reused",
+    "network_preservation": "Both security source patches reverse-check passed (generated host-specific header excluded only from generic patch match); every CubeNet input hashed unchanged; three ELF byte sequences found intact in BOTH installed and candidate binary",
+    "evidence_directory": "retention-evidence",
+    "key_input_sha256": {
+      "CubeNet/cubevs/localgw_x86_bpfel.o": "d8703e8d3fd386c65edab49608aed78f2646865d32b30a2bda81b69ba74aa38a",
+      "CubeNet/cubevs/mvmtap_x86_bpfel.o": "de3e81d3ac7cdb66b65f950013025c85ae9ceb5f7a6ad7d1afe871d30df438fd",
+      "CubeNet/cubevs/nodenic_x86_bpfel.o": "a8bb99b63e7ed322e166e7ddb20d991011238c62a0a7760c3cb1592dbaf01175",
+      "CubeNet/src/baarcha_hard_deny.h": "18d1c40746823ff707652188035a2b97555f871eadbc66294f52d5776d38b4d7",
+      "CubeNet/src/baarcha_reply.h": "e2c995fda168ef54ddef2840173d0c24d0dfa08d79af12dda6ec46bb31ad244c",
+      "Cubelet/third_party/cubecow/lib/libcubecow.a": "78efd2f4aacbfa8dd44454e047e889b8aac495792f5a51ff0b0b0a7dd39fc2b9"
+    },
+    "copied-source.sha256_digest": "b8202d33a2a3bf1001bb679f4498971866e8a1f98773765d74591cda60067d7b",
+    "final-source.sha256_digest": "e47b666ff8d20e063be2c2784fab5b5176591d5c5f5464b5ad149ac04ec9dfe2",
+    "protected-inputs.sha256_digest": "19819ce7f2f52541a7098fa90b1ad2903962c93e91645c3e711fed6452796704",
+    "build_script_sha256": "f62d6226f1a00d8c0b5171d58bb30fb3ebfe2921107b899009c1cef549b108ab",
+    "preflight_corrections": [
+      "Initial generic reverse-patch check rejected the intentionally regenerated host-specific protected header before any copy/build; check excludes only that generated header, whose exact bytes remain covered by hashes",
+      "First copied-source attempt stopped before tests because systemd has no HOME/GOPATH. Explicit Go cache paths fixed; failed copy retained privately as retention-native-no-cache",
+      "Exact binary BPF-embedding verification ran read-only immediately after completed build; reproducible script now includes this same check"
+    ]
+  },
+  "coordinator_deployment": {
+    "installed_on_fresh_empty_worker": true,
+    "evidence": "retention-evidence/deployment.json",
+    "production_customers_migrated": false
+  }
+}

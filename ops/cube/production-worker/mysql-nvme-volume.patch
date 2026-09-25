@@ -1,0 +1,9 @@
+--- a/support/docker-compose.yaml.template
++++ b/support/docker-compose.yaml.template
+@@ -1,1 +1,6 @@
+   __MYSQL_VOLUME__:
++    driver: local
++    driver_opts:
++      type: none
++      o: bind
++      device: /data/control/mysql

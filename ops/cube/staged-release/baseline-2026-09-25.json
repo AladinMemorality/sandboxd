@@ -1,0 +1,84 @@
+{
+  "captured_at": "2026-09-25T13:59:15.593656+00:00",
+  "production_mutated": false,
+  "baseline_private_sha256": "75c5acda561de651c01183b8671e551a7543294426e457dd94da49e460a1714e",
+  "sources": {
+    "/opt/sandboxd/src": {
+      "sha": "818e27536c15eea0266746650e28975f0d7a6da2",
+      "tracked_dirty": false
+    },
+    "/opt/baarcha/app": {
+      "sha": "ba21c6973a41c2775770d1f33ed3320a53f357d4",
+      "tracked_dirty": false
+    }
+  },
+  "provider_counts": {
+    "docker": 66
+  },
+  "runtime_flags": {
+    "SANDBOXD_CUBE_ENABLED": "false",
+    "SANDBOXD_CUBE_REVERSE_EGRESS": "false"
+  },
+  "script_hashes": {
+    "/opt/sandboxd/deploy.sh": {
+      "sha256": "0c41db22faa85310ef57e25a489ae98b47282a075bbb07cec0b2a1aed49ad1d3",
+      "mode": "0o700",
+      "symlink": false
+    },
+    "/opt/baarcha/deploy.sh": {
+      "sha256": "5511496badcf3ceff1d3d4af0febfc84c63ebda6beedf7e298568ad43673e90d",
+      "mode": "0o700",
+      "symlink": false
+    },
+    "/opt/baarcha/deploy-entry.sh": {
+      "sha256": "486ff1fc1429bc72b2b854bf5cae4cebd2336e34f2615abe80fb205aa9bf3ed9",
+      "mode": "0o755",
+      "symlink": false
+    }
+  },
+  "dynamic_routes": [
+    {
+      "name": "api.yml",
+      "sha256": "0cc22eb34bacf192ebacb99ec5a281bcd061bce0d9297ddf1d166299f8f78773"
+    },
+    {
+      "name": "api.yml.v04disabled",
+      "sha256": "0cc22eb34bacf192ebacb99ec5a281bcd061bce0d9297ddf1d166299f8f78773"
+    },
+    {
+      "name": "auth.yml",
+      "sha256": "c219167cad5279bd9b7c848fd056be3670c1a1799427bc0d43ff8351a3fa1652"
+    },
+    {
+      "name": "embed.yml",
+      "sha256": "4d3dacec6c8afe9b8a9716f14ddc510607a6d412d12193acb29bf36f71990985"
+    },
+    {
+      "name": "myhometroc.yml",
+      "sha256": "af7256fa532928243caba1d6cdcc93c4dd3a3ec60253dada2d9e474c2666dab2"
+    },
+    {
+      "name": "v04-auth.yml",
+      "sha256": "e1f8b4c120ae39f87141581def23a04795ebab9ca24feb71be23fc360b29f475"
+    },
+    {
+      "name": "wake.yml",
+      "sha256": "13ff199a4111a4659c0c87fa0a595bebee4f5e5273261029c4661b0edc90b488"
+    }
+  ],
+  "container_count": 74,
+  "capture": {
+    "backend": "shared",
+    "selection": "CAPTURE_BACKEND absent; explicit source default shared",
+    "service_socket_configured": false,
+    "shared_browser_source_sha256": "142e14714a52457163a5d96814663c41a2ff86751221bc0b41acdfcd26dce7a7",
+    "next_pid": 2090998,
+    "chrome_pid": 2092556,
+    "chrome_parent_pid": 2090998,
+    "cgroup": "/system.slice/baarcha-landing.service",
+    "fresh_context_per_job": true,
+    "separate_capture_container_selected": false,
+    "new_screenshot_requested": false
+  },
+  "scope": "All sandbox IDs and container identities retained in private baseline; no credentials captured."
+}

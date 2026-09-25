@@ -1,0 +1,28 @@
+{
+  "state": "native_synthetic_overlay_passed",
+  "source_sha256": {
+    "overlay_fixture.py": "f15ac9772eb72461af1e52b1e5b6283f57a98c42ea324b86e4cd4715e02b491e",
+    "overlay_fixture_run.sh": "dc673c4ff322c14d6220e67d61724f6329d02b859daf613fc4ec14f05fbd90e2",
+    "rescue_export.py": "4268187f86afa40656f95c01cd5813e288336501995470127744db0357bf0c4b",
+    "archive_validate.py": "33190ef0bb77a2bc013511338837038aa9c35fd0c52cc721ec76ecd4c7556e74",
+    "archive_convert.py": "f49ad47d7834814370f3c1aa394e56cda840b44099920a596937a0fcdd9fbd9b",
+    "archive_check.go": "404b5c457fbc20bd054ad67672b538b5e4085aa5eebb6546f576d690fdc35c98",
+    "plan.py": "8b55b0e12b3fe1fd224340b4ca5b76fc326518cbdeedc779c04073e9b274d5cb",
+    "capture.py": "ded7d63266185bb33e6c30baf1fe35c6628fd75140cbcedbccb3b5ee45bc1d54"
+  },
+  "checker_binary_sha256": "e7cc195252880ace691c364ab7ebf3953e4b35530ca283559a4427f68e89d945",
+  "limits": {
+    "cpu": 2,
+    "memory_gib": 3,
+    "runtime_seconds": 300,
+    "child_timeout_seconds": 240,
+    "synthetic_ext4_bytes": 134217728
+  },
+  "cleanup": {
+    "service_exit": 0,
+    "no_fixture_mounts": true,
+    "rescue_nic_restored": true
+  },
+  "postgres_crash_recovery_proven": false,
+  "production_accepted": false
+}

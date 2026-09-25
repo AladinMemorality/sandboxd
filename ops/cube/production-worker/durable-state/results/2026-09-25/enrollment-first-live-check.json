@@ -1,0 +1,73 @@
+{
+  "scope": "Dedicated empty Cube worker; production Docker fleet unchanged",
+  "production_cutover": false,
+  "production_projects_at_last_check": 66,
+  "production_provider": "docker",
+  "initial_quiesced_databases": 84,
+  "graceful_service_stop": true,
+  "worker_cold_pair": {
+    "kind": "empty-test-worker-cold-pair",
+    "captured_at": "2026-09-25T12:34:17.429765+00:00",
+    "files": [
+      {
+        "source": "/opt/baarcha-cube/worker-01/root.qcow2",
+        "target": "/mnt/nvme/baarcha-cube/empty-checkpoint-20260925/root.qcow2",
+        "sha256": "361fe21cc136756d13f2fbbaf7b8fb22c3ef0bbbb0f5f9c948662e0f12b5302e",
+        "bytes": 56031117312,
+        "allocated_bytes": 49462054912,
+        "virtual_bytes": 128849018880
+      },
+      {
+        "source": "/mnt/nvme/baarcha-cube/worker-01/data.qcow2",
+        "target": "/mnt/nvme/baarcha-cube/empty-checkpoint-20260925/data.qcow2",
+        "sha256": "2b085e9680c1ce6d562f0527629844832987462053695eb8bc4d31637b252ed3",
+        "bytes": 38794297344,
+        "allocated_bytes": 37597634560,
+        "virtual_bytes": 343597383680
+      }
+    ],
+    "qemu_sha256": "8a35ccba41582fc6c38b9df85fc9e35fa1d42f414d2d7d8090ee9b2f5e7c0854",
+    "production_backup": false,
+    "offhost_copy": false,
+    "independent_copies": true,
+    "worker_stopped": true
+  },
+  "installed_cubelet_sha256": "a61a43c531b8e7854dd8ee064db0d1e160d42fcb4d50e7c4b3c98d447e63e75a",
+  "held_reboot_id": "0043241e-f6dc-4bf1-8694-26b8369037da",
+  "new_persistent_metadata_root": "/data/cubelet/persistent-metadata",
+  "native_quota": {
+    "mcpu_limit": 10000,
+    "mem_limit": "10Gi",
+    "mvm_limit": 128,
+    "creation_concurrent_num": 1,
+    "paused_resource_release_ratio": 1.0
+  },
+  "quota_workload_retest_pending": true,
+  "control_ownership_hardened": {
+    "files": 84,
+    "directories": 19,
+    "content_unchanged": true,
+    "modes_unchanged": true,
+    "customer_paths_changed": false
+  },
+  "registry_existing_identity_preserved": true,
+  "registry_restart_policy": "always",
+  "registry_loopback_v2_status": 200,
+  "guest_tasks_after_start": 0,
+  "guests_created_on_candidate": 0,
+  "actual_readiness": "FAILED",
+  "failure": "containerd metadata plugin ignores root_path and still opens /data/cubelet/state/io.containerd.metadata.v1.bolt/meta.db on private tmpfs",
+  "guard_relaxed": false,
+  "correction_required": true,
+  "previous_crash_current_disk_stat_preserved": true,
+  "native_binaries_running": {
+    "cubelet": "a61a43c531b8e7854dd8ee064db0d1e160d42fcb4d50e7c4b3c98d447e63e75a",
+    "cubemaster": "1d89da2f1e6d27770b6ef3dcd9e2316e29bb8b2bb07f7e978b6847e64c2ea619",
+    "cube-api": "e3cfe133e96b8a48e2d8b4c3a1723438a16b6020701426bd09aa9592ea283a08"
+  },
+  "current_production_preview_check": {
+    "running_previews": 17,
+    "http_200": 17,
+    "scope": "Only previews running at observation time; no claim of all fleet acceptance"
+  }
+}

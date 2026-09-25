@@ -1,0 +1,51 @@
+{
+  "date": "2026-09-25",
+  "status": "four-slot-live-passed-twelve-slot-live-failed",
+  "live_workload_executed": false,
+  "production_accepted": false,
+  "linux_race_tests": {
+    "passed": [
+      "TestWorkloadArchiveAndMemoryGuards",
+      "TestWorkloadRequiresActualResidentPagesAndProgress",
+      "TestWorkloadWaitsForAuthenticatedSupervisor",
+      "TestWorkloadEgressPolicyIsValidAndDeniesAllFamilies",
+      "TestWorkloadAllowsOnlyReviewedSlotCounts"
+    ],
+    "skipped": [
+      "TestLiveCubeAppWorkload"
+    ],
+    "seconds": 1.137,
+    "container_limits": {
+      "cpu": 2,
+      "memory_gib": 2,
+      "network": "none"
+    }
+  },
+  "node_script_unit_test": "passed; mocked allocation, clock and listener, no guest or real large allocation",
+  "binary": "/opt/baarcha-bench/cube-workload-build-20260925/bin/workload-4or12.test",
+  "binary_sha256": "ccfe6d259cdb6aa03bb3c24902b80c95b40280efb505f1412a5480e2089d419e",
+  "build_log": "/opt/baarcha-bench/cube-workload-build-20260925/build-4or12.log",
+  "source_sha256": {
+    "control-plane/internal/store/cube_workload_live_linux_test.go": "e1f3a9a456a6fb2cf2e80ab871619fe862dd8f07a379bb9ac1448b36fc14eb91",
+    "control-plane/internal/store/testdata/cube-workload.cjs": "acc54ca3803bb6ad1dae0b0d9677797432976767f726dcc5ce1d6b420ed37eb6",
+    "ops/cube/workload/test_script.cjs": "365fc0a809b6ed73f1a927a9dc9f367e9c17267617a9b923b676124031cb5ea3"
+  },
+  "limits": {
+    "per_guest_memory_mib": 512,
+    "guest_profile_cpu": 2,
+    "guest_profile_memory_mib": 2048,
+    "cpu_duty_ms_per_100ms": 5,
+    "measured_seconds": 45,
+    "allowed_guests": [
+      4,
+      12
+    ],
+    "independent_load_stop_seconds_after_residency": 60,
+    "absolute_stop_seconds_from_start": 80,
+    "resident_readiness_seconds": 20,
+    "http_deadline_seconds": 5,
+    "async_chunk_mib": 4
+  },
+  "remaining": "Four-slot bounded live acceptance passed; fleet and crash recovery acceptance remain separate. Twelve-slot acceptance failed.",
+  "prior_twelve_slot_execution": "failed; see live-validation-2026-09-25.json"
+}

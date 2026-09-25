@@ -1,0 +1,15 @@
+# Import inside a route wrapping baarcha.tn's existing handles, BEFORE them.
+# A standalone site-level route sorts AFTER handle and would be bypassed.
+# This is inert until
+# explicitly imported during the migration window. Existing model/bridge calls
+# remain available so already accepted tasks can finish.
+route {
+	@cube_new_work {
+		method POST PUT PATCH DELETE
+		path /api/projects /api/projects/* /api/apps/*/remix /api/apps/*/preview /api/chat /api/tools/call /api/voice /api/admin/actions
+	}
+	header @cube_new_work Retry-After "60"
+	header @cube_new_work Cache-Control "no-store"
+	header @cube_new_work Content-Type "application/json"
+	respond @cube_new_work `{"code":"maintenance","error":"Project upgrades are in progress. Please retry shortly."}` 503
+}

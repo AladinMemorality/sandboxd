@@ -1,0 +1,55 @@
+{
+  "source_pin": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+  "candidate_sha256": "de3bd4c1a4db12c11d58cf7f558589f04ab4b3d736d4e72a947d45b8343bef9b",
+  "patch_sha256": "5d3060847a2ce2c31da4e6831882ad8b99a3e47d2a38a71cb229cb196bb3c1fd",
+  "copied_source_manifest_sha256": "b6e36f22284c7c01ea7efce22b9adad778ecd2827a87545249dc9fdfe3349608",
+  "final_source_manifest_sha256": "fa13b21134b56294da490a379602d676aa08793aadc4701ae58b5e83322b73fc",
+  "protected_input_manifest_sha256": "19819ce7f2f52541a7098fa90b1ad2903962c93e91645c3e711fed6452796704",
+  "original_source_files_verified": 981,
+  "protected_input_files_verified": 82,
+  "runtime_modified_by_build": false,
+  "tests": {
+    "actual_plugin_loader_reopen": "PASS",
+    "actual_registered_backup_copy": "PASS",
+    "both_a61_path_regressions": "expected FAIL reproduced",
+    "full_affected_race_command": "PASS after unchanged1ms timing test retry",
+    "selected_storage_race_command": "PASS",
+    "native_CGO_and_exact_BPF_objects": "PASS"
+  },
+  "not_claimed": [
+    "power-loss durability acceptance",
+    "same-ID native running recovery",
+    "full storage suite pass",
+    "legacy cubecli maintenance compatibility"
+  ],
+  "evidence_sha256": {
+    "baseline-backup.txt": "ac66d46c4d5faa843d00695592d170916887c761ce5e7a96203a58a784931669",
+    "baseline-metadata.txt": "b2cf19a3235f5ed952e7b6253563d4f9efc026995f4a5744e26b97ccf766726d",
+    "binary-bpf-verification.txt": "95223312da534fe6db2165341d56b8b0ed301531dc9c93c7817413ba3fe48e27",
+    "binary-build-info.txt": "b57b1d71e0456a138c7c44345dfb7a7073a4789e7ea84501b377e39714a454ec",
+    "binary-libraries.txt": "14075e2dbcededb09ff7fb87f0d30b55a773e49b05f076e7b9094646beb581a8",
+    "binary.sha256": "3cee7f703d97607b918119de346c1c2e8628ce0b00f198fa9c3f519f1ce4bed4",
+    "go-tests-first-attempt.txt": "a575ff3968010a26e34491eeaeac699a801ccd4fba8d32ddf616fc2f7143e33b",
+    "go-tests.txt": "75509a4e5c25b5ea08f44d7d00395693833589c3356e512331b82e4bb3ab5e1f",
+    "installed-after.txt": "3a792799fd925575bfa7763496d6e5bf0ff75e850baeb65ed7b8cb32f0811134",
+    "installed-before.sha256": "adccad7bef05c9045d04c11b09e9311e55c20503ca60cff4ac497ecc28df2f3b",
+    "patch.sha256": "d58b7dc97a0f1cb564782b5b38fd93b1a94f31799369f4190a5de81d4d7d03a2",
+    "plugin-tests.txt": "bd62bca66fd0258591669daf6fc7d9af139d4e7e76a36aff3c247589a83c05cc",
+    "protected-inputs.sha256": "19819ce7f2f52541a7098fa90b1ad2903962c93e91645c3e711fed6452796704",
+    "storage-focused-tests.txt": "36a21ecdc391953f14e60e1edfec49c4dfef29a3f78d43d2d0c5c9b9bacc2d26",
+    "timing-test-retry.txt": "c92c21f2b36fa6ae90091074609a805669c06e95c4448bf70e1064e8c16544a2",
+    "toolchain.txt": "e28f1c9c1150ebff074ea5a5890f0473662b0048a71137180814b6aa21587562"
+  },
+  "r5_initial": {
+    "started_utc": "2026-09-25T12:52:59Z",
+    "finished_utc": "2026-09-25T12:54:43Z",
+    "cpu_seconds": 76.15,
+    "result": "failed unchanged upstream1ms timing assertion; all other suites passed"
+  },
+  "r5b_retry": {
+    "started_utc": "2026-09-25T12:55:33Z",
+    "finished_utc": "2026-09-25T12:56:13Z",
+    "cpu_seconds": 22.591,
+    "result": "success"
+  }
+}

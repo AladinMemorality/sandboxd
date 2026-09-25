@@ -1,0 +1,31 @@
+{
+  "date": "2026-09-25",
+  "status": "candidate-tests-passed-not-installed",
+  "installed": false,
+  "worker_operations": false,
+  "provider_mutations_during_start_or_observe": false,
+  "startup_policy": "exact existing released admission rows, 4 active maximum, 2 CPU / 2048 MiB profile; no admission reconstruction",
+  "linux_race_log": "/opt/baarcha-bench/cube-workerstart-20260925/start-race-final.log",
+  "linux_race_packages": [
+    "internal/workerstop",
+    "internal/maintenance",
+    "internal/store",
+    "internal/cube",
+    "cmd/cube-worker-start",
+    "cmd/cube-worker-stop",
+    "cmd/sandboxd"
+  ],
+  "vet_passed": true,
+  "cli_build_passed": true,
+  "python_lifecycle_and_backup_monitor_tests": 26,
+  "python_cold_backup_tests": 12,
+  "limitations": [
+    "SQLite and HTTP provider fixtures; no real worker startup reconciliation executed",
+    "Clean-stop receipt producer tested with synthetic child exit; prior real systemd fixture predates this added receipt callback",
+    "Seal sidecar publication/hash/inode/mode/no-overwrite tested with synthetic ciphertext; actual large encrypted backup/copy/decryption/application restore remains separate",
+    "Offhost copy and restore receipts are independently produced trusted operator evidence, never fabricated by monitor",
+    "Current conservative policy requires verified restore evidence for the current encrypted archive",
+    "Source installation gate remains false"
+  ],
+  "capture_freshness_regression": "Old original capture remains stale after new sealing and fresh copy/restore receipts; legacy missing capture timestamp cannot be reported fresh"
+}

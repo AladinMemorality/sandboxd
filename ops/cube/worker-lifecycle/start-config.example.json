@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "pause_proof": "/REPLACE-WITH-ROOT-PRIVATE-EXACT-PAUSE-PROOF.json",
+  "clean_receipt": "/REPLACE-WITH-SUPERVISOR-RETAINED-CLEAN-STOP-RECEIPT.json"
+}

@@ -1,0 +1,28 @@
+# INERT CANDIDATE. Replaces existing QEMU unit only after isolated acceptance.
+[Unit]
+Description=Baarcha Cube worker lifetime supervisor
+After=network-online.target docker.service caddy.service
+Wants=network-online.target
+RequiresMountsFor=/opt/baarcha-cube/worker-01 /mnt/nvme/baarcha-cube/worker-01
+ConditionPathExists=/dev/kvm
+
+[Service]
+Type=simple
+User=root
+UMask=0077
+ExecStart=/usr/bin/python3 /usr/local/libexec/baarcha-cube-worker-lifecycle.py supervise --lock-file /opt/baarcha-cube/worker-01/backup.lock
+Restart=no
+# Only the supervisor receives TERM. QEMU never receives systemd TERM/KILL
+# during ordinary stop; a blocked drain keeps the main process and locks alive.
+KillMode=process
+SendSIGKILL=no
+TimeoutStopSec=infinity
+MemoryHigh=42G
+MemoryMax=44G
+MemorySwapMax=0
+CPUQuota=1000%
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

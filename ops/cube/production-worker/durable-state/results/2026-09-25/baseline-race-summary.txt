@@ -1,0 +1,45 @@
+WARNING: DATA RACE
+Read at 0x00c0002101c8 by goroutine 31:
+  github.com/tencentcloud/CubeSandbox/Cubelet/pkg/store/cubebox.(*CubeBox).DeepCopy()
+      /root/cube-production/retention-native-candidate/Cubelet/pkg/store/cubebox/deepcopy.go:116 +0x20c4
+  github.com/tencentcloud/CubeSandbox/Cubelet/pkg/store/cubebox.(*Store).createSafeCopy()
+      /root/cube-production/retention-native-candidate/Cubelet/pkg/store/cubebox/store.go:257 +0x1b9
+  github.com/tencentcloud/CubeSandbox/Cubelet/pkg/store/cubebox.(*Store).Sync()
+      /root/cube-production/retention-native-candidate/Cubelet/pkg/store/cubebox/store.go:242 +0x1a1
+  github.com/tencentcloud/CubeSandbox/Cubelet/pkg/store/cubebox.creatingCubeboxJob()
+      /root/cube-production/retention-native-candidate/Cubelet/pkg/store/cubebox/cubebox_test.go:417 +0x88d
+  github.com/tencentcloud/CubeSandbox/Cubelet/pkg/store/cubebox.testMultiConcurrentOpContainer.gowrap2()
+      /root/cube-production/retention-native-candidate/Cubelet/pkg/store/cubebox/cubebox_test.go:452 +0x4f
+
+Previous write at 0x00c0002101c8 by goroutine 16:
+  github.com/tencentcloud/CubeSandbox/Cubelet/pkg/store/cubebox.(*CubeBox).GetStatus()
+      /root/cube-production/retention-native-candidate/Cubelet/pkg/store/cubebox/cubebox.go:191 +0x6e
+  github.com/tencentcloud/CubeSandbox/Cubelet/pkg/store/cubebox.listCubeStoreJob()
+      /root/cube-production/retention-native-candidate/Cubelet/pkg/store/cubebox/cubebox_test.go:381 +0xe6
+  github.com/tencentcloud/CubeSandbox/Cubelet/pkg/store/cubebox.testMultiConcurrentOpContainer.gowrap1()
+      /root/cube-production/retention-native-candidate/Cubelet/pkg/store/cubebox/cubebox_test.go:449 +0x4f
+
+FAIL	github.com/tencentcloud/CubeSandbox/Cubelet/pkg/store/cubebox	0.780s
+WARNING: DATA RACE
+Write at 0x00c0002fa1f8 by goroutine 14:
+  github.com/tencentcloud/CubeSandbox/Cubelet/storage.(*local).tryS3CowInitOnce()
+      /root/cube-production/retention-native-candidate/Cubelet/storage/s3_init.go:129 +0x48c
+  github.com/tencentcloud/CubeSandbox/Cubelet/storage.(*local).runS3CowInitLoop()
+      /root/cube-production/retention-native-candidate/Cubelet/storage/s3_init.go:73 +0x144
+  github.com/tencentcloud/CubeSandbox/Cubelet/storage.(*local).startS3CowInitLoop.gowrap1()
+      /root/cube-production/retention-native-candidate/Cubelet/storage/s3_init.go:54 +0x4f
+
+Previous read at 0x00c0002fa1f8 by goroutine 15:
+  github.com/tencentcloud/CubeSandbox/Cubelet/storage.TestS3CowInitLoopRetriesUntilSuccess.func4()
+      /root/cube-production/retention-native-candidate/Cubelet/storage/s3_init_test.go:160 +0x3b
+  github.com/stretchr/testify/assert.Eventually.func1()
+      /root/go/pkg/mod/github.com/stretchr/testify@v1.11.1/assert/assertions.go:1994 +0x33
+
+Goroutine 14 (running) created at:
+  github.com/tencentcloud/CubeSandbox/Cubelet/storage.(*local).startS3CowInitLoop()
+      /root/cube-production/retention-native-candidate/Cubelet/storage/s3_init.go:54 +0x699
+  github.com/tencentcloud/CubeSandbox/Cubelet/storage.TestS3CowInitLoopRetriesUntilSuccess()
+      /root/cube-production/retention-native-candidate/Cubelet/storage/s3_init_test.go:158 +0x50d
+  testing.tRunner()
+FAIL	github.com/tencentcloud/CubeSandbox/Cubelet/storage	0.135s
+FAIL

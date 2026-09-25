@@ -1,0 +1,339 @@
+   Compiling cube-api v0.1.0 (/src/CubeAPI)
+warning: struct `PluginVolumeSource` is never constructed
+    --> src/cubemaster/mod.rs:2579:12
+     |
+2579 | pub struct PluginVolumeSource {
+     |            ^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` on by default
+
+warning: struct `VolumeSourceExt` is never constructed
+    --> src/cubemaster/mod.rs:2587:12
+     |
+2587 | pub struct VolumeSourceExt {
+     |            ^^^^^^^^^^^^^^^
+
+warning: struct `VolumeSpecExt` is never constructed
+    --> src/cubemaster/mod.rs:2596:12
+     |
+2596 | pub struct VolumeSpecExt {
+     |            ^^^^^^^^^^^^^
+
+warning: struct `ClusterOverview` is never constructed
+    --> src/models/mod.rs:1529:12
+     |
+1529 | pub struct ClusterOverview {
+     |            ^^^^^^^^^^^^^^^
+
+warning: struct `NodeResourcesView` is never constructed
+    --> src/models/mod.rs:1552:12
+     |
+1552 | pub struct NodeResourcesView {
+     |            ^^^^^^^^^^^^^^^^^
+
+warning: struct `NodeConditionView` is never constructed
+    --> src/models/mod.rs:1562:12
+     |
+1562 | pub struct NodeConditionView {
+     |            ^^^^^^^^^^^^^^^^^
+
+warning: struct `NodeView` is never constructed
+    --> src/models/mod.rs:1575:12
+     |
+1575 | pub struct NodeView {
+     |            ^^^^^^^^
+
+warning: struct `ComponentVersionView` is never constructed
+    --> src/models/mod.rs:1614:12
+     |
+1614 | pub struct ComponentVersionView {
+     |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `ControlPlaneVersionView` is never constructed
+    --> src/models/mod.rs:1628:12
+     |
+1628 | pub struct ControlPlaneVersionView {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `ComponentVersionGroupView` is never constructed
+    --> src/models/mod.rs:1638:12
+     |
+1638 | pub struct ComponentVersionGroupView {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `ComponentMatrixRowView` is never constructed
+    --> src/models/mod.rs:1645:12
+     |
+1645 | pub struct ComponentMatrixRowView {
+     |            ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `NodeComponentEntryView` is never constructed
+    --> src/models/mod.rs:1657:12
+     |
+1657 | pub struct NodeComponentEntryView {
+     |            ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `NodeVersionRowView` is never constructed
+    --> src/models/mod.rs:1665:12
+     |
+1665 | pub struct NodeVersionRowView {
+     |            ^^^^^^^^^^^^^^^^^^
+
+warning: struct `VersionMatrixView` is never constructed
+    --> src/models/mod.rs:1674:12
+     |
+1674 | pub struct VersionMatrixView {
+     |            ^^^^^^^^^^^^^^^^^
+
+warning: `cube-api` (bin "cube-api" test) generated 14 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 8.58s
+     Running unittests src/main.rs (target/debug/deps/cube_api-829ab84b6dc2645b)
+
+running 4 tests
+test services::sandboxes::tests::recovery_list_states_never_invent_running ... ok
+test services::sandboxes::tests::recovery_running_connect_and_real_resume_still_work ... ok
+test services::sandboxes::tests::recovery_unknown_and_stopped_get_are_truthful_and_never_mutate ... ok
+test services::sandboxes::tests::recovery_successful_update_requires_observed_running_state ... ok
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 143 filtered out; finished in 0.02s
+
+warning: struct `PluginVolumeSource` is never constructed
+    --> src/cubemaster/mod.rs:2579:12
+     |
+2579 | pub struct PluginVolumeSource {
+     |            ^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` on by default
+
+warning: struct `VolumeSourceExt` is never constructed
+    --> src/cubemaster/mod.rs:2587:12
+     |
+2587 | pub struct VolumeSourceExt {
+     |            ^^^^^^^^^^^^^^^
+
+warning: struct `VolumeSpecExt` is never constructed
+    --> src/cubemaster/mod.rs:2596:12
+     |
+2596 | pub struct VolumeSpecExt {
+     |            ^^^^^^^^^^^^^
+
+warning: struct `ClusterOverview` is never constructed
+    --> src/models/mod.rs:1529:12
+     |
+1529 | pub struct ClusterOverview {
+     |            ^^^^^^^^^^^^^^^
+
+warning: struct `NodeResourcesView` is never constructed
+    --> src/models/mod.rs:1552:12
+     |
+1552 | pub struct NodeResourcesView {
+     |            ^^^^^^^^^^^^^^^^^
+
+warning: struct `NodeConditionView` is never constructed
+    --> src/models/mod.rs:1562:12
+     |
+1562 | pub struct NodeConditionView {
+     |            ^^^^^^^^^^^^^^^^^
+
+warning: struct `NodeView` is never constructed
+    --> src/models/mod.rs:1575:12
+     |
+1575 | pub struct NodeView {
+     |            ^^^^^^^^
+
+warning: struct `ComponentVersionView` is never constructed
+    --> src/models/mod.rs:1614:12
+     |
+1614 | pub struct ComponentVersionView {
+     |            ^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `ControlPlaneVersionView` is never constructed
+    --> src/models/mod.rs:1628:12
+     |
+1628 | pub struct ControlPlaneVersionView {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `ComponentVersionGroupView` is never constructed
+    --> src/models/mod.rs:1638:12
+     |
+1638 | pub struct ComponentVersionGroupView {
+     |            ^^^^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `ComponentMatrixRowView` is never constructed
+    --> src/models/mod.rs:1645:12
+     |
+1645 | pub struct ComponentMatrixRowView {
+     |            ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `NodeComponentEntryView` is never constructed
+    --> src/models/mod.rs:1657:12
+     |
+1657 | pub struct NodeComponentEntryView {
+     |            ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: struct `NodeVersionRowView` is never constructed
+    --> src/models/mod.rs:1665:12
+     |
+1665 | pub struct NodeVersionRowView {
+     |            ^^^^^^^^^^^^^^^^^^
+
+warning: struct `VersionMatrixView` is never constructed
+    --> src/models/mod.rs:1674:12
+     |
+1674 | pub struct VersionMatrixView {
+     |            ^^^^^^^^^^^^^^^^^
+
+warning: `cube-api` (bin "cube-api" test) generated 14 warnings
+    Finished `test` profile [unoptimized + debuginfo] target(s) in 0.16s
+     Running unittests src/main.rs (target/debug/deps/cube_api-829ab84b6dc2645b)
+
+running 147 tests
+test cubemaster::tests::build_id_path_segment_rejects_non_canonical_characters ... ok
+test cubemaster::tests::build_id_path_segment_accepts_alphanumeric_and_hyphen ... ok
+test cubemaster::tests::build_id_path_segment_rejects_path_control_characters ... ok
+test cubemaster::tests::get_sandbox_prefers_exact_container_resource_fields ... ok
+test cubemaster::tests::get_sandbox_falls_back_to_raw_spec_strings ... ok
+test cubemaster::tests::get_sandbox_prefers_sandbox_container_timestamps_and_host ... ok
+test cubemaster::tests::non_empty_str_treats_blank_input_as_none ... ok
+test cubemaster::tests::non_empty_str_trims_surrounding_whitespace ... ok
+test cubemaster::tests::quantity_parsers_preserve_millicores_and_mib ... ok
+test cubemaster::tests::sandbox_info_accepts_camel_case_resource_aliases ... ok
+test cubemaster::tests::sandbox_info_deserializes_exact_resource_fields ... ok
+test cubemaster::tests::template_response_deserializes_display_name ... ok
+test cubemaster::tests::sandbox_info_deserializes_resource_fields_from_list_payload ... ok
+test cubemaster::tests::template_summary_item_deserializes_display_name ... ok
+test cubemaster::tests::volume_id_accepts_underscore_like_create_name ... ok
+test cubemaster::tests::volume_id_rejects_invalid_characters ... ok
+test error::tests::service_unavailable_includes_retry_after_header ... ok
+test middleware::auth::tests::callback_receives_distinct_method_for_same_path ... ok
+test middleware::auth::tests::callback_receives_correct_method_for_write_operations ... ok
+test middleware::auth::tests::callback_receives_request_path ... ok
+test middleware::auth::tests::callback_rejection_returns_401 ... ok
+test middleware::auth::tests::no_callback_configured_passthrough ... ok
+test middleware::auth::tests::simple_key_empty_passthrough ... ok
+test middleware::auth::tests::missing_credential_returns_401 ... ok
+test middleware::auth::tests::simple_key_match_bearer ... ok
+test middleware::auth::tests::simple_key_match_x_api_key ... ok
+test middleware::auth::tests::simple_key_mismatch ... ok
+test middleware::auth::tests::simple_key_missing_credential ... ok
+test models::tests::create_template_request_accepts_name_and_alias ... ok
+test models::tests::new_sandbox_accepts_e2b_envs_alias ... ok
+test models::tests::new_sandbox_accepts_e2b_network_rules_map ... ok
+test models::tests::new_sandbox_volume_mount_read_only_is_optional ... ok
+test models::tests::sandbox_network_config_accepts_e2b_host_keyed_rules ... ok
+test models::tests::sandbox_network_config_accepts_snake_case_policy_fields ... ok
+test models::tests::sandbox_network_config_ignores_e2b_noop_rules ... ok
+test models::tests::sandbox_network_config_preserves_array_rules ... ok
+test models::tests::sandbox_network_config_rejects_unknown_e2b_transforms ... ok
+test models::tests::set_timeout_request_accepts_never_timeout ... ok
+test models::tests::set_timeout_request_accepts_zero_and_positive ... ok
+test models::tests::set_timeout_request_rejects_invalid_negative_values ... ok
+test models::tests::template_alias_lookup_response_serializes_e2b_shape ... ok
+test models::tests::update_network_converts_e2b_per_host_rules ... ok
+test models::tests::update_network_indexes_multiple_transforms_per_host ... ok
+test models::tests::update_network_keeps_our_rule_list_verbatim ... ok
+test models::tests::update_network_reads_the_e2b_snake_case_flag ... ok
+test models::tests::update_network_reads_the_flat_body ... ok
+test models::tests::update_network_rejects_bodies_that_would_silently_clear_the_policy ... ok
+test models::tests::update_network_rejects_e2b_rules_it_cannot_express ... ok
+test models::tests::update_network_treats_an_empty_body_as_no_policy ... ok
+test routes::tests::delete_paused_sandbox_maps_business_errors_from_cubemaster ... ok
+test openapi::tests::network_rules_schema_documents_native_and_e2b_shapes ... ok
+test routes::tests::delete_template_uses_long_router_timeout ... ok
+test routes::tests::merge_preserves_per_router_timeout_layers ... ok
+test routes::tests::preserves_root_e2b_routes ... ok
+test routes::tests::put_template_alias_forwards_to_cubemaster_and_returns_detail ... ok
+test routes::tests::removes_cluster_routes_from_root_surface ... ok
+test services::sandboxes::tests::absent_lifecycle_fields_keep_kill_behaviour ... ok
+test services::sandboxes::tests::create_sandbox_accepts_valid_env_var_names ... ok
+test routes::tests::template_alias_route_is_mounted_before_template_id_route ... ok
+test services::sandboxes::tests::create_sandbox_forwards_create_time_env_vars_to_cubemaster ... ok
+test services::sandboxes::tests::create_sandbox_forwards_e2b_flat_lifecycle_flags_to_cubemaster ... ok
+test services::sandboxes::tests::create_sandbox_forwards_read_only_volume_mount_to_cubemaster ... ok
+test services::sandboxes::tests::create_sandbox_maps_cubemaster_params_error_to_bad_request ... ok
+test services::sandboxes::tests::create_sandbox_keeps_backend_faults_internal ... ok
+test services::sandboxes::tests::create_sandbox_rejects_dangerous_env_var_names ... ok
+test services::sandboxes::tests::create_sandbox_omits_create_time_env_vars_when_absent ... ok
+test services::sandboxes::tests::create_sandbox_rejects_dangerous_env_var_names_case_insensitive ... ok
+test services::sandboxes::tests::create_sandbox_rejects_invalid_env_var_name_format ... ok
+test services::sandboxes::tests::create_sandbox_rejects_invalid_env_var_value ... ok
+test services::sandboxes::tests::create_sandbox_request_serializes_lifecycle_flags ... ok
+test services::sandboxes::tests::create_sandbox_request_timeout_wire_shape ... ok
+test services::sandboxes::tests::delete_maps_capacity_rejection_to_conflict ... ok
+test services::sandboxes::tests::delete_maps_pausing_to_short_retry ... ok
+test services::sandboxes::tests::delete_maps_unproven_resume_to_retryable_unavailable ... ok
+test services::sandboxes::tests::delete_retry_message_uses_fallback_for_empty_cube_master_message ... ok
+test services::sandboxes::tests::delete_retryable_errors_include_retry_after_in_http_response ... ok
+test services::sandboxes::tests::egress_inject_secret_at_cap_accepted ... ok
+test services::sandboxes::tests::egress_inject_secret_over_cap_rejected ... ok
+test services::sandboxes::tests::egress_match_invalid_scheme_rejected ... ok
+test services::sandboxes::tests::egress_match_port_range_enforced ... ok
+test services::sandboxes::tests::egress_match_port_requires_scheme ... ok
+test services::sandboxes::tests::egress_match_valid_port_scheme_accepted ... ok
+test services::sandboxes::tests::empty_volume_mounts_produces_none_volumes_and_empty_containers ... ok
+test services::sandboxes::tests::flat_lifecycle_fields_enable_pause_and_resume ... ok
+test services::sandboxes::tests::lifecycle_object_translates_to_cubemaster_bools ... ok
+test services::sandboxes::tests::listed_sandbox_maps_paused_container_state_from_cubemaster_list ... ok
+test services::sandboxes::tests::listed_sandbox_prefers_exact_resource_units_from_cubemaster ... ok
+test services::sandboxes::tests::listed_sandbox_preserves_resources_from_cubemaster_list ... ok
+test services::sandboxes::tests::map_volume_mounts_exposes_public_mount_fields ... ok
+test services::sandboxes::tests::map_volume_mounts_returns_none_for_empty_input ... ok
+test services::sandboxes::tests::map_volume_mounts_skips_all_empty_entries ... ok
+test services::sandboxes::tests::mask_request_host_validation_accepts_documented_authorities ... ok
+test services::sandboxes::tests::mask_request_host_validation_rejects_unsafe_values ... ok
+test services::sandboxes::tests::kill_sandbox_maps_cubemaster_not_found_to_app_not_found ... ok
+test services::sandboxes::tests::metadata_filter_matches_all_pairs ... ok
+test services::sandboxes::tests::nested_lifecycle_wins_over_flat_lifecycle_fields ... ok
+test services::sandboxes::tests::network_context_accepts_allow_out_domain_when_internet_access_disabled ... ok
+test services::sandboxes::tests::network_context_forwards_egress_rules ... ok
+test services::sandboxes::tests::network_context_forwards_mask_request_host_by_itself ... ok
+test services::sandboxes::tests::network_context_ignores_allow_public_traffic_for_outbound_access ... ok
+test services::sandboxes::tests::network_context_rejects_allow_out_domain_when_only_allow_public_traffic_disabled ... ok
+test services::sandboxes::tests::network_context_rejects_allow_out_domain_without_deny_all ... ok
+test services::sandboxes::tests::network_rules_serialize_to_camel_case_wire ... ok
+test services::sandboxes::tests::new_sandbox_accepts_bare_bool_auto_resume ... ok
+test services::sandboxes::tests::new_sandbox_deserializes_e2b_flat_lifecycle_fields ... ok
+test services::sandboxes::tests::new_sandbox_timeout_defaults_to_none_when_omitted ... ok
+test services::sandboxes::tests::recovery_list_states_never_invent_running ... ok
+test services::sandboxes::tests::recovery_running_connect_and_real_resume_still_work ... ok
+test services::sandboxes::tests::recovery_unknown_and_stopped_get_are_truthful_and_never_mutate ... ok
+test services::sandboxes::tests::refresh_maps_cubemaster_params_error_to_bad_request ... ok
+test services::sandboxes::tests::sandbox_update_request_timeout_wire_shape ... ok
+test services::sandboxes::tests::set_timeout_maps_cubemaster_params_error_to_bad_request ... ok
+test services::sandboxes::tests::update_network_maps_cubemaster_conflict_to_conflict ... ok
+test services::sandboxes::tests::volume_mounts_are_split_into_spec_and_mount ... ok
+test services::sandboxes::tests::volume_mounts_reject_duplicate_names ... ok
+test services::snapshots::tests::normalize_next_token_drops_empty_and_whitespace_cursors ... ok
+test services::snapshots::tests::operation_ready_guard_rejects_non_ready_status ... ok
+test services::snapshots::tests::snapshot_identity_uses_snap_prefix ... ok
+test services::snapshots::tests::snapshot_info_falls_back_to_snapshot_id_for_names ... ok
+test services::snapshots::tests::snapshot_info_uses_e2b_shape_without_operation_id ... ok
+test services::snapshots::tests::snapshot_list_item_uses_snapshot_id_field_shape ... ok
+test services::snapshots::tests::snapshot_ready_guard_rejects_non_ready_status ... ok
+test services::templates::tests::alias_values_from_display_name_returns_e2b_arrays ... ok
+test services::templates::tests::build_template_container_overrides_maps_cli_fields ... ok
+test services::templates::tests::build_template_cube_network_config_accepts_domain_when_internet_disabled ... ok
+test services::templates::tests::build_template_cube_network_config_includes_egress_rules ... ok
+test services::templates::tests::build_template_cube_network_config_rejects_allow_out_domain_without_deny_all ... ok
+test services::sandboxes::tests::recovery_successful_update_requires_observed_running_state ... ok
+test services::templates::tests::create_template_forwards_name_as_cubemaster_alias ... ok
+test services::templates::tests::get_template_by_alias_returns_e2b_lookup_response ... ok
+test services::templates::tests::is_valid_alias_accepts_plain_lowercase_slug ... ok
+test services::templates::tests::is_valid_alias_rejects_canonical_id_prefixes ... ok
+test services::templates::tests::is_valid_alias_rejects_other_invalid_forms ... ok
+test services::templates::tests::get_template_maps_created_at_and_private_visibility ... ok
+test services::templates::tests::set_template_alias_clear_passes_empty_string ... ok
+test services::templates::tests::template_name_accepts_e2b_namespace_and_strips_tag ... ok
+test services::templates::tests::set_template_alias_forwards_to_cubemaster ... ok
+test services::templates::tests::template_name_falls_back_to_deprecated_alias ... ok
+test services::templates::tests::template_name_prefers_name_over_alias_and_strips_tag ... ok
+test services::templates::tests::template_name_strips_tag_but_not_registry_port ... ok
+test services::templates::tests::template_summary_from_cubemaster_maps_display_name_to_aliases ... ok
+test services::templates::tests::template_summary_from_cubemaster_uses_empty_aliases_without_display_name ... ok
+test services::templates::tests::validate_dns_servers_rejects_invalid_ip ... ok
+test services::tests::allow_out_cidr_does_not_require_deny_all ... ok
+test services::tests::allow_out_domain_accepts_default_deny_all ... ok
+test services::tests::allow_out_domain_accepts_explicit_deny_all ... ok
+test services::tests::allow_out_domain_requires_deny_all_or_default_deny_all ... ok
+
+test result: ok. 147 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.30s

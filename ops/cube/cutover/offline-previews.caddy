@@ -1,0 +1,8 @@
+# Import into the existing preview host block after task drain. Existing open
+# streams still need explicit drain/termination before capturing source data.
+# Place BEFORE reverse_proxy in one explicit outer route; leave TLS outside it.
+route {
+	header Retry-After "60"
+	header Cache-Control "no-store"
+	respond "This app is being upgraded. Please retry shortly." 503
+}

@@ -109,7 +109,7 @@ eventual project purge so the retained original does not become an orphan.
 ## Commands
 
 Build the Linux CLI from `control-plane`: `go build ./cmd/cube-migrate`. It uses
-the same Cube API/proxy/domain/template and encryption-key environment settings
+the same Cube API/proxy/domain/template, durable admission profile and encryption-key environment settings
 as sandboxd. The encryption key must already exist; it is never replaced.
 Flags precede the action. Examples deliberately use placeholder paths and IDs:
 
@@ -119,17 +119,21 @@ cube-migrate --database /DATA/state/sandboxd.db --workspaces /DATA/workspaces in
 cube-migrate --database /DATA/state/sandboxd.db status
 cube-migrate --database /DATA/state/sandboxd.db --workspaces /DATA/workspaces \
   --library /DATA/library --fleet-presets /PRIVATE/presets.json \
-  --home-manifests /PRIVATE/home-manifests.json fleet-preflight
+  --home-manifests /PRIVATE/home-manifests.json \
+  --template-resources /PRIVATE/template-resources.json fleet-preflight
 
 # Only during the enforced maintenance window, after reviewing eligibility.
 cube-migrate --database /DATA/state/sandboxd.db --workspaces /DATA/workspaces \
   --archives /DATA/migration-archives --keyfile /DATA/secrets.key \
   --migrations /REVIEWED/migrations --sandbox SANDBOX_ID --preset react-vite \
-  --home-manifests /PRIVATE/home-manifests.json --expected-fleet REVIEWED_SHA256 migrate
+  --home-manifests /PRIVATE/home-manifests.json \
+  --template-resources /PRIVATE/template-resources.json --expected-fleet REVIEWED_SHA256 migrate
 
 # Same flags/environment; recovery never guesses a replacement identity.
-cube-migrate --database /DATA/state/sandboxd.db --sandbox SANDBOX_ID resume
 cube-migrate --database /DATA/state/sandboxd.db --sandbox SANDBOX_ID \
+  --template-resources /PRIVATE/template-resources.json resume
+cube-migrate --database /DATA/state/sandboxd.db --sandbox SANDBOX_ID \
+  --template-resources /PRIVATE/template-resources.json \
   --adopt-runtime EXISTING_VM --traffic-token-file /PRIVATE/token adopt
 cube-migrate --database /DATA/state/sandboxd.db --sandbox SANDBOX_ID rollback-check
 cube-migrate --database /DATA/state/sandboxd.db --sandbox SANDBOX_ID rollback
@@ -138,7 +142,18 @@ cube-migrate --database /DATA/state/sandboxd.db --sandbox SANDBOX_ID abort
 cube-migrate --database /DATA/state/sandboxd.db --sandbox SANDBOX_ID retire-source
 ```
 
-Provide the same nondefault paths on every invocation. `rollback-check` checks
+Provide the same nondefault paths on every invocation. Forward migration,
+resume and adoption require the same reviewed `--template-resources` map,
+keyed by exact template ID with integer `cpu_milli` and `memory_bytes` fields.
+Native host Docker inspection verifies source limits before journal creation
+and stop; actual Cube metadata verifies the target before import and acceptance.
+Missing/unlimited source limits, missing metadata and CPU/RAM reductions fail
+closed. The immutable `resource-contract.json` beside each recovery archive is
+part of the backup set. Rollback and abort remain available without the resource
+map; they do not allocate a replacement Cube VM. See the
+[current capacity review](cube-migration/cutover-review-2026-09-24.md).
+
+`rollback-check` checks
 config/task eligibility without stopping the daemon; the engine rechecks those
 predicates under maintenance before any target quiescence. It does not assert
 that a quiescent target export will succeed. Archives and original workspaces require
@@ -320,3 +335,5 @@ guest, Docker container and fixture directory were explicitly removed after the
 successful v8 run; sanitized diagnosis is retained in the report. The slim v8
 image/template remain available for further isolated tests. No production
 projects were moved, and the production per-owner review and rollout gates remain.
+
+See [durable admission and uncertain-operation recovery](cube-migration/durable-admission.md) for the required shared capacity profile, migration0032 and offline admission inspection/adoption/reconciliation commands.

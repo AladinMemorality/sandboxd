@@ -1,0 +1,18 @@
+{
+  "last_observed_before": {
+    "total_bytes": 257572208640,
+    "available_bytes": 221845147648,
+    "capture": "template disk projection just before final template completion"
+  },
+  "after": {
+    "total_bytes": 343471554560,
+    "available_bytes": 305912061952
+  },
+  "device": "/dev/vdb",
+  "uuid": "793c3349-db9c-4815-9842-989ed484f1f8",
+  "virtual_bytes": 343597383680,
+  "quickcheck_exit": 0,
+  "method": "online QMP block_resize + XFS grow; no reboot or formatting",
+  "verification_note": "A post-grow assertion requiring79GiB additional free failed after successful capacity growth. Its exact immediate pre-grow free value was not persisted; the before entry uses the last recorded measurement. Total320GiB block-device size,319.88GiB XFS capacity, unchanged UUID and quickcheck were independently verified. No repeat format or resize was performed.",
+  "xfs_info": "meta-data=/dev/vdb               isize=512    agcount=6, agsize=15728640 blks\n         =                       sectsz=512   attr=2, projid32bit=1\n         =                       crc=1        finobt=1, sparse=1, rmapbt=1\n         =                       reflink=1    bigtime=1 inobtcount=1 nrext64=0\ndata     =                       bsize=4096   blocks=83886080, imaxpct=25\n         =                       sunit=0      swidth=0 blks\nnaming   =version 2              bsize=4096   ascii-ci=0, ftype=1\nlog      =internal log           bsize=4096   blocks=30720, version=2\n         =                       sectsz=512   sunit=0 blks, lazy-count=1\nrealtime =none                   extsz=4096   blocks=0, rtextents=0\n"
+}

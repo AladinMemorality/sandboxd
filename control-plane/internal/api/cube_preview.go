@@ -147,16 +147,39 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 	// Verify/renew the runtime lease before forwarding the original body.
 	// Assets reuse a 30-second running lease instead of serializing a management
 	// round trip and supervisor probe for every file. Never replay a failed POST.
-	ctx, cancel := context.WithTimeout(r.Context(), 140*time.Second)
-	err = s.ensureCubePreviewLease(ctx, sb)
-	cancel()
-	if err != nil {
-		writeErr(w, 502, "preview resume failed")
-		return true
+	passive := passiveCubePreview(r)
+	// Serialize activity registration against the idle/reclamation decision.
+	// Release before ensureCubePreviewLease, which takes this same lock.
+	if !passive && s.Inflight != nil {
+		if s.Locks != nil {
+			s.Locks.Lock(id)
+		}
+		s.Inflight.Enter(id)
+		if s.Locks != nil {
+			s.Locks.Unlock(id)
+		}
+		defer s.Inflight.Exit(id)
 	}
-	if err = s.Store.BumpLastActive(r.Context(), id, time.Now().UTC()); err != nil {
-		writeErr(w, 503, "preview activity unavailable")
-		return true
+	if passive {
+		if err := s.checkPassiveCubePreview(r.Context(), id, b); err != nil {
+			writePassiveCubeUnavailable(w)
+			return true
+		}
+	} else {
+		ctx, cancel := context.WithTimeout(r.Context(), 140*time.Second)
+		err = s.ensureCubePreviewLease(ctx, sb)
+		cancel()
+		if err != nil {
+			if writeCubePreviewAdmission(w, r, err) {
+				return true
+			}
+			writeErr(w, 502, "preview resume failed")
+			return true
+		}
+		if err = s.Store.BumpLastActive(r.Context(), id, time.Now().UTC()); err != nil {
+			writeErr(w, 503, "preview activity unavailable")
+			return true
+		}
 	}
 	scheme, _ := s.previewScheme()
 	proxy := &httputil.ReverseProxy{
@@ -208,6 +231,7 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 			writeErr(w, 502, "preview upstream unavailable")
 		},
 	}
+	// Ordinary streams retain their registered activity until ServeHTTP returns.
 	proxy.ServeHTTP(w, r)
 	return true
 }

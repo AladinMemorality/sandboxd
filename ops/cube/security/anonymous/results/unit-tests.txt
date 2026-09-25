@@ -1,0 +1,7 @@
+=== RUN   TestSyntheticPacketChecksums
+--- PASS: TestSyntheticPacketChecksums (0.00s)
+=== RUN   TestFixtureTupleABIs
+--- PASS: TestFixtureTupleABIs (0.00s)
+=== RUN   TestAnonymousMapSanitization
+--- PASS: TestAnonymousMapSanitization (0.00s)
+PASS

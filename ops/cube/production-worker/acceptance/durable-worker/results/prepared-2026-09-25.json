@@ -1,0 +1,33 @@
+{
+  "prepared_at": "2026-09-25T12:23:26.132929+00:00",
+  "scope": "build and unit tests only; no worker or guest calls",
+  "runtime_source_commit": "2515e233299487aa6a3839a78a974ff6a38f8d13",
+  "platform": "linux/amd64",
+  "go_image": "golang:1.22-bookworm (cached)",
+  "resource_limits": {
+    "cpu": 2,
+    "memory": "2GiB",
+    "exec_tmpfs": "512MiB",
+    "network": "none"
+  },
+  "test_command": "go test -race -v -count=1 ./cmd/operator-clean-worker",
+  "test_count": 5,
+  "test_result": "PASS",
+  "test_elapsed_seconds": 1.025,
+  "original_crash_tests_result": "PASS",
+  "original_crash_tests_elapsed_seconds": 1.065,
+  "binary_sha256": "5beb4b8f2033049844c5df512b86b9c38bb79fd645efcc646a4b41942286cf73",
+  "original_crash_binary_sha256": "da10bdfea11ce8f214adac45d7f0ea0e0481f22b56f99ba8f769405613bc5609",
+  "generated_helper_sha256": "8e612708ad8a26da1309dbd7a044f0a35eaba11dee6d422e632739d960a14072",
+  "files": {
+    "main.go": "ef4b3f62382ae26bd44be45cb0b77e5155ce35fea368eeff2f9b6dc98d605e91",
+    "main_test.go": "81635cefe866a45899b71f3ddd4f3172f94950782d7e664291c0aa5bc1e825ca",
+    "prepare.sh": "32adcb2d715dba04d8b8a3543a890385dcc1564f4a937f1a707d937d3c239eb1"
+  },
+  "guest_created": false,
+  "power_action_performed": false,
+  "clean_reboot_accepted": false,
+  "paused_loss_accepted": false,
+  "running_loss_accepted": false,
+  "production_accepted": false
+}

@@ -1,0 +1,51 @@
+{
+  "abrupt_loss_tested": true,
+  "acceptance_mode": "acknowledged-pause-abrupt-loss",
+  "acknowledged_pause_loss_ready": true,
+  "acknowledged_pause_loss_resume_latest_app_home_sql_preserved": true,
+  "acknowledged_pause_loss_resume_through_sql_verify_milliseconds": 768,
+  "acknowledged_pause_milliseconds": 750,
+  "app_export": {
+    "bytes": 1060128,
+    "file": "app-before.zip",
+    "sha256": "4de63eb882432e931e95e7c70768ecb64b83680822c9784fddd14063f463e244",
+    "tree_digest": "55fb259584b42923efe8aeb7855dc70e644fd5652d4bc356345d9ae1ef3e3a80"
+  },
+  "baseline": {
+    "fixture": "8c3a84e4ef68bb6bbc6133355d0c8020",
+    "phase": "baseline",
+    "nonce": "bdfa9e4aa6a2e02c04e088d6ef160f88"
+  },
+  "checkpoint_ready": true,
+  "clean_reboot_latest_data_pass": false,
+  "clean_reboot_ready": false,
+  "cleanup_verified_http404": true,
+  "data_uuid": "793c3349-db9c-4815-9842-989ed484f1f8",
+  "fixture": "8c3a84e4ef68bb6bbc6133355d0c8020",
+  "home_export": {
+    "bytes": 5013961,
+    "file": "home-before.zip",
+    "sha256": "e1ed75fe181ec4c38d3847b4951410dcfe5cf542754be47c5e33292ac0243bdd",
+    "tree_digest": "01e3386ee1fc2757cd3c8ff341db6a2a97c8b9f8feddcfc46cd3870ac6ecb874"
+  },
+  "latest": {
+    "fixture": "8c3a84e4ef68bb6bbc6133355d0c8020",
+    "phase": "latest",
+    "nonce": "07e988f5a74f5a9084fd85d57ef438e7"
+  },
+  "latest_acknowledged_at": "2026-09-25T13:20:19.623508409Z",
+  "paused_acknowledged_abrupt_loss_latest_data_pass": true,
+  "power_operation_performed_by_fixture": false,
+  "prepare_through_latest_commit_milliseconds": 11724,
+  "production_accepted": false,
+  "production_stop_coordinator_tested": false,
+  "provider_inventory_zero": true,
+  "running_loss_tested": false,
+  "sandbox_id": "2f32950e4ad04350a60436be1a5ab3af",
+  "stage": "finished-acknowledged-pause-abrupt-loss",
+  "template": "tpl-ce1ee426e686460bbc8c3bfc",
+  "updated_at": "2026-09-25T13:22:07.034205226Z",
+  "worker_boot_after": "2ff1a62f-c428-4183-af93-290638890f35",
+  "worker_boot_before": "3139026a-95dd-4ce8-a2ba-a579bb9184c6",
+  "worker_machine_id": "2b9e31d4abd345e3bd4b966591e61296"
+}

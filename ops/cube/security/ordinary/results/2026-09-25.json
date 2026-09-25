@@ -1,0 +1,988 @@
+{
+  "all_functional_phases_passed": true,
+  "cleanup_confirmed": true,
+  "deleted_replaced_id": "126dcd77ce1043b58f2affff624413c5",
+  "host_dial_starts": 49,
+  "initial_bindings": [
+    {
+      "address": "192.168.0.2",
+      "generation": 3,
+      "id": "126dcd77ce1043b58f2affff624413c5",
+      "ifindex": 4
+    },
+    {
+      "address": "192.168.0.3",
+      "generation": 4,
+      "id": "b662042745f445689e786f5dbf752ec1",
+      "ifindex": 5
+    }
+  ],
+  "initial_worker": {
+    "boot_id": "bfb471e8-2579-4875-839a-30c6f469a660",
+    "hostname": "baarcha-cube-worker-01",
+    "interfaces": {
+      "cube-dev": [
+        3,
+        "192.168.0.1"
+      ],
+      "enp0s2": [
+        2,
+        "10.0.2.15"
+      ]
+    },
+    "listeners": [
+      [
+        "worker",
+        "10.0.2.15",
+        18081
+      ],
+      [
+        "gateway",
+        "192.168.0.1",
+        18082
+      ]
+    ]
+  },
+  "network_isolation_accepted": false,
+  "phases": [
+    {
+      "broker": {
+        "bad": {
+          "marker": false,
+          "status": 403
+        },
+        "denied": {
+          "marker": false,
+          "status": 502
+        },
+        "good": {
+          "marker": true,
+          "status": 200
+        }
+      },
+      "controls_after": {
+        "controls": [
+          {
+            "listener": "worker",
+            "marker": true
+          },
+          {
+            "listener": "gateway",
+            "marker": true
+          }
+        ],
+        "counts": {
+          "gateway": 3,
+          "worker": 3
+        }
+      },
+      "controls_before": {
+        "controls": [
+          {
+            "listener": "worker",
+            "marker": true
+          },
+          {
+            "listener": "gateway",
+            "marker": true
+          }
+        ],
+        "counts": {
+          "gateway": 2,
+          "worker": 2
+        }
+      },
+      "cross_guest_supervisor_token_denied": true,
+      "identity_a": {
+        "accessibleForbiddenPaths": [],
+        "gid": 1000,
+        "groups": [
+          1000
+        ],
+        "interfaces": [
+          "lo",
+          "eth0"
+        ],
+        "presentHostSecretNames": [],
+        "status": {
+          "CapAmb": "0000000000000000",
+          "CapBnd": "000001ffffffffff",
+          "CapEff": "0000000000000000",
+          "CapInh": "0000000000000000",
+          "CapPrm": "0000000000000000",
+          "Gid": "1000\t1000\t1000\t1000",
+          "NoNewPrivs": "1",
+          "Uid": "1000\t1000\t1000\t1000"
+        },
+        "uid": 1000
+      },
+      "identity_b": {
+        "accessibleForbiddenPaths": [],
+        "gid": 1000,
+        "groups": [
+          1000
+        ],
+        "interfaces": [
+          "lo",
+          "eth0"
+        ],
+        "presentHostSecretNames": [],
+        "status": {
+          "CapAmb": "0000000000000000",
+          "CapBnd": "000001ffffffffff",
+          "CapEff": "0000000000000000",
+          "CapInh": "0000000000000000",
+          "CapPrm": "0000000000000000",
+          "Gid": "1000\t1000\t1000\t1000",
+          "NoNewPrivs": "1",
+          "Uid": "1000\t1000\t1000\t1000"
+        },
+        "uid": 1000
+      },
+      "listener_counts_after": {
+        "gateway": 2,
+        "worker": 2
+      },
+      "listener_counts_before": {
+        "gateway": 2,
+        "worker": 2
+      },
+      "name": "fresh",
+      "negative_batch": {
+        "peer": "192.168.0.3",
+        "results": [
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 3000,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 4,
+            "sourcePort": 3031,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 49983,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "ECONNREFUSED",
+            "ms": 1,
+            "sourcePort": 0,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 3000,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 3031,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 49983,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "ECONNREFUSED",
+            "ms": 1,
+            "sourcePort": 0,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 3000,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 3031,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 49983,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 0,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3005,
+            "sourcePort": 3000,
+            "target": "sibling"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 3031,
+            "target": "sibling"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 49983,
+            "target": "sibling"
+          },
+          {
+            "connected": false,
+            "error": "ECONNREFUSED",
+            "ms": 1,
+            "sourcePort": 0,
+            "target": "sibling"
+          }
+        ]
+      },
+      "occupied_source_port_inconclusive": 8,
+      "public_policy_dial_count": 0,
+      "sibling_accepts_after": 1,
+      "sibling_accepts_before": 1,
+      "sibling_binding": {
+        "address": "192.168.0.3",
+        "generation": 4,
+        "id": "b662042745f445689e786f5dbf752ec1",
+        "ifindex": 5
+      },
+      "socket_denials": 8,
+      "unreachable_inconclusive": 0,
+      "wrong_supervisor_token_denied": true
+    },
+    {
+      "broker": {
+        "bad": {
+          "marker": false,
+          "status": 403
+        },
+        "denied": {
+          "marker": false,
+          "status": 502
+        },
+        "good": {
+          "marker": true,
+          "status": 200
+        }
+      },
+      "controls_after": {
+        "controls": [
+          {
+            "listener": "worker",
+            "marker": true
+          },
+          {
+            "listener": "gateway",
+            "marker": true
+          }
+        ],
+        "counts": {
+          "gateway": 5,
+          "worker": 5
+        }
+      },
+      "controls_before": {
+        "controls": [
+          {
+            "listener": "worker",
+            "marker": true
+          },
+          {
+            "listener": "gateway",
+            "marker": true
+          }
+        ],
+        "counts": {
+          "gateway": 4,
+          "worker": 4
+        }
+      },
+      "cross_guest_supervisor_token_denied": true,
+      "identity_a": {
+        "accessibleForbiddenPaths": [],
+        "gid": 1000,
+        "groups": [
+          1000
+        ],
+        "interfaces": [
+          "lo",
+          "eth0"
+        ],
+        "presentHostSecretNames": [],
+        "status": {
+          "CapAmb": "0000000000000000",
+          "CapBnd": "000001ffffffffff",
+          "CapEff": "0000000000000000",
+          "CapInh": "0000000000000000",
+          "CapPrm": "0000000000000000",
+          "Gid": "1000\t1000\t1000\t1000",
+          "NoNewPrivs": "1",
+          "Uid": "1000\t1000\t1000\t1000"
+        },
+        "uid": 1000
+      },
+      "identity_b": {
+        "accessibleForbiddenPaths": [],
+        "gid": 1000,
+        "groups": [
+          1000
+        ],
+        "interfaces": [
+          "lo",
+          "eth0"
+        ],
+        "presentHostSecretNames": [],
+        "status": {
+          "CapAmb": "0000000000000000",
+          "CapBnd": "000001ffffffffff",
+          "CapEff": "0000000000000000",
+          "CapInh": "0000000000000000",
+          "CapPrm": "0000000000000000",
+          "Gid": "1000\t1000\t1000\t1000",
+          "NoNewPrivs": "1",
+          "Uid": "1000\t1000\t1000\t1000"
+        },
+        "uid": 1000
+      },
+      "listener_counts_after": {
+        "gateway": 4,
+        "worker": 4
+      },
+      "listener_counts_before": {
+        "gateway": 4,
+        "worker": 4
+      },
+      "name": "pause-resume",
+      "negative_batch": {
+        "peer": "192.168.0.3",
+        "results": [
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 3000,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 4,
+            "sourcePort": 3031,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 1,
+            "sourcePort": 49983,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "ECONNREFUSED",
+            "ms": 2,
+            "sourcePort": 0,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 3000,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 1,
+            "sourcePort": 3031,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 49983,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "ECONNREFUSED",
+            "ms": 2,
+            "sourcePort": 0,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 3000,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 1,
+            "sourcePort": 3031,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 1,
+            "sourcePort": 49983,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 0,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 3000,
+            "target": "sibling"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 1,
+            "sourcePort": 3031,
+            "target": "sibling"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 1,
+            "sourcePort": 49983,
+            "target": "sibling"
+          },
+          {
+            "connected": false,
+            "error": "ECONNREFUSED",
+            "ms": 2,
+            "sourcePort": 0,
+            "target": "sibling"
+          }
+        ]
+      },
+      "occupied_source_port_inconclusive": 8,
+      "public_policy_dial_count": 0,
+      "sibling_accepts_after": 3,
+      "sibling_accepts_before": 3,
+      "sibling_binding": {
+        "address": "192.168.0.3",
+        "generation": 4,
+        "id": "b662042745f445689e786f5dbf752ec1",
+        "ifindex": 5
+      },
+      "socket_denials": 8,
+      "unreachable_inconclusive": 0,
+      "wrong_supervisor_token_denied": true
+    },
+    {
+      "broker": {
+        "bad": {
+          "marker": false,
+          "status": 403
+        },
+        "denied": {
+          "marker": false,
+          "status": 502
+        },
+        "good": {
+          "marker": true,
+          "status": 200
+        }
+      },
+      "controls_after": {
+        "controls": [
+          {
+            "listener": "worker",
+            "marker": true
+          },
+          {
+            "listener": "gateway",
+            "marker": true
+          }
+        ],
+        "counts": {
+          "gateway": 7,
+          "worker": 7
+        }
+      },
+      "controls_before": {
+        "controls": [
+          {
+            "listener": "worker",
+            "marker": true
+          },
+          {
+            "listener": "gateway",
+            "marker": true
+          }
+        ],
+        "counts": {
+          "gateway": 6,
+          "worker": 6
+        }
+      },
+      "cross_guest_supervisor_token_denied": true,
+      "identity_a": {
+        "accessibleForbiddenPaths": [],
+        "gid": 1000,
+        "groups": [
+          1000
+        ],
+        "interfaces": [
+          "lo",
+          "eth0"
+        ],
+        "presentHostSecretNames": [],
+        "status": {
+          "CapAmb": "0000000000000000",
+          "CapBnd": "000001ffffffffff",
+          "CapEff": "0000000000000000",
+          "CapInh": "0000000000000000",
+          "CapPrm": "0000000000000000",
+          "Gid": "1000\t1000\t1000\t1000",
+          "NoNewPrivs": "1",
+          "Uid": "1000\t1000\t1000\t1000"
+        },
+        "uid": 1000
+      },
+      "identity_b": {
+        "accessibleForbiddenPaths": [],
+        "gid": 1000,
+        "groups": [
+          1000
+        ],
+        "interfaces": [
+          "lo",
+          "eth0"
+        ],
+        "presentHostSecretNames": [],
+        "status": {
+          "CapAmb": "0000000000000000",
+          "CapBnd": "000001ffffffffff",
+          "CapEff": "0000000000000000",
+          "CapInh": "0000000000000000",
+          "CapPrm": "0000000000000000",
+          "Gid": "1000\t1000\t1000\t1000",
+          "NoNewPrivs": "1",
+          "Uid": "1000\t1000\t1000\t1000"
+        },
+        "uid": 1000
+      },
+      "listener_counts_after": {
+        "gateway": 6,
+        "worker": 6
+      },
+      "listener_counts_before": {
+        "gateway": 6,
+        "worker": 6
+      },
+      "name": "replacement",
+      "negative_batch": {
+        "peer": "192.168.0.3",
+        "results": [
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 3000,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 2,
+            "sourcePort": 3031,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 49983,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "ECONNREFUSED",
+            "ms": 1,
+            "sourcePort": 0,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 3000,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 1,
+            "sourcePort": 3031,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 49983,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "ECONNREFUSED",
+            "ms": 1,
+            "sourcePort": 0,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 3000,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 1,
+            "sourcePort": 3031,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 49983,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 0,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3005,
+            "sourcePort": 3000,
+            "target": "sibling"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 1,
+            "sourcePort": 3031,
+            "target": "sibling"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 49983,
+            "target": "sibling"
+          },
+          {
+            "connected": false,
+            "error": "ECONNREFUSED",
+            "ms": 1,
+            "sourcePort": 0,
+            "target": "sibling"
+          }
+        ]
+      },
+      "occupied_source_port_inconclusive": 8,
+      "public_policy_dial_count": 0,
+      "sibling_accepts_after": 5,
+      "sibling_accepts_before": 5,
+      "sibling_binding": {
+        "address": "192.168.0.3",
+        "generation": 4,
+        "id": "b662042745f445689e786f5dbf752ec1",
+        "ifindex": 5
+      },
+      "socket_denials": 8,
+      "unreachable_inconclusive": 0,
+      "wrong_supervisor_token_denied": true
+    },
+    {
+      "broker": {
+        "bad": {
+          "marker": false,
+          "status": 403
+        },
+        "denied": {
+          "marker": false,
+          "status": 502
+        },
+        "good": {
+          "marker": true,
+          "status": 200
+        }
+      },
+      "controls_after": {
+        "controls": [
+          {
+            "listener": "worker",
+            "marker": true
+          },
+          {
+            "listener": "gateway",
+            "marker": true
+          }
+        ],
+        "counts": {
+          "gateway": 4,
+          "worker": 4
+        }
+      },
+      "controls_before": {
+        "controls": [
+          {
+            "listener": "worker",
+            "marker": true
+          },
+          {
+            "listener": "gateway",
+            "marker": true
+          }
+        ],
+        "counts": {
+          "gateway": 3,
+          "worker": 3
+        }
+      },
+      "cross_guest_supervisor_token_denied": true,
+      "identity_a": {
+        "accessibleForbiddenPaths": [],
+        "gid": 1000,
+        "groups": [
+          1000
+        ],
+        "interfaces": [
+          "lo",
+          "eth0"
+        ],
+        "presentHostSecretNames": [],
+        "status": {
+          "CapAmb": "0000000000000000",
+          "CapBnd": "000001ffffffffff",
+          "CapEff": "0000000000000000",
+          "CapInh": "0000000000000000",
+          "CapPrm": "0000000000000000",
+          "Gid": "1000\t1000\t1000\t1000",
+          "NoNewPrivs": "1",
+          "Uid": "1000\t1000\t1000\t1000"
+        },
+        "uid": 1000
+      },
+      "identity_b": {
+        "accessibleForbiddenPaths": [],
+        "gid": 1000,
+        "groups": [
+          1000
+        ],
+        "interfaces": [
+          "lo",
+          "eth0"
+        ],
+        "presentHostSecretNames": [],
+        "status": {
+          "CapAmb": "0000000000000000",
+          "CapBnd": "000001ffffffffff",
+          "CapEff": "0000000000000000",
+          "CapInh": "0000000000000000",
+          "CapPrm": "0000000000000000",
+          "Gid": "1000\t1000\t1000\t1000",
+          "NoNewPrivs": "1",
+          "Uid": "1000\t1000\t1000\t1000"
+        },
+        "uid": 1000
+      },
+      "listener_counts_after": {
+        "gateway": 3,
+        "worker": 3
+      },
+      "listener_counts_before": {
+        "gateway": 3,
+        "worker": 3
+      },
+      "name": "worker-restart",
+      "negative_batch": {
+        "peer": "192.168.0.3",
+        "results": [
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 3000,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 8,
+            "sourcePort": 3031,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 1,
+            "sourcePort": 49983,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "ECONNREFUSED",
+            "ms": 2,
+            "sourcePort": 0,
+            "target": "worker"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 3000,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 3031,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 49983,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "ECONNREFUSED",
+            "ms": 2,
+            "sourcePort": 0,
+            "target": "gateway"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 3000,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 3031,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 49983,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 0,
+            "target": "guest-gateway-alias"
+          },
+          {
+            "connected": false,
+            "error": "TIMEOUT",
+            "ms": 3004,
+            "sourcePort": 3000,
+            "target": "sibling"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 3031,
+            "target": "sibling"
+          },
+          {
+            "connected": false,
+            "error": "EADDRINUSE",
+            "ms": 0,
+            "sourcePort": 49983,
+            "target": "sibling"
+          },
+          {
+            "connected": false,
+            "error": "ECONNREFUSED",
+            "ms": 1,
+            "sourcePort": 0,
+            "target": "sibling"
+          }
+        ]
+      },
+      "occupied_source_port_inconclusive": 8,
+      "public_policy_dial_count": 0,
+      "sibling_accepts_after": 7,
+      "sibling_accepts_before": 7,
+      "sibling_binding": {
+        "address": "192.168.0.3",
+        "generation": 2,
+        "id": "b662042745f445689e786f5dbf752ec1",
+        "ifindex": 5
+      },
+      "socket_denials": 8,
+      "unreachable_inconclusive": 0,
+      "wrong_supervisor_token_denied": true
+    }
+  ],
+  "production_rollout_authorized": false,
+  "template": "tpl-98b45d63cfcc48c5b6ba9104",
+  "waiting_for_coordinated_worker_restart": false
+}

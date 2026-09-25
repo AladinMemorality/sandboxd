@@ -1,0 +1,12 @@
+# Replace the drain import only AFTER tasks and other runtime writers drain.
+# Keep the import BEFORE existing handles in their explicit outer route.
+# Blocks status/file/export paths that may implicitly contact or wake a guest.
+route {
+	@cube_runtime {
+		path /api/projects /api/projects/* /api/apps/*/remix /api/apps/*/preview /api/chat /api/tools/call /api/voice /api/admin/actions /api/bridge
+	}
+	header @cube_runtime Retry-After "60"
+	header @cube_runtime Cache-Control "no-store"
+	header @cube_runtime Content-Type "application/json"
+	respond @cube_runtime `{"code":"maintenance","error":"Project upgrades are in progress. Please retry shortly."}` 503
+}

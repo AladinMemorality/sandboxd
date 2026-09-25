@@ -1,0 +1,85 @@
+{
+  "time": 1790343134.2216392,
+  "previous_boot": "2ff1a62f-c428-4183-af93-290638890f35",
+  "current_boot": "1574a104-22ab-4e85-92ba-36163537171f",
+  "nested_ready": {
+    "verified": true,
+    "boot_id": "1574a104-22ab-4e85-92ba-36163537171f"
+  },
+  "actual_persistent_metadata_ready": {
+    "boot_id": "1574a104-22ab-4e85-92ba-36163537171f",
+    "critical_roots": {
+      "cgroup": {
+        "filesystem": "xfs",
+        "open_databases": 10,
+        "root_exists": true
+      },
+      "cleanup": {
+        "filesystem": "xfs",
+        "open_databases": 10,
+        "root_exists": true
+      },
+      "containerd": {
+        "filesystem": "xfs",
+        "open_databases": 1,
+        "root_exists": true
+      },
+      "cubebox": {
+        "filesystem": "xfs",
+        "open_databases": 10,
+        "root_exists": true
+      },
+      "images": {
+        "filesystem": "xfs",
+        "open_databases": 10,
+        "root_exists": true
+      },
+      "multimeta": {
+        "filesystem": "xfs",
+        "open_databases": 10,
+        "root_exists": true
+      },
+      "netfile": {
+        "filesystem": "xfs",
+        "open_databases": 0,
+        "root_exists": true
+      },
+      "network": {
+        "filesystem": "xfs",
+        "open_databases": 10,
+        "root_exists": true
+      },
+      "overlayfs": {
+        "filesystem": "xfs",
+        "open_databases": 1,
+        "root_exists": true
+      },
+      "storage": {
+        "filesystem": "xfs",
+        "open_databases": 11,
+        "root_exists": true
+      },
+      "volume": {
+        "filesystem": "xfs",
+        "open_databases": 20,
+        "root_exists": true
+      }
+    },
+    "passed": true,
+    "phase": "ready",
+    "power_loss_acceptance": false,
+    "required_templates": 8,
+    "retained_current_disk": "unchanged stat identity",
+    "worker_quota": {
+      "creation_concurrent_num": 1,
+      "mcpu_limit": 10000,
+      "mem_limit": "10Gi",
+      "mvm_limit": 128,
+      "paused_resource_release_ratio": 1.0
+    }
+  },
+  "metadata_captured_before_native_reconnect": true,
+  "same_sandbox_identity": true,
+  "same_current_disk_and_lower_identity": true,
+  "native_running_recovery_pass": false
+}

@@ -1,4 +1,4 @@
-# Project X Docker runtime deployment
+# Project X controller deployment
 
 Install the reviewed `ops/deploy-project-x.sh` outside the checkout as
 `/opt/sandboxd/deploy.sh`. The existing restricted SSH deployment command can
@@ -15,7 +15,10 @@ Docker Compose, Python 3 with SQLite, `flock` and GNU `timeout`. Tests can overr
 defaults. Tracked live edits cause a refusal. Untracked routing files, including
 `traefik/dynamic/myhometroc.yml`, are retained.
 
-The script refuses Cube/reverse-egress activation and existing Cube ownership.
+The script preserves the running provider configuration. It refuses a mismatch
+between the live controller's Cube settings and resolved Compose configuration,
+so this release command cannot perform the initial Cube activation or migration.
+Disabled Cube plus existing Cube ownership still fails closed.
 It builds the exact detached revision into immutable base/controller tags and
 checks the controller version, opt-in PostgreSQL state, Vite cold reload and
 native PostgreSQL recovery before changing the live checkout. These disposable
@@ -28,8 +31,15 @@ routing and a consistent SQLite **online backup**, including committed WAL
 frames. Artifacts containing credentials are private. The `sandboxd-base:0.3.0`
 compatibility tag advances only after acceptance, so existing sandbox rows can
 use the new helper on later recreation. Both old image IDs remain retained.
-Only `sandboxd` is updated with `--no-deps --no-build --pull never`; Traefik and
-existing sibling sandbox containers are not restarted. Host isolation must
+The controller is updated with `--no-deps --no-build --pull never`; Traefik and
+existing sibling sandbox containers are not restarted. An already active Cube
+deployment also recreates its two management relays, then verifies they share
+the **new** controller's network namespace, publish no ports and pass health
+checks. It also reads Cube's sandbox listing from inside the controller namespace
+and checks that the configured API key succeeds while an unauthenticated request
+is denied. Credentials travel over stdin, with response bodies discarded. This
+checks API access; the separate deployed workload smoke must verify proxy,
+supervisor and application behavior. The same sequence runs when rolling back the controller. Host isolation must
 succeed, the running controller image must match, and both authenticated
 readiness and unauthenticated API denial must pass.
 
@@ -43,8 +53,17 @@ script fails explicitly and retains its evidence for operator recovery. It
 does not claim successful recovery or copy a database beneath a live process.
 
 Successful deployment writes `succeeded` in its private release directory.
-This deploys reviewed Docker behavior; it does not migrate projects or enable
-Cube. Enabling Cube requires its separate production acceptance procedure.
+This does not migrate projects or enable Cube. Enabling Cube requires its
+separate production acceptance procedure. Once accepted and activated, place
+the complete private Cube configuration and management relay service definitions
+in `/opt/sandboxd/deploy-state/runtime-compose.json`. This durable override is
+loaded between the repository Compose file and `active-images.json`; do not put
+secrets in source control. Active Cube requires the accepted global mode,
+reverse broker and isolation configuration, plus immutable relay image digests.
+The release changes only the controller image in the existing image override,
+preserving other environment, volume and service settings. The source revision
+still needs compatible Cube templates and migration schemas; these checks do
+not attest network isolation or replace workload acceptance.
 
 Contract tests use fake Docker/isolation commands with real Git worktrees,
 SQLite WAL backup, loopback authorization checks and locking:

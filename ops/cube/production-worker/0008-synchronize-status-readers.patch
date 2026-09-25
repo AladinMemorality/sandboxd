@@ -1,0 +1,198 @@
+--- a/Cubelet/pkg/store/cubebox/cubebox.go
++++ b/Cubelet/pkg/store/cubebox/cubebox.go
+@@ -148,7 +148,8 @@
+ 
+ 	Version string `json:"version,omitempty"`
+ 
+-	Status *StatusStorage `json:"status,omitempty"`
++	Status            *StatusStorage `json:"status,omitempty"`
++	statusPointerLock sync.Mutex     `json:"-"`
+ 
+ 	RequestSource string `json:"source,omitempty"`
+ 	UserDeleteMark
+@@ -180,23 +181,32 @@
+ }
+ 
+ func (cb *CubeBox) mainContainerStatus() *StatusStorage {
+-	if cb.FirstContainer() == nil {
++	if cb.ContainersMap == nil {
+ 		return nil
+ 	}
+-	return cb.FirstContainer().Status
++	id := cb.FirstContainerName
++	if id == "" {
++		id = cb.ID
++	}
++	// Lookup once: a missing main container must not manufacture a fresh
++	// ephemeral status, and concurrent removal must not cause a second lookup.
++	container, err := cb.ContainersMap.Get(id)
++	if err != nil || container == nil {
++		return nil
++	}
++	return container.Status
+ }
+ 
+ func (cb *CubeBox) GetStatus() *StatusStorage {
+-	if cb.mainContainerStatus() != nil {
+-		cb.Status = cb.mainContainerStatus()
+-	} else {
+-		if cb.FirstContainer() == nil {
+-			log.G(context.Background()).Warnf("cubebox %s has no main container", cb.ID)
+-		} else {
+-			cb.FirstContainer().Status = StoreStatus(Status{CreatedAt: cb.CreatedAt})
+-			cb.Status = cb.FirstContainer().Status
++	// The main container's StatusStorage already serializes value updates.
++	// Readers must not repeatedly write the shared legacy cb.Status pointer.
++	if cb.ContainersMap != nil {
++		if current := cb.mainContainerStatus(); current != nil {
++			return current
+ 		}
+ 	}
++	cb.statusPointerLock.Lock()
++	defer cb.statusPointerLock.Unlock()
+ 	if cb.Status == nil {
+ 		cb.Status = StoreStatus(Status{CreatedAt: cb.CreatedAt})
+ 	}
+--- a/Cubelet/pkg/store/cubebox/deepcopy.go
++++ b/Cubelet/pkg/store/cubebox/deepcopy.go
+@@ -113,9 +113,9 @@
+ 		}
+ 	}
+ 
+-	if cb.Status != nil {
+-		copied.Status = cb.Status.DeepCopy()
+-	}
++	// Use the canonical, synchronized status selection instead of racing the
++	// lazy legacy status pointer written by GetStatus readers.
++	copied.Status = cb.GetStatus().DeepCopy()
+ 
+ 	copied.LocalRunTemplate = cb.LocalRunTemplate.Clone()
+ 
+@@ -139,7 +139,9 @@
+ 	return copied
+ }
+ 
+-func (m Metadata) DeepCopy() Metadata {
++func (m *Metadata) DeepCopy() Metadata {
++	m.MetaLock.Lock()
++	defer m.MetaLock.Unlock()
+ 	copied := Metadata{
+ 		ID:           m.ID,
+ 		Name:         m.Name,
+--- a/Cubelet/pkg/store/cubebox/cubebox_test.go
++++ b/Cubelet/pkg/store/cubebox/cubebox_test.go
+@@ -8,6 +8,7 @@
+ 	"context"
+ 	"math/rand"
+ 	"os"
++	"sync"
+ 	"testing"
+ 	"time"
+ 
+@@ -445,11 +446,14 @@
+ 	cubestore := NewStore(db)
+ 	ctx, cancel := context.WithCancel(context.Background())
+ 	defer cancel()
++	var workers sync.WaitGroup
+ 	for i := 0; i < jobNum; i++ {
+-		go listCubeStoreJob(ctx, cubestore)
++		workers.Add(1)
++		go func() { defer workers.Done(); listCubeStoreJob(ctx, cubestore) }()
+ 	}
+ 	for i := 0; i < jobNum; i++ {
+-		go creatingCubeboxJob(ctx, cubestore)
++		workers.Add(1)
++		go func() { defer workers.Done(); creatingCubeboxJob(ctx, cubestore) }()
+ 	}
+ 	select {
+ 	case <-time.After(10 * time.Second):
+@@ -457,6 +461,7 @@
+ 	case <-ctx.Done():
+ 	}
+ 	<-ctx.Done()
++	workers.Wait() // Do not close/remove databases while producers still run.
+ }
+ func TestMultiConcurrentOpContainer(t *testing.T) {
+ 	testMultiConcurrentOpContainer(10, t.TempDir())
+--- a/Cubelet/pkg/store/cubebox/status_readers_test.go
++++ b/Cubelet/pkg/store/cubebox/status_readers_test.go
+@@ -0,0 +1,79 @@
++package cubebox
++
++import (
++	"sync"
++	"testing"
++)
++
++func TestStatusReadersAndPersistenceCopyShareCanonicalStatus(t *testing.T) {
++	box := &CubeBox{Metadata: Metadata{ID: "owned"}, ContainersMap: &ContainersMap{}}
++	main := &Container{Metadata: Metadata{ID: "owned"}, IsPod: true, Status: StoreStatus(Status{StartedAt: 1})}
++	box.AddContainer(main)
++	var jobs sync.WaitGroup
++	for worker := 0; worker < 8; worker++ {
++		jobs.Add(1)
++		go func() {
++			defer jobs.Done()
++			for i := 0; i < 1000; i++ {
++				if box.GetStatus() != main.Status {
++					t.Error("status reader lost canonical container")
++				}
++				copy := box.DeepCopy()
++				if copy.Status == nil || copy.Status.Get().StartedAt != 1 {
++					t.Error("persistence copy lost status")
++				}
++			}
++		}()
++	}
++	jobs.Wait()
++	if box.Status != nil {
++		t.Fatal("status readers mutated legacy pointer")
++	}
++}
++func TestStatusReadersInitializeOneFallback(t *testing.T) {
++	box := &CubeBox{Metadata: Metadata{ID: "owned", CreatedAt: 1}, ContainersMap: &ContainersMap{}}
++	values := make(chan *StatusStorage, 16)
++	var jobs sync.WaitGroup
++	for i := 0; i < 16; i++ {
++		jobs.Add(1)
++		go func() { defer jobs.Done(); values <- box.GetStatus() }()
++	}
++	jobs.Wait()
++	close(values)
++	var first *StatusStorage
++	for status := range values {
++		if first == nil {
++			first = status
++		}
++		if status != first {
++			t.Fatal("duplicate mutable fallback")
++		}
++	}
++	if first.Get().CreatedAt != 1 {
++		t.Fatal("fallback identity lost")
++	}
++}
++
++func TestMetadataUpdatesAndPersistenceCopiesAreSynchronized(t *testing.T) {
++	box := &CubeBox{Metadata: Metadata{ID: "owned"}}
++	var jobs sync.WaitGroup
++	for worker := 0; worker < 4; worker++ {
++		jobs.Add(1)
++		go func() {
++			defer jobs.Done()
++			for i := 0; i < 500; i++ {
++				box.AddLabels(map[string]string{"pause": "owned-snapshot"})
++				box.AddAnnotations(map[string]string{"generation": "current"})
++				copy := box.DeepCopy()
++				if copy.ID != "owned" {
++					t.Error("identity changed")
++				}
++			}
++		}()
++	}
++	jobs.Wait()
++	copy := box.DeepCopy()
++	if copy.Labels["pause"] != "owned-snapshot" || copy.Annotations["generation"] != "current" {
++		t.Fatal("metadata update lost")
++	}
++}

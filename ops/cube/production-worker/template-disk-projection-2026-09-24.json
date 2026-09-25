@@ -1,0 +1,109 @@
+{
+  "stage": "7 templates ready; worker template building",
+  "data_total_bytes": 257572208640,
+  "data_available_bytes": 221845147648,
+  "xfs_object_totals": {
+    "rootfs": {
+      "files": 8,
+      "logical_bytes": 85899345920,
+      "allocated_bytes": 35717120
+    },
+    "memory": {
+      "files": 8,
+      "logical_bytes": 17179869184,
+      "allocated_bytes": 1302294528
+    },
+    "other": {
+      "files": 28,
+      "logical_bytes": 815873,
+      "allocated_bytes": 888832
+    }
+  },
+  "large_files": [
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-ce1ee426e686460bbc8c3bfc-build-rootfs/tpl-tpl-ce1ee426e686460bbc8c3bfc-rootfs",
+      "logical_bytes": 10737418240,
+      "allocated_bytes": 4456448
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-ce1ee426e686460bbc8c3bfc-memory/tpl-tpl-ce1ee426e686460bbc8c3bfc-memory",
+      "logical_bytes": 2147483648,
+      "allocated_bytes": 184565760
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-98b45d63cfcc48c5b6ba9104-build-rootfs/tpl-tpl-98b45d63cfcc48c5b6ba9104-rootfs",
+      "logical_bytes": 10737418240,
+      "allocated_bytes": 4456448
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-98b45d63cfcc48c5b6ba9104-memory/tpl-tpl-98b45d63cfcc48c5b6ba9104-memory",
+      "logical_bytes": 2147483648,
+      "allocated_bytes": 189997056
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-af77de3e32d742d6946d729c-build-rootfs/tpl-tpl-af77de3e32d742d6946d729c-rootfs",
+      "logical_bytes": 10737418240,
+      "allocated_bytes": 4456448
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-af77de3e32d742d6946d729c-memory/tpl-tpl-af77de3e32d742d6946d729c-memory",
+      "logical_bytes": 2147483648,
+      "allocated_bytes": 187740160
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-5abec4cb4fcc41cc8e611f69-build-rootfs/tpl-tpl-5abec4cb4fcc41cc8e611f69-rootfs",
+      "logical_bytes": 10737418240,
+      "allocated_bytes": 4456448
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-5abec4cb4fcc41cc8e611f69-memory/tpl-tpl-5abec4cb4fcc41cc8e611f69-memory",
+      "logical_bytes": 2147483648,
+      "allocated_bytes": 183447552
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-1e84e515952f4ef996dcb546-build-rootfs/tpl-tpl-1e84e515952f4ef996dcb546-rootfs",
+      "logical_bytes": 10737418240,
+      "allocated_bytes": 4456448
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-1e84e515952f4ef996dcb546-memory/tpl-tpl-1e84e515952f4ef996dcb546-memory",
+      "logical_bytes": 2147483648,
+      "allocated_bytes": 187424768
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-54737fedc9074c0f887c6ac5-build-rootfs/tpl-tpl-54737fedc9074c0f887c6ac5-rootfs",
+      "logical_bytes": 10737418240,
+      "allocated_bytes": 4456448
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-54737fedc9074c0f887c6ac5-memory/tpl-tpl-54737fedc9074c0f887c6ac5-memory",
+      "logical_bytes": 2147483648,
+      "allocated_bytes": 184524800
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-d1d9d24fe26641f7812e1287-build-rootfs/tpl-tpl-d1d9d24fe26641f7812e1287-rootfs",
+      "logical_bytes": 10737418240,
+      "allocated_bytes": 4456448
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-d1d9d24fe26641f7812e1287-memory/tpl-tpl-d1d9d24fe26641f7812e1287-memory",
+      "logical_bytes": 2147483648,
+      "allocated_bytes": 184594432
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-47a3d334cd8d4003859d7813-build-rootfs/tpl-tpl-47a3d334cd8d4003859d7813-build-rootfs",
+      "logical_bytes": 10737418240,
+      "allocated_bytes": 4521984
+    },
+    {
+      "path": "/data/cubelet/storage/xfs/objects/volumes/tpl-tpl-47a3d334cd8d4003859d7813-memory/tpl-tpl-47a3d334cd8d4003859d7813-memory",
+      "logical_bytes": 2147483648,
+      "allocated_bytes": 0
+    }
+  ],
+  "directory_allocated_bytes": [
+    "27389296640\t/data/CubeMaster",
+    "1733259264\t/data/cubelet",
+    "1617035264\t/data/control"
+  ]
+}

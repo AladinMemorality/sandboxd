@@ -1,0 +1,29 @@
+{
+  "upstream_commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+  "patch": "0003-preserve-paused-sandbox-info.patch",
+  "patch_sha256": "4d5cb7b3132b5ac10b9f3dc33c9b5f8949791cebadec8528b0c6312388035d66",
+  "candidate_binary_sha256": "1d89da2f1e6d27770b6ef3dcd9e2316e29bb8b2bb07f7e978b6847e64c2ea619",
+  "build": "CGO_ENABLED=0 GOMAXPROCS=2 go1.25.7 build -trimpath -o /src/cubemaster-candidate ./cmd/cubemaster",
+  "tests": [
+    {
+      "command": "go test ./pkg/service/sandbox -run \"TestPausedInfo|TestPauseFailure\" -count=1",
+      "result": "pass",
+      "elapsed_seconds": 0.014
+    },
+    {
+      "command": "go test ./pkg/service/sandbox ./pkg/sandboxspec ./pkg/pausesnap -count=1",
+      "result": "pass",
+      "package_elapsed_seconds": [
+        9.352,
+        0.007,
+        2.982
+      ]
+    }
+  ],
+  "deployment": "Parent deployed on fresh worker only after review; both owned paused fixtures returned correct template, cpuCount=2, memoryMB=2048, and fixture metadata. Production Docker routing unchanged.",
+  "limitations": [
+    "Source-backed resource fallback can remain incomplete; no guessed defaults",
+    "Does not implement running-guest crash recovery",
+    "CubeAPI unknown-state fix separate"
+  ]
+}

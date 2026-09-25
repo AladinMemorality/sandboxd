@@ -237,6 +237,9 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 	}
 	if remote {
 		if err := s.connectCube(r.Context(), id, int(watchWindowFor(req.TimeoutS).Seconds())+600); err != nil {
+			if writeCubeAdmissionError(w, err) {
+				return
+			}
 			writeV1Err(w, 502, "sandbox_unavailable", "Cube task lease/readiness failed")
 			return
 		}
@@ -470,6 +473,9 @@ func (s *Server) v1RevertTask(w http.ResponseWriter, r *http.Request) {
 			defer s.Locks.Unlock(id)
 		}
 		if err := s.connectCube(r.Context(), id, 3600); err != nil {
+			if writeCubeAdmissionError(w, err) {
+				return
+			}
 			writeV1Err(w, 502, "sandbox_unavailable", "Cube revert runtime unavailable")
 			return
 		}
@@ -499,6 +505,9 @@ func (s *Server) v1TaskEvents(w http.ResponseWriter, r *http.Request) {
 	id, taskID := r.PathValue("id"), r.PathValue("taskId")
 	if remote, err := s.Store.IsCube(r.Context(), id); err == nil && remote {
 		if err := s.prepareCubeTaskRPC(r.Context(), id); err != nil {
+			if writeCubeAdmissionError(w, err) {
+				return
+			}
 			writeV1Err(w, 502, "sandbox_unavailable", "Cube task runtime unavailable")
 			return
 		}
@@ -544,6 +553,9 @@ func (s *Server) v1CancelTask(w http.ResponseWriter, r *http.Request) {
 	id, taskID := r.PathValue("id"), r.PathValue("taskId")
 	if remote, err := s.Store.IsCube(r.Context(), id); err == nil && remote {
 		if err := s.prepareCubeTaskRPC(r.Context(), id); err != nil {
+			if writeCubeAdmissionError(w, err) {
+				return
+			}
 			writeV1Err(w, 502, "sandbox_unavailable", "Cube task runtime unavailable")
 			return
 		}

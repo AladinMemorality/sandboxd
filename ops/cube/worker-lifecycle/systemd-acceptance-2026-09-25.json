@@ -1,0 +1,70 @@
+{
+  "cases": [
+    {
+      "backup_exclusive_refused": true,
+      "case": "failed-drain",
+      "cleanup_method": "QMP quit of exact diskless fixture only",
+      "cleanup_verified": true,
+      "memory_events": {
+        "high": 0,
+        "low": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "observed_state": "stop-blocked",
+      "passed": true,
+      "qemu_alive_after_stop": true,
+      "qemu_inherited_both_locks": true,
+      "second_instance_refused": true,
+      "supervisor_same_after_stop": true,
+      "unit": "baarcha-cube-lifecycle-fixture-f4d08943b4dd-failed-drain.service"
+    },
+    {
+      "backup_exclusive_refused": true,
+      "case": "unhandled-powerdown",
+      "cleanup_method": "QMP quit of exact diskless fixture only",
+      "cleanup_verified": true,
+      "memory_events": {
+        "high": 0,
+        "low": 0,
+        "max": 0,
+        "oom": 0,
+        "oom_group_kill": 0,
+        "oom_kill": 0
+      },
+      "observed_state": "powerdown-wait",
+      "passed": true,
+      "qemu_alive_after_stop": true,
+      "qemu_inherited_both_locks": true,
+      "second_instance_refused": true,
+      "supervisor_same_after_stop": true,
+      "unit": "baarcha-cube-lifecycle-fixture-f4d08943b4dd-unhandled-powerdown.service"
+    }
+  ],
+  "elapsed_seconds": 6.092505064792931,
+  "production_changes": false,
+  "real_guest_os_clean_shutdown_verified": false,
+  "source": "exact candidate Supervisor and lifetime locks",
+  "version": 1,
+  "date": "2026-09-25",
+  "candidate_commit": "61f8fd4",
+  "evidence_directory": "/opt/baarcha-bench/baarcha-cube-lifecycle-fixture-f4d08943b4dd",
+  "limits": {
+    "unit_cpu_quota_percent": 100,
+    "unit_memory_max_mib": 256,
+    "qemu_memory_mib": 32,
+    "qemu_vcpus": 1,
+    "guest_disks": 0,
+    "guest_network_devices": 0
+  },
+  "independent_cleanup": {
+    "matching_qemu_process_count": 0,
+    "matching_transient_unit_count": 0
+  },
+  "source_sha256": {
+    "ops/cube/worker-lifecycle/lifecycle.py": "4154af064b0ef3f6d42ce8b3e57d68ea48839ebbabb9cfe7294744502d5716ce",
+    "ops/cube/worker-lifecycle/acceptance.py": "8484cced73e525e6e93bf1dd737caedc925b065b26c0376c9cd980950ab2733c"
+  }
+}

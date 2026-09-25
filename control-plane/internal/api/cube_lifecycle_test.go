@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
-	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
@@ -189,6 +189,9 @@ func TestCubePauseConnectDeleteUseSeparateLifecycleOperations(t *testing.T) {
 
 func TestCubeCreateDoesNotAdvertiseUnauthenticatedSupervisor(t *testing.T) {
 	s, appID := newConfigTestServer(t)
+	requestCtx, cancelRequest := context.WithCancel(context.Background())
+	defer cancelRequest()
+	var rejected atomic.Bool
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == "POST" && r.URL.Path == "/sandboxes" {
 			w.WriteHeader(201)
@@ -196,6 +199,10 @@ func TestCubeCreateDoesNotAdvertiseUnauthenticatedSupervisor(t *testing.T) {
 			return
 		}
 		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		if r.URL.Path == "/status" {
+			rejected.Store(true)
+			cancelRequest()
+		}
 	}))
 	defer upstream.Close()
 	var err error
@@ -208,11 +215,12 @@ func TestCubeCreateDoesNotAdvertiseUnauthenticatedSupervisor(t *testing.T) {
 	s.CubeProxyURL = upstream.URL
 	s.CubeDomain = "cube.test"
 	r := httptest.NewRequest("POST", "/v1/apps/"+appID+"/sandbox", strings.NewReader(`{"runtime_preset":"react-vite"}`))
-	ctx, cancel := context.WithTimeout(auth.WithActor(r.Context(), auth.Actor{Name: cfgTenant, Kind: "service"}), 200*time.Millisecond)
-	defer cancel()
-	r = r.WithContext(ctx)
+	r = r.WithContext(auth.WithActor(requestCtx, auth.Actor{Name: cfgTenant, Kind: "service"}))
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, r)
+	if !rejected.Load() {
+		t.Fatal("request did not reach rejecting supervisor")
+	}
 	if w.Code != 502 {
 		t.Fatalf("advertised unauthenticated supervisor: %d %s", w.Code, w.Body.String())
 	}

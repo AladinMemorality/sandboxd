@@ -1,0 +1,10 @@
+{
+  "base_sha256": "612b2c0cc1bc413a6cb8c38fd611794caf0f2b436c50013d8b3794db12ad7354",
+  "started": false,
+  "customer_disks_attached": false,
+  "qemu_user": "baarcha-cube-rescue",
+  "guest_ram_mib": 3072,
+  "vcpus": 2,
+  "network": "restricted user network, IPv6 disabled, only loopback SSH20223 forwarded",
+  "unit_sha256": "506676983ea348c80547f1a5c91446a2c7da85bfbc05f07288d0161921d9d0dd"
+}

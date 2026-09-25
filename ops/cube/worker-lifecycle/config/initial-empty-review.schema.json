@@ -1,0 +1,104 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:baarcha:cube:initial-empty-review",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "kind",
+    "generated_at",
+    "worker_machine_id",
+    "worker_boot_id",
+    "data_uuid",
+    "qemu_pid",
+    "qemu_start_time",
+    "controller_cube_bindings",
+    "provider_all_state_guests",
+    "cube_containerd_tasks",
+    "pending_provider_jobs",
+    "pending_admissions",
+    "incomplete_recoveries",
+    "retained_current_disks_accounted_for",
+    "retained_fixture_inventory_sha256",
+    "installed_patch_manifest_sha256",
+    "persistent_metadata_evidence_sha256",
+    "manual_pause_reboot_evidence_sha256",
+    "source_gate_enabled",
+    "tenant_ready"
+  ],
+  "properties": {
+    "version": {
+      "const": 1
+    },
+    "kind": {
+      "const": "initial-empty-worker-review"
+    },
+    "generated_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "worker_machine_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{32}$"
+    },
+    "worker_boot_id": {
+      "type": "string",
+      "pattern": "^[a-f0-9-]{32,64}$"
+    },
+    "data_uuid": {
+      "type": "string",
+      "pattern": "^[a-f0-9-]{32,64}$"
+    },
+    "qemu_pid": {
+      "type": "integer",
+      "minimum": 2
+    },
+    "qemu_start_time": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]*$"
+    },
+    "controller_cube_bindings": {
+      "const": 0
+    },
+    "provider_all_state_guests": {
+      "const": 0
+    },
+    "cube_containerd_tasks": {
+      "const": 0
+    },
+    "pending_provider_jobs": {
+      "const": 0
+    },
+    "pending_admissions": {
+      "const": 0
+    },
+    "incomplete_recoveries": {
+      "const": 0
+    },
+    "retained_current_disks_accounted_for": {
+      "const": true
+    },
+    "retained_fixture_inventory_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "installed_patch_manifest_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "persistent_metadata_evidence_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "manual_pause_reboot_evidence_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "source_gate_enabled": {
+      "const": false
+    },
+    "tenant_ready": {
+      "const": false
+    }
+  }
+}

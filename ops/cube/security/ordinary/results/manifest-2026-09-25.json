@@ -1,0 +1,21 @@
+{
+  "scope": "owned ordinary sockets; no raw packets, attachments or host network changes",
+  "binary_sha256": "0421753bae364f14902d4ab76cb068a35f4b2423e108a68f8229f948647ad540",
+  "guest_sha256": "09ea3cd80e39a5414acb9753ba2af3b987ff5bd29269c154bec934b26c576f10",
+  "report_sha256": "da7c003293c343d0566221cccea842b2354dec7099b0aae31dfa3469bd241232",
+  "cubelet_sha256": "53b09684b59bf1b5609742c1c6b3e17fb22b23ef2320000ddf49716df713346d",
+  "cubemaster_sha256": "1d89da2f1e6d27770b6ef3dcd9e2316e29bb8b2bb07f7e978b6847e64c2ea619",
+  "phases_passed": [
+    "fresh",
+    "pause-resume",
+    "replacement",
+    "worker-restart"
+  ],
+  "cleanup_confirmed": true,
+  "production_activation": false,
+  "limitations": [
+    "Eight occupied source-port attempts per phase are inconclusive, not denials",
+    "A graceful paused-worker restart does not prove running-worker crash recovery",
+    "No customer workloads or production routes were involved"
+  ]
+}

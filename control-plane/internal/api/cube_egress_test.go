@@ -41,6 +41,9 @@ func reverseFixture(t *testing.T, upstream http.HandlerFunc) (*Server, string, *
 	t.Cleanup(target.Close)
 	s.AgentProxyURL = target.URL
 	s.CubeAgentRelayOrigin = "https://relay.example"
+	// The same metering, identity, revocation and protected-address assertions
+	// must hold when the operator selects Cube for every newly created app.
+	s.CubeAllApps = true
 	ctx, cancel := context.WithCancel(context.Background())
 	cfg := CubeEgressConfig{Policy: egress.Policy{ProtectedPrefixes: []netip.Prefix{netip.MustParsePrefix("65.108.225.153/32")}, ProtectedDomains: []string{"baarcha.tn"}}, BridgeURL: "https://bridge.example/api/bridge"}
 	if err = s.ConfigureCubeEgress(ctx, cfg); err != nil {

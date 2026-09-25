@@ -191,6 +191,10 @@ func main() {
 		os.Exit(1)
 	}
 	defer maintenanceLock.Close()
+	if err := maintenance.CheckWorkerStop(databasePath); err != nil && !errors.Is(err, os.ErrNotExist) {
+		log.Error("startup: worker stop requires offline reconciliation", "err", err)
+		os.Exit(1)
+	}
 	dsn := fmt.Sprintf("file:%s?_journal=WAL&_busy_timeout=5000&_fk=1", databasePath)
 	st, err := store.Open(ctx, dsn, migrations)
 	if err != nil {
@@ -204,6 +208,11 @@ func main() {
 	}()
 	if pending, e := st.HasIncompleteRuntimeMigrations(ctx); e != nil || pending {
 		log.Error("startup: incomplete runtime migration; resume or abort offline before starting daemon", "err", e)
+		os.Exit(1)
+	}
+
+	if pending, e := st.HasIncompleteCubeRecoveries(ctx); e != nil || pending {
+		log.Error("startup: incomplete offline Cube recovery; verify and commit recovery before starting daemon", "err", e)
 		os.Exit(1)
 	}
 
@@ -530,6 +539,10 @@ func main() {
 	cubeConfig, err := loadCubeConfig()
 	if err != nil {
 		log.Error("invalid Cube configuration", "err", err)
+		os.Exit(1)
+	}
+	if err := configureCubeAdmission(ctx, cubeConfig, st); err != nil {
+		log.Error("invalid Cube admission configuration", "err", err)
 		os.Exit(1)
 	}
 	server := &api.Server{

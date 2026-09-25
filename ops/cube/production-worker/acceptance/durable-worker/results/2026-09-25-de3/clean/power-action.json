@@ -1,0 +1,9 @@
+{
+  "time": 1790342230.138671,
+  "pid": 2828362,
+  "sandbox_id": "64c0a0da679b46f89de598cbf2e3e1d8",
+  "previous_boot": "fd565505-bf41-4f93-81e9-40b90bef652e",
+  "method": "QMP system_powerdown",
+  "nested_retained_stop": true,
+  "production_mutated": false
+}

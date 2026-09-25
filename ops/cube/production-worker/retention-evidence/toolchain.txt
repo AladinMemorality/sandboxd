@@ -1,0 +1,2 @@
+go version go1.25.7 linux/amd64
+cc (Ubuntu 13.3.0-6ubuntu2~24.04.1) 13.3.0

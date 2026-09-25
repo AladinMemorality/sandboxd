@@ -1,0 +1,13 @@
+# Apply these fields to Cubelet/dynamicconf/conf.yaml. Not a full configuration.
+# Requires durable controller admission: combined creating/waking/running <=4.
+# Reserve native overhead: four guests account for about9200mCPU/8640MiB.
+# These revised limits require actual four-guest acceptance before cutover.
+# Count128 is a ceiling, not a storage-capacity claim. Require >=48GiB real free
+# space before allocations/imports; logical guest writable allowance stays10GiB.
+host:
+  quota:
+    mcpu_limit: 10000
+    mem_limit: "10Gi"
+    mvm_limit: 128
+    creation_concurrent_num: 1
+    paused_resource_release_ratio: 1.0

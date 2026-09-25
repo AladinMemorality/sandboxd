@@ -1,0 +1,115 @@
+--- a/Cubelet/storage/local.go
++++ b/Cubelet/storage/local.go
+@@ -285,24 +285,15 @@
+ 			return fmt.Errorf("unmarshal storage info %s during recover: %w", id, err)
+ 		}
+ 		if err := l.recoverStorageInfo(ctx, id, info); err != nil {
+-			// If the underlying cubecow volume / snapshot is gone (typical
+-			// after a crash mid-template-build, where the build-rootfs
+-			// volume has been cleaned up but the storage-info entry was
+-			// never erased), the storage info is stale by definition.
+-			// Drop the entry instead of preventing the whole node from
+-			// coming back online: keeping cubelet hard-fatal here means a
+-			// single broken sandbox / template build can wedge the node
+-			// permanently and require manual DB surgery.
++			// A missing object does not prove that the whole sandbox is disposable.
++			// In particular, a missing RAM object can coexist with the only current
++			// writable disk. Keep both DB and fallback metadata for operator recovery;
++			// normal reads still fail closed until every referenced object resolves.
++			// Do not let one damaged entry prevent other sandboxes from recovering.
+ 			var missingErr *CowObjectMissingError
+ 			if errors.As(err, &missingErr) {
+-				CubeLog.Warnf("storage recover: dropping stale entry id=%s (cubecow object %q kind=%s gone): %v",
+-					id, missingErr.VolumeName, missingErr.Kind, err)
+-				if delErr := l.db.Delete(bucketName, id); delErr != nil &&
+-					!errors.Is(delErr, utils.ErrorKeyNotFound) &&
+-					!errors.Is(delErr, utils.ErrorBucketNotFound) {
+-					CubeLog.Warnf("storage recover: failed to drop stale entry %s from db: %v", id, delErr)
+-				}
+-				_ = atomicDelete(filepath.Join(l.failoverDir(), id))
++				CubeLog.Warnf("storage recover: retaining unresolved entry id=%s (cubecow object %q kind=%s unavailable); operator recovery required",
++					id, missingErr.VolumeName, missingErr.Kind)
+ 				continue
+ 			}
+ 			// S3 entries are skipped above, so this should be unreachable.
+--- /dev/null
++++ b/Cubelet/storage/recovery_retention_test.go
+@@ -0,0 +1,78 @@
++// Copyright (c) 2026 Tencent Inc.
++// SPDX-License-Identifier: Apache-2.0
++
++package storage
++
++import (
++	"context"
++	"encoding/json"
++	"os"
++	"path/filepath"
++	"testing"
++
++	"github.com/containerd/plugin"
++	"github.com/stretchr/testify/require"
++	"github.com/tencentcloud/CubeSandbox/Cubelet/pkg/cubecow"
++)
++
++func TestStorageRecoveryRetainsMetadataWhenAnyCowObjectIsMissing(t *testing.T) {
++	for _, missing := range []string{"owned-rootfs", "owned-memory"} {
++		t.Run(missing, func(t *testing.T) {
++			ctx := context.Background()
++			cfg := makeTestConfig(t)
++			cfg.StorageBackend = "cubecow"
++			dataFile := filepath.Join(t.TempDir(), "current-rootfs")
++			require.NoError(t, os.WriteFile(dataFile, []byte("latest acknowledged project writes"), 0600))
++			manager := &fakeCowVolumeManager{
++				resolvePaths: map[string]string{"owned-rootfs": dataFile, "owned-memory": "/resolved/memory", "healthy-rootfs": "/resolved/healthy"},
++				resolveErrs:  map[string]error{missing: &cubecow.CowError{Code: cubecow.SemNotFound, RawRC: int32(cubecow.SemNotFound)}},
++			}
++			s := &local{config: cfg, cowManager: manager}
++			require.NoError(t, s.init(&plugin.InitContext{Context: ctx}))
++			info := &StorageInfo{SandboxID: "owned", Namespace: "default", Volumes: map[string]*BackendFileInfo{
++				"rootfs": {Name: "rootfs", FilePath: dataFile, VolumeName: "owned-rootfs", Kind: cowKindVolume},
++				"memory": {Name: "memory", FilePath: "/old/memory", VolumeName: "owned-memory", Kind: cowKindVolume},
++			}}
++			require.NoError(t, s.writeBackendFileInfo(ctx, "owned", info))
++			before, err := s.db.Get(bucketName, "owned")
++			require.NoError(t, err)
++			fallback, err := json.Marshal(info)
++			require.NoError(t, err)
++			require.NoError(t, os.MkdirAll(s.failoverDir(), 0700))
++			fallbackPath := filepath.Join(s.failoverDir(), "owned")
++			require.NoError(t, os.WriteFile(fallbackPath, fallback, 0600))
++			require.NoError(t, s.writeBackendFileInfo(ctx, "healthy", &StorageInfo{SandboxID: "healthy", Namespace: "default", Volumes: map[string]*BackendFileInfo{
++				"rootfs": {Name: "rootfs", FilePath: "/old/healthy", VolumeName: "healthy-rootfs", Kind: cowKindVolume},
++			}}))
++
++			for i := 0; i < 2; i++ {
++				require.NoError(t, s.RecoverStorageState(ctx), "unresolved project must not stop healthy recovery")
++				after, err := s.db.Get(bucketName, "owned")
++				require.NoError(t, err)
++				require.Equal(t, before, after, "keep the complete original recovery record")
++				actualFallback, err := os.ReadFile(fallbackPath)
++				require.NoError(t, err)
++				require.Equal(t, fallback, actualFallback)
++				data, err := os.ReadFile(dataFile)
++				require.NoError(t, err)
++				require.Equal(t, "latest acknowledged project writes", string(data))
++				_, err = s.readBackendFileInfo(ctx, "owned")
++				require.ErrorIs(t, err, ErrCowObjectMissing, "retention must not make unavailable storage usable")
++			}
++			healthy, err := s.readBackendFileInfoRaw(ctx, "healthy")
++			require.NoError(t, err)
++			require.Equal(t, "/resolved/healthy", healthy.Volumes["rootfs"].FilePath)
++			require.Empty(t, manager.deleteCalls)
++
++			// An operator can repair the missing object and retry using the
++			// retained record; no fabricated replacement disk is introduced.
++			delete(manager.resolveErrs, missing)
++			require.NoError(t, s.RecoverStorageState(ctx))
++			repaired, err := s.readBackendFileInfo(ctx, "owned")
++			require.NoError(t, err)
++			require.Equal(t, dataFile, repaired.Volumes["rootfs"].FilePath)
++			require.Equal(t, "/resolved/memory", repaired.Volumes["memory"].FilePath)
++			require.Empty(t, manager.deleteCalls)
++		})
++	}
++}

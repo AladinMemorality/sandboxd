@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "generated_at": "1970-01-01T00:00:00Z",
+  "controller_id": "REQUIRES_VERIFIED_IMMUTABLE_ID",
+  "worker_boot_id": "REQUIRES_CURRENT_BOOT_ID",
+  "qemu_pid": 0,
+  "qemu_start_time": "0",
+  "inventory_sha256": "REQUIRES_FROZEN_READ_ONLY_INVENTORY",
+  "caddy_configuration_sha256": "REQUIRES_LOADED_FENCE_VERIFICATION",
+  "evidence_sha256": "REQUIRES_INDEPENDENT_DRAIN_EVIDENCE",
+  "traffic_fenced": false,
+  "existing_requests_drained": false,
+  "direct_writers_fenced": false,
+  "provider_jobs_drained": false
+}

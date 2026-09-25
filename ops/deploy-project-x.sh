@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Exact-revision Docker release. This does not enable or migrate Cube.
+# Exact-revision controller release. Preserves the active runtime; never migrates.
 # Install outside the checkout as /opt/sandboxd/deploy.sh after reviewing it.
 set -Eeuo pipefail
 umask 077
@@ -14,6 +14,7 @@ flock -n 9 || { echo 'Another runtime deployment holds the lock' >&2; exit 1; }
 run="$state/releases/$(date -u +%Y%m%dT%H%M%S)-${sha:0:12}-$$"
 mkdir -p "$run"
 active="$state/active-images.json"
+runtime_compose="$state/runtime-compose.json"
 base_compat=sandboxd-base:0.3.0
 base_tag="sandboxd-base:release-$sha"
 control_tag="sandboxd-control-plane:release-$sha"
@@ -24,34 +25,62 @@ project=''
 
 compose() {
   local args=(-p "$project" --env-file "$src/.env" -f "$src/docker-compose.yml")
+  [[ ! -f "$runtime_compose" ]] || args+=(-f "$runtime_compose")
   [[ ! -f "$active" ]] || args+=(-f "$active")
   docker compose "${args[@]}" "$@"
 }
 override() {
-  python3 - "$1" "$active" <<'PY'
+  python3 - "$1" "$active" "$runtime_mode" <<'PY'
 import json,os,sys
-image,path=sys.argv[1:]
-data={'services':{'sandboxd':{'image':image,'environment':{
- 'SANDBOXD_CUBE_ENABLED':'false','SANDBOXD_CUBE_REVERSE_EGRESS':'false','SANDBOXD_IMAGE':'sandboxd-base:0.3.0'}}}}
+image,path,mode=sys.argv[1:]
+# Keep the complete operator override. In particular, a release must never
+# silently disable Cube, discard trusted mappings, or remove transport mounts.
+data=json.load(open(path)) if os.path.isfile(path) else {'services':{'sandboxd':{}}}
+if mode=='docker':
+ data['services']['sandboxd'].setdefault('environment',{}).update({
+  'SANDBOXD_CUBE_ENABLED':'false','SANDBOXD_CUBE_REVERSE_EGRESS':'false','SANDBOXD_IMAGE':'sandboxd-base:0.3.0'})
+data['services']['sandboxd']['image']=image
 with open(path+'.new','w') as f: json.dump(data,f)
 os.replace(path+'.new',path)
 PY
 }
 isolation() { SANDBOXD_SRC_DIR="$src" "$src/host/sandbox-isolation.sh"; }
+reconnect_management() {
+  [[ "$runtime_mode" == cube ]] || return 0
+  compose up -d --no-deps --no-build --pull never --force-recreate cube-management-api cube-management-proxy
+  local controller api_relay proxy_relay
+  controller=$(compose ps -q sandboxd)
+  api_relay=$(compose ps -q cube-management-api)
+  proxy_relay=$(compose ps -q cube-management-proxy)
+  [[ -n "$controller" && -n "$api_relay" && -n "$proxy_relay" ]]
+  python3 - "$controller" "$api_relay" "$proxy_relay" <<'PY'
+import json,subprocess,sys,time
+deadline=time.monotonic()+45
+while True:
+ controller,*relays=json.loads(subprocess.check_output(['docker','inspect',*sys.argv[1:]]))
+ assert controller['State']['Running'], 'Controller stopped while connecting Cube relays'
+ for relay in relays:
+  assert relay['HostConfig']['NetworkMode']=='container:'+controller['Id'], 'Cube relay attached to an obsolete controller namespace'
+  assert not relay['HostConfig'].get('PortBindings'), 'Cube relay publishes host ports'
+ if all(r['State']['Running'] and r['State'].get('Health',{}).get('Status')=='healthy' for r in relays): break
+ if time.monotonic()>=deadline: raise RuntimeError('Cube management relay health deadline exceeded')
+ time.sleep(1)
+PY
+}
 verify() {
   local expected=$1 cid
   cid=$(compose ps -q sandboxd)
   [[ -n "$cid" ]]
   docker inspect "$cid" >"$run/verify-container.json"
-  python3 - "$run/verify-container.json" "$expected" "$run/config.json" <<'PY'
-import json,sys,time,urllib.request,urllib.error
+  python3 - "$run/verify-container.json" "$expected" "$run/config.json" "$cid" <<'PY'
+import json,subprocess,sys,time,urllib.request,urllib.error
 container=json.load(open(sys.argv[1]))[0]
 assert container['Image']==sys.argv[2], 'Running controller image differs from selected immutable image'
 assert container['State']['Running'], 'Controller is not running'
 env=dict(x.split('=',1) for x in container['Config']['Env'] if '=' in x)
-assert env.get('SANDBOXD_CUBE_ENABLED','false').lower()=='false', 'Cube must remain disabled'
-assert env.get('SANDBOXD_CUBE_REVERSE_EGRESS','false').lower()=='false', 'Cube reverse egress must remain disabled'
 cfg=json.load(open(sys.argv[3]))['services']['sandboxd']['environment']
+cube_env=lambda values:{k:str(v) for k,v in values.items() if k.startswith('SANDBOXD_CUBE_') and str(v) not in ('','false')}
+assert cube_env(env)==cube_env(cfg), 'Running Cube configuration differs from preserved deployment configuration'
 assert str(env.get('SANDBOXD_API_AUTH_DISABLED','false')).lower()=='false', 'API authentication disabled'
 tokens=cfg.get('SANDBOXD_API_TOKENS','')
 token=next((p.split('=',1)[1].strip() for p in tokens.split(',') if '=' in p and p.split('=',1)[1].strip()),None)
@@ -76,6 +105,16 @@ while True:
  except (OSError,urllib.error.URLError):
   if time.monotonic()>=deadline: raise RuntimeError('Runtime readiness deadline exceeded') from None
   time.sleep(1)
+if env.get('SANDBOXD_CUBE_ENABLED')=='true':
+ # Exercise the actual controller network namespace and key without exposing
+ # the secret in argv, process environment, response bodies or release output.
+ endpoint=env['SANDBOXD_CUBE_API_URL'].rstrip('/')+'/sandboxes?limit=1'
+ for authenticated in (False,True):
+  options='url = '+json.dumps(endpoint)+'\n'
+  if authenticated: options+='header = '+json.dumps('X-API-Key: '+env['SANDBOXD_CUBE_API_KEY'])+'\n'
+  result=subprocess.run(['docker','exec','-i',sys.argv[4],'curl','--silent','--show-error','--max-time','20','--output','/dev/null','--write-out','%{http_code}','--config','-'],input=options,text=True,capture_output=True,timeout=25)
+  assert result.returncode==0, 'Cube API transport failed in controller namespace'
+  assert result.stdout in (('200',) if authenticated else ('401','403')), 'Cube API authentication/readiness failed in controller namespace'
 PY
 }
 rollback() {
@@ -95,7 +134,7 @@ rollback() {
       docker image tag "$old_base" "$base_compat" &&
       override "$rollback_control" || { echo 'Cannot restore release configuration; controller remains stopped' >&2; exit 1; }
     if [[ "$controller_attempted" == 1 ]]; then
-      compose up -d --no-deps --no-build --pull never sandboxd && isolation && verify "$old_control" || {
+      compose up -d --no-deps --no-build --pull never sandboxd && reconnect_management && isolation && verify "$old_control" || {
         compose stop -t 30 sandboxd
         echo 'Rollback readiness/isolation failed; controller left stopped for operator recovery' >&2
         exit 1
@@ -116,6 +155,7 @@ printf '%s\n' "$old_sha" >"$run/checkout.before"
 cp -p "$src/.env" "$run/env.before"
 chmod 600 "$run/env.before"
 [[ ! -f "$active" ]] || cp -p "$active" "$run/active-images.before.json"
+[[ ! -f "$runtime_compose" ]] || cp -p "$runtime_compose" "$run/runtime-compose.before.json"
 # Resolve the existing project from the live controller, never the worktree name.
 cid=$(docker compose --env-file "$src/.env" -f "$src/docker-compose.yml" ps -q sandboxd)
 [[ -n "$cid" ]]
@@ -125,17 +165,37 @@ import json,sys
 c=json.load(open(sys.argv[1]))[0]
 assert c['State']['Running'], 'Existing controller must be running'
 env=dict(x.split('=',1) for x in c['Config']['Env'] if '=' in x)
-assert env.get('SANDBOXD_CUBE_ENABLED','false').lower()=='false', 'Refusing Cube-enabled deployment'
-assert env.get('SANDBOXD_CUBE_REVERSE_EGRESS','false').lower()=='false', 'Refusing Cube reverse-egress deployment'
 print(c['Config']['Labels']['com.docker.compose.project'])
 PY
 )
 compose config --format json >"$run/config.json"
+runtime_mode=$(python3 - "$run/container.before.json" "$run/config.json" "$runtime_compose" <<'PY'
+import json,os,re,sys
+c=json.load(open(sys.argv[1]))[0]
+live=dict(x.split('=',1) for x in c['Config']['Env'] if '=' in x)
+config=json.load(open(sys.argv[2])); e=config['services']['sandboxd']['environment']
+cube_env=lambda values:{k:str(v) for k,v in values.items() if k.startswith('SANDBOXD_CUBE_') and str(v) not in ('','false')}
+assert cube_env(live)==cube_env(e), 'Release cannot change Cube configuration or perform a cutover'
+enabled=str(e.get('SANDBOXD_CUBE_ENABLED','false'))
+assert enabled in ('false','true'), 'Invalid Cube enabled value'
+if enabled=='true':
+ assert os.path.isfile(sys.argv[3]), 'Active Cube release requires durable runtime-compose.json'
+ for key,value in {'SANDBOXD_CUBE_ROLLOUT':'global','SANDBOXD_CUBE_REVERSE_EGRESS':'true','SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED':'true','SANDBOXD_CUBE_EGRESS_CLIENT_PROFILE':'proxy-http-v1'}.items():
+  assert str(e.get(key,''))==value, 'Cube deployment must retain its accepted global configuration'
+ for name in ('cube-management-api','cube-management-proxy'):
+  service=config['services'].get(name,{})
+  assert service.get('network_mode')=='service:sandboxd', 'Cube relay must share the controller network namespace'
+  assert not service.get('ports'), 'Cube relay must not publish host ports'
+  assert re.fullmatch(r'(?:[^\s]+@)?sha256:[0-9a-f]{64}',service.get('image','')), 'Cube relay requires an immutable image digest or local image ID'
+ print('cube')
+else:
+ assert str(e.get('SANDBOXD_CUBE_REVERSE_EGRESS','false'))=='false', 'Reverse egress requires Cube enabled'
+ print('docker')
+PY
+)
 db=$(python3 - "$run/config.json" <<'PY'
 import json,os,sqlite3,sys
 e=json.load(open(sys.argv[1]))['services']['sandboxd']['environment']
-assert str(e.get('SANDBOXD_CUBE_ENABLED','false')).lower()=='false', 'Cube enabled in compose configuration'
-assert str(e.get('SANDBOXD_CUBE_REVERSE_EGRESS','false')).lower()=='false', 'Cube reverse egress enabled in compose configuration'
 assert str(e.get('SANDBOXD_API_AUTH_DISABLED','false')).lower()=='false', 'Authentication must remain enabled'
 assert e.get('SANDBOXD_IMAGE','sandboxd-base:0.3.0')=='sandboxd-base:0.3.0', 'Nonstandard base image requires reviewed deployment'
 db=e.get('SANDBOXD_DB') or os.path.join(e.get('SANDBOXD_DATA_DIR','/var/lib/sandboxd'),'state','sandboxd.db')
@@ -146,7 +206,8 @@ with sqlite3.connect('file:'+db+'?mode=ro',uri=True) as handle:
   if table not in tables: continue
   columns={row[1] for row in handle.execute(f'PRAGMA table_info({table})')}
   if column in columns:
-   assert handle.execute(f"SELECT count(*) FROM {table} WHERE {column}='cube'").fetchone()[0]==0, 'Existing Cube ownership requires a separately reviewed deployment'
+   if str(e.get('SANDBOXD_CUBE_ENABLED','false'))!='true':
+    assert handle.execute(f"SELECT count(*) FROM {table} WHERE {column}='cube'").fetchone()[0]==0, 'Cannot deploy a disabled runtime over existing Cube ownership'
 print(db)
 PY
 )
@@ -253,10 +314,11 @@ docker image tag "$new_base" "$base_compat"
 override "$control_tag"
 controller_attempted=1
 compose up -d --no-deps --no-build --pull never sandboxd
+reconnect_management
 isolation
 verify "$new_control"
 if [[ -f "$run/traefik-dynamic.before/myhometroc.yml" ]]; then
   cmp "$run/traefik-dynamic.before/myhometroc.yml" "$src/traefik/dynamic/myhometroc.yml"
 fi
 printf '%s\n' "$sha" >"$run/succeeded"
-echo "Runtime release $sha verified; Cube remains disabled; evidence: $run"
+echo "Runtime release $sha verified; preserved runtime: $runtime_mode; evidence: $run"

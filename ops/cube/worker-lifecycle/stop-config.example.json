@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "database": "/REVIEWED/controller/state.db",
+  "migrations": "/REVIEWED/current-control-plane/migrations",
+  "receipt": "/REVIEWED/private/pre-drain.json",
+  "evidence_directory": "/REVIEWED/private/stop-evidence",
+  "controller_id": "REQUIRES_ACTUAL_IMMUTABLE_CONTAINER_ID",
+  "api_url": "http://127.0.0.1:20300",
+  "api_key": "CONFIGURE_PRIVATELY_NEVER_COMMIT_REAL_KEY",
+  "admission": {
+    "max_active": 4,
+    "cpu_count": 2,
+    "memory_mb": 2048,
+    "templates": {"REVIEWED_TEMPLATE_ID": {"cpu_count": 2, "memory_mb": 2048}}
+  },
+  "worker_machine_id": "REQUIRES_ACTUAL_MACHINE_ID",
+  "worker_boot_id": "REQUIRES_CURRENT_BOOT_ID",
+  "data_uuid": "REQUIRES_ACTUAL_FILESYSTEM_UUID",
+  "qemu_pid": 0,
+  "qemu_start_time": "0"
+}

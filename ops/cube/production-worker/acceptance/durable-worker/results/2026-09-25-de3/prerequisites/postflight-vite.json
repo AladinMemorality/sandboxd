@@ -1,0 +1,41 @@
+{
+  "family": "vite",
+  "passed": true,
+  "admission_max_active": 4,
+  "version": "5.4.21",
+  "preinstalled_patch": true,
+  "cold_reload_results": [
+    {
+      "env_reload_ms": 2286,
+      "exit_code": 0,
+      "passed": true,
+      "pending_requests": 1,
+      "restarting": false,
+      "shutdown_passed": true,
+      "variant": "patched-cold-1"
+    },
+    {
+      "env_reload_ms": 2229,
+      "exit_code": 0,
+      "passed": true,
+      "pending_requests": 1,
+      "restarting": false,
+      "shutdown_passed": true,
+      "variant": "patched-cold-2"
+    },
+    {
+      "env_reload_ms": 2193,
+      "exit_code": 0,
+      "passed": true,
+      "pending_requests": 1,
+      "restarting": false,
+      "shutdown_passed": true,
+      "variant": "patched-cold-3"
+    }
+  ],
+  "independently_deleted_ids": 1,
+  "provider_inventory_zero": true,
+  "node_scan": "1/1",
+  "ctr_tasks_zero": true,
+  "timestamp": 1790342008.953243
+}

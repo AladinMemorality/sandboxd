@@ -1,0 +1,40 @@
+{
+  "app_export": {
+    "bytes": 1060128,
+    "file": "app-before.zip",
+    "sha256": "2bc4f0ef125ec824aefe6d60498526067e72f20f93e51b83a60c312e82e2340f",
+    "tree_digest": "abf9724056a81de2aefe7cfe507ba85d573924dec6d352dea5e26f4fc44068c3"
+  },
+  "baseline": {
+    "fixture": "2c00c3be7df2c0c2d96c58ca648f7af9",
+    "phase": "baseline",
+    "nonce": "8e3a49172e9f46efdc9b3a46cd6f3745"
+  },
+  "checkpoint_ready": true,
+  "cleanup_verified_http404": false,
+  "data_uuid": "793c3349-db9c-4815-9842-989ed484f1f8",
+  "failure": "Cube runtime requires recovery",
+  "fixture": "2c00c3be7df2c0c2d96c58ca648f7af9",
+  "home_export": {
+    "bytes": 5014028,
+    "file": "home-before.zip",
+    "sha256": "988e5d07b6afa2eb436a5b2683566456d8cfa1d2cfbeb55e7454fb1d1099c3f7",
+    "tree_digest": "0cc138e360c26aa2aac1c4aa3398e8a046784d932dd9cd5c658b44f501fe8420"
+  },
+  "latest": {
+    "fixture": "2c00c3be7df2c0c2d96c58ca648f7af9",
+    "phase": "latest",
+    "nonce": "15cf5ce90102285b5aea5932d559caf6"
+  },
+  "latest_acknowledged_at": "2026-09-25T13:25:16.096762409Z",
+  "owned_guest_retained_for_review": true,
+  "power_operation_performed_by_fixture": false,
+  "production_accepted": false,
+  "sandbox_id": "524905c6b8a84f9b90470e0f0a813894",
+  "stage": "failed",
+  "template": "tpl-ce1ee426e686460bbc8c3bfc",
+  "updated_at": "2026-09-25T13:32:15.597590757Z",
+  "worker_boot_after": "1574a104-22ab-4e85-92ba-36163537171f",
+  "worker_boot_before": "2ff1a62f-c428-4183-af93-290638890f35",
+  "worker_machine_id": "2b9e31d4abd345e3bd4b966591e61296"
+}

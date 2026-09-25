@@ -1,0 +1,56 @@
+{
+  "date": "2026-09-25",
+  "scope": "read-only dependency review and synthetic HTTP-channel regression tests",
+  "production_changed": false,
+  "app_id": "01M3C9C0TN9VTJ7MBCK9Z7BQV5",
+  "sandbox_id": "01M3C9C0V0MQYNFTMCYS7CCNVC",
+  "origins": [
+    "http://10.40.14.68:8080",
+    "http://10.40.14.68:8321"
+  ],
+  "app_websocket_required": false,
+  "workspace_sibling_data_manifest_preserved": true,
+  "observed_local_record_status_counts": {
+    "completed": 2
+  },
+  "active_coding_tasks_at_observation": 0,
+  "source_changed_during_review": true,
+  "initial_server_sha256": "708ec13b35f005e3807e57685e37a006fbb635503044c36933fe418bbb573a43",
+  "later_server_sha256": "a1b03a432cdd683ff95a5700ea6bfeb08771e63da098fafc09cef3fe788c68c2",
+  "local_go_race": {
+    "package": "./internal/egress",
+    "passed": true,
+    "elapsed_seconds": 11.464
+  },
+  "files_sha256": {
+    "control-plane/internal/egress/channel.go": "fa19901676116272fd592fecb52c903d6eed1c1c00c0d885b6d6264338d63caa",
+    "control-plane/internal/egress/http_services.go": "01729431796b7546bd41fa164a816640b8c4d51ee718a6bc50b06f180d48eca2",
+    "control-plane/internal/egress/http_services_test.go": "5e75c426084958ada2bfbecbcc3582487f40080b5c7a4bddccd38b3ea140fae9",
+    "control-plane/internal/egress/scoped_channel_test.go": "aff28f27f6fe5d180b8be90da3925a369f1100c331b0ca2f0d6d292bdf0cf9e6"
+  },
+  "remaining_gates": [
+    "Final frozen source/config/owner-home inventory after ordinary workload drain",
+    "Reviewed per-app scoped service configuration online and offline",
+    "Actual migrated authenticated service readiness and bounded functional acceptance",
+    "Existing worker lifecycle, backup/restore and full-fleet rollout gates"
+  ],
+  "authorizes_cutover": false,
+  "real_model_or_meeting_requests_sent": false,
+  "linux_go_race": {
+    "package": "./internal/egress",
+    "passed": true,
+    "elapsed_seconds": 12.8,
+    "resources": "2CPU/2GiB, Docker network none, synthetic localhost HTTP fixtures only",
+    "log": "/opt/baarcha-bench/cube-fennec-http-20260925/egress-race-complete.log",
+    "container_cleanup_verified": true
+  },
+  "go_vet_passed": true,
+  "coverage": [
+    "Existing literal routes and guest-only credential forwarding",
+    "Canonical UUID segment routes with GET/POST/explicit DELETE",
+    "Unconfigured methods, query, encoded traversal, extra segments and UUID aliases refused before upstream",
+    "Wrong authenticated app, address and port do not inherit mapping",
+    "Real reverse-channel request reaches only fixed mocked upstream; no generic private network dial",
+    "Existing response/request size, redirects and cancellation regressions"
+  ]
+}

@@ -1,0 +1,13 @@
+{
+  "scope": "observed addresses for the fresh worker build; not network-isolation acceptance",
+  "management_ipv4_cidrs": ["65.108.225.153/32", "104.21.33.103/32", "172.67.189.206/32", "104.21.18.94/32", "172.67.181.138/32"],
+  "outer_public_ipv6": ["2a01:4f9:1a:a58f::2/128"],
+  "outer_ipv6_allocation": "2a01:4f9:1a:a58f::/64",
+  "protected_domain_ipv6_answers": ["2606:4700:3035::6815:2167", "2606:4700:3037::ac43:bdce", "2606:4700:3031::6815:125e", "2606:4700:3033::ac43:b58a"],
+  "ipv6_policy": "native IPv6 rejected by Cube TAP Ethernet gate; do not pass IPv6 to IPv4 deny trie",
+  "private_addresses_covered_by_mandatory_denies": ["172.21.78.10", "172.17.0.1", "172.18.0.1", "172.19.0.1", "10.40.14.69", "10.0.2.15", "10.0.2.2", "10.0.2.3", "192.168.0.1", "169.254.254.53", "127.0.0.53"],
+  "private_dns_exceptions": [],
+  "protected_domains_for_broker": ["baarcha.tn", "www.baarcha.tn", "hh1.dovisual.com", "bp.tn", "cube.app", "*.cube.app", "*.preview.65.108.225.153.sslip.io"],
+  "bp_tn_dns": "no answer at inspection; hostname remains protected regardless",
+  "dns_note": "Cloudflare answers are point-in-time observations and may be shared or change. Broker hostname exclusion remains necessary; guest NIC egress remains denied."
+}

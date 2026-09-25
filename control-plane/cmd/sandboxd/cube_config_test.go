@@ -96,7 +96,7 @@ func TestCubeRelayRequiresHTTPSAndExplicitNetworkAttestation(t *testing.T) {
 	}
 }
 
-func TestCubeReverseEgressRequiresExplicitCompatiblePilot(t *testing.T) {
+func TestCubeReverseEgressRequiresExplicitCompatibleProfile(t *testing.T) {
 	t.Setenv("SANDBOXD_CUBE_ENABLED", "true")
 	t.Setenv("SANDBOXD_CUBE_API_URL", "http://127.0.0.1:3000")
 	t.Setenv("SANDBOXD_CUBE_API_KEY", "fixture")
@@ -125,11 +125,17 @@ func TestCubeReverseEgressRequiresExplicitCompatiblePilot(t *testing.T) {
 			}
 		})
 	}
-	// Explicitly gate globals independently of template completeness or flags.
+	// Expanding rollout does not change the network policy or its prerequisites.
 	cfg.allApps = true
-	if _, err := loadCubeReverseEgressConfig(cfg); err == nil {
-		t.Fatal("unsupported global client compatibility admitted")
+	if config, err := loadCubeReverseEgressConfig(cfg); err != nil || config == nil {
+		t.Fatalf("reviewed global profile unavailable: %v", err)
 	}
+	t.Run("global retains network acceptance", func(t *testing.T) {
+		t.Setenv("SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED", "false")
+		if _, err := loadCubeReverseEgressConfig(cfg); err == nil {
+			t.Fatal("global rollout bypassed network acceptance")
+		}
+	})
 	t.Setenv("SANDBOXD_CUBE_REVERSE_EGRESS", "false")
 	if config, err := loadCubeReverseEgressConfig(cfg); err != nil || config != nil {
 		t.Fatal("disabled path changed")

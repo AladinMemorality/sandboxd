@@ -1,0 +1,103 @@
+{
+  "date": "2026-09-24",
+  "hostname": "baarcha-cube-worker-01",
+  "kernel": "6.8.0-139-generic",
+  "vcpus": 12,
+  "memory_kib": 41073060,
+  "data_available_bytes": 305912061952,
+  "data_filesystem": {
+    "device": "/dev/vdb",
+    "uuid": "793c3349-db9c-4815-9842-989ed484f1f8",
+    "size_bytes": 343597383680,
+    "filesystem": "xfs",
+    "reflink": true
+  },
+  "source_commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+  "live_cubelet_sha256": "53b09684b59bf1b5609742c1c6b3e17fb22b23ef2320000ddf49716df713346d",
+  "candidate_network_acceptance": false,
+  "tenant_guests": 0,
+  "production_routes_changed": false,
+  "quickcheck_exit": 0,
+  "services": {
+    "mysql": "active",
+    "redis": "active",
+    "minio": "active",
+    "coredns": "active",
+    "cubemaster": "active",
+    "cubeops": "active",
+    "cube-api": "active",
+    "cube-proxy": "active",
+    "cubelet": "active",
+    "cube-templatecenter": "active",
+    "cube-lifecycle-manager": "active",
+    "cube-egress": "active"
+  },
+  "dependency_images": [
+    {
+      "variable": "CUBE_SANDBOX_MYSQL_IMAGE",
+      "requested": "cube-sandbox-image.tencentcloudcr.com/opensource/mysql:8.0",
+      "resolved": "cube-sandbox-image.tencentcloudcr.com/opensource/mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b",
+      "image_id": "sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b"
+    },
+    {
+      "variable": "CUBE_SANDBOX_REDIS_IMAGE",
+      "requested": "cube-sandbox-image.tencentcloudcr.com/opensource/redis:7-alpine",
+      "resolved": "cube-sandbox-image.tencentcloudcr.com/opensource/redis@sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99",
+      "image_id": "sha256:6ab0b6e7381779332f97b8ca76193e45b0756f38d4c0dcda72dbb3c32061ab99"
+    },
+    {
+      "variable": "CUBE_SANDBOX_MINIO_IMAGE",
+      "requested": "cube-sandbox-int.tencentcloudcr.com/cube-sandbox/minio:RELEASE.2025-09-07T16-13-09Z",
+      "resolved": "cube-sandbox-int.tencentcloudcr.com/cube-sandbox/minio@sha256:37a173a1c3042bdbbd9904bd3ab7c4c7b17f607b268220a607a685c14d94d1cb",
+      "image_id": "sha256:37a173a1c3042bdbbd9904bd3ab7c4c7b17f607b268220a607a685c14d94d1cb"
+    },
+    {
+      "variable": "CUBE_PROXY_COREDNS_IMAGE",
+      "requested": "cube-sandbox-image.tencentcloudcr.com/opensource/coredns/coredns:1.14.2",
+      "resolved": "cube-sandbox-image.tencentcloudcr.com/opensource/coredns/coredns@sha256:e7e6440cfd1e919280958f5b5a6ab2b184d385bba774c12ad2a9e1e4183f90d9",
+      "image_id": "sha256:e7e6440cfd1e919280958f5b5a6ab2b184d385bba774c12ad2a9e1e4183f90d9"
+    },
+    {
+      "variable": "CUBE_SANDBOX_CUBE_PROXY_IMAGE",
+      "requested": "cube-sandbox-int.tencentcloudcr.com/cube-sandbox/cube-proxy:v0.7.1",
+      "resolved": "cube-sandbox-int.tencentcloudcr.com/cube-sandbox/cube-proxy@sha256:b5a196be3698d820c1ae70a3a7a9fd0439badd43e74a2c4954255f7dc69f86dc",
+      "image_id": "sha256:b5a196be3698d820c1ae70a3a7a9fd0439badd43e74a2c4954255f7dc69f86dc"
+    },
+    {
+      "variable": "CUBE_SANDBOX_CUBE_LCM_IMAGE",
+      "requested": "cube-sandbox-int.tencentcloudcr.com/cube-sandbox/cube-lifecycle-manager:v0.7.1",
+      "resolved": "cube-sandbox-int.tencentcloudcr.com/cube-sandbox/cube-lifecycle-manager@sha256:6b130a166dce16c294cd88bf7210496e57808f2200a05c685dd8dbc4ce2bc861",
+      "image_id": "sha256:6b130a166dce16c294cd88bf7210496e57808f2200a05c685dd8dbc4ce2bc861"
+    },
+    {
+      "variable": "CUBE_SANDBOX_CUBE_EGRESS_IMAGE",
+      "requested": "cube-sandbox-int.tencentcloudcr.com/cube-sandbox/cube-egress:v0.7.1",
+      "resolved": "cube-sandbox-int.tencentcloudcr.com/cube-sandbox/cube-egress@sha256:3e88de3d53ecbf6bd6b083ea9a990cfdb366e92e3c577c0f2ee1fef11930e1ce",
+      "image_id": "sha256:3e88de3d53ecbf6bd6b083ea9a990cfdb366e92e3c577c0f2ee1fef11930e1ce"
+    }
+  ],
+  "registry_image": {
+    "digest": "registry@sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373",
+    "id": "sha256:a3d8aaa63ed8681a604f1dea0aa03f100d5895b6a58ace528858a7b332415373"
+  },
+  "quota": {
+    "mcpu_limit": 28000,
+    "mem_limit": "30Gi",
+    "mvm_limit": 128,
+    "creation_concurrent_num": 1,
+    "paused_resource_release_ratio": 1.0
+  },
+  "dynamic_conf_sha256": "f9a237c5260bc42f54e7db1b801dadc6c5ed3345f99e02382c29fc150607aa8c",
+  "database_placement": "NVMe XFS /data/control/mysql",
+  "old_benchmark": "gracefully stopped; paused guest/disk artifacts retained; private consistent backup verified",
+  "master_disk_filter": {
+    "enabled": true,
+    "disk_usage_max_percent": 65.0,
+    "cached_heartbeat_not_strict_free_space_reservation": true
+  },
+  "master_http_bind": "0.0.0.0 inside isolated VM; no outer forward for8089",
+  "template_image_archive_sha256": "1def533de9918d0d82f8cb2c0b8706e0aa253aeab97b64b95d6efde03400174f",
+  "template_image_count": 8,
+  "data_growth_evidence": "data-growth-2026-09-24.json",
+  "template_count_ready": 8
+}

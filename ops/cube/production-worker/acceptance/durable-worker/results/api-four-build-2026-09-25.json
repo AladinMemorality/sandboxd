@@ -1,0 +1,30 @@
+{
+  "prepared_at": "2026-09-25T12:30:42.793501+00:00",
+  "scope": "four-slot PG and Vite fixture compilation; no guest operations",
+  "admission_max_active": 4,
+  "per_guest_cpu": 2,
+  "per_guest_memory_mib": 2048,
+  "binary_sha256": "8aa99037878a799e57a4ae6d28558e460788a4b04ec7231dec0d6d6ea89fb513",
+  "compiled_fixture_sha256": {
+    "postgres": "7aaad19c7ebfe801e68341aece29286ccc7bb965c3159937b5285f97ba9f4f6d",
+    "reload": "ae31afaa406e9b7df3794cf3b23d743cd6c2f568afcc89cfccd8f99770455e1e"
+  },
+  "cleanup_unit_command": "go test -race -count=1 -run ^TestOperatorAcceptanceCleanupVerifiesRemoteDeletion$ ./internal/api",
+  "cleanup_unit_result": "PASS",
+  "cleanup_unit_seconds": 1.08,
+  "python_preparation_tests": 2,
+  "python_preparation_result": "PASS",
+  "limits": {
+    "cpus": 2,
+    "memory": "2GiB",
+    "exec_tmpfs": "512MiB",
+    "network": "none"
+  },
+  "package_owner": "root",
+  "package_mode": "0700",
+  "build_container_removed": true,
+  "worker_mutated": false,
+  "postgres_live_result": null,
+  "vite_live_result": null,
+  "production_accepted": false
+}

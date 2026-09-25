@@ -1,0 +1,17 @@
+{
+  "purpose": "BUILD_ONLY_OWNED_RECOVERY_JOURNAL_ACCEPTANCE",
+  "live_executed": false,
+  "binary_sha256": "d75dc66968b7a7bcf3cd98a722bb2f3ff73781271d3911ec665aa3a8898f3831",
+  "sources": {
+    "crash_helpers.go": "2925e502e00ea2a5ebf8a1ab77e037aa3dbbd568c11403e112bb639f5a36a69d",
+    "import_helpers.go": "8dbf9cd3a509fb032398dde52e7f3bf5328cc9f8cdffe7ff9809fa9eb6d2c18b",
+    "main.go": "fba6d19595c3532ec991c35e18f0bdf9e374b09e33c2ccead9032983e9ce374c",
+    "main_test.go": "ff4875848b82e327f0e7487d8a2b35f239763238bd00c3cb891c043191a6c972",
+    "missing_evidence.go": "ed3da32a7b9d7ff0acd8e5f4eecba7b457cef61e9abd5f0cdfb292750b2121be"
+  },
+  "linux_race_tests": 5,
+  "race_passed": true,
+  "cpu_limit": 2,
+  "memory_limit_gib": 2,
+  "network": "none for unit/build container"
+}

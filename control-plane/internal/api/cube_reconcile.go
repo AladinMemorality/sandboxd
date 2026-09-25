@@ -8,6 +8,8 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 )
 
+const cubeRecoveryRequiredMessage = "Cube runtime requires operator recovery; binding retained"
+
 // connectCube must be called under the sandbox lock by mutating callers.
 // A control-plane response is not application readiness: verify the scoped
 // supervisor before promoting durable state, including creating/error recovery.
@@ -33,7 +35,10 @@ func (s *Server) connectCubeWithConfig(ctx context.Context, id string, timeoutSe
 	if err != nil {
 		return err
 	}
-	if _, err = s.Cube.Connect(ctx, b.RuntimeID, cube.ConnectRequest{TimeoutSeconds: timeoutSeconds}); err != nil {
+	if err = s.withCubeCapacityRetry(ctx, id, func() error {
+		_, e := s.Cube.Connect(ctx, b.RuntimeID, cube.ConnectRequest{TimeoutSeconds: timeoutSeconds})
+		return e
+	}); err != nil {
 		return err
 	}
 	ready, cancel := context.WithTimeout(ctx, 15*time.Second)
@@ -93,12 +98,27 @@ func (s *Server) ReconcileCube(ctx context.Context) {
 			}
 			bounded, cancel := context.WithTimeout(ctx, 20*time.Second)
 			defer cancel()
+			// List is only a candidate snapshot. A user may have stopped this
+			// sandbox while we were waiting to acquire its lifecycle lock.
+			current, err := s.Store.Get(bounded, sb.ID)
+			if err != nil || current.RuntimeProvider != "cube" {
+				return
+			}
+			sb = current
 			b, err := s.Store.GetRuntimeBinding(bounded, sb.ID)
 			if err != nil {
 				return
 			}
 			remote, err := s.Cube.Get(bounded, b.RuntimeID)
 			if err != nil {
+				if errors.Is(err, cube.ErrRuntimeUnavailable) {
+					// A known ID without a live task requires operator recovery.
+					// Retain its binding and charged admission; never replace or
+					// release it based on an unavailable runtime observation.
+					s.cubePreviewLeases.Delete(sb.ID)
+					_ = s.Store.MarkError(bounded, sb.ID, cubeRecoveryRequiredMessage)
+					return
+				}
 				var apiErr *cube.APIError
 				if errors.As(err, &apiErr) && apiErr.StatusCode == 404 {
 					_ = s.Store.MarkError(bounded, sb.ID, "Cube runtime no longer exists; binding retained for investigation")
@@ -109,12 +129,23 @@ func (s *Server) ReconcileCube(ctx context.Context) {
 			if err != nil {
 				return
 			}
+			// Preserve explicit always-on/keepalive policies and open preview
+			// streams. Cube's lease clock otherwise pauses these after an hour,
+			// even though the Docker idle reaper correctly exempts them. A user
+			// stop remains stopped unless an already accepted task needs recovery.
+			retainLease := active || (sb.Status == "running" && (sb.IdlePolicy == "always_on" ||
+				(sb.KeepaliveUntil.Valid && sb.KeepaliveUntil.Int64 > time.Now().Unix()) ||
+				(s.Inflight != nil && s.Inflight.Active(sb.ID))))
+			leaseSeconds := 3600
+			if active {
+				leaseSeconds = 86400 + 600
+			}
 			switch remote.State {
 			case "paused":
 				// Resuming is safe for an already accepted task; pausing it isn't. This
 				// also recovers tasks that were frozen before a control-plane restart.
-				if active {
-					_ = s.connectCube(bounded, sb.ID, 86400+600)
+				if retainLease {
+					_ = s.connectCube(bounded, sb.ID, leaseSeconds)
 					return
 				}
 				if sb.Status != "stopped" {
@@ -122,6 +153,19 @@ func (s *Server) ReconcileCube(ctx context.Context) {
 					_ = s.Store.MarkStoppedAt(bounded, sb.ID, time.Now().UTC())
 				}
 			case "running":
+				life := s.lifecycleView()
+				if !retainLease && life.IdleReapEnabled && life.IdleThresholdSeconds > 0 &&
+					!sb.LastActiveAt.IsZero() && time.Since(sb.LastActiveAt) >= time.Duration(life.IdleThresholdSeconds)*time.Second {
+					// Cube guests do not enter the Docker reaper. Apply the same
+					// operator idle setting here, including after a long task lease,
+					// while holding the lifecycle lock and preserving remote errors.
+					if err := s.Cube.Pause(bounded, b.RuntimeID); err == nil {
+						s.stopCubeEgress(sb.ID)
+						s.cubePreviewLeases.Delete(sb.ID)
+						_ = s.Store.MarkStoppedAt(bounded, sb.ID, time.Now().UTC())
+					}
+					return
+				}
 				if _, err := s.runtimeClientFor(sb.ID).Status(bounded); err != nil {
 					return
 				}
@@ -130,8 +174,8 @@ func (s *Server) ReconcileCube(ctx context.Context) {
 						return
 					}
 				}
-				if active {
-					_, _ = s.Cube.Connect(bounded, b.RuntimeID, cube.ConnectRequest{TimeoutSeconds: 86400 + 600})
+				if retainLease {
+					_, _ = s.Cube.Connect(bounded, b.RuntimeID, cube.ConnectRequest{TimeoutSeconds: leaseSeconds})
 				}
 				if sb.Status != "running" {
 					_ = s.Store.MarkRunningWoke(bounded, sb.ID, "", "", time.Now().UTC())

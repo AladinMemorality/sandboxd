@@ -154,6 +154,13 @@ type ContainerJSON struct {
 		Env    []string          `json:"Env"`
 		Labels map[string]string `json:"Labels"`
 	} `json:"Config"`
+	// HostConfig exposes enforced source limits for capacity-preserving migration.
+	HostConfig struct {
+		Memory    int64 `json:"Memory"`
+		NanoCPUs  int64 `json:"NanoCpus"`
+		CPUQuota  int64 `json:"CpuQuota"`
+		CPUPeriod int64 `json:"CpuPeriod"`
+	} `json:"HostConfig"`
 	// NetworkSettings is the subset Phase 5's wake-readiness probe
 	// needs: the container's bridge IP on the default network. We
 	// deliberately surface only what we use; adding fields later is

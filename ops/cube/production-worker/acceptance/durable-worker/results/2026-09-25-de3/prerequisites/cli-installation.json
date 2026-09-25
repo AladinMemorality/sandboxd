@@ -1,0 +1,7 @@
+{
+  "time": 1790341694.637227,
+  "before_sha256": "3944214bf7fe5f17ed3b39ed7754ac3332acee9a70564e236d46d31929fda860",
+  "installed_sha256": "24fa1fc4846efe74084bf9b27d8c5ce2b0a952f0ad1bb107b25091354fa1d05c",
+  "service_restart": false,
+  "unsafe_restore_guard_test_pass": true
+}

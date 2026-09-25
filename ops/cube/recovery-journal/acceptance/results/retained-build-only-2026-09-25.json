@@ -1,0 +1,27 @@
+{
+  "candidate_sha256": "c4883204d62fa001788d8b4d9d8b57687761e186a44ca3e4694022f2ec2d7cd4",
+  "binary_path": "/opt/baarcha-bench/cube-journal-retained-prepare-20260925/build-control-plane/journal-acceptance",
+  "live_executed": false,
+  "worker_changed": false,
+  "validation": {
+    "new_journal_race_seconds": 1.126,
+    "new_and_historical_missing_branch_race_seconds": 1.161,
+    "python_receipt_inventory_tests": 2,
+    "result": "PASS"
+  },
+  "limits": {
+    "cpu": 2,
+    "memory_gib": 2,
+    "tmpfs_exec_mib": 512,
+    "network": "none",
+    "pids": 256
+  },
+  "source_sha256": {
+    "ops/cube/recovery-journal/acceptance/main.go": "9c336dba20eaeee0fa83b866d5dde120328d40f72f4ab05ad6ff89f5fd541b80",
+    "ops/cube/recovery-journal/acceptance/main_test.go": "beee9370065d70ef69743d38fb4b09f2b3571b0b1130f1fa83574a1af878a6a5",
+    "ops/cube/recovery-journal/acceptance/prepare.sh": "071cb6e4148fd600832a37f1c061b4909e27fe04c614e201a5851f5ed613fd41",
+    "ops/cube/recovery-journal/acceptance/prepare_retained.py": "72c93bf6aefe5b82a003d05b00370e6cfac4dbf17adb895237b1b1aa6032559f",
+    "ops/cube/recovery-journal/acceptance/prepare_retained_test.py": "95f330930e8d37062566cb7dffdae8c86770d913624c83d0e1b17070c6bc3685",
+    "ops/cube/production-worker/recovery/replacement/missing_evidence.go": "8cab7584eed27b50e574f999a6c98c06a4a023bf4d0ea6a93500d3e437716fd7"
+  }
+}

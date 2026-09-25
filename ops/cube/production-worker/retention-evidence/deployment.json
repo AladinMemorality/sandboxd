@@ -1,0 +1,7 @@
+{
+  "old_sha256": "53b09684b59bf1b5609742c1c6b3e17fb22b23ef2320000ddf49716df713346d",
+  "new_sha256": "254b5e7b11c7c6f865e3e1816c3737a4041424b7e84b5aba7dc406e596eecbed",
+  "scope": "fresh empty worker only; no production changes",
+  "authenticated_inventory_empty": true,
+  "anonymous_http401": true
+}

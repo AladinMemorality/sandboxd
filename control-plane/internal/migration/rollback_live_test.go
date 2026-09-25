@@ -64,6 +64,7 @@ func TestLiveChangedConfigRollbackNormalWake(t *testing.T) {
 	fixture.source = source
 	fixture.WorkspaceRoot = root
 	fixture.Docker = docker.NewClient()
+	fixture.TemplateResources = map[string]ResourceLimits{"trusted-template": {CPUMilli: 1000, MemoryBytes: 256 << 20}}
 	// Only a test-tagged image is built; the cached base is never retagged.
 	image := "cube-rollback-fixture:" + strings.ToLower(id)
 	dockerfile := []byte("FROM node:22-bookworm-slim\nUSER 1000:1000\nCMD [\"node\",\"/home/sandbox/workspace/app/server.cjs\"]\n")

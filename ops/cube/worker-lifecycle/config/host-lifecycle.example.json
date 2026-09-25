@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "reviewed": false,
+  "drain_integration_reviewed": false,
+  "first_boot_empty_reviewed": false,
+  "qemu_sha256": "REQUIRES_EXACT_INSTALLED_QEMU_HASH",
+  "outer_data_filesystem_uuid": "REQUIRES_ACTUAL_OUTER_NVME_FILESYSTEM_UUID"
+}

@@ -1,0 +1,13 @@
+{
+  "scope": "actual fresh Cube API via private UDS relays",
+  "guest_mutations": 0,
+  "production_controller_changed": false,
+  "anonymous_api_status": 401,
+  "authenticated_api_status": 200,
+  "proxy_transport_status": 400,
+  "actual_api_and_proxy_healthchecks_passed": true,
+  "relay_image_id": "sha256:0b0c246afeb8d343d25890bfe62d5f8af8aee528cb034a596733c3b338408327",
+  "same_controller_namespace_no_published_ports": true,
+  "owned_containers_removed": true,
+  "host_units_restored_to_prior_activation": true
+}

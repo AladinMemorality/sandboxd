@@ -1,0 +1,97 @@
+{
+  "at": "2026-09-25T13:10:08.279720+00:00",
+  "read_only": true,
+  "frozen_for_migration": false,
+  "sandboxes": 66,
+  "apps": 66,
+  "snapshots": 31,
+  "home_manifests": 66,
+  "preliminary_eligible_projects": 65,
+  "blocked_projects": 1,
+  "blocked_snapshots": 0,
+  "identity_sha256": "b19dee66c43f65072342a0ffb8e541f84791f54ede311bb7c4fe6574c7dc18c0",
+  "prior_65_manifest_changes": 0,
+  "new_project": {
+    "sandbox_id": "01M3C9C0V0MQYNFTMCYS7CCNVC",
+    "app_id": "01M3C9C0TN9VTJ7MBCK9Z7BQV5",
+    "source_preset": "react-vite",
+    "target_preset": "react-vite",
+    "template_id": "tpl-5abec4cb4fcc41cc8e611f69",
+    "source_resources": {
+      "cpu_milli": 2000,
+      "memory_bytes": 2147483648
+    },
+    "target_resources": {
+      "cpu_milli": 2000,
+      "memory_bytes": 2147483648
+    },
+    "home_manifest_version": 1,
+    "home_link_count": 0,
+    "app_link_count": 3,
+    "native_files": 0,
+    "scanner_issues": [],
+    "preliminary_eligible": true
+  },
+  "active_tasks_before": 0,
+  "active_tasks_after": 0,
+  "nonterminal_tasks_after": 0,
+  "providers": {
+    "docker": 66
+  },
+  "idle_policy_status": {
+    "sleep_stopped": 60,
+    "sleep_running": 5,
+    "always_on_running": 1
+  },
+  "source_resource_profiles": {
+    "{\"cpu_milli\": 2000, \"memory_bytes\": 2147483648}": 66
+  },
+  "legacy_preset_assignments": 9,
+  "remaining_reasons": {
+    "owner home manifest validation failed": 1
+  },
+  "blocked_project_details": [
+    {
+      "sandbox_id": "01M37PPK85JN1K0WEMP4ZYER6C",
+      "app_id": "01M37PPK7VDKCQMNRYKW8CCD4W",
+      "reasons": [
+        "owner home manifest validation failed"
+      ]
+    }
+  ],
+  "blocked_special_file_types": {
+    "socket": 1
+  },
+  "owner_home_link_contracts": 37,
+  "unreviewed_home_links": 0,
+  "unsupported_app_links": 0,
+  "custom_runtime_review_projects": 13,
+  "app_bytes": 14075674778,
+  "artifacts_sha256": {
+    "candidate-home-manifests-66.json": "e5d7e6d3cfe0db11bb2bdb195ccd8dde46cb3bb43d7190f96002e531c4581e44",
+    "preset-assignments.json": "59052c16423e838556a363207930fd993515cae7cbdbacc5d58d7eca9f19055c",
+    "template-map.json": "aecca235d85b248fb59da0df0989700e2b7229b00806412f7cd93d0c0946bac5",
+    "fleet-preflight-reviewed-private.json": "4dd5c26b41e6764fe97ce2a8dfdf5a993387897db9b0629de1bc7fc36929d64c",
+    "scan/review-private.json": "87da6a5f7c0b557cb85619958a10c3730ad6956770370e414194459fa699d6e2",
+    "scan/links-private.json": "5686752007ff5595b70285e576f405fb1baf327e7df3bed71e36e5ff1b0b578d",
+    "scan/native-headers-private.json": "4f8024959aa3266edd8f07185f9b5746c675289c1c98122bad348ce5f8310966",
+    "metadata-before.json": "0c499f2f0db3d43ed28f6bcca7eccb503293fe2a8e6a901988b3345d83af6c4b",
+    "metadata-after.json": "dc97c86a1b792723b81bae1bfb8fd2cebf2ef34e41ad0edb8409d8df73e1fe3a",
+    "special-files-private.json": "b1b21456c10108bc740da628f247cca41518c271ac3e87c185bb1801973ef9d1"
+  },
+  "prior_template_resource_sha256": "e841d87429f0e62c5a9eb9e8165a81111f0a5e7ea70b8bba78b6aa7d52cc01ab",
+  "migration_binary_sha256": "ae9718d8408f5bbee43dd61a087ca0a7c7505807445b378069530033ab0c73a7",
+  "migration_binary_source_revision": "bba5134",
+  "stale_binary_attempt_retained": true,
+  "remaining_checks": [
+    "Freeze admission and drain tasks/HTTP streams/direct writers before fresh exact inventory",
+    "Gracefully stop live PostgreSQL source before definitive owner-home export; never delete its socket to force eligibility",
+    "Verify consistent complete owner app/home/history archives, checksums and independent backup",
+    "Verify current reviewed worker/template identity and preserve 2CPU/2GiB source limits",
+    "Actual migrated app/native-tool/PostgreSQL readiness and stable links/private screenshots",
+    "No migration until lifecycle/restore/backup/global rollout gates are accepted"
+  ],
+  "authorizes_cutover": false,
+  "raw_snapshot_count": 31,
+  "missing_snapshot_preset_count": 0
+}

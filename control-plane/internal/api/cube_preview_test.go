@@ -37,7 +37,7 @@ func cubePreviewJWT(t *testing.T, id, owner string, expiry time.Time) string {
 	return p + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
 }
 
-func cubePreviewFixture(t *testing.T, app http.HandlerFunc) (*Server, *atomic.Int32, *atomic.Int32) {
+func cubePreviewFixture(t *testing.T, app http.HandlerFunc, passiveState ...string) (*Server, *atomic.Int32, *atomic.Int32) {
 	t.Helper()
 	s, appID := newConfigTestServer(t)
 	s.PreviewDomain = "example.test"
@@ -47,6 +47,14 @@ func cubePreviewFixture(t *testing.T, app http.HandlerFunc) (*Server, *atomic.In
 	s.Auth = auth.NewMiddleware(&auth.Config{PreviewSecrets: map[string]string{"preview": "preview-secret"}}, nil, nil, s.Log)
 	connects := &atomic.Int32{}
 	management := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if len(passiveState) > 0 && r.Method == "GET" && r.URL.Path == "/sandboxes/vm-preview" && r.Header.Get("X-API-Key") == "management-secret" {
+			if passiveState[0] == "error" {
+				w.WriteHeader(503)
+				return
+			}
+			json.NewEncoder(w).Encode(cube.Sandbox{SandboxID: "vm-preview", TemplateID: "tpl-safe", State: passiveState[0], CPUCount: 2, MemoryMB: 2048, Metadata: map[string]string{"sandboxd_id": cubePreviewTestID, "sandboxd_app_id": appID}})
+			return
+		}
 		if r.Method != "POST" || r.URL.Path != "/sandboxes/vm-preview/connect" || r.Header.Get("X-API-Key") != "management-secret" {
 			t.Errorf("incorrect management request %s %s", r.Method, r.URL.Path)
 			w.WriteHeader(500)
@@ -60,6 +68,19 @@ func cubePreviewFixture(t *testing.T, app http.HandlerFunc) (*Server, *atomic.In
 	s.Cube, err = cube.New(cube.Config{APIURL: management.URL, APIKey: "management-secret"})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(passiveState) > 0 {
+		ctx := context.Background()
+		if err = s.Cube.ConfigureAdmission(ctx, s.Store, cube.AdmissionConfig{MaxActive: 4, CPUCount: 2, MemoryMB: 2048, Templates: map[string]cube.AdmissionResources{"tpl-safe": {CPUCount: 2, MemoryMB: 2048}}}); err != nil {
+			t.Fatal(err)
+		}
+		a, e := s.Store.AdmissionBegin(ctx, "app:"+appID, "", "tpl-safe", "create", "owned-operation")
+		if e != nil {
+			t.Fatal(e)
+		}
+		if e = s.Store.AdmissionFinish(ctx, a, "vm-preview", "active"); e != nil {
+			t.Fatal(e)
+		}
 	}
 	guestCalls := &atomic.Int32{}
 	guest := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -208,7 +229,7 @@ func TestCubePreviewRejectsWrongOwnerSandboxPortAndSpoofedHost(t *testing.T) {
 
 func TestCubePreviewLowercaseDNSAndRealWebSocket(t *testing.T) {
 	s, connects, calls := cubePreviewFixture(t, func(w http.ResponseWriter, r *http.Request) {
-		u := websocket.Upgrader{Subprotocols: []string{"vite-hmr"}, CheckOrigin: func(r *http.Request) bool { return true }}
+		u := websocket.Upgrader{Subprotocols: []string{"app-live"}, CheckOrigin: func(r *http.Request) bool { return true }}
 		conn, err := u.Upgrade(w, r, nil)
 		if err != nil {
 			t.Error(err)
@@ -234,14 +255,14 @@ func TestCubePreviewLowercaseDNSAndRealWebSocket(t *testing.T) {
 	header.Set("Host", strings.ToLower(cubePreviewTestHost))
 	header.Set("Origin", "https://"+strings.ToLower(cubePreviewTestHost))
 	header.Set("Cookie", "sandbox_preview="+cubePreviewJWT(t, cubePreviewTestID, "owner-one", time.Now().Add(time.Hour)))
-	dialer := websocket.Dialer{Subprotocols: []string{"vite-hmr"}, HandshakeTimeout: 5 * time.Second}
+	dialer := websocket.Dialer{Subprotocols: []string{"app-live"}, HandshakeTimeout: 5 * time.Second}
 	conn, resp, err := dialer.Dial("ws"+strings.TrimPrefix(front.URL, "http")+"/hmr", header)
 	if err != nil {
 		t.Fatalf("websocket: %v response=%v", err, resp)
 	}
 	defer conn.Close()
-	if conn.Subprotocol() != "vite-hmr" {
-		t.Fatal("HMR subprotocol lost")
+	if conn.Subprotocol() != "app-live" {
+		t.Fatal("application subprotocol lost")
 	}
 	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	if err = conn.WriteMessage(websocket.TextMessage, []byte("reload")); err != nil {
