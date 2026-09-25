@@ -1,0 +1,75 @@
+--- a/Cubelet/cmd/cubecli/commands/unsafe/restoredb.go
++++ b/Cubelet/cmd/cubecli/commands/unsafe/restoredb.go
+@@ -30,13 +30,19 @@
+ 		},
+ 	},
+ 	Action: func(context *cli.Context) error {
+-		if !commands.AskForConfirm("restore will forcibly replace the containerd metadata db, continue only if you confirm", 3) {
+-			return nil
+-		}
+-
+ 		config := &srvconfig.Config{}
+ 		if err := srvconfig.LoadConfig(gocontext.Background(), context.String("config"), config); err != nil {
+ 			return err
++		}
++
++		// This legacy copy path lacks a durable offline restore transaction and
++		// targets State. Never let it overwrite or silently "restore" another DB.
++		if config.DurableMetadataRoot != "" {
++			return fmt.Errorf("unsafe restoredb is disabled with durable_metadata_root; use reviewed offline recovery")
++		}
++
++		if !commands.AskForConfirm("restore will forcibly replace the containerd metadata db, continue only if you confirm", 3) {
++			return nil
+ 		}
+ 
+ 		backupPluginURI := fmt.Sprintf("%s.%s", constants.InternalPlugin, constants.BackupID.ID())
+--- /dev/null
++++ b/Cubelet/cmd/cubecli/commands/unsafe/restoredb_durable_test.go
+@@ -0,0 +1,46 @@
++package unsafe
++
++import (
++	"fmt"
++	"os"
++	"path/filepath"
++	"strings"
++	"testing"
++
++	"github.com/urfave/cli/v2"
++)
++
++func TestRestoreDBDurableModeRefusesBeforeConfirmationOrFilesystemMutation(t *testing.T) {
++	base := t.TempDir()
++	root := filepath.Join(base, "root")
++	state := filepath.Join(base, "volatile")
++	durable := filepath.Join(base, "persistent")
++	target := filepath.Join(durable, "containerd", "meta.db")
++	if err := os.MkdirAll(filepath.Dir(target), 0700); err != nil {
++		t.Fatal(err)
++	}
++	if err := os.WriteFile(target, []byte("latest acknowledged metadata must remain"), 0600); err != nil {
++		t.Fatal(err)
++	}
++	config := filepath.Join(base, "config.toml")
++	text := fmt.Sprintf("version=3\nroot=%q\nstate=%q\ndurable_metadata_root=%q\n", root, state, durable)
++	if err := os.WriteFile(config, []byte(text), 0600); err != nil {
++		t.Fatal(err)
++	}
++	app := cli.NewApp()
++	app.Commands = []*cli.Command{RestoreDB}
++	// No stdin/confirmation is provided; rejection must happen before that path.
++	err := app.Run([]string{"cubecli", "restoredb", "--config", config})
++	if err == nil || !strings.Contains(err.Error(), "disabled with durable_metadata_root") {
++		t.Fatalf("expected explicit durable refusal, got %v", err)
++	}
++	got, err := os.ReadFile(target)
++	if err != nil || string(got) != "latest acknowledged metadata must remain" {
++		t.Fatal("durable metadata changed")
++	}
++	for _, p := range []string{root, state} {
++		if _, err := os.Stat(p); !os.IsNotExist(err) {
++			t.Fatalf("unexpected legacy path mutation: %s", p)
++		}
++	}
++}

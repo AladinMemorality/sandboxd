@@ -1,0 +1,5 @@
+go: downloading github.com/rcrowley/go-metrics v0.0.0-20200313005456-10cdbea86bc0
+# github.com/tencentcloud/CubeSandbox/Cubelet/cmd/cubecli/commands/unsafe
+cmd/cubecli/commands/cubebox/benchrun.go:27:2: module lookup disabled by GOPROXY=off
+FAIL	github.com/tencentcloud/CubeSandbox/Cubelet/cmd/cubecli/commands/unsafe [setup failed]
+FAIL

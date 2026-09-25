@@ -43,5 +43,9 @@
     "Cubelet/plugins/metadata/durable_plugin_test.go",
     "Cubelet/plugins/backup/plugin.go",
     "Cubelet/plugins/backup/durable_source_test.go"
+  ],
+  "patch_0011_CLI_only_files": [
+    "Cubelet/cmd/cubecli/commands/unsafe/restoredb.go",
+    "Cubelet/cmd/cubecli/commands/unsafe/restoredb_durable_test.go"
   ]
 }

@@ -1,0 +1,24 @@
+{
+  "patch": "0011-refuse-legacy-durable-restore.patch",
+  "candidate_sha256": "24fa1fc4846efe74084bf9b27d8c5ce2b0a952f0ad1bb107b25091354fa1d05c",
+  "actual_CLI_refusal_race_test": "PASS",
+  "whole_cubecli_build": "PASS",
+  "module_files": "unchanged compared to0010 source",
+  "preparatory_failures": [
+    "first unit did not execute: inaccessible Docker socket absent during held boot",
+    "missing existing pinned modules cached before network-isolated retry"
+  ],
+  "no_runtime_install_or_lifecycle_actions": true,
+  "remaining_legacy_maintenance_limits": [
+    "image fix",
+    "network ls direct-DB mode",
+    "unsafe volumedb"
+  ],
+  "evidence_sha256": {
+    "cli-tests.txt": "f2a2e8918ccce20947c22077979bf727ea2e7cf1cb174ba6dcbbf017289ef3a2",
+    "patch.sha256": "26292d1f1057ce824eb0f1a8dcefe8904bd700714a2c5c0832fa22299dcc653d",
+    "binary.sha256": "0e55e5451e02796046ec5d698bd6bf5d8d318abf0aa2547576aa576415852444",
+    "cli-tests-missing-dependency.txt": "8908ae32aa7f8c16fe192a18389078716f01601b69ef511ce7fc933c35964772",
+    "binary-build-info.txt": "dc546745cfdeeed2ab9f2044dd1b0c847ff6d6712e6f4bfcdf993322b0dd7090"
+  }
+}
