@@ -217,4 +217,25 @@ class TransitionTests(unittest.TestCase):
         f=self.fixture(); link=f.root/'link';link.symlink_to(f.stop)
         with self.assertRaises(b.Refused):b.trusted(link)
 
+class RealHTTPHelperTests(unittest.TestCase):
+    def test_real_loopback_http_helper_and_status_refusal(self):
+        import http.server
+        import threading
+        requests=[]
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                requests.append(self.path)
+                self.send_response(200 if self.path=='/readyz' else 503)
+                self.end_headers();self.wfile.write(b'ready' if self.path=='/readyz' else b'unavailable')
+            def log_message(self,*args):pass
+        server=http.server.HTTPServer(('127.0.0.1',0),Handler)
+        thread=threading.Thread(target=server.serve_forever,daemon=True);thread.start()
+        try:
+            self.assertEqual(b.http('/readyz',server.server_port),b'ready')
+            with self.assertRaises(b.Refused):b.http('/unavailable',server.server_port)
+            self.assertEqual(requests,['/readyz','/unavailable'])
+        finally:
+            server.shutdown();server.server_close();thread.join(timeout=2)
+        self.assertFalse(thread.is_alive())
+
 if __name__=='__main__':unittest.main()

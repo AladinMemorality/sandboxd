@@ -11,7 +11,7 @@ import copy
 import datetime
 import fcntl
 import hashlib
-import http.client
+import http.client as http_client
 import importlib.util
 import json
 import os
@@ -250,7 +250,7 @@ def run(argv,timeout=30):
     return p.stdout
 
 def http(path,port):
-    c=http.client.HTTPConnection('127.0.0.1',port,timeout=5)
+    c=http_client.HTTPConnection('127.0.0.1',port,timeout=5)
     try:
         c.request('GET',path); r=c.getresponse(); data=r.read(4*1024*1024+1)
         require(r.status==200 and len(data)<=4*1024*1024,'local read-only readiness unavailable')
