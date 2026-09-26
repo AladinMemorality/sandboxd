@@ -1,5 +1,6 @@
 import contextlib
 import importlib.util
+import io
 import json
 from pathlib import Path
 import sqlite3
@@ -59,14 +60,33 @@ class NativeToolTests(unittest.TestCase):
 
     def test_chrome_uses_disposable_profile_and_local_document(self):
         module = c.native_tools
-        with mock.patch.object(module.os, 'getuid', return_value=1000), mock.patch.object(module.os, 'getgid', return_value=1000), mock.patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, b'<html><body></body></html>', b'')) as run:
-            proof = module.probe(next(iter(module.CHROME)))
+        with mock.patch.object(module.os, 'getuid', return_value=1000), mock.patch.object(module.os, 'getgid', return_value=1000), mock.patch.object(module.shutil, 'copytree') as copy, mock.patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, b'<html><body></body></html>', b'')) as run:
+            sid = '01M1HJ4EXF1GS6GE3BS9G3ANF3'
+            proof = module.probe(sid)
             command = run.call_args.args[0]; options = run.call_args.kwargs
             self.assertEqual(command[-1], 'about:blank')
             self.assertIn('--disable-background-networking', command)
             self.assertIn('--user-data-dir=' + options['cwd'] + '/profile', command)
             self.assertEqual(options['env']['PYTHONDONTWRITEBYTECODE'], '1')
+            self.assertEqual(options['env']['HOME'], options['cwd'])
+            self.assertEqual(Path(command[0]).parent, Path(options['cwd']) / 'browser')
+            copy.assert_called_once_with((Path('/home/sandbox') / module.CHROME[sid][0]).parent, Path(options['cwd']) / 'browser', symlinks=True)
             self.assertTrue(proof['success'])
+
+    def test_automation_rejects_nonlocal_target_and_cleans_browser_group(self):
+        module = c.native_tools
+        with tempfile.TemporaryDirectory() as directory:
+            profile = Path(directory) / 'profile'; profile.mkdir()
+            (profile / 'DevToolsActivePort').write_text('12345\n/browser\n')
+            process = mock.Mock(pid=123456); process.poll.return_value = None
+            opener = mock.Mock()
+            opener.open.return_value = io.BytesIO(json.dumps([dict(type='page', url='about:blank', webSocketDebuggerUrl='ws://external.example/devtools/page/1')]).encode())
+            with mock.patch.object(module.subprocess, 'Popen', return_value=process), mock.patch.object(module.subprocess, 'run') as run, mock.patch.object(module.urllib.request, 'build_opener', return_value=opener), mock.patch.object(module.os, 'killpg') as kill:
+                with self.assertRaisesRegex(RuntimeError, 'own loopback'):
+                    module.chrome_automation(['browser'], {}, directory)
+                run.assert_not_called()
+                kill.assert_called_once_with(process.pid, module.signal.SIGTERM)
+                process.wait.assert_called_once_with(timeout=3)
 
 
 if __name__ == '__main__': unittest.main()

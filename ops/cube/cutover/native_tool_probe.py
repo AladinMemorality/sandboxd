@@ -6,8 +6,12 @@ temporary directory, never the transferred owner home. No network is requested.
 import json
 import os
 from pathlib import Path
+import shutil
+import signal
 import subprocess
 import tempfile
+import time
+import urllib.request
 
 PYTHON = {
     '01M3BNSE0265HAEFSYJEYJVVR9': '.imgenv/bin/python',
@@ -21,6 +25,58 @@ CHROME = {
         'chromelibs/usr/lib/x86_64-linux-gnu'),
 }
 SUPPORTED = frozenset(PYTHON) | frozenset(CHROME) | {SHARP}
+
+
+def chrome_automation(command, env, directory):
+    """Headless-shell builds expose CDP but may not implement --dump-dom."""
+    port_file = Path(directory) / 'profile/DevToolsActivePort'
+    with tempfile.TemporaryFile() as log:
+        process = subprocess.Popen(command + ['--remote-debugging-port=0', 'about:blank'],
+                                   env=env, cwd=directory, stdout=log, stderr=log,
+                                   start_new_session=True)
+        try:
+            deadline = time.monotonic() + 10
+            while not port_file.exists():
+                if process.poll() is not None or time.monotonic() >= deadline:
+                    raise RuntimeError('Chromium automation did not become ready')
+                time.sleep(0.1)
+            port = int(port_file.read_text().splitlines()[0])
+            if not 1024 <= port <= 65535: raise RuntimeError('Invalid Chromium loopback port')
+            opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+            with opener.open('http://127.0.0.1:%d/json/list' % port, timeout=3) as response:
+                targets = json.loads(response.read(65536))
+            target = next(t for t in targets if t.get('type') == 'page' and t.get('url') == 'about:blank')
+            address = target['webSocketDebuggerUrl']
+            if not address.startswith('ws://127.0.0.1:%d/devtools/page/' % port):
+                raise RuntimeError('Chromium automation must remain on its own loopback listener')
+            script = """const ws = new WebSocket(process.argv[1]);
+const deadline = setTimeout(() => process.exit(2), 8000);
+ws.onopen = () => ws.send(JSON.stringify({id: 1, method: 'Runtime.evaluate', params: {
+  expression: 'document.documentElement.outerHTML', returnByValue: true}}));
+ws.onerror = () => process.exit(3);
+ws.onmessage = event => {
+  const value = JSON.parse(event.data);
+  if (value.id !== 1) return;
+  const html = value.result?.result?.value;
+  if (typeof html !== 'string' || !html.includes('<html') || !html.includes('<body')) process.exit(4);
+  console.log(JSON.stringify({local_dom_rendered: true, automation_protocol: true}));
+  clearTimeout(deadline); ws.close();
+};
+"""
+            result = subprocess.run(['node', '-e', script, address], env=env, cwd=directory,
+                                    capture_output=True, timeout=12)
+            if result.returncode != 0: raise RuntimeError('Chromium local DOM automation failed')
+            proof = json.loads(result.stdout)
+            if proof != {'local_dom_rendered': True, 'automation_protocol': True}:
+                raise RuntimeError('Invalid Chromium automation proof')
+            return proof
+        finally:
+            # Only the new browser process group belongs to this probe.
+            try: os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError: pass
+            try: process.wait(timeout=3)
+            except subprocess.TimeoutExpired:
+                os.killpg(process.pid, signal.SIGKILL); process.wait(timeout=3)
 
 
 def probe(sandbox_id):
@@ -53,12 +109,24 @@ def probe(sandbox_id):
             kind = 'sharp-esbuild'
         else:
             executable, libraries = CHROME[sandbox_id]
+            # Chromium may create an extensions/ directory beside its executable
+            # even with a disposable profile. Run an exact copy of the preserved
+            # bundle so compatibility checks cannot change the imported home.
+            source = home / executable
+            bundle = Path(directory) / 'browser'
+            shutil.copytree(source.parent, bundle, symlinks=True)
+            env.update(HOME=directory, XDG_CACHE_HOME=directory + '/cache',
+                       XDG_CONFIG_HOME=directory + '/config')
             env['LD_LIBRARY_PATH'] = str(home / libraries)
-            command = [str(home / executable), '--headless', '--no-sandbox', '--disable-gpu',
+            command = [str(bundle / source.name), '--headless', '--no-sandbox', '--disable-gpu',
                        '--disable-dev-shm-usage', '--disable-background-networking',
                        '--no-first-run', '--no-default-browser-check', '--no-pings',
-                       '--user-data-dir=' + directory + '/profile', '--dump-dom', 'about:blank']
+                       '--user-data-dir=' + directory + '/profile']
             kind = 'chromium-dom'
+            if sandbox_id == '01M1RVEEX30YK93FEHN50FZXT0':
+                proof = chrome_automation(command, env, directory)
+                return {'sandbox_id': sandbox_id, 'kind': kind, 'success': True, 'proof': proof}
+            command.extend(['--dump-dom', 'about:blank'])
         result = subprocess.run(command, env=env, cwd=directory, capture_output=True, timeout=30)
         if result.returncode != 0:
             # Do not include owner program output in a public acceptance event.
