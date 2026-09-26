@@ -1,0 +1,27 @@
+{
+  "recorded_at": "2026-09-26T11:53:59.023749+00:00",
+  "scope": "source-only Motion worker three-file plus drop-in coordinator",
+  "live_release_executed": false,
+  "remote_mutations": false,
+  "local_tests": {
+    "command": "python3 -m unittest discover -s ops/cube/motion-studio/worker-uds-release -p test_release.py -v",
+    "passed": 18,
+    "failed": 0
+  },
+  "pinned_tar_validation": {
+    "sha256": "432309a16306180f972b1f50bb62c0dc2c2aaaf84d4a9e3501763ad785e3cb7a",
+    "regular_members": 3,
+    "passed": true
+  },
+  "sources": {
+    "release.py": "9c8e41e177694a1b89e5078a87f61d32d5a1db09a3461cf84e51b9989902baee",
+    "test_release.py": "823da9950162583ae1df072a3ea74c2ce1892f8d88103f79845a682a97330aaa",
+    "COORDINATOR.md": "ec8778dcf5465764a6b9f4e9342e9aa9a61957d50bc4ab17ebe11ec986cc6a1c"
+  },
+  "limits": [
+    "No Linux systemd live release/rollback acceptance performed.",
+    "Requires reviewed caller-established admission and writer fence; queue counts alone do not qualify.",
+    "Power loss/SIGKILL remains explicit manual recovery; no automatic uncertain-journal replay.",
+    "Worker recovery incident currently holds all live Motion/template actions."
+  ]
+}
