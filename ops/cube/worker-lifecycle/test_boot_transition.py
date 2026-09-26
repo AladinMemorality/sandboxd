@@ -17,11 +17,12 @@ MACHINE='a'*32; OUTER='33333333-3333-3333-3333-333333333333'; FS='44444444-4444-
 
 class Fixture:
     def __init__(self,root):
-        self.root=root; self.stop=root/'stop.json'; self.guard=root/'guard.json';self.compose=root/'compose.json';self.start=root/'start.json';self.sequence=root/'sequence.json';self.offline=root/'offline.json';self.job=root/'job';self.job.mkdir()
+        self.root=root; self.stop=root/'stop.json'; self.guard=root/'guard.json';self.compose=root/'compose.json';self.activefile=root/'active.json';self.start=root/'start.json';self.sequence=root/'sequence.json';self.offline=root/'offline.json';self.job=root/'job';self.job.mkdir()
         self.g={'worker_machine_id':MACHINE,'expected_boot_id':OLD,'outer_boot_id':OUTER,'inner_fs_uuid':FS,'outer_fs_uuid':FS,'observer_id':'b'*32,'observation_path':str(root/'observation.json')}
         policy={'max_active':4,'cpu_count':2,'memory_mb':2048,'writable_disk_mb':10240,'templates':{'reviewed':{'cpu_count':2,'memory_mb':2048}},'storage_guard':self.g}
         self.s={'controller_id':'c'*64,'admission':policy,'worker_machine_id':MACHINE,'worker_boot_id':OLD,'data_uuid':FS,'qemu_pid':10,'qemu_start_time':'123','database':str(root/'database'),'receipt':str(root/'drain.json'),'evidence_directory':str(root)}
         self.c={'services':{'sandboxd':{'image':'sha256:'+'d'*64,'environment':{'SANDBOXD_CUBE_ADMISSION':json.dumps(policy),'API_SECRET':'opaque-secret','ROLLOUT_ALLOWLIST':'unchanged'}},'cube-management-api':{'network_mode':'service:sandboxd'},'cube-management-proxy':{'network_mode':'service:sandboxd'}}}
+        self.a={'services':{'sandboxd':{'image':self.c['services']['sandboxd']['image'],'environment':copy.deepcopy(self.c['services']['sandboxd']['environment'])}}}
         self.gen={'worker_machine_id':MACHINE,'inner_fs_uuid':FS,'worker_boot_id':NEW,'outer_boot_id':OUTER,'qemu_pid':20,'qemu_start_time':'456'}
         bindings=[dict(SandboxID='stable',AppID='app',RuntimeID='provider',TemplateID='reviewed',Domain='private.invalid',ConfigSHA256='e'*64,OwnerSHA256='f'*64,ConfigRevision=8)]
         self.marker=dict(version=1,phase='preparing',receipt_sha256='1'*64,inventory_sha256='2'*64,bindings=bindings,qemu_pid=10,qemu_start_time='123',worker_boot_id=OLD,worker_machine_id=MACHINE,data_uuid=FS)
@@ -31,15 +32,15 @@ class Fixture:
         self.drain={k:self.s[k] for k in ('controller_id','worker_boot_id','qemu_pid','qemu_start_time')}
         self.drain.update(version=1,inventory_sha256=self.marker['inventory_sha256'],traffic_fenced=True,existing_requests_drained=True,direct_writers_fenced=True,provider_jobs_drained=True)
         self.sc={'version':1,'pause_proof':str(root/'pause.json'),'clean_receipt':str(root/'clean.json')}
-        for path,value in [(self.stop,self.s),(self.guard,self.g),(self.compose,self.c),(self.start,self.sc),(self.sequence,{'observer_id':'b'*32,'generation':30}), (root/'database.worker-stop.json',self.marker),(root/'pause.json',self.pause),(root/'clean.json',self.clean),(root/'drain.json',self.drain),(self.offline,{'offline':True})]:self.write(path,b.encoded(value))
-        self.plan={'version':1,'outer_machine_id':MACHINE,'files':{str(self.start):b.sha(self.start.read_bytes()),str(self.offline):b.sha(self.offline.read_bytes())},'initial':{str(p):b.sha(p.read_bytes()) for p in (self.stop,self.guard,self.compose)},'controller_image':'sha256:'+'d'*64,'disk_identity':{n:{'inode':i+1,'virtual_bytes':4096,'filesystem_uuid':FS} for i,n in enumerate(('root.qcow2','data.qcow2','seed.img'))}}
+        for path,value in [(self.stop,self.s),(self.guard,self.g),(self.compose,self.c),(self.activefile,self.a),(self.start,self.sc),(self.sequence,{'observer_id':'b'*32,'generation':30}), (root/'database.worker-stop.json',self.marker),(root/'pause.json',self.pause),(root/'clean.json',self.clean),(root/'drain.json',self.drain),(self.offline,{'offline':True})]:self.write(path,b.encoded(value))
+        self.plan={'version':1,'outer_machine_id':MACHINE,'files':{str(self.start):b.sha(self.start.read_bytes()),str(self.offline):b.sha(self.offline.read_bytes())},'initial':{str(p):b.sha(p.read_bytes()) for p in (self.stop,self.guard,self.compose,self.activefile)},'controller_image':'sha256:'+'d'*64,'disk_identity':{n:{'inode':i+1,'virtual_bytes':4096,'filesystem_uuid':FS} for i,n in enumerate(('root.qcow2','data.qcow2','seed.img'))}}
         self.activate_count=0;self.reconcile_count=0;self.generation_count=0;self.fail=None;self.active=0
     @staticmethod
     def write(path,raw):Path(path).write_bytes(raw)
     def patches(self):
         from contextlib import ExitStack
         stack=ExitStack()
-        for name,value in [('STOP',self.stop),('GUARD',self.guard),('COMPOSE',self.compose),('START',self.start),('SEQUENCE',self.sequence),('OFFLINE',self.offline),('PINNED',(self.start,self.offline))]:stack.enter_context(patch.object(b,name,value))
+        for name,value in [('STOP',self.stop),('GUARD',self.guard),('COMPOSE',self.compose),('ACTIVE',self.activefile),('START',self.start),('SEQUENCE',self.sequence),('OFFLINE',self.offline),('PINNED',(self.start,self.offline))]:stack.enter_context(patch.object(b,name,value))
         stack.enter_context(patch.object(b,'trusted',lambda p,*a,**kw:Path(p).read_bytes()))
         stack.enter_context(patch.object(b,'atomic',self.write)); return stack
     def fence(self):
@@ -77,6 +78,10 @@ class TransitionTests(unittest.TestCase):
         stop=json.loads(f.stop.read_bytes());self.assertEqual(stop['controller_id'],'9'*64)
         self.assertEqual(stop['worker_boot_id'],NEW);self.assertEqual(stop['admission']['max_active'],4)
         c=json.loads(f.compose.read_bytes());self.assertEqual(c['services']['sandboxd']['environment']['API_SECRET'],'opaque-secret')
+        active=json.loads(f.activefile.read_bytes())
+        self.assertEqual(active['services']['sandboxd']['image'],f.a['services']['sandboxd']['image'])
+        self.assertEqual(active['services']['sandboxd']['environment']['API_SECRET'],'opaque-secret')
+        self.assertEqual(active['services']['sandboxd']['environment']['SANDBOXD_CUBE_ADMISSION'],c['services']['sandboxd']['environment']['SANDBOXD_CUBE_ADMISSION'])
         self.assertEqual(c['services']['cube-management-api'],f.c['services']['cube-management-api'])
         self.assertEqual(json.loads(f.sequence.read_bytes())['generation'],30) # helper never resets/writes epochs
     def test_native_clear_before_journal_persist_recovers_exact_evidence(self):
@@ -169,6 +174,31 @@ class TransitionTests(unittest.TestCase):
             if target=='guard':g['observer_id']='c'*32
             else:c['services']['sandboxd']['environment']['SANDBOXD_CUBE_ADMISSION']='{}'
             with self.assertRaises(b.Refused):b.new_configs(f.s,g,c,f.gen)
+    def test_active_overlay_conflicting_policy_refused_and_image_only_preserved(self):
+        f=self.fixture();changed=copy.deepcopy(f.a)
+        changed['services']['sandboxd']['environment']['SANDBOXD_CUBE_ADMISSION']='{}'
+        with self.assertRaises(b.Refused):b.new_configs(f.s,f.g,f.c,f.gen,changed)
+        imageonly={'services':{'sandboxd':{'image':'sha256:'+'d'*64}}}
+        with f.patches():
+            wanted=b.new_configs(f.s,f.g,f.c,f.gen,imageonly)
+            self.assertEqual(wanted[str(f.activefile)],imageonly)
+    def test_active_overlay_partial_cas_rolls_forward_and_rejects_drift(self):
+        f=self.fixture()
+        with f.patches():
+            originals={str(p):p.read_bytes() for p in (f.stop,f.guard,f.compose,f.activefile)}
+            wanted=b.new_configs(f.s,f.g,f.c,f.gen,f.a);j=b.Journal(f.job,f.plan)
+            j.begin(originals,wanted,f.gen,{},{})
+            write=j.write
+            def fail_active(path,raw):
+                if Path(path)==f.activefile:raise OSError('interrupted before highest priority overlay')
+                write(path,raw)
+            j.write=fail_active
+            with self.assertRaises(OSError):j.apply()
+            self.assertEqual(f.activefile.read_bytes(),originals[str(f.activefile)])
+            b.Journal(f.job,f.plan).apply()
+            self.assertEqual(json.loads(json.loads(f.activefile.read_bytes())['services']['sandboxd']['environment']['SANDBOXD_CUBE_ADMISSION'])['storage_guard']['expected_boot_id'],NEW)
+            f.activefile.write_bytes(b'{}')
+            with self.assertRaises(b.Refused):b.Journal(f.job,f.plan).apply()
     @unittest.skipUnless(os.geteuid()==0, 'native root lock ownership required')
     def test_inherited_flocks_remain_owned_by_parent_after_return(self):
         import fcntl

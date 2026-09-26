@@ -1,5 +1,30 @@
 # Clean worker boot transition candidate
 
+## September 26 live recovery update
+
+The nonempty incident recovery completed at 13:48:51 UTC, followed by actual
+owner file/link/mode, SQL, source, history, preview and private capture checks.
+See [the live recovery record](results/2026-09-26/recovery-completed/README.md).
+Customer projects remain on Docker. Automatic whole-host reboot integration and
+full paired backup restoration remain incomplete.
+
+The installed transition now journals four mutable files: worker-stop,
+storage-guard, runtime-compose **and active-images**. The last Compose overlay
+can contain admission environment, not just image names. If it contains
+`SANDBOXD_CUBE_ADMISSION`, its initial policy must match the native policy and
+its boot pins advance in the same CAS transaction. All other environment and
+image fields remain exact. Old three-file plans are rejected; prepare a fresh
+plan for the installed schema.
+
+The external witness preserves unrelated child-reaping lines after the exact
+QEMU exit instead of rejecting that normal Python finalization. Recovered QMP
+evidence explicitly uses version 2 and actual trace/POWERDOWN timestamps, with
+the original partial bytes included in the hashed closure. It does not invent
+missing attach/send timestamps or rewrite the supervisor's worker-lost record.
+
+The historical candidate description below records the original design; this
+update and the current executable plan validator take precedence.
+
 This source is **not installed or live-tested**. It fixes the immutable boot-pin
 transition for an already proved clean, fenced worker cycle. It does not make
 the existing worker supervisor an unattended production restart system. The
@@ -95,10 +120,10 @@ The root-private plan has exactly these keys (`validate_plan` is executable):
 
 - `version: 1`, `outer_machine_id`: canonical `/etc/machine-id`.
 - `files`: SHA256 map for every fixed path in `PINNED`: worker-start config,
-  Compose base/environment/active images, reviewed offline routing, installed
+  Compose base/environment, reviewed offline routing, installed
   observer/lifecycle/native start/native stop binaries, and lifecycle manifest.
-- `initial`: SHA256 map for the exact existing worker-stop, storage-guard and
-  runtime-compose files.
+- `initial`: SHA256 map for the exact existing worker-stop, storage-guard,
+  runtime-compose and active-images files.
 - `controller_image`: the existing immutable `sha256:...` image ID.
 - `disk_identity`: `root.qcow2`, `data.qcow2`, `seed.img`, each with `inode`,
   `virtual_bytes` and backing `filesystem_uuid`. Qcow2 virtual size is read from

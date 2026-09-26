@@ -56,6 +56,12 @@ def parse_wait4(raw,supervisor_pid,qemu_pid):
         need(thread is None or int(thread)==supervisor_pid,'wait witness belongs to another thread/process')
         timestamp=float(match[3]); call=match[4]
         need('waitid(' not in call and '<unfinished ...>' not in call and 'resumed>' not in call,'unsupported or incomplete wait syscall')
+        other=re.fullmatch(r'wait4\(([1-9][0-9]*), (.*), WNOHANG, NULL\)\s+=\s+(-?\d+)(?:\s+.*)?',call)
+        if other is not None and int(other[1])!=qemu_pid:
+            # Popen finalization can reap an earlier failed stop helper after
+            # QEMU exits. Preserve that line, but never use it as QEMU proof.
+            need(bool(exits) and timestamp>=exits[0]['at'] and int(other[3]) in (0,int(other[1])),'unrelated child before exact QEMU completion')
+            continue
         result=re.fullmatch(r'wait4\('+str(qemu_pid)+r', (.*), WNOHANG, NULL\)\s+=\s+(-?\d+)(?:\s+.*)?',call)
         need(result is not None,'unexpected syscall or child in wait witness')
         if int(result[2])==0:
@@ -80,18 +86,38 @@ def validate_witness(identity,pause,retained,actions,trace,status):
     need(retained.get('version')==1 and retained.get('stopped') is True and retained.get('boot_id')==identity['worker_boot_id'],'actual retained management shutdown required')
     parsed=parse_wait4(trace,identity['supervisor_pid'],identity['qemu_pid'])
     need(len(parsed['exits'])==1 and parsed['polls'],'witness must be attached before the child exits')
-    need(set(actions)=={'version','qmp_socket_inode','peer_pid','attached_at','sent_at','finished_at','messages'},'unexpected QMP evidence fields')
-    need(actions['version']==1 and actions['peer_pid']==identity['qemu_pid'] and actions['qmp_socket_inode']==identity['qmp_socket_inode'],'QMP peer/socket identity differs')
-    need(actions['attached_at']<=parsed['polls'][0]['at']<=actions['sent_at']<=parsed['exits'][0]['at']<=actions['finished_at'],'witness/action chronology differs')
+    recovered=actions.get('version')==2
+    fields={'version','qmp_socket_inode','peer_pid','finished_at','messages'}
+    fields|={'first_poll_at','powerdown_event_at','partial_sha256'} if recovered else {'attached_at','sent_at'}
+    need(set(actions)==fields,'unexpected QMP evidence fields')
+    need(actions['version'] in (1,2) and actions['peer_pid']==identity['qemu_pid'] and actions['qmp_socket_inode']==identity['qmp_socket_inode'],'QMP peer/socket identity differs')
+    if recovered:
+        # A failed final parser left raw QMP messages, but not local attach/send
+        # timestamps. Use the actual first poll and QEMU POWERDOWN event, and
+        # explicitly identify this recovered evidence instead of inventing them.
+        need(re.fullmatch(r'[a-f0-9]{64}',actions['partial_sha256']) is not None,'partial evidence hash required')
+        need(actions['first_poll_at']==parsed['polls'][0]['at'],'first poll differs')
+        power=[v['message'] for v in actions['messages'] if v['direction']=='receive' and v['message'].get('event')=='POWERDOWN']
+        need(len(power)==1,'one actual POWERDOWN event required')
+        ts=power[0].get('timestamp',{})
+        need(type(ts.get('seconds')) is int and type(ts.get('microseconds')) is int and 0<=ts['microseconds']<1000000,'POWERDOWN timestamp missing')
+        sent=ts['seconds']+ts['microseconds']/1e6
+        need(actions['powerdown_event_at']==sent and actions['first_poll_at']<=sent<=parsed['exits'][0]['at']<=actions['finished_at'],'recovered witness chronology differs')
+    else:
+        sent=actions['sent_at']
+        need(actions['attached_at']<=parsed['polls'][0]['at']<=sent<=parsed['exits'][0]['at']<=actions['finished_at'],'witness/action chronology differs')
     requests=[(i,v) for i,v in enumerate(actions['messages']) if v['direction']=='send' and v['message'].get('execute')=='system_powerdown']
     need(len(requests)==1,'exactly one graceful QMP power request required')
     need(all(v['message'].get('execute') in ('qmp_capabilities','query-name','query-status','system_powerdown') for v in actions['messages'] if v['direction']=='send'),'unreviewed QMP action')
     events=[(i,v) for i,v in enumerate(actions['messages']) if v['direction']=='receive' and v['message'].get('event')=='SHUTDOWN']
     need(len(events)==1 and events[0][0]>requests[0][0],'exact shutdown event after request required')
+    if recovered:
+        power_index=next(i for i,v in enumerate(actions['messages']) if v['direction']=='receive' and v['message'].get('event')=='POWERDOWN')
+        need(requests[0][0]<power_index<events[0][0],'POWERDOWN must follow the request and precede guest shutdown')
     event=events[0][1]['message'];need(event.get('data')=={'guest':True,'reason':'guest-shutdown'},'host quit/reset is not guest shutdown')
     ts=event.get('timestamp',{});need(type(ts.get('seconds')) is int and type(ts.get('microseconds')) is int and 0<=ts['microseconds']<1000000,'QMP event timestamp absent')
     event_time=ts['seconds']+ts['microseconds']/1e6
-    need(actions['sent_at']<=event_time<=parsed['exits'][0]['at']+.001,'guest event not correlated with wait completion')
+    need(sent<=event_time<=parsed['exits'][0]['at']+.001,'guest event not correlated with wait completion')
     need(status.get('state')=='worker-lost' and status.get('qemu_pid')==identity['qemu_pid'] and status.get('supervisor_pid')==identity['supervisor_pid'],'retain the original supervisor loss classification')
     return {'version':1,'method':METHOD,'guest_shutdown':True,'qemu_exit_code':0,'supervisor_reported_state':'worker-lost','qemu_pid':identity['qemu_pid'],'qemu_start_time':identity['qemu_start_time'],'worker_boot_id':identity['worker_boot_id'],'outer_boot_id':identity['outer_boot_id']}
 
@@ -220,13 +246,21 @@ def validate_receipt(path,read=private_bytes):
     need(set(e)==expected and e['version']==1 and e['method']==METHOD,'external receipt schema differs')
     d=Path(e['evidence_directory']);need(d==p.parent,'receipt must reside beside its exact evidence')
     manifest_raw=read(d/'manifest.json');need(sha(manifest_raw)==e['evidence_sha256'],'external manifest hash differs')
-    manifest=json.loads(manifest_raw);need(set(manifest)=={'version','method','validated','artifacts'} and manifest['version']==1 and manifest['method']==METHOD and set(manifest['artifacts'])==set(EVIDENCE_FILES),'finite evidence closure required')
-    files={name:read(d/name) for name in EVIDENCE_FILES}
+    manifest=json.loads(manifest_raw)
+    names=set(EVIDENCE_FILES)
+    actions=json.loads(read(d/'qmp.json'))
+    if actions.get('version')==2:names.add('qmp.partial.json')
+    need(set(manifest)=={'version','method','validated','artifacts'} and manifest['version']==1 and manifest['method']==METHOD and set(manifest['artifacts'])==names,'finite evidence closure required')
+    files={name:read(d/name) for name in names}
     need(all(sha(value)==manifest['artifacts'][name] for name,value in files.items()),'external evidence changed')
     identity=json.loads(files['identity.json'])
     need(all(identity[key]==e[key] for key in ('outer_boot_id','supervisor_pid','supervisor_start_time','qemu_pid','qemu_start_time','worker_boot_id')),'external identity differs')
     pause=json.loads(files['pause.json']);need(pause==receipt['proof'],'external receipt differs from actual pause proof')
-    actions=json.loads(files['qmp.json']);summary=validate_witness(identity,pause,json.loads(files['retained-stop.json']),actions,files['wait4.trace'],json.loads(files['supervisor-actual.json']))
+    actions=json.loads(files['qmp.json'])
+    if actions.get('version')==2:
+        partial=json.loads(files['qmp.partial.json'])
+        need(set(partial)=={'version','partial','messages'} and partial['version']==1 and partial['partial'] is True and partial['messages']==actions['messages'] and sha(files['qmp.partial.json'])==actions['partial_sha256'],'recovered QMP messages differ from preserved partial evidence')
+    summary=validate_witness(identity,pause,json.loads(files['retained-stop.json']),actions,files['wait4.trace'],json.loads(files['supervisor-actual.json']))
     need(summary==manifest['validated'] and actions['finished_at']<=receipt['generated_at']<=time.time()+1,'external validation/receipt chronology differs')
     closure={**files,'manifest.json':manifest_raw,p.name:raw}
     return {'receipt':receipt,'summary':summary,'closure':[{'path':str(d/name),'sha256':sha(value),'bytes':len(value)} for name,value in sorted(closure.items())]}

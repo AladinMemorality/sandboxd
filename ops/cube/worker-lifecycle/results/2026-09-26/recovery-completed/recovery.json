@@ -1,0 +1,198 @@
+{
+  "observed_at": "2026-09-26T13:54:13.927404+00:00",
+  "completion": {
+    "at": 1790430531.7461872,
+    "compose_overlay_repaired": true,
+    "result": {
+      "active_after_controller_start": 0,
+      "controller_id": "641c602865aa818bf07034976192f37f6873a08a36f1dba4931e367287564f3f",
+      "guests_woken_during_offline_reconciliation": 0,
+      "journal_sha256": "2330a3c08a4c33f392f8052008ea6175df45f79cb82864b498df40f3b99387d0",
+      "routing_changed": false,
+      "tenant_ready": true,
+      "version": 1,
+      "worker_boot_id": "8c46c636-7403-4f45-b5d3-5172304347c7"
+    },
+    "same_ofd_transfer": true,
+    "version": 1
+  },
+  "evidence_sha256": {
+    "recovery-complete.json": "cf29b17d7eb1c53daf8b4019b8daff9847ae3be9ad3a19dfed1a69b97d3995ea",
+    "external/receipt.json": "1a804f4dab9b7a15d69da10c936dee27c3ff4acb16f14e943a8ddc45ccfc54a0",
+    "external/manifest.json": "944bd3c101b98a71da52a57764691ebfff63624b706664ba45a4f8818fdc6bc4",
+    "external/wait4.trace": "ad8ef28521e0cc1fbc8fd2988bbcd7ac310095d1ad5291ed7b221eb32c070ae0",
+    "external/qmp.partial.json": "f6bd7eb925d4bd47db5db7bc94c5cc0f402896a11fa0cfe08ebeaa01d085f3d5",
+    "compose-repair-intent.json": "a074af0bef9caaa8f6f50b018dd60a09562d7d7a79897ccf6ff166c74e3852df"
+  },
+  "events": [
+    {
+      "at": 1790429708.7094812,
+      "phase": "preflight-passed",
+      "error": null
+    },
+    {
+      "at": 1790429708.861022,
+      "phase": "drain-intent",
+      "error": null
+    },
+    {
+      "at": 1790429715.6062746,
+      "phase": "drained",
+      "error": null
+    },
+    {
+      "at": 1790429715.8441715,
+      "phase": "backup-not-included",
+      "error": null
+    },
+    {
+      "at": 1790429715.9449935,
+      "phase": "before-role-closure",
+      "error": null
+    },
+    {
+      "at": 1790429716.1636944,
+      "phase": "pause-intent",
+      "error": null
+    },
+    {
+      "at": 1790429719.5174441,
+      "phase": "paused",
+      "error": null
+    },
+    {
+      "at": 1790429719.9128287,
+      "phase": "retained-stop-intent",
+      "error": null
+    },
+    {
+      "at": 1790429740.8121614,
+      "phase": "management-stopped",
+      "error": null
+    },
+    {
+      "at": 1790429740.9991722,
+      "phase": "external-power-intent",
+      "error": null
+    },
+    {
+      "at": 1790429747.9472299,
+      "phase": "pending-operator-review",
+      "error": "unexpected syscall or child in wait witness"
+    },
+    {
+      "at": 1790429998.3481252,
+      "phase": "external-evidence-recovered",
+      "error": null
+    },
+    {
+      "at": 1790429998.5078702,
+      "phase": "start-authorization-intent",
+      "error": null
+    },
+    {
+      "at": 1790429998.9683273,
+      "phase": "start-intent",
+      "error": null
+    },
+    {
+      "at": 1790430023.931932,
+      "phase": "new-worker-unreconciled",
+      "error": null
+    },
+    {
+      "at": 1790430243.0361202,
+      "phase": "reconcile-continuation-intent",
+      "error": null
+    },
+    {
+      "at": 1790430243.1241405,
+      "phase": "pending-operator-review",
+      "error": "[Errno 17] File exists: '/opt/baarcha-cube/worker-01/boot-transitions/recovery-20260926-03'"
+    },
+    {
+      "at": 1790430279.7510362,
+      "phase": "reconcile-continuation-intent",
+      "error": null
+    },
+    {
+      "at": 1790430355.8706813,
+      "phase": "pending-operator-review",
+      "error": "controller environment changed beyond reviewed boot pins"
+    },
+    {
+      "at": 1790430510.422938,
+      "phase": "stop-stale-config-controller",
+      "error": null
+    },
+    {
+      "at": 1790430513.1835914,
+      "phase": "corrected-compose-effective",
+      "error": null
+    },
+    {
+      "at": 1790430520.349896,
+      "phase": "corrected-controller-created",
+      "error": null
+    },
+    {
+      "at": 1790430528.4430528,
+      "phase": "new-generation-ready",
+      "error": null
+    },
+    {
+      "at": 1790430528.5111306,
+      "phase": "no-full-backup-claim",
+      "error": null
+    },
+    {
+      "at": 1790430529.5696783,
+      "phase": "reopen-intent",
+      "error": null
+    },
+    {
+      "at": 1790430531.6586032,
+      "phase": "complete",
+      "error": null
+    }
+  ],
+  "fleet": {
+    "apps": 73,
+    "providers": {
+      "cube": 1,
+      "docker": 72
+    },
+    "presets": {
+      "legacy-unset": 11,
+      "nextjs": 2,
+      "node-express": 1,
+      "node-postgres": 1,
+      "react-pro": 43,
+      "react-vite": 15
+    }
+  },
+  "installed_followup": {
+    "at": 1790430808.216035,
+    "changed": [
+      {
+        "file": "/usr/local/libexec/baarcha-cube-boot-transition.py",
+        "new_sha256": "cdee7171f5d0607adfd4db7c66f76051fb1c5b5e7411b9aa4c34bb316e6fe8ad",
+        "old_sha256": "1d0cb0f5750b295b30c7e820987cee8ec166d23c215d57ab45bc3d2a4baf0cca"
+      },
+      {
+        "file": "/usr/local/libexec/baarcha-cube-maintenance.py",
+        "new_sha256": "a9098672b5a96b5b95a8b7483237c7143ec9830542ed96c5265cd063fc93c382",
+        "old_sha256": "96b4313fd2d3bba645221b919e0861becb91d010efe70cd8c37ce6002f977a5a"
+      }
+    ],
+    "test_log_sha256": "7d856878df481b0af6b4df50cc5f7d79571c31f124064ecaac14965193b66a7b",
+    "tests": 110,
+    "version": 1,
+    "worker_restart": false
+  },
+  "external_verifier_sha256": "78da3957e6f57739fb4347fe397b800b43417ef0c1bc4e477c07592c3dad855b",
+  "global_rollout": false,
+  "customer_projects_migrated": 0,
+  "full_backup_restored": false,
+  "paid_ai_tasks_submitted": 0
+}

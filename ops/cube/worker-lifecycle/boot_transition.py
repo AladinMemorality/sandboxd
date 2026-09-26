@@ -30,6 +30,7 @@ STOP = Path('/etc/baarcha-cube/worker-stop.json')
 START = Path('/etc/baarcha-cube/worker-start.json')
 GUARD = Path('/etc/baarcha-cube/storage-guard.json')
 COMPOSE = STATE / 'runtime-compose.json'
+ACTIVE = STATE / 'active-images.json'
 OFFLINE = ROOT / 'cutover-routing/offline.json'
 OBSERVER = Path('/opt/baarcha-cube/storage-guard/observe.py')
 LIFECYCLE = Path('/usr/local/libexec/baarcha-cube-worker-lifecycle.py')
@@ -40,7 +41,7 @@ LOCKS = ('/opt/baarcha/deploy-release.lock', '/opt/sandboxd/deploy-state/deploy.
          '/run/lock/cube-operator-acceptance.lock', '/opt/baarcha-bench/cube-workload-operator.lock')
 TIMERS = tuple('baarcha-' + n + '.timer' for n in ('project-env-apply', 'classroom-egress', 'fennec-meet-egress'))
 SERVICES = ('sandboxd', 'cube-management-api', 'cube-management-proxy')
-PINNED = (START, SOURCE / '.env', SOURCE / 'docker-compose.yml', STATE / 'active-images.json',
+PINNED = (START, SOURCE / '.env', SOURCE / 'docker-compose.yml',
           OFFLINE, OBSERVER, LIFECYCLE, COORDINATOR, EXTERNAL, Path('/usr/local/libexec/baarcha-cube-worker-stop'),
           Path('/etc/baarcha-cube/lifecycle.json'))
 SHA = re.compile(r'[a-f0-9]{64}\Z')
@@ -134,7 +135,7 @@ def validate_plan(p):
     require(set(p) == {'version','outer_machine_id','files','initial','controller_image','disk_identity'}, 'unexpected transition plan fields')
     require(p['version'] == 1 and HEX.fullmatch(p['outer_machine_id']) and p['outer_machine_id'] != '0'*32, 'invalid host identity')
     require(set(p['files']) == set(map(str,PINNED)) and all(SHA.fullmatch(v) for v in p['files'].values()), 'exact executable/config artifact pins required')
-    require(set(p['initial']) == {str(STOP),str(GUARD),str(COMPOSE)} and all(SHA.fullmatch(v) for v in p['initial'].values()), 'exact old mutable config pins required')
+    require(set(p['initial']) == {str(STOP),str(GUARD),str(COMPOSE),str(ACTIVE)} and all(SHA.fullmatch(v) for v in p['initial'].values()), 'exact old mutable config pins required')
     require(re.fullmatch(r'sha256:[a-f0-9]{64}', p['controller_image']), 'immutable controller image required')
     require(set(p['disk_identity']) == {'root.qcow2','data.qcow2','seed.img'}, 'all fixed worker disks required')
     for value in p['disk_identity'].values():
@@ -166,7 +167,7 @@ def validate_chain(stop, start, marker, pause, clean, drain, generation):
     require(generation['worker_machine_id']==stop['worker_machine_id'] and generation['inner_fs_uuid']==stop['data_uuid'] and generation['worker_boot_id']!=stop['worker_boot_id'], 'same worker/storage and genuinely new boot required')
     require((generation['qemu_pid'],generation['qemu_start_time'])!=(stop['qemu_pid'],stop['qemu_start_time']), 'QEMU generation unchanged')
 
-def new_configs(stop, guard, compose, generation):
+def new_configs(stop, guard, compose, generation, active=None):
     require(stop['admission']['storage_guard']==guard, 'stop and observer policy differ')
     env = compose['services']['sandboxd']['environment']
     require(type(env) is dict and strict(env['SANDBOXD_CUBE_ADMISSION'])==stop['admission'], 'controller and native admission policy differ')
@@ -177,7 +178,15 @@ def new_configs(stop, guard, compose, generation):
     outstop.update(worker_boot_id=generation['worker_boot_id'], qemu_pid=generation['qemu_pid'], qemu_start_time=generation['qemu_start_time'])
     outstop['admission']['storage_guard'] = copy.deepcopy(outguard)
     outcompose['services']['sandboxd']['environment']['SANDBOXD_CUBE_ADMISSION'] = encoded(outstop['admission']).decode().strip()
-    return {str(STOP):outstop,str(GUARD):outguard,str(COMPOSE):outcompose}
+    wanted={str(STOP):outstop,str(GUARD):outguard,str(COMPOSE):outcompose}
+    if active is not None:
+        outactive=copy.deepcopy(active)
+        environment=outactive['services']['sandboxd'].get('environment',{})
+        if 'SANDBOXD_CUBE_ADMISSION' in environment:
+            require(strict(environment['SANDBOXD_CUBE_ADMISSION'])==stop['admission'],'active image overlay admission differs from reviewed policy')
+            environment['SANDBOXD_CUBE_ADMISSION']=encoded(outstop['admission']).decode().strip()
+        wanted[str(ACTIVE)]=outactive
+    return wanted
 
 class Journal:
     """Persist desired bytes BEFORE each mutation; exact old/new CAS only.
@@ -382,7 +391,7 @@ def transition(plan,directory,host):
         require(sha(trusted(OFFLINE,False))==plan['files'][str(OFFLINE)],'offline config changed')
         sequence=strict(trusted(SEQUENCE))
         require(sequence['observer_id']==guard['observer_id'] and type(sequence['generation'])is int and sequence['generation']>=1,'enrolled observer sequence missing/corrupt')
-        wanted=new_configs(stop,guard,compose,generation)
+        wanted=new_configs(stop,guard,compose,generation,strict(originals[str(ACTIVE)]))
         j.begin(originals,wanted,generation,{p:sha(v) for p,v in zip(paths,raw)},dict(old_sequence=sequence['generation'],old_environment=dict(v.split('=',1) for v in cp['Config']['Env']),marker_path=paths[0],inventory_sha256=marker['inventory_sha256'],marker=marker,reconcile_attempted=False))
     v=j.value
     require(v['phase']!='complete','transition already complete; do not replay')

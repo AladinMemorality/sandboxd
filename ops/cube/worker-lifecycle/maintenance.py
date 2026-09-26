@@ -38,7 +38,7 @@ BINDING_MAP={'sandbox_id':'SandboxID','app_id':'AppID','runtime_id':'RuntimeID',
 TABLES={'t_cube_rootfs_artifact','t_cube_template_definition','t_cube_template_image_job','t_cube_template_replica','t_cube_pause_snapshot','t_cube_snapshot','t_component_import_job','t_component_preinstall_job'}
 # No nonterminal state may be made safe merely by supplying a matching count.
 TERMINAL={'READY','FAILED','DELETED','TERMINATED'}
-FILES=tuple(dict.fromkeys((*b.PINNED,b.STOP,b.GUARD,b.COMPOSE,
+FILES=tuple(dict.fromkeys((*b.PINNED,b.STOP,b.GUARD,b.COMPOSE,b.ACTIVE,
  Path('/usr/local/libexec/baarcha-cube-boot-transition.py'),
  Path('/usr/local/libexec/baarcha-cube-maintenance.py'),
  Path('/usr/local/libexec/baarcha-cube-drain-observe.py'),
@@ -466,7 +466,7 @@ print(json.dumps(out))
             disks[str(p)]={'device':s.st_dev,'inode':s.st_ino,'size':s.st_size,'mtime_ns':s.st_mtime_ns}
         auth={'version':1,'purpose':'external-clean-one-use-start','receipt':str(self.job/'external/receipt.json'),'receipt_sha256':b.sha(b.trusted(self.job/'external/receipt.json')),'actual_status_sha256':b.sha(b.trusted(ROOT/'lifecycle-status.json')),'stop_config_sha256':b.sha(b.trusted(b.STOP)),'verifier_sha256':b.digest(b.EXTERNAL),'disk_identities':disks}
         x.publish(x.START_AUTH,auth);x.validate_start_authorization()
-        plan={'version':1,'outer_machine_id':self.e['outer_machine_id'],'files':{str(p):b.digest(p) for p in b.PINNED},'initial':{str(p):b.digest(p) for p in (b.STOP,b.GUARD,b.COMPOSE)},'controller_image':self.e['controller_image'],'disk_identity':{}}
+        plan={'version':1,'outer_machine_id':self.e['outer_machine_id'],'files':{str(p):b.digest(p) for p in b.PINNED},'initial':{str(p):b.digest(p) for p in (b.STOP,b.GUARD,b.COMPOSE,b.ACTIVE)},'controller_image':self.e['controller_image'],'disk_identity':{}}
         import struct
         for raw,ident in disks.items():
             p=Path(raw)

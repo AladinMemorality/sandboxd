@@ -90,6 +90,44 @@ class ExternalTests(unittest.TestCase):
         f=list(self.fixture());f[4]=b'\n'.join(b'[pid 42] '+line for line in f[4].splitlines())+b'\n'
         self.assertTrue(x.validate_witness(*f)['guest_shutdown'])
 
+    def test_unrelated_finalizer_reap_after_qemu_exit_is_retained(self):
+        f=list(self.fixture())
+        extra=b'3.200000 wait4(44, [{WIFEXITED(s) && WEXITSTATUS(s) == 1}], WNOHANG, NULL) = 44\n'
+        f[4]+=extra
+        self.assertTrue(x.validate_witness(*f)['guest_shutdown'])
+        for raw in (extra+f[4],f[4].replace(b'3.200000',b'2.000000'),f[4].replace(b'= 44',b'= -1 ECHILD')):
+            with self.assertRaises(x.Refused):x.parse_wait4(raw,42,43)
+
+    def test_recovered_timestamps_come_from_actual_trace_and_qmp(self):
+        f=list(self.fixture());a=f[3]
+        a.pop('attached_at');a.pop('sent_at')
+        a.update(version=2,first_poll_at=1.1,powerdown_event_at=2.0,partial_sha256='a'*64)
+        a['messages'].insert(1,{'direction':'receive','message':{'event':'POWERDOWN','timestamp':{'seconds':2,'microseconds':0}}})
+        self.assertTrue(x.validate_witness(*f)['guest_shutdown'])
+        for field,value in [('first_poll_at',1.0),('powerdown_event_at',1.9),('partial_sha256','invalid')]:
+            changed=copy.deepcopy(f);changed[3][field]=value
+            with self.assertRaises(x.Refused):x.validate_witness(*changed)
+        changed=copy.deepcopy(f);changed[3]['messages'].insert(0,changed[3]['messages'].pop(1))
+        with self.assertRaises(x.Refused):x.validate_witness(*changed)
+
+    def test_recovered_receipt_closes_original_partial_bytes(self):
+        import tempfile,json,time
+        with tempfile.TemporaryDirectory() as tmp:
+            d=Path(tmp);i,p,r,a,trace,status=self.fixture()
+            a.pop('attached_at');a.pop('sent_at');a.update(version=2,first_poll_at=1.1,powerdown_event_at=2.0)
+            a['messages'].insert(1,{'direction':'receive','message':{'event':'POWERDOWN','timestamp':{'seconds':2,'microseconds':0}}})
+            partial=x.canonical({'version':1,'partial':True,'messages':a['messages']});a['partial_sha256']=x.sha(partial)
+            values={'identity.json':x.canonical(i),'pause.json':x.canonical(p),'retained-stop.json':x.canonical(r),'wait4.trace':trace,'strace.stderr':b'','qmp.json':x.canonical(a),'supervisor-actual.json':x.canonical(status),'qmp.partial.json':partial}
+            for name,raw in values.items():(d/name).write_bytes(raw)
+            manifest={'version':1,'method':x.METHOD,'validated':x.validate_witness(i,p,r,a,trace,status),'artifacts':{n:x.sha(v) for n,v in values.items()}}
+            (d/'manifest.json').write_bytes(x.canonical(manifest))
+            external={k:i[k] for k in ('outer_boot_id','supervisor_pid','supervisor_start_time','qemu_pid','qemu_start_time','worker_boot_id')};external.update(version=1,method=x.METHOD,evidence_directory=str(d),evidence_sha256=x.sha((d/'manifest.json').read_bytes()))
+            receipt={'version':1,'state':'externally-stopped-clean','generated_at':time.time(),'proof':p,'external':external};(d/'receipt.json').write_bytes(x.canonical(receipt))
+            read=lambda path:Path(path).read_bytes()
+            self.assertEqual(len(x.validate_receipt(d/'receipt.json',read)['closure']),10)
+            (d/'qmp.partial.json').write_bytes(partial+b' ')
+            with self.assertRaises(x.Refused):x.validate_receipt(d/'receipt.json',read)
+
 if __name__=='__main__':unittest.main()
 
 class StartAuthorizationTests(unittest.TestCase):
