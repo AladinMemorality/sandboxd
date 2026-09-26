@@ -1,0 +1,64 @@
+{
+  "version": 1,
+  "kind": "independent-platform-pg-restore-actual",
+  "source_generation": "cube-platform-pg-snapshot-20260926-02",
+  "restore_unit": "cube-platform-pg-restore-20260926-04",
+  "result": {
+    "version": 1,
+    "actual_platform_pg_restore_verified": true,
+    "source_sha256": "0e6feccc052dbe79c0cabaa3740ae4fb4b258e896a9d55ccc7283f902798a9f4",
+    "dump_sha256": "06475b58ba8ad9082879d5903e12f8f9bebffadfdc8ceb220c9e3ebdc8d7734e",
+    "image": "postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24",
+    "tables": {
+      "upload": {
+        "count": 318,
+        "sha256": "6b4c15dcfe24310340754bc24c4cfd7c9ab6e001d8971b5307a0839bfabe7f77"
+      },
+      "waitlist": {
+        "count": 73,
+        "sha256": "cd22b1154179d60212d9548f39ff8577f8a2c29766bf6c1e9262b193e90dc956"
+      },
+      "published_app": {
+        "count": 66,
+        "sha256": "aefc8c01788c43ac99582e9d2fd08ab61c64f3adc17b8929c60e8ef79f3530be"
+      },
+      "platform_session": {
+        "count": 51,
+        "sha256": "42e886532b65cbb87963a573d4d5499692fad1a0e5563ba1c5f5e943c68cdd2f"
+      },
+      "schema_migrations": {
+        "count": 21,
+        "sha256": "e7427b304c3ba93b748b260c8344c8d51878c7c44986950a08c2703df85dab75"
+      }
+    },
+    "private_owner_upload_session_provenance_verified": true,
+    "owned_container_removed": true,
+    "full_pair_verified": false,
+    "http_acl_verified": false,
+    "s3_object_restore_verified": false
+  },
+  "verified_receipt_sha256": "974c5cf34f04ee8c9111d344c28ce4bae12f4ec509b645a45bcf858d5eadcb62",
+  "independent_fixture_absence_verified": true,
+  "prior_attempts": [
+    {
+      "unit": "cube-platform-pg-restore-20260926-01",
+      "result": "failed",
+      "reason": "fingerprint mismatch"
+    },
+    {
+      "unit": "cube-platform-pg-restore-20260926-02",
+      "result": "failed",
+      "reason": "upload-only fingerprint mismatch; locale-dependent ordering"
+    },
+    {
+      "unit": "cube-platform-pg-restore-20260926-03",
+      "result": "failed",
+      "reason": "start-readiness; temporary entrypoint race suspected, no diagnostic proof retained"
+    }
+  ],
+  "corrections": [
+    "Explicit COLLATE C ordering with complete-row equality unchanged",
+    "Require final PostgreSQL PID1 and SQL readiness before restore"
+  ],
+  "source_tools_archive_sha256": "2d996638be1aa9238c29752c1346ff50fa656e5748eb03a5a443523a50558932"
+}

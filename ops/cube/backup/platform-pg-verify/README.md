@@ -1,11 +1,15 @@
 # Independent real platform PostgreSQL restore candidate
 
-Prepared and locally tested; no database capture or restore has been executed by
-these tools. This closes a separate platform-data proof without starting a copied
+An independent production database snapshot was restored successfully on
+26 September 2026 into the isolated fixture described below. The actual receipt
+is [live-validation-2026-09-26.json](live-validation-2026-09-26.json). All five
+table fingerprints and the private owner/upload relationship matched; independent
+inspection confirmed fixture removal. Earlier failed attempts remain recorded.
+This establishes a separate platform-data proof without starting a copied
 production platform/controller or granting it live credentials. It is not the
 full worker-pair restore, guest SQL proof, HTTP screenshot ACL test or S3 restore.
 
-Read-only26September prerequisites: production server17.11, database36,255,411B;
+Read-only 26 September prerequisites: production server17.11, database36,255,411B;
 host `pg_dump`/`pg_restore`17.11; cached official17-alpine amd64 image
 `postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24`
 (117,212,703B). Those observations are not execution receipts.
@@ -67,6 +71,9 @@ networknone, no ports, no bind mounts, no Docker socket inside it, readonly root
 all capabilities dropped, no new privileges,1CPU,512MiB memory+swap ceiling,
 128PIDs and tmpfs data384MiB mounted at the exact image-declared
 `/var/lib/postgresql/data` volume target, preventing an anonymous Docker volume. PostgreSQL only listens on its private Unix socket.
+Readiness requires the final PostgreSQL process as container PID 1 and a
+successful SQL probe within 30 seconds; the entrypoint's temporary postmaster
+cannot satisfy it. Startup failures retain bounded private diagnostics.
 The source dump streams through `docker exec` stdin; production credentials are
 not copied into the container. Restore is bounded300s and uses one transaction
 with exit-on-error into its new fixed `restoreproof` database. Source and restored
