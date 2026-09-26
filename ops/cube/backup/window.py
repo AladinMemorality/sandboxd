@@ -20,7 +20,7 @@ INSTALLED = Path('/usr/local/libexec/baarcha-cube-backup-window.py')
 TOOLS = Path('/opt/baarcha-cube/backup-tools')
 CONFIG = TOOLS / 'window-config.PRIVATE.json'
 MOTION = Path('/opt/baarcha-cube/motion-release-20260926')
-FILES = (*p.FILES, INSTALLED, CONFIG, *(TOOLS / v for v in ('capture_roles.py', 'finalize_roles.py', 'cold_pair.py')),
+FILES = (*p.FILES, INSTALLED, CONFIG, *(TOOLS / v for v in ('capture_roles.py', 'finalize_roles.py', 'cold_pair.py', 'warm_mirror.py')),
          *(MOTION / v for v in ('release.py', 'natural_stop.py', 'natural_drain.mjs')))
 KIND = 'current-generation-full-pair-capture'
 
@@ -98,6 +98,7 @@ class Host(p.Host):
     def preflight(self, defer_busy=False):
         result = super().preflight(defer_busy=defer_busy)
         c = self.roles
+        need('warm_mirror' in c, 'Prepare a verified online bulk copy before another production window')
         need(c['controller_id'] == self.e['controller_id'] and c['controller_image'] == self.e['controller_image'] and
              c['reviewed_caddy_sha256'] == self.r.canonical(self.routes['offline']), 'role closure scope differs')
         need(self.r.canonical(self.cp()['Config']['Env']) == c['controller_env_sha256'], 'controller recovery config changed')
@@ -121,6 +122,16 @@ class Host(p.Host):
         need(self.motion.c['service_uid'] == 985 and self.motion.c['service_gid'] == 980, 'reviewed Motion UID/GID required')
         self.motion.natural_module()
         self.motion.projects('tcp'); self.motion.projects('uds')
+        selected = c['warm_mirror']; cache = Path(selected['cache'])
+        need(b.digest(cache / 'prepared.json') == selected['prepared_sha256'], 'Prepared mirror receipt changed')
+        roots = [v['source'] for v in c['docker_homes']] + c['role_paths']['rollback-extra'] + [v['image_path'] for v in c['inventory']['snapshots']] + c['role_paths']['library-extra']
+        receipt = b.strict(b.trusted(cache / 'prepared.json'))
+        need(receipt['roots'] == sorted(set(roots)) and not receipt['backup_accepted'], 'Prepared mirror scope changed')
+        estimate = b.strict(self.command(['/usr/bin/python3', str(TOOLS / 'warm_mirror.py'), 'estimate', '--cache', str(cache),
+                                         '--prepared-sha256', selected['prepared_sha256'], '--output', str(cache / ('estimate-' + self.job.name))], 600))
+        need(estimate['online_estimate_only'] and estimate['within_budget'] and not estimate['backup_accepted'],
+             'Online delta exceeds maintenance budget; refresh the online copy before fencing')
+        self.event('online-mirror-estimated', estimate)
         self.motion_stage.mkdir(mode=0o700)
         return result
 

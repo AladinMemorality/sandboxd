@@ -23,7 +23,7 @@ def docker(running=False, policy='no'):
 class BackupWindowTests(unittest.TestCase):
     def test_config_and_all_executed_helpers_are_pinned(self):
         value = plan(); w.validate_plan(value)
-        for required in (w.CONFIG, w.INSTALLED, w.TOOLS/'capture_roles.py', w.TOOLS/'finalize_roles.py', w.TOOLS/'cold_pair.py', w.MOTION/'natural_stop.py'):
+        for required in (w.CONFIG, w.INSTALLED, w.TOOLS/'capture_roles.py', w.TOOLS/'finalize_roles.py', w.TOOLS/'cold_pair.py', w.TOOLS/'warm_mirror.py', w.MOTION/'natural_stop.py'):
             changed = copy.deepcopy(value); del changed['files'][str(required)]
             with self.subTest(path=required), self.assertRaises(w.b.Refused): w.validate_plan(changed)
         value['kind'] = w.p.KIND
