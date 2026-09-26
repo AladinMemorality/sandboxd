@@ -299,7 +299,7 @@ print(json.dumps(out))
         end=time.monotonic()+seconds
         while True:
             try:return check()
-            except (OSError,ValueError,KeyError,RuntimeError,subprocess.SubprocessError):
+            except (OSError,ValueError,RuntimeError,subprocess.SubprocessError):
                 if time.monotonic()>=end:raise
                 time.sleep(1)
     def preflight(self,defer_busy=False):
@@ -359,12 +359,22 @@ print(json.dumps(out))
             need(response.status==200 and len(body)<=8*1024*1024,'bounded authenticated Motion job observation unavailable')
             return motion_job_summary(b.strict(body))
         finally:conn.close()
+    def scheduled_writers_inactive(self):
+        for stem in (*self.observer.WRITERS,'baarcha-motion-access'):
+            for suffix in ('.timer','.service'):
+                u=self.unit(stem+suffix)
+                need(u['LoadState']=='loaded' and u['ActiveState']=='inactive' and (suffix=='.timer' or u['MainPID']=='0'),'scheduled writer not inactive: '+stem+suffix)
+    def controller_requests_drained(self):
+        cp=self.cp();pid=cp['State']['Pid'];s=self.observer.process_sockets(pid)
+        # HTTP Shutdown does not wait for hijacked preview WebSockets. While
+        # the listener is still open, their accepted sockets retain its local
+        # port. Idle outbound provider pools are not incoming requests.
+        need(s['pid']==pid and s['process_generation']==x.ticks(pid) and s['stable_socket_set'] and s['tcp_states'].get('listen',0)>0 and s['tcp_connections_on_listening_ports']==0,'controller incoming connections remain or listener observation changed')
+        return s
     def writers(self):
         for name in MOTION_SOURCE_NAMES:
             path=MOTION_SOURCE_ROOT/name;need(file_digest(path)==self.plan['files'][str(path)],'reviewed Motion mutation scope source changed')
-        for stem in (*self.observer.WRITERS,'baarcha-motion-access'):
-            for suffix in ('.timer','.service'):
-                u=self.unit(stem+suffix);need(u['LoadState']=='loaded' and u['ActiveState']=='inactive' and u['MainPID']=='0','scheduled writer not inactive')
+        self.scheduled_writers_inactive()
         proxy=self.inspect(self.plan['motion']['proxy_id']);need(proxy['Image']==self.plan['motion']['proxy_image'] and not proxy['State']['Running'] and not proxy['State']['Restarting'] and not proxy['State']['Paused'] and not proxy['State']['OOMKilled'] and proxy['State']['ExitCode']==0 and proxy['HostConfig']['RestartPolicy']['Name']=='no','Motion proxy not cleanly stopped')
         m=self.plan['motion'];sockets=self.observer.process_sockets(m['worker_pid']);need(sockets['process_generation']==m['worker_start_time'] and sockets['stable_socket_set'] and sockets['tcp_non_listen']==0,'Motion backend connections remain')
         jobs=self.motion_jobs()
@@ -383,11 +393,11 @@ print(json.dumps(out))
         checks=self.route_checks();x.publish(self.job/'route-checks.json',checks)
         self.stop_motion_proxy()
         self.wait(self.writers)
-        def socket_idle():
-            cp=self.cp();s=self.observer.process_sockets(cp['State']['Pid']);need(s['stable_socket_set'] and s['tcp_non_listen']==0,'controller TCP connections remain');return s
-        self.wait(socket_idle);self.quiet_tasks();self.provider()
+        incoming=self.wait(self.controller_requests_drained);x.publish(self.job/'controller-incoming-drained.json',incoming);self.quiet_tasks();self.provider()
         since=datetime.datetime.now(datetime.timezone.utc).isoformat();self.command(['/usr/bin/docker','update','--restart=no',self.e['controller_id']]);self.command(['/usr/bin/docker','stop','--time=-1',self.e['controller_id']],180)
         cp=self.cp(True);shutdown=self.observer.shutdown_observation(cp,since);need(shutdown['regular_http_shutdown_success_observed'],'controller normal shutdown not proved');x.publish(self.job/'controller-shutdown.json',shutdown)
+        final={'tasks':self.quiet_tasks(),'provider':self.provider(),'bindings':self.bindings_readonly()}
+        x.publish(self.job/'controller-after-stop.json',final)
         self.motion_baseline=self.motion_jobs();self.fence()
     def stop_motion_proxy(self):
         proxy=self.inspect(self.plan['motion']['proxy_id']);need(proxy['Image']==self.plan['motion']['proxy_image'],'Motion proxy image changed')

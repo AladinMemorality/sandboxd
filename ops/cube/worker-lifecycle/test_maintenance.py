@@ -228,3 +228,43 @@ class HomeAndDiagnosticTests(unittest.TestCase):
             with mock.patch.object(m,'ROOT',root),mock.patch.object(m,'Host',return_value=host),mock.patch.object(m.b,'locked',locks),mock.patch.object(m.time,'sleep',side_effect=EndFixture),mock.patch.object(sys,'argv',['maintenance','--plan',str(config),'--directory',str(job),'--execute']),self.assertRaises(EndFixture):m.main()
             files=list(job.glob('*pending-operator-review.json'));self.assertEqual(len(files),1);record=m.json.loads(files[0].read_bytes())['value']
             self.assertTrue(record['error'].startswith('exact diagnostic '));self.assertEqual(len(record['error']),2048);self.assertEqual(stat.S_IMODE(files[0].stat().st_mode),0o600);host.pause.assert_not_called()
+
+class WriterDrainTests(unittest.TestCase):
+    def test_timer_has_no_main_pid_services_must_have_explicit_zero(self):
+        from unittest import mock
+        host=m.Host.__new__(m.Host);host.observer=mock.Mock();host.observer.WRITERS=('fixture',)
+        def unit(name):return {'LoadState':'loaded','ActiveState':'inactive',**({'MainPID':'0'} if name.endswith('.service') else {})}
+        host.unit=unit;host.scheduled_writers_inactive()
+        for wrong in ({'MainPID':'12'},{}):
+            host.unit=lambda name:{'LoadState':'loaded','ActiveState':'inactive',**(wrong if name.endswith('.service') else {})}
+            with self.assertRaises((m.b.Refused,KeyError)):host.scheduled_writers_inactive()
+        host.unit=lambda name:{'LoadState':'loaded','ActiveState':'active','MainPID':'0'}
+        with self.assertRaises(m.b.Refused):host.scheduled_writers_inactive()
+    def test_key_error_is_not_retried(self):
+        from unittest import mock
+        host=m.Host.__new__(m.Host);check=mock.Mock(side_effect=KeyError('missing field'))
+        with mock.patch.object(m.time,'sleep') as sleep,self.assertRaises(KeyError):host.wait(check,180)
+        check.assert_called_once();sleep.assert_not_called()
+    def test_idle_outbound_allowed_incoming_websocket_or_unstable_refused(self):
+        from unittest import mock
+        host=m.Host.__new__(m.Host);host.cp=lambda:{'State':{'Pid':123}};host.observer=mock.Mock()
+        row={'pid':123,'process_generation':'17','stable_socket_set':True,'tcp_states':{'listen':1,'established':1},'tcp_non_listen':1,'tcp_connections_on_listening_ports':0}
+        host.observer.process_sockets.return_value=row
+        with mock.patch.object(m.x,'ticks',return_value='17'):
+            self.assertEqual(host.controller_requests_drained(),row)
+            for delta in ({'tcp_connections_on_listening_ports':1},{'stable_socket_set':False},{'process_generation':'18'},{'tcp_states':{'established':1}}):
+                host.observer.process_sockets.return_value={**row,**delta}
+                with self.subTest(delta=delta),self.assertRaises(m.b.Refused):host.controller_requests_drained()
+    def test_final_provider_and_bindings_checked_only_after_normal_shutdown(self):
+        import tempfile
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as temp:
+            host=m.Host.__new__(m.Host);host.job=Path(temp);host.e={'controller_id':'reviewed'};host.routes={'offline':{}};host.observer=mock.Mock();host.observer.WRITERS=()
+            calls=[]
+            for method in ('reload','command','route_checks','stop_motion_proxy','writers','quiet_tasks','provider','bindings_readonly','motion_jobs','fence'):
+                setattr(host,method,mock.Mock(side_effect=lambda *a,method=method:calls.append(method) or {}))
+            host.unit=lambda n:{'ActiveState':'inactive'};host.cp=lambda stopped=False:{'stopped':stopped};host.controller_requests_drained=lambda:{};host.wait=lambda check,*args:check()
+            host.observer.shutdown_observation.side_effect=lambda *a:calls.append('shutdown-proof') or {'regular_http_shutdown_success_observed':True}
+            with mock.patch.object(m.b,'trusted',return_value=b'{}'),mock.patch.object(m.b,'atomic'),mock.patch.object(m.x,'publish') as publish:host.drain()
+            after=calls[calls.index('shutdown-proof')+1:];self.assertEqual(after[:3],['quiet_tasks','provider','bindings_readonly']);self.assertIn('fence',after)
+            self.assertTrue(any(c.args[0].name=='controller-after-stop.json' for c in publish.call_args_list))
