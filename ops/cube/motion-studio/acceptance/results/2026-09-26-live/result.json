@@ -1,0 +1,115 @@
+{
+  "version": 1,
+  "invocation_id": "bf373333a71f4e13833a9b0e172adf6f",
+  "plan_sha256": "0dc22fd8d4cdc44ff93e12389b5a2bf5b33dfb08c88549793d2347c941b946f6",
+  "checks": {
+    "owner-capability": {
+      "motion_worker_v1": true
+    },
+    "sibling-capability": {
+      "motion_worker_v1": true
+    },
+    "owner-imported": {
+      "new_supervisor_generation": true
+    },
+    "sibling-imported": {
+      "new_supervisor_generation": true
+    },
+    "owner-configured": {
+      "revision_acknowledged": true
+    },
+    "sibling-configured": {
+      "revision_acknowledged": true
+    },
+    "sibling-denied": {
+      "status": 502
+    },
+    "oversize-refused": {
+      "status": 413,
+      "project_unchanged": true
+    },
+    "media-verified": {
+      "head": true,
+      "prefix_range": true,
+      "suffix_range": true,
+      "download_sha256": "fdc14b86e89821e912b692e9c9971b039c261a25925d5c370ec94d50938d4f4d",
+      "decoded": true
+    },
+    "stale-generation-denied": {
+      "status": 403
+    },
+    "channel-revoked": {
+      "denied": true
+    },
+    "guest-cleanup": {
+      "complete": true,
+      "guests": 2
+    },
+    "film-cleanup": {
+      "complete": true,
+      "films_removed": 1,
+      "baseline_projects_unchanged": 7
+    },
+    "guest-acceptance-complete": {
+      "paid_jobs_submitted": 0,
+      "success": true,
+      "template_id": "tpl-c0c9813b42db46898f7ddd9f"
+    },
+    "guest-0-deleted": {
+      "provider_404": true,
+      "admission_released": true
+    },
+    "guest-1-deleted": {
+      "provider_404": true,
+      "admission_released": true
+    },
+    "upload-50mib": {
+      "bytes": 52428800,
+      "sha256": "fdc14b86e89821e912b692e9c9971b039c261a25925d5c370ec94d50938d4f4d"
+    },
+    "http-complete": {
+      "success": true,
+      "existing_projects_unchanged": 7,
+      "paid_jobs_submitted": 0
+    }
+  },
+  "restoration": {
+    "observed_at": 1790466635.727913,
+    "online_restored": true,
+    "all_four_locks_reacquired": true,
+    "fleet": {
+      "cube": 70,
+      "docker": 3
+    },
+    "phases": {
+      "complete": 69
+    },
+    "maintenance_seconds": 106.87165999412537,
+    "online_at": 1790466567.1539423,
+    "fixture_accepted": true,
+    "fixture_cleanup_confirmed": true,
+    "owned_apps_absent_from_canonical_store": true,
+    "unit": {
+      "MainPID": "0",
+      "Result": "success",
+      "ExecMainStatus": "0",
+      "ActiveState": "inactive",
+      "InvocationID": ""
+    }
+  },
+  "source_sha256": {
+    "main.go": "c917f43bad9fd00c1c1e5780f254c21a181f1de3d8eff678c2a93827d8087e70",
+    "main_test.go": "f6d62b003a1c550b4a52d5a53fb94ee843c653884323d79adb8728481ccd0bca",
+    "binary": "18d01d68e49136edd86f30ad05b1f06c105214dbfeffb387e25292c895ea2aca",
+    "actual-customer-proxy.mjs": "e18a9353d333a582998aee231923072316ef4166eb5688aee7feaf3b45f7cef9",
+    "seed.mp4": "504537848fd353bf3171bdda7e00c6340837f2bb2e9b30bb63ce15b845c3e810",
+    "window.py": "58e62e9ce982a9fb25d24a54e639aadbcfa0d8159a9f1ada8cea7a77a6a8f34f",
+    "probe.mjs": "6b6ecbc49ba061e5534bfbdbcdeb7565e047c6511f036797cd4752b407519de6",
+    "cleanup.mjs": "9735411205d8b9515372eb65c4ad63a9bb50b8565df077832b606b9ad8edbb28",
+    "probe.test.mjs": "2653df7d91db6ed2f4a3106ed3fb8ef82f26ef2d2a6e15bf596a83c4b243075d",
+    "test_window.py": "6701995bdea97957fa58759d97b9c386720aee8f3c5e1c9eb5ec8a2f5161dc37"
+  },
+  "paid_jobs_submitted": 0,
+  "customer_projects_migrated": 0,
+  "global_migration_complete": false
+}

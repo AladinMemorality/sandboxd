@@ -1,5 +1,22 @@
 # Motion Studio: fixed worker adapter
 
+## Current production evidence
+
+The new Motion Cube template passed actual guest-to-worker acceptance on
+September 26, including the current customer's frontend proxy, exact 50 MiB
+upload/overflow rejection, media reads/download/decode and sibling/generation
+revocation. Both disposable guests and the synthetic film were removed; seven
+existing worker projects and all customer canonical state were preserved.
+See [live acceptance evidence](acceptance/results/2026-09-26-live/README.md).
+
+The migration CLI containing the precommit worker readiness gate has now been
+built in the isolated review stage (SHA-256
+`38e6e91d252a9427de57d8b78b91d03f4c0a909c2cbc05b37634bef21329af3c`).
+It has not replaced the deployed migration CLI. Motion's customer migration and
+controller socket mount/app selection/template admission are still pending.
+The historical preparation sequence below should not be mistaken for current
+deployment status.
+
 This is an opt-in application capability, not an exception to public egress or
 Cube's direct-NIC deny-all policy. Code preparation and local fixtures do not
 prove that the currently deployed worker/controller/template supports it. No live
@@ -61,8 +78,8 @@ fixtures and the new checks then passed with CHOWN/DAC_OVERRIDE/FOWNER enabled
 inside the isolated test container (19.425 seconds). Production source data was
 not mounted into that container.
 
-This is source preparation. The deployed native CLI has not been rebuilt with
-this gate, and actual Motion guest/worker acceptance and migration remain pending.
+The updated CLI has been built for review and actual guest/worker acceptance
+has passed. The deployed migration CLI and Motion customer binding are unchanged.
 
 ## Exact HTTP contract
 
