@@ -44,7 +44,7 @@ class CohortTests(unittest.TestCase):
         host.job = Path('/private/operation')
         for name in ('quiet_tasks', 'source_fence', 'bindings_readonly', 'event'):
             setattr(host, name, mock.Mock())
-        host.command = mock.Mock(return_value=json.dumps({'success': True, 'paused': ['existing']}).encode())
+        host.command = mock.Mock(return_value=json.dumps({'success': True, 'paused': ['existing', project()['sandbox_id']]}).encode())
         host.bridge = mock.Mock(); host.bridge.observe.return_value = {'consistent': True, 'active': 0}
         with mock.patch.object(c.b, 'http', return_value=b'{}'), mock.patch.object(c.b, 'digest', return_value='digest'), mock.patch.object(c.x, 'publish'):
             with self.assertRaises(c.b.Refused): host.before_controller_stop()
@@ -100,6 +100,14 @@ class CohortTests(unittest.TestCase):
             with self.subTest(field=field), self.assertRaises(c.b.Refused): c.stopped_source(row, project())
         row = source(); row['HostConfig']['RestartPolicy']['Name'] = 'unless-stopped'
         with self.assertRaises(c.b.Refused): c.stopped_source(row, project())
+
+    def test_running_source_allowed_only_before_task_aware_drain(self):
+        row = source(); row['State'].update(Running=True, Pid=123)
+        c.stopped_source(row, project(), allow_running=True)
+        with self.assertRaises(c.b.Refused): c.stopped_source(row, project())
+        for field, value in (('Restarting', True), ('Paused', True), ('Pid', 0), ('OOMKilled', True)):
+            bad = copy.deepcopy(row); bad['State'][field] = value
+            with self.subTest(field=field), self.assertRaises(c.b.Refused): c.stopped_source(bad, project(), allow_running=True)
 
     def test_source_mount_and_image_identity_are_exact(self):
         for kind in ('image', 'id', 'path', 'extra'):
