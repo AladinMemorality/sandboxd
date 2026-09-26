@@ -1,0 +1,21 @@
+# Build context: control-plane/. No Docker CLI or daemon socket is required.
+FROM golang:1.22-bookworm AS builder
+ARG VERSION=dev
+ARG GIT_COMMIT=unknown
+WORKDIR /src
+COPY go.mod go.sum ./
+RUN go mod download
+COPY . .
+RUN CGO_ENABLED=1 go build -trimpath \
+    -ldflags "-X main.buildVersion=${VERSION} -X main.buildCommit=${GIT_COMMIT}" \
+    -o /cube-controller ./cmd/cube-controller
+
+FROM debian:bookworm-slim
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates git \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /cube-controller /usr/local/bin/cube-controller
+COPY migrations/ /usr/local/share/cube-controller/migrations/
+ENV CUBE_CONTROLLER_ADDR=0.0.0.0:9000
+EXPOSE 9000
+ENTRYPOINT ["/usr/local/bin/cube-controller"]

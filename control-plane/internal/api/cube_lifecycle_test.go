@@ -25,7 +25,11 @@ func TestCubeCreatePreservesIdentityAndPrivateCredentials(t *testing.T) {
 	}
 }
 
-func testCubeCreatePreservesIdentityAndPrivateCredentials(t *testing.T, global bool) {
+func TestReplacementCubeControllerCreatesFreshProject(t *testing.T) {
+	testCubeCreatePreservesIdentityAndPrivateCredentials(t, true, true)
+}
+
+func testCubeCreatePreservesIdentityAndPrivateCredentials(t *testing.T, global bool, replacement ...bool) {
 	s, appID := newConfigTestServer(t)
 	var sent cube.CreateRequest
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -61,7 +65,15 @@ func testCubeCreatePreservesIdentityAndPrivateCredentials(t *testing.T, global b
 	req := httptest.NewRequest("POST", "/v1/apps/"+appID+"/sandbox", strings.NewReader(`{"runtime_preset":"react-vite"}`))
 	req = req.WithContext(auth.WithActor(req.Context(), auth.Actor{Name: cfgTenant, Kind: "service"}))
 	rec := httptest.NewRecorder()
-	s.Handler().ServeHTTP(rec, req)
+	handler := s.Handler()
+	if len(replacement) != 0 && replacement[0] {
+		s.CubeReadiness = func(context.Context) error { return nil }
+		handler, err = s.CubeHandler(context.Background())
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	handler.ServeHTTP(rec, req)
 	if rec.Code != 201 {
 		t.Fatalf("create %d %s", rec.Code, rec.Body.String())
 	}

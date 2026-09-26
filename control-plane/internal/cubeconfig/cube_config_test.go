@@ -1,4 +1,4 @@
-package main
+package cubeconfig
 
 import (
 	"encoding/json"
@@ -10,8 +10,8 @@ import (
 
 func TestCubeConfigRequiresExplicitPilot(t *testing.T) {
 	t.Setenv("SANDBOXD_CUBE_ENABLED", "")
-	cfg, err := loadCubeConfig()
-	if err != nil || cfg.client != nil {
+	cfg, err := Load()
+	if err != nil || cfg.Client != nil {
 		t.Fatalf("Docker default lost: %+v %v", cfg, err)
 	}
 	t.Setenv("SANDBOXD_PREVIEW_TOKEN_SECRETS", "fixture="+strings.Repeat("a", 32))
@@ -22,12 +22,12 @@ func TestCubeConfigRequiresExplicitPilot(t *testing.T) {
 	t.Setenv("SANDBOXD_CUBE_DOMAIN", "cube.test")
 	t.Setenv("SANDBOXD_CUBE_TEMPLATES", `{"react-vite":"tpl-reviewed"}`)
 	t.Setenv("SANDBOXD_CUBE_APP_IDS", "")
-	if _, err := loadCubeConfig(); err == nil {
+	if _, err := Load(); err == nil {
 		t.Fatal("allowed unrestricted rollout")
 	}
 	t.Setenv("SANDBOXD_CUBE_APP_IDS", "pilot-app")
-	cfg, err = loadCubeConfig()
-	if err != nil || !cfg.apps["pilot-app"] || cfg.templates["react-vite"] != "tpl-reviewed" {
+	cfg, err = Load()
+	if err != nil || !cfg.Apps["pilot-app"] || cfg.Templates["react-vite"] != "tpl-reviewed" {
 		t.Fatalf("valid config: %+v %v", cfg, err)
 	}
 	for _, tc := range []struct{ key, value string }{
@@ -39,7 +39,7 @@ func TestCubeConfigRequiresExplicitPilot(t *testing.T) {
 	} {
 		t.Run(tc.key+tc.value, func(t *testing.T) {
 			t.Setenv(tc.key, tc.value)
-			if _, err := loadCubeConfig(); err == nil {
+			if _, err := Load(); err == nil {
 				t.Fatal("unsafe config accepted")
 			}
 		})
@@ -58,14 +58,14 @@ func TestCubeGlobalConfigRequiresCompleteExplicitDeployment(t *testing.T) {
 	t.Setenv("SANDBOXD_CUBE_EGRESS_ALLOW_DOMAINS", "")
 	t.Setenv("SANDBOXD_CUBE_AGENT_RELAY_ORIGIN", "https://relay.example")
 	t.Setenv("SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED", "true")
-	templates := map[string]string{}
+	Templates := map[string]string{}
 	for _, p := range preset.List() {
-		templates[p.ID] = "tpl-" + p.ID
+		Templates[p.ID] = "tpl-" + p.ID
 	}
-	encoded, _ := json.Marshal(templates)
+	encoded, _ := json.Marshal(Templates)
 	t.Setenv("SANDBOXD_CUBE_TEMPLATES", string(encoded))
-	cfg, err := loadCubeConfig()
-	if err != nil || !cfg.allApps || len(cfg.apps) != 0 {
+	cfg, err := Load()
+	if err != nil || !cfg.AllApps || len(cfg.Apps) != 0 {
 		t.Fatalf("global mode unavailable: %+v %v", cfg, err)
 	}
 	for _, tc := range []struct{ key, value string }{
@@ -78,7 +78,7 @@ func TestCubeGlobalConfigRequiresCompleteExplicitDeployment(t *testing.T) {
 	} {
 		t.Run(tc.key, func(t *testing.T) {
 			t.Setenv(tc.key, tc.value)
-			if _, err := loadCubeConfig(); err == nil {
+			if _, err := Load(); err == nil {
 				t.Fatal("incomplete global deployment accepted")
 			}
 		})
@@ -90,12 +90,12 @@ func TestCubeRelayRequiresHTTPSAndExplicitNetworkAttestation(t *testing.T) {
 	t.Setenv("SANDBOXD_CUBE_ENABLED", "true")
 	t.Setenv("SANDBOXD_CUBE_EGRESS_ALLOW_DOMAINS", "")
 	t.Setenv("SANDBOXD_CUBE_AGENT_RELAY_ORIGIN", "http://relay.example")
-	if _, err := loadCubeConfig(); err == nil {
+	if _, err := Load(); err == nil {
 		t.Fatal("plain HTTP relay accepted")
 	}
 	t.Setenv("SANDBOXD_CUBE_AGENT_RELAY_ORIGIN", "https://relay.example")
 	t.Setenv("SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED", "")
-	if _, err := loadCubeConfig(); err == nil {
+	if _, err := Load(); err == nil {
 		t.Fatal("unverified network relay enabled")
 	}
 }
@@ -118,14 +118,14 @@ func TestCubeReverseEgressRequiresExplicitCompatibleProfile(t *testing.T) {
 	t.Setenv("SANDBOXD_CUBE_EGRESS_PROTECTED_CIDRS", "65.108.225.153/32")
 	t.Setenv("SANDBOXD_CUBE_EGRESS_PROTECTED_DOMAINS", "baarcha.tn")
 	t.Setenv("SANDBOXD_CUBE_BRIDGE_URL", "https://baarcha.tn/api/bridge")
-	cfg, err := loadCubeConfig()
-	if err != nil || cfg.reverseEgress == nil {
+	cfg, err := Load()
+	if err != nil || cfg.ReverseEgress == nil {
 		t.Fatalf("reviewed pilot unavailable: %v", err)
 	}
 	for _, tt := range []struct{ k, v string }{{"SANDBOXD_CUBE_ENABLED", "false"}, {"SANDBOXD_CUBE_REVERSE_EGRESS", "1"}, {"SANDBOXD_CUBE_EGRESS_CLIENT_PROFILE", "all-backends"}, {"SANDBOXD_CUBE_EGRESS_PROTECTED_CIDRS", ""}, {"SANDBOXD_CUBE_EGRESS_PROTECTED_CIDRS", "::/0"}, {"SANDBOXD_CUBE_EGRESS_PROTECTED_DOMAINS", ""}, {"SANDBOXD_CUBE_BRIDGE_URL", "http://baarcha.tn/api/bridge"}, {"SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED", "false"}, {"SANDBOXD_CUBE_EGRESS_ALLOW_DOMAINS", "registry.npmjs.org"}} {
 		t.Run(tt.k+tt.v, func(t *testing.T) {
 			t.Setenv(tt.k, tt.v)
-			if _, err := loadCubeConfig(); err == nil {
+			if _, err := Load(); err == nil {
 				t.Fatal("incomplete/unsupported configuration accepted")
 			}
 		})
@@ -147,13 +147,13 @@ func TestCubeReverseEgressRequiresExplicitCompatibleProfile(t *testing.T) {
 	t.Run("Cube preview signing is required", func(t *testing.T) {
 		for _, value := range []string{"", "v1=", "malformed", "v1=short"} {
 			t.Setenv("SANDBOXD_PREVIEW_TOKEN_SECRETS", value)
-			if _, err := loadCubeConfig(); err == nil || !strings.Contains(err.Error(), "SANDBOXD_PREVIEW_TOKEN_SECRETS") {
+			if _, err := Load(); err == nil || !strings.Contains(err.Error(), "SANDBOXD_PREVIEW_TOKEN_SECRETS") {
 				t.Fatal("missing/invalid preview dependency accepted")
 			}
 		}
 	})
 	// Expanding rollout does not change the network policy or its prerequisites.
-	cfg.allApps = true
+	cfg.AllApps = true
 	if config, err := loadCubeReverseEgressConfig(cfg); err != nil || config == nil {
 		t.Fatalf("reviewed global profile unavailable: %v", err)
 	}

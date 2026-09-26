@@ -41,6 +41,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/audit"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/authproxy"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/cubeconfig"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/egress"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/events"
@@ -536,17 +537,17 @@ func main() {
 		return err
 	}
 
-	cubeConfig, err := loadCubeConfig()
+	cubeConfig, err := cubeconfig.Load()
 	if err != nil {
 		log.Error("invalid Cube configuration", "err", err)
 		os.Exit(1)
 	}
-	if err := configureCubeAdmission(ctx, cubeConfig, st); err != nil {
+	if err := cubeconfig.ConfigureAdmission(ctx, cubeConfig, st); err != nil {
 		log.Error("invalid Cube admission configuration", "err", err)
 		os.Exit(1)
 	}
 	server := &api.Server{
-		CubeAgentRelayOrigin: cubeConfig.relayOrigin, Cube: cubeConfig.client, CubeTemplates: cubeConfig.templates, CubeApps: cubeConfig.apps, CubeAllApps: cubeConfig.allApps, CubeProxyURL: cubeConfig.proxyURL, CubeDomain: cubeConfig.domain,
+		CubeAgentRelayOrigin: cubeConfig.RelayOrigin, Cube: cubeConfig.Client, CubeTemplates: cubeConfig.Templates, CubeApps: cubeConfig.Apps, CubeAllApps: cubeConfig.AllApps, CubeProxyURL: cubeConfig.ProxyURL, CubeDomain: cubeConfig.Domain,
 		Store:             st,
 		Secrets:           secretsCipher,
 		Update:            updateChecker,
@@ -606,8 +607,8 @@ func main() {
 		Live: live,
 	}
 
-	if cubeConfig.reverseEgress != nil {
-		if err := server.ConfigureCubeEgress(ctx, *cubeConfig.reverseEgress); err != nil {
+	if cubeConfig.ReverseEgress != nil {
+		if err := server.ConfigureCubeEgress(ctx, *cubeConfig.ReverseEgress); err != nil {
 			log.Error("invalid Cube reverse egress configuration", "err", err)
 			os.Exit(1)
 		}
@@ -873,7 +874,7 @@ func main() {
 					log.Error("reload: read env file failed (keeping current config)",
 						"err", err.Error())
 				} else {
-					if cubeConfig.client != nil {
+					if cubeConfig.Client != nil {
 						if err := auth.ValidatePreviewSecrets(env["SANDBOXD_PREVIEW_TOKEN_SECRETS"]); err != nil {
 							log.Error("reload: invalid Cube preview signing configuration (keeping current config)")
 							continue

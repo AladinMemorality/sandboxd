@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"database/sql"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -15,12 +16,19 @@ import (
 )
 
 func TestRetainedDockerHistoryPreservesOwnerAndResumeCursor(t *testing.T) {
+	testRetainedHistory(t, false)
+}
+func TestCubeControllerRetainsHistoryWithoutWorkspaceManager(t *testing.T) {
+	testRetainedHistory(t, true)
+}
+func testRetainedHistory(t *testing.T, replacement bool) {
 	s, appID := newConfigTestServer(t)
 	ctx := context.Background()
 	id := newULID()
 	taskID := newULID()
 	s.Loopback = loopback.New()
 	s.Loopback.Root = t.TempDir()
+	historyRoot := s.Loopback.Root
 	if err := s.Store.Create(ctx, &store.Sandbox{ID: id, Status: "stopped", AppID: sql.NullString{String: appID, Valid: true}}); err != nil {
 		t.Fatal(err)
 	}
@@ -52,12 +60,25 @@ func TestRetainedDockerHistoryPreservesOwnerAndResumeCursor(t *testing.T) {
 	if err := s.Store.CommitRuntimeMigration(ctx, id); err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(s.Loopback.Root, id, ".runtimed", "tasks", taskID, "events.jsonl")
+	path := filepath.Join(historyRoot, id, ".runtimed", "tasks", taskID, "events.jsonl")
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(path, []byte("{\"id\":0,\"type\":\"delta\",\"data\":{\"text\":\"private old event\"}}\n{\"id\":1,\"type\":\"done\",\"data\":{}}\n"), 0600); err != nil {
 		t.Fatal(err)
+	}
+	handler := s.Handler()
+	if replacement {
+		s.RetainedHistoryRoot = historyRoot
+		s.Loopback = nil
+		s.CubeAllApps = true
+		s.Cube, _ = cube.New(cube.Config{APIURL: "http://127.0.0.1:1", APIKey: "fixture"})
+		s.CubeReadiness = func(context.Context) error { return nil }
+		var err error
+		handler, err = s.CubeHandler(ctx)
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 	for _, tc := range []struct {
 		owner, cursor string
@@ -67,7 +88,7 @@ func TestRetainedDockerHistoryPreservesOwnerAndResumeCursor(t *testing.T) {
 		request = request.WithContext(auth.WithActor(ctx, auth.Actor{Name: tc.owner, Kind: "service"}))
 		request.Header.Set("Last-Event-ID", tc.cursor)
 		response := httptest.NewRecorder()
-		s.Handler().ServeHTTP(response, request)
+		handler.ServeHTTP(response, request)
 		if response.Code != tc.code {
 			t.Fatalf("%s %s: %d %s", tc.owner, tc.cursor, response.Code, response.Body.String())
 		}
@@ -88,7 +109,7 @@ func TestRetainedDockerHistoryPreservesOwnerAndResumeCursor(t *testing.T) {
 		request := httptest.NewRequest(tc.method, tc.path, nil)
 		request = request.WithContext(auth.WithActor(ctx, auth.Actor{Name: cfgTenant, Kind: "service"}))
 		response := httptest.NewRecorder()
-		s.Handler().ServeHTTP(response, request)
+		handler.ServeHTTP(response, request)
 		if response.Code != tc.code {
 			t.Fatalf("historical action %s: %d %s", tc.path, response.Code, response.Body)
 		}
@@ -107,7 +128,7 @@ func TestRetainedDockerHistoryPreservesOwnerAndResumeCursor(t *testing.T) {
 		if err := link(outside, path); err != nil {
 			t.Fatal(err)
 		}
-		if f, err := openRetainedHistory(filepath.Join(s.Loopback.Root, id), taskID); err == nil {
+		if f, err := openRetainedHistory(filepath.Join(historyRoot, id), taskID); err == nil {
 			f.Close()
 			t.Fatal("host link accepted")
 		}
