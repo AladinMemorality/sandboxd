@@ -1,0 +1,70 @@
+# Independent real platform PostgreSQL restore candidate
+
+Prepared and locally tested; no database capture or restore has been executed by
+these tools. This closes a separate platform-data proof without starting a copied
+production platform/controller or granting it live credentials. It is not the
+full worker-pair restore, guest SQL proof, HTTP screenshot ACL test or S3 restore.
+
+Read-only26September prerequisites: production server17.11, database36,255,411B;
+host `pg_dump`/`pg_restore`17.11; cached official17-alpine amd64 image
+`postgres@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24`
+(117,212,703B). Those observations are not execution receipts.
+
+The source phase opens one repeatable-read, read-only transaction and exports its
+snapshot. Counts/SHA256 fingerprints and `pg_dump --snapshot` use that exact same
+snapshot even while ordinary sessions update elsewhere. The query returns no
+raw session hashes, account identities or content. It fingerprints complete rows
+of waitlist, sessions, published apps, uploads and schema versions, plus the exact
+owned private cover's noncredential provenance. Source data must fit256MiB and
+the custom-format dump128MiB; larger data needs explicit resource review.
+
+After root reviews/pins these three source files and stages them privately:
+
+```text
+/opt/baarcha/node22/bin/node --env-file=/opt/baarcha/landing.env \
+  /PRIVATE-REVIEWED-SOURCE/capture.mjs \
+  /opt/baarcha-bench/cube-platform-pg-SOURCE-NEW
+```
+
+The new directory contains intent, custom-format `platform-db`, bounded private
+log and `source.json` with actual dump/query hashes and source fingerprints. A
+failure retains incomplete evidence; never rename an incomplete file or invent a
+source receipt. Do not disclose the connection URL, source dump or its contents.
+The receipt directory is private; no production SQL writes, tasks, models,
+notifications or service changes are performed.
+
+Independently hash/review `source.json`, then run only in an approved bounded
+fixture window with a **new** private stage:
+
+```text
+python3 /PRIVATE-REVIEWED-SOURCE/verify.py \
+  --source /opt/baarcha-bench/cube-platform-pg-SOURCE-NEW/source.json \
+  --source-sha256 ACTUAL-REVIEWED-SOURCE-SHA \
+  --stage /ROOT0700-PARENT/RESTORE-NEW --execute
+```
+
+The verifier pins the local Docker Unix API and cached immutable image, never
+pulls implicitly, and creates only one uniquely labelled own container. It has
+networknone, no ports, no bind mounts, no Docker socket inside it, readonly root,
+all capabilities dropped, no new privileges,1CPU,512MiB memory+swap ceiling,
+128PIDs and tmpfs data384MiB mounted at the exact image-declared
+`/var/lib/postgresql/data` volume target, preventing an anonymous Docker volume. PostgreSQL only listens on its private Unix socket.
+The source dump streams through `docker exec` stdin; production credentials are
+not copied into the container. Restore is bounded300s and uses one transaction
+with exit-on-error into its new fixed `restoreproof` database. Source and restored
+provenance must match exactly; private project/owner/upload relationships are
+also checked explicitly. Only counts/hashes are recorded in the success receipt.
+
+Cleanup rechecks full container ID, exact name/label/image and isolation before
+stopping/removing only that fixture. Unknown/ambiguous identity is retained for
+manual reconciliation. No volume pruning or forced deletion occurs. Inspect the
+private stage and local Docker inventory after any failure before retrying. A
+success also requires independently observed container absence. The bounded stop
+may terminate only this disposable PostgreSQL fixture after30s; no source data
+or live container is mounted or stopped.
+
+This independent source snapshot cannot later be relabelled as the full paired
+backup. The final pair must contain its own contemporaneous platform dump and
+its corresponding provenance receipt, restored again from the independently
+read-back encrypted artifact. That final capture integration remains separate.
+HTTP ACL checks and independent S3 object recovery remain unproven here.
