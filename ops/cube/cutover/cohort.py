@@ -42,9 +42,11 @@ def validate_plan(plan):
 
 def validate_config(c):
     need(set(c) == {'version', 'fleet_sha256', 'files', 'cli', 'migrations', 'homes',
-                    'presets', 'resources', 'templates', 'archives', 'projects'}, 'Exact cohort configuration required')
-    need(c['version'] == 1 and b.SHA.fullmatch(c['fleet_sha256']), 'Reviewed fleet identity required')
-    need(isinstance(c['projects'], list) and 1 <= len(c['projects']) <= 4, 'Cohort must contain one to four projects')
+                    'presets', 'resources', 'templates', 'archives', 'projects'} | ({'parallelism'} if c.get('version') == 2 else set()), 'Exact cohort configuration required')
+    need(c['version'] in (1, 2) and b.SHA.fullmatch(c['fleet_sha256']), 'Reviewed fleet identity required')
+    need(isinstance(c['projects'], list) and 1 <= len(c['projects']) <= (12 if c['version'] == 2 else 4), 'Bounded reviewed cohort required')
+    if c['version'] == 2:
+        need(type(c['parallelism']) is int and 1 <= c['parallelism'] <= 4, 'One to four parallel migrations required')
     ids, apps, containers = set(), set(), set()
     for row in c['projects']:
         need(set(row) == {'app_id', 'sandbox_id', 'preset', 'template_id', 'container_id', 'recorded_container_id', 'image'}, 'Exact source identity required')
@@ -160,6 +162,10 @@ class Host(p.Host):
                 need(db.execute('SELECT count(*) FROM runtime_migration WHERE sandbox_id=?', (row['sandbox_id'],)).fetchone()[0] == 0, 'Existing journal requires explicit continuation')
                 need(self.templates.get(row['preset']) == row['template_id'], 'Target template differs')
         self.inventory('online-preflight')
+        if self.c['version'] == 2:
+            observation = self.bridge.observe()
+            need(observation.get('consistent') is True and observation.get('active') == 0,
+                 'Parallel migration requires existing Cube guests paused; never consume an occupied slot')
         return result
     def cli_args(self):
         return [self.c['cli'], '--database', str(DATABASE), '--workspaces', str(WORKSPACES),
@@ -229,6 +235,12 @@ class Host(p.Host):
         fd = os.open(backup, os.O_CREAT | os.O_EXCL | os.O_WRONLY | os.O_NOFOLLOW, 0o600); os.close(fd)
         with self.db() as source, contextlib.closing(sqlite3.connect(backup)) as target: source.backup(target)
         backup.chmod(0o600)
+        if self.c['version'] == 2:
+            width = self.c['parallelism']
+            for start in range(0, len(self.c['projects']), width):
+                self.migrate_wave(self.c['projects'][start:start + width], start // width)
+            self.bindings_readonly(); self.fence()
+            return
         for row in self.c['projects']:
             self.fence(); self.source_fence(); self.inputs()
             self.event('project-migration-intent', {'sandbox_id': row['sandbox_id']})
@@ -245,6 +257,28 @@ class Host(p.Host):
             self.plan['bindings'].append(binding)
             self.event('project-migration-verified', binding)
         self.bindings_readonly(); self.fence()
+    def migrate_wave(self, rows, index):
+        self.fence(); self.source_fence(); self.inputs()
+        path = self.job / ('wave-%03d.PRIVATE.json' % index)
+        x.publish(path, {'version': 1, 'projects': [dict(sandbox_id=row['sandbox_id'], preset=row['preset']) for row in rows]})
+        self.event('parallel-wave-intent', {'index': index, 'sandboxes': [row['sandbox_id'] for row in rows]})
+        arguments = ['--batch', str(path), '--expected-fleet', self.c['fleet_sha256']]
+        for action, phase in (('migrate', 'imported'), ('resume', 'complete')):
+            args = arguments + (['--stop-after-import'] if action == 'migrate' else []) + [action]
+            result = self.run_cli(args, 'wave-%03d-%s' % (index, action), 1900)
+            values = result.get('projects', [])
+            need(result.get('success') is True and len(values) == len(rows)
+                 and {v['sandbox_id'] for v in values} == {r['sandbox_id'] for r in rows}
+                 and all(v['phase'] == phase for v in values), 'Parallel wave did not reach the exact verified boundary')
+            if action == 'migrate':
+                for row in rows: self.reconcile_template_default(row)
+        for row in rows:
+            with self.db() as db: binding = accepted_binding(db, row)
+            self.accepted.append(binding)
+            self.plan = copy.deepcopy(self.plan); self.plan['bindings'].append(binding)
+            self.event('project-migration-verified', binding)
+        self.source_fence(); self.bindings_readonly(); self.fence()
+
     def restore_controller(self):
         need(len(self.accepted) == len(self.c['projects']), 'Cohort incomplete; retain fence for reviewed recovery')
         self.fence(); self.source_fence()

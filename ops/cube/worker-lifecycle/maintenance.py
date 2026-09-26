@@ -125,7 +125,9 @@ def validate_plan(p,*,kind='current-generation-external-recovery',files=FILES):
     need(e['qemu_pid']!=e['supervisor_pid'],'supervised QEMU generation required')
     object_keys(p['files'],map(str,files),'all installed source/config pins required')
     need(all(b.SHA.fullmatch(v) for v in p['files'].values()),'invalid artifact hash')
-    need(isinstance(p['bindings'],list) and 0<len(p['bindings'])<=4,'explicit nonempty reviewed binding set required')
+    # Include paused projects too. The four-slot limit applies to active guest
+    # admission, which the native observer verifies separately, not fleet size.
+    need(isinstance(p['bindings'],list) and 0<len(p['bindings'])<=1024,'explicit nonempty reviewed binding set required')
     for v in p['bindings']:
         object_keys(v,BINDING,'complete native binding identity required')
         need(all(isinstance(v[k],str) and v[k] for k in BINDING-{'config_revision'}),'binding text missing')

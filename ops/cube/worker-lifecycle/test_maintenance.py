@@ -10,6 +10,19 @@ def plan():
     return {'version':1,'kind':'current-generation-external-recovery','expected':{'controller_id':'1'*64,'controller_image':'sha256:'+'2'*64,'outer_machine_id':'a'*32,'worker_machine_id':'b'*32,'outer_boot_id':'11111111-1111-1111-1111-111111111111','worker_boot_id':'22222222-2222-2222-2222-222222222222','data_uuid':'33333333-3333-3333-3333-333333333333','qemu_pid':43,'qemu_start_time':'101','supervisor_pid':42,'supervisor_start_time':'100'},'files':{str(p):'a'*64 for p in m.FILES},'bindings':[{'sandbox_id':'stable','app_id':'app','runtime_id':'provider','template_id':'reviewed','config_revision':8}], 'routing':{'server':'srv0','online_sha256':'0'*64,'platform_hosts':['baarcha.tn','www.baarcha.tn'],'preview_hosts':['*.preview.example','*.preview.other'],'preview_probe_hosts':['s-stable-3000.preview.example'],'motion_hosts':['S-MOTION-3000.legacy.example'],'unaffected_hosts':['bp.tn','www.bp.tn','hh1.dovisual.com']},'motion':{'proxy_id':'3'*64,'proxy_image':'sha256:'+'4'*64,'worker_pid':100,'worker_start_time':'123'},'provider_terminal_counts':{t:{} for t in m.TABLES}}
 
 class MaintenanceTests(unittest.TestCase):
+    def test_full_fleet_plan_keeps_every_paused_binding(self):
+        p=plan()
+        p['bindings']=[dict(p['bindings'][0],sandbox_id='sandbox-'+str(i),
+                            app_id='app-'+str(i),runtime_id='runtime-'+str(i))
+                       for i in range(73)]
+        m.validate_plan(p)
+        actual=[{v:row[k] for k,v in m.BINDING_MAP.items()} for row in p['bindings']]
+        m.verify_bindings(actual,p['bindings'])
+        # Truncating inventory to active capacity would lose paused projects.
+        for changed in (actual[:4],actual[:-1],actual+[actual[0]]):
+            with self.subTest(count=len(changed)),self.assertRaises(m.b.Refused):
+                m.verify_bindings(changed,p['bindings'])
+
     def test_explicit_nonempty_schema_refuses_identity_and_pending_drift(self):
         p=plan();m.validate_plan(p)
         for kind in ('empty','duplicate','pending','tablemissing','samepid','unknown','previewescape','unaffectedoverlap','backup'):
