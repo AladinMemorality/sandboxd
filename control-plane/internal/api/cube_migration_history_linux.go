@@ -44,11 +44,15 @@ func (s *Server) serveMigratedTaskEvents(w http.ResponseWriter, r *http.Request)
 		writeV1Err(w, 404, "not_found", "no such finished task")
 		return true
 	}
-	if s.Loopback == nil || !isULID(id) || !isULID(taskID) {
+	root := s.RetainedHistoryRoot
+	if root == "" && !s.cubeOnly && s.Loopback != nil {
+		root = s.Loopback.Root
+	}
+	if root == "" || !isULID(id) || !isULID(taskID) {
 		writeV1Err(w, 503, "history_unavailable", "retained history storage is unavailable")
 		return true
 	}
-	_, home := s.Loopback.Paths(id)
+	home := filepath.Join(root, id)
 	file, err := openRetainedHistory(home, taskID)
 	if err != nil {
 		writeV1Err(w, 404, "not_found", "retained task events are unavailable")

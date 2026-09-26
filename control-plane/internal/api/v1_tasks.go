@@ -26,6 +26,9 @@ func (s *Server) runtimeClientFor(id string) *runtime.Client {
 	if client, remote := s.cubeRuntimeClient(id); remote {
 		return client
 	}
+	if s.cubeOnly {
+		return runtime.NewUnavailableClient(errors.New("Cube runtime binding unavailable"))
+	}
 	_, mnt := s.Loopback.Paths(id)
 	return runtime.NewClient(filepath.Join(mnt, ".runtimed", "sock"))
 }

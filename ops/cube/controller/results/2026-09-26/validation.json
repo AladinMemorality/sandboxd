@@ -1,0 +1,46 @@
+{
+  "exit_code": 0,
+  "source_archive_sha256": "4b356e6784ef45d2cd64106af0001b3d3c7ed29c7c3a565fadc1c081b4c94c0a",
+  "formatted_manifest_sha256": "e69f631b2f281a84a23c10bd3d1cdb3eb919d0b0ad587ec01a8c8357dfb99454",
+  "tests_sha256": "59549b524b1bdfa829dcb25503a1c0a45ccee90506c39d232e99a22e8e8d564a",
+  "test_outcomes": {
+    "pass": 521,
+    "skip": 2
+  },
+  "failures": [],
+  "skips": [
+    {
+      "package": "github.com/tastyeffectco/sandboxd/control-plane/internal/store",
+      "test": "TestLiveCubeDurableAdmissionBurst"
+    },
+    {
+      "package": "github.com/tastyeffectco/sandboxd/control-plane/internal/store",
+      "test": "TestLiveCubeAppWorkload"
+    },
+    {
+      "package": "github.com/tastyeffectco/sandboxd/control-plane/cmd/sandboxd",
+      "test": null
+    }
+  ],
+  "binaries": {
+    "cube-controller": "0b9683a4a48a87af0678e3e13c7d5898e4f66c6144201f69910015da2099c872",
+    "sandboxd": "c09800a2d3dd3436b02568b1549bc74654a76337045b31c866770b2b4e03f7f3"
+  },
+  "test_cases": {
+    "pass": 521,
+    "skip": 2
+  },
+  "production_deployed": false,
+  "customer_projects_migrated": 0,
+  "validation_environment": "Isolated Linux root container; no Docker socket, production state or paid model calls",
+  "source_base": "9e42e43f30afba104e77b3179ee8762a7db713fe",
+  "build_environment": {
+    "image": "sha256:3d699e4d15d0f8f13c9195c0632a16702b8cbdece2955af1c23b37ae5d55a253",
+    "cpus": 2,
+    "memory": "2GiB",
+    "pids": 256,
+    "network": "none",
+    "GOMAXPROCS": "2",
+    "GOPROXY": "off"
+  }
+}

@@ -124,9 +124,9 @@ func (s *Server) v1GetSettings(w http.ResponseWriter, _ *http.Request) {
 		Agents:    v1SettingsAgents{Providers: s.Instance.AgentProviders, SystemPrompt: agentprompt.Render(agentprompt.Vars{}), DefaultModels: s.agentDefaultModels()},
 		Presets:   presets,
 		Capabilities: map[string]bool{
-			"snapshots":      s.Snapshot != nil,
+			"snapshots":      s.Snapshot != nil || (s.cubeOnly && s.LibraryRoot != ""),
 			"config_secrets": s.Secrets != nil,
-			"templates":      s.TemplatesDir != "",
+			"templates":      s.TemplatesDir != "" || (s.cubeOnly && len(s.CubeTemplates) > 0),
 			"forward_auth":   s.Auth != nil,
 		},
 	}

@@ -4,6 +4,7 @@ package api
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"log/slog"
 	"net"
@@ -36,6 +37,9 @@ import (
 
 // Server bundles the collaborators the handlers need.
 type Server struct {
+	CubeReadiness        func(context.Context) error // worker/storage readiness, read-only
+	cubeOnly             bool                        // set only by CubeHandler; no host execution fallback
+	RetainedHistoryRoot  string                      // read-only pre-migration event archives
 	cubeEgress           *cubeEgressManager
 	CubeAgentRelayOrigin string   // trusted HTTPS public origin; disabled by default
 	cubePreviewLeases    sync.Map // sandbox ID -> short verified running lease (time.Time)

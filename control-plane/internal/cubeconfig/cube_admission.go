@@ -1,4 +1,4 @@
-package main
+package cubeconfig
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
 
-func configureCubeAdmission(ctx context.Context, cfg cubeConfig, st *store.Store) error {
-	if cfg.client == nil {
+func ConfigureAdmission(ctx context.Context, cfg Config, st *store.Store) error {
+	if cfg.Client == nil {
 		return nil
 	}
 	admission, err := cube.ParseAdmissionConfig(os.Getenv("SANDBOXD_CUBE_ADMISSION"))
@@ -20,10 +20,10 @@ func configureCubeAdmission(ctx context.Context, cfg cubeConfig, st *store.Store
 	if err = admission.RequireStorageGuard(); err != nil {
 		return err
 	}
-	for _, id := range cfg.templates {
+	for _, id := range cfg.Templates {
 		if _, ok := admission.Templates[id]; !ok {
 			return errors.New("Cube preset template missing from reviewed admission contract")
 		}
 	}
-	return cfg.client.ConfigureAdmission(ctx, st, admission)
+	return cfg.Client.ConfigureAdmission(ctx, st, admission)
 }
