@@ -6,9 +6,10 @@ exact controller (Cube=false alone does NOT fence existing bindings), freeze
 LCM and install the selected test quota. This script verifies those prerequisites.
 All fixture guest cleanup stays inside the ownership-scoped Go runner.
 """
-import argparse,contextlib,fcntl,hashlib,json,math,os,pathlib,re,sqlite3,stat,subprocess,threading,time
+import argparse,contextlib,datetime,fcntl,hashlib,json,math,os,pathlib,re,sqlite3,stat,subprocess,threading,time
 P=pathlib.Path
 GIB=1024**3
+PROFILES={'cpu1-mem1024':(1,1024),'cpu1-mem2048':(1,2048),'cpu2-mem2048':(2,2048)}
 QUOTAS={4:(10000,'10Gi'),6:(14000,'14Gi'),8:(19000,'18Gi'),12:(28000,'30Gi')}
 LOCKS=('/opt/baarcha/deploy-release.lock','/opt/sandboxd/deploy-state/deploy.lock','/run/lock/cube-operator-acceptance.lock')
 SSH=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oBatchMode=yes','-oConnectTimeout=5','-oStrictHostKeyChecking=yes','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','root@127.0.0.1']
@@ -34,6 +35,38 @@ def fresh(receipt,config,now):
     need(receipt['controller_stopped'] is True and receipt['canonical_charged']==0 and receipt['canonical_active_tasks']==0 and receipt['provider_active_jobs']==0 and receipt['worker_tasks']==0,'incomplete drain')
     need(receipt['paused_baseline']==config['fixture'].get('paused_baseline'),'baseline receipt mismatch')
     need(receipt['native_quota']==list(QUOTAS[config['fixture']['max_active']]),'unreviewed quota')
+    need(receipt.get('profile')==config['fixture']['profile'] and receipt.get('template_id')==config['fixture']['template_id'] and receipt.get('worker_node_id')==config['worker_node_id'],'receipt profile/template/node mismatch')
+def validate_profile(config):
+    fixture=config['fixture']
+    need(fixture.get('profile') in PROFILES,'explicit reviewed fixture profile required')
+    need(type(fixture.get('max_active')) is int and fixture['max_active'] in QUOTAS,'unreviewed benchmark stage')
+    need(re.fullmatch(r'tpl-[0-9a-f]{24}',fixture.get('template_id','')) is not None,'exact reviewed template required')
+    need(re.fullmatch(r'[A-Za-z0-9_.:-]{1,128}',config.get('worker_node_id','')) is not None,'pinned Master node identity required')
+
+def validate_master_observation(data,config,now=None):
+    # CubeMaster GET /internal/node, pinned v0.7.1 GetNodeRes / node.Node fields.
+    need(data['ret']['ret_code']==200 and len(data.get('data',[]))==1,'Master node unavailable or ambiguous')
+    node=data['data'][0];cpu,memory=QUOTAS[config['fixture']['max_active']]
+    need(node.get('InstanceID')==config['worker_node_id'],'Master node identity differs')
+    need(node.get('Healthy') is True and node.get('ReportedReady') is True,'Master node not healthy/ready')
+    for key,want in [('QuotaCpu',cpu),('QuotaMem',int(memory[:-2])*1024),('CreateConcurrentNum',1),('MaxMvmLimit',128)]:
+        need(type(node.get(key)) is int and node[key]==want,'Master advertised quota differs')
+    # Go omitempty omits zero usage. A nonzero value must never be treated as drained.
+    for key in ('QuotaCpuUsage','QuotaMemUsage','RealTimeCreateNum','LocalCreateNum'):
+        need(type(node.get(key,0)) is int and node.get(key,0)==0,'Master allocation/create usage remains')
+    stamp=datetime.datetime.fromisoformat(node['MetricLocalUpdateAt'].replace('Z','+00:00'))
+    need(stamp.tzinfo is not None,'Master metric timestamp lacks timezone')
+    now=now or datetime.datetime.now(datetime.timezone.utc)
+    need(-2<=(now-stamp).total_seconds()<=30,'Master metric stale or future')
+    return {'node_id':node['InstanceID'],'mcpu':cpu,'memory_mb':node['QuotaMem'],'used_mcpu':0,'used_memory_mb':0,'metric_at':node['MetricLocalUpdateAt']}
+
+def validate_template_observation(item,config):
+    cpu,memory=PROFILES[config['fixture']['profile']]
+    need(item['status']=='READY' and item['container_count']==1,'prepared template not ready/single-container')
+    need(item['resources']=={'cpu':str(cpu*1000)+'m','mem':str(memory)+'Mi'},'prepared template profile mismatch')
+    need(item['network']=={'denyOut':['0.0.0.0/0']} and '10Gi' in item['writable_sizes'],'prepared template network/disk differs')
+    return {'template_id':config['fixture']['template_id'],'profile':config['fixture']['profile'],'resources':item['resources']}
+
 def controller_held(config):
     rows=json.loads(command(['docker','inspect',config['controller_id']]))
     need(len(rows)==1 and rows[0]['Id']==config['controller_id'] and rows[0]['Image']==config['controller_image'] and rows[0]['State']['Running'] is False and rows[0]['State']['Restarting'] is False,'controller hold is absent')
@@ -60,7 +93,7 @@ def canonical_drained(config):
 def worker_preflight(config):
     # Fixed read-only code; JSON config values are stdin, never shell fragments.
     code=r'''
-import json,pathlib,subprocess,sys,yaml
+import json,pathlib,subprocess,sys,urllib.request,urllib.parse,yaml
 c=json.loads(sys.stdin.readline());p=pathlib.Path
 assert p('/proc/sys/kernel/random/boot_id').read_text().strip()==c['worker_boot_id']
 quota=yaml.safe_load(p('/usr/local/services/cubetoolbox/Cubelet/dynamicconf/conf.yaml').read_text())['host']['quota']
@@ -78,15 +111,31 @@ sql='START TRANSACTION READ ONLY;'+''.join("SELECT '"+t+"',status,count(*) FROM 
 r=subprocess.run(mysql,input=sql,text=True,capture_output=True,timeout=15);assert r.returncode==0
 for line in r.stdout.splitlines():
  table,status,count=line.split('\t');assert table in tables and status in ('READY','FAILED') and int(count)>=0
-print(json.dumps({'quota':quota,'worker_tasks':0,'provider_active_jobs':0,'lcm_frozen':True}))
+# Read-only actual Master observation, no proxy or redirect to another endpoint.
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+ def redirect_request(self,*args,**kwargs): raise ValueError('Master redirect refused')
+opener=urllib.request.build_opener(urllib.request.ProxyHandler({}),NoRedirect())
+url='http://127.0.0.1:8089/internal/node?'+urllib.parse.urlencode({'host_id':c['worker_node_id'],'requestID':'workload-quota-preflight'})
+with opener.open(url,timeout=5) as response:
+ assert response.status==200;raw=response.read(1048577);assert len(raw)<=1048576
+master=json.loads(raw)
+keys=('InstanceID','Healthy','ReportedReady','QuotaCpu','QuotaMem','QuotaCpuUsage','QuotaMemUsage','CreateConcurrentNum','MaxMvmLimit','RealTimeCreateNum','LocalCreateNum','MetricLocalUpdateAt')
+master={'ret':{'ret_code':master['ret']['ret_code']},'data':[{k:row[k] for k in keys if k in row} for row in master.get('data',[])]}
+raw=subprocess.check_output(['cubemastercli','tpl','info','--template-id',c['template_id'],'--include-request','--json'],timeout=10);assert len(raw)<=1048576
+item=json.loads(raw);request=item['create_request'];containers=request['containers']
+template={'status':item['status'],'container_count':len(containers),'resources':containers[0]['resources'] if len(containers)==1 else None,'network':request.get('cube_network_config'),'writable_sizes':[v.get('volume_source',{}).get('empty_dir',{}).get('size_limit') for v in request.get('volumes',[])]}
+print(json.dumps({'quota':quota,'master':master,'template':template,'worker_tasks':0,'provider_active_jobs':0,'lcm_frozen':True}))
 '''
     # Use a fixed remote Python launcher, code and parameters over stdin.
-    payload={'worker_boot_id':config['worker_boot_id'],'mcpu':QUOTAS[config['fixture']['max_active']][0],'memory':QUOTAS[config['fixture']['max_active']][1],'lcm_id':config['lcm_id']}
+    payload={'worker_boot_id':config['worker_boot_id'],'mcpu':QUOTAS[config['fixture']['max_active']][0],'memory':QUOTAS[config['fixture']['max_active']][1],'lcm_id':config['lcm_id'],'worker_node_id':config['worker_node_id'],'template_id':config['fixture']['template_id']}
     launcher='import sys,json,io; data=json.load(sys.stdin); sys.stdin=io.StringIO(data["input"]); exec(compile(data["code"],"benchmark-preflight","exec"))'
     import shlex
     p=subprocess.run(SSH+['python3 -c '+shlex.quote(launcher)],input=json.dumps({'code':code,'input':json.dumps(payload)+'\n'}).encode(),capture_output=True,timeout=50)
     need(p.returncode==0 and len(p.stdout)<4096,'worker hold/quota/jobs preflight failed')
-    return json.loads(p.stdout)
+    result=json.loads(p.stdout)
+    result['master']=validate_master_observation(result['master'],config)
+    result['template']=validate_template_observation(result['template'],config)
+    return result
 def bounded_unit():
     group=P('/proc/self/cgroup').read_text().strip().split('::')[-1]
     root=P('/sys/fs/cgroup')/group.lstrip('/')
@@ -107,6 +156,7 @@ def latency_gate(result):
 def main():
     a=argparse.ArgumentParser();a.add_argument('config');a.add_argument('--execute',action='store_true');args=a.parse_args()
     os.umask(0o077);need(os.geteuid()==0,'outer root operator required');config=read(args.config)
+    validate_profile(config)
     need(config['fixture']['max_active'] in QUOTAS and config['fixture']['storage_guard'] is not None,'reviewed slots and real storage guard required')
     need(sha(trusted(config['binary'],128<<20))==config['binary_sha256'],'binary hash changed')
     receipt=read(config['drain_receipt']);fresh(receipt,config,time.clock_gettime_ns(time.CLOCK_BOOTTIME))

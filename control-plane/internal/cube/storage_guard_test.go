@@ -57,7 +57,7 @@ func TestStorageObservationRequiresTrustedBoundedFile(t *testing.T) {
 	}
 }
 func TestStorageGuardProductionContract(t *testing.T) {
-	cfg := AdmissionConfig{MaxActive: 4, WritableDiskMB: 10240}
+	cfg := AdmissionConfig{MaxActive: 4, WritableDiskMB: 10240, CPUCount: 2, MemoryMB: 2048}
 	if cfg.RequireStorageGuard() == nil {
 		t.Fatal("unguarded production")
 	}

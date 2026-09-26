@@ -340,10 +340,18 @@ func TestLiveCubeAppWorkload(t *testing.T) {
 	var config struct {
 		admissionLiveConfig
 		PausedBaseline *workloadPausedBaseline `json:"paused_baseline,omitempty"`
+		Profile        string                  `json:"profile"`
 	}
 	cfg := &config.admissionLiveConfig
 	if json.Unmarshal(raw, &config) != nil || !validWorkloadSlots(cfg.MaxActive) || cfg.APIURL != "http://127.0.0.1:20300" || cfg.ProxyURL != "http://127.0.0.1:20080" || cfg.Domain != "cube.app" || !strings.HasPrefix(cfg.WorkDir, "/opt/baarcha-bench/cube-workload-") || filepath.Clean(cfg.WorkDir) != cfg.WorkDir || cfg.TemplateID == "" {
 		t.Fatal("exact fresh-worker endpoint, private unique stage, and4/6/8/12-slot config required")
+	}
+	resources, err := workloadProfile(config.Profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cube.BenchmarkAdmissionBuild && (cfg.MaxActive > 4 || resources.CPUCount != 2 || resources.MemoryMB != 2048) {
+		t.Fatal("capacity/profile requires cube_workload_benchmark test build")
 	}
 	if config.PausedBaseline != nil {
 		if e = config.PausedBaseline.validate(); e != nil {
@@ -438,6 +446,9 @@ func TestLiveCubeAppWorkload(t *testing.T) {
 		}
 	}
 	report["paused_baseline"] = config.PausedBaseline
+	report["profile"] = config.Profile
+	report["resources"] = resources
+	report["benchmark_build"] = cube.BenchmarkAdmissionBuild
 	save("result.json", report)
 	st, e := store.Open(ctx, filepath.Join(cfg.WorkDir, "admission.db")+"?_journal=WAL&_busy_timeout=5000&_fk=1", "../../migrations")
 	if e != nil {
@@ -448,7 +459,7 @@ func TestLiveCubeAppWorkload(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	admission := cube.AdmissionConfig{MaxActive: cfg.MaxActive, CPUCount: 2, MemoryMB: 2048, Templates: map[string]cube.AdmissionResources{cfg.TemplateID: {CPUCount: 2, MemoryMB: 2048}}, StorageGuard: cfg.StorageGuard}
+	admission := cube.AdmissionConfig{MaxActive: cfg.MaxActive, CPUCount: resources.CPUCount, MemoryMB: resources.MemoryMB, Templates: map[string]cube.AdmissionResources{cfg.TemplateID: resources}, StorageGuard: cfg.StorageGuard}
 	if cfg.StorageGuard != nil {
 		admission.WritableDiskMB = 10240
 		report["storage_guard_enabled"] = true
@@ -885,6 +896,32 @@ func TestWorkloadAllowsOnlyReviewedSlotCounts(t *testing.T) {
 	for _, slots := range []int{-1, 0, 1, 3, 5, 7, 9, 11, 13, 24} {
 		if validWorkloadSlots(slots) {
 			t.Fatal("unreviewed workload scale accepted")
+		}
+	}
+}
+
+// Explicit fixture profiles; omission is not silently treated as a resource choice.
+func workloadProfile(name string) (cube.AdmissionResources, error) {
+	switch name {
+	case "cpu1-mem1024":
+		return cube.AdmissionResources{CPUCount: 1, MemoryMB: 1024}, nil
+	case "cpu1-mem2048":
+		return cube.AdmissionResources{CPUCount: 1, MemoryMB: 2048}, nil
+	case "cpu2-mem2048":
+		return cube.AdmissionResources{CPUCount: 2, MemoryMB: 2048}, nil
+	default:
+		return cube.AdmissionResources{}, errors.New("explicit reviewed fixture profile required")
+	}
+}
+func TestWorkloadProfilesAreExplicit(t *testing.T) {
+	for _, name := range []string{"cpu1-mem1024", "cpu1-mem2048", "cpu2-mem2048"} {
+		if _, err := workloadProfile(name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, name := range []string{"", "cpu2-mem1024", "cpu4-mem2048", "cpu1-mem4096"} {
+		if _, err := workloadProfile(name); err == nil {
+			t.Fatalf("accepted %q", name)
 		}
 	}
 }

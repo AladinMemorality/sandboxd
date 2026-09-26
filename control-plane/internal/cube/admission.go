@@ -36,7 +36,8 @@ type AdmissionResources struct {
 	MemoryMB int `json:"memory_mb"`
 }
 
-// Only one reviewed uniform profile is currently supported. max_active is an
+// Production supports one uniform profile; tagged operator tests enumerate additional
+// profiles without changing production entrypoint policy. max_active is an
 // active-reservation bound, not a limit on the number of stored/paused apps.
 type AdmissionConfig struct {
 	MaxActive      int                           `json:"max_active"`
@@ -65,12 +66,12 @@ func ParseAdmissionConfig(raw string) (AdmissionConfig, error) {
 }
 func (cfg AdmissionConfig) validate() error {
 	if cfg.StorageGuard != nil {
-		if err := cfg.RequireStorageGuard(); err != nil {
+		if err := cfg.validateStorageGuard(); err != nil {
 			return err
 		}
 	}
-	if cfg.MaxActive < 1 || cfg.MaxActive > 12 || cfg.CPUCount != 2 || cfg.MemoryMB != 2048 || len(cfg.Templates) == 0 {
-		return errors.New("Cube admission requires reviewed 2CPU/2GiB profile with at most 12 active reservations")
+	if cfg.MaxActive < 1 || cfg.MaxActive > 12 || !admissionProfileAllowed(cfg.CPUCount, cfg.MemoryMB) || len(cfg.Templates) == 0 {
+		return errors.New("Cube admission requires a compiled reviewed uniform profile with at most 12 active reservations")
 	}
 	for id, r := range cfg.Templates {
 		if validateID(id) != nil || r.CPUCount != cfg.CPUCount || r.MemoryMB != cfg.MemoryMB {
