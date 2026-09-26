@@ -42,6 +42,28 @@ credentials remain on the dedicated worker. The installed older guest templates
 must be updated before this namespace can be used. Generic `HTTPServices`,
 protected host addresses, public CONNECT and native guest networking are unchanged.
 
+## Migration readiness gate
+
+`OfflineBackend.ReadyTarget` now requires worker `/api/status` and `/api/projects`
+responses through the imported app's private Cube ingress before committing the
+Motion provider change. It checks the journal-bound worker capability before and
+after those reads, requires the worker's shared-workspace status and project
+array, and rejects redirects, unsuccessful or oversized responses and local
+health-only JSON. The ingress credential is the only added request credential;
+the app supplies its existing dedicated worker bearer through the reverse channel.
+No paid model or media action is submitted.
+
+Linux race verification covered successful guest routing, missing worker,
+local-only health, missing projects, invalid JSON and redirect refusal. The first
+full migration suite had two pre-existing ownership-restore fixtures fail because
+the disposable test container lacked CHOWN; the new checks passed. Those two
+fixtures and the new checks then passed with CHOWN/DAC_OVERRIDE/FOWNER enabled
+inside the isolated test container (19.425 seconds). Production source data was
+not mounted into that container.
+
+This is source preparation. The deployed native CLI has not been rebuilt with
+this gate, and actual Motion guest/worker acceptance and migration remain pending.
+
 ## Exact HTTP contract
 
 Paths cover Motion Studio through the handed-over `843e9f9` directing/avatar
