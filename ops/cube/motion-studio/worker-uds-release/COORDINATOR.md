@@ -20,7 +20,8 @@ worker calls. The reviewed maintenance caller must:
    does not satisfy this contract; it can retain frozen TCP connections.
 3. Verify zero established TCP connections to/from port 8332, then authenticated
    complete project state and zero queued/running jobs. The dedicated worker
-   remains running until the coordinator performs its own stop. Pin the full
+   remains running until the coordinator performs its own natural stop. Pending
+   voice submission/deletion states also refuse the release. Pin the full
    project-response canonical hash, not only counts. The caller is responsible
    for an exhaustive writer inventory; this script cannot discover holders of a
    bearer credential. The installed scoped IP/MAC filter and its refresher are
@@ -71,7 +72,8 @@ itself. No second, unrelated maintenance lock is invented.
 - `fence` contains `caddy_sha256`, explicit `writer_containers`, exactly the two
   access-refresh units in `stopped_units`, and `expires_boottime`.
 
-Stage the unchanged manifest, comparison, drop-in, coordinator, and pinned source
+Stage the unchanged manifest, comparison, drop-in, coordinator, both hash-pinned
+`natural_stop.py` / `natural_drain.mjs` helpers, and pinned source
 tar together in a private reviewed directory. The coordinator additionally pins
 its companion manifest/comparison/drop-in hashes internally. Create a **new**
 output directory per invocation; existing stages refuse replay.
@@ -87,14 +89,33 @@ python3 /PRIVATE-STAGE/release.py \
 After reviewing that exact check, invoke the same pinned inputs with `--execute`
 and a distinct fresh stage. The caller supplies bounded process resources and a
 maximum 30-minute wall timeout; individual commands are bounded (backup at most
-600 seconds, stop120, start60, readiness30). Use at most one CPU/512MiB for the
+600 seconds, natural completion240, start60, readiness30). Use at most one CPU/512MiB for the
 coordinator. These are orchestration bounds, not changed worker limits.
 
 ## Backup, validation and failure behavior
 
-After stopping only `baarcha-motion-worker.service`, the coordinator verifies
-inactive/dead, `Result=success`, and either normal exit0 (`ExecMainCode=1`,
-`ExecMainStatus=0`) or ordinary SIGTERM (`2`/`15`). Timeout, OOM, SIGKILL,
+The legacy worker has no request-tail-aware termination handler. A disconnected
+upload can still be converting an image/audio file after its TCP socket closes.
+`natural_stop.py` therefore uses an exact Linux pidfd to send **only SIGUSR1** to
+the pinned Node process, temporarily enabling its debugger. It verifies that the
+only debugger listener is worker-owned IPv4 loopback, and the Node bridge verifies
+PID, UID, executable, version, working directory, argv and exact HTTP listeners.
+Every accepted HTTP connection must already be gone. Under the existing writer
+fence, it calls `server.close()` and disables the debugger; it never invokes
+`process.exit`, terminates a process, cancels a job or destroys a request.
+
+Node then completes remaining referenced asynchronous work and exits naturally.
+The parent observes the exact pidfd exit and the same systemd invocation's retained
+normal exit status. This relies on the reviewed worker source: queued/running jobs
+and pending voice mutations are rejected before close. It is not a generic promise
+tracker for arbitrary Node applications. The private `_getActiveHandles()` lookup
+is tied to the exact installed Node v22.23.2 binary and tested on that runtime.
+Its existing distribution UID/GID1001 layout is explicitly checked, not changed.
+The reviewed `Restart=on-failure` policy does not restart a normal zero exit.
+
+Only then does the coordinator accept inactive/dead, `Result=success`, and normal
+exit0 (`ExecMainCode=1`, `ExecMainStatus=0`). Ordinary SIGTERM is no longer accepted
+as full request-tail drain evidence. Timeout, OOM, SIGKILL,
 core dumps and nonzero exits refuse backup/installation and preserve the fence
 for manual review; they do not trigger an automatic stop retry or restart. The
 observed result/code/status is journaled. It also requires no PID/control PID,
@@ -139,4 +160,16 @@ expired/drifted fences, running writers/controller, active timer and inflight TC
 refusal. Real local kernel flock tests cover unlocked/shared descriptors without
 upgrade, a different holder, the correct shared OFD, and retention of all four
 caller locks after an exception. The actual pinned tar also passed parser/hash validation locally.
-No live stop/install/start or Linux systemd acceptance was performed by these tests.
+The September26 native suite passed nine Node and thirty Python tests, including
+three disposable Linux systemd/pidfd tests. A disconnected request completed real
+subprocess, installed-Sharp and fsync-backed file work before normal exit. Idle
+exit, incorrect identities, active client refusal, inspector cleanup and the
+release wrapper's exact closed-generation reuse passed. Test fixtures preserved
+the actual production Motion PID/invocation/restart count. This is preparation,
+not a live Motion stop/install/start receipt.
+
+See [natural-drain test evidence](results/2026-09-26-natural-drain/README.md).
+The shutdown mechanism follows Node's documented
+[SIGUSR1 debugger behavior](https://nodejs.org/download/release/v22.21.1/docs/api/process.html#signal-events),
+[HTTP server close behavior](https://nodejs.org/download/release/v22.21.1/docs/api/http.html#serverclosecallback),
+and [natural event-loop exit](https://nodejs.org/download/release/v22.21.1/docs/api/process.html#event-beforeexit).

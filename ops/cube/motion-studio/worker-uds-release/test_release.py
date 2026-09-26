@@ -162,24 +162,26 @@ class LifecycleTests(unittest.TestCase):
     def test_abnormal_systemd_stop_refuses_backup_and_retains_evidence(self):
         for result, code, status in [('timeout', '2', '9'), ('oom-kill', '2', '9'),
                                      ('success', '2', '9'), ('success', '1', '1'),
-                                     ('success', '3', '15'), ('signal', '2', '15')]:
+                                     ('success', '3', '15'), ('signal', '2', '15'), ('success', '2', '15')]:
             with self.subTest(result=result, code=code, status=status):
                 r = m.Release({}, '/', {}, b''); r.cmd = mock.Mock()
                 r.service = lambda: {'Result': result, 'ExecMainCode': code, 'ExecMainStatus': status,
                                      'ActiveState': 'inactive', 'SubState': 'dead', 'MainPID': '0', 'ControlPID': '0'}
                 r.event = mock.Mock()
+                r.natural_completion = mock.Mock()
                 with self.assertRaisesRegex(RuntimeError, 'not proven graceful'): r.stop()
                 self.assertTrue(r.stop_unconfirmed)
                 self.assertEqual(r.event.call_args.args[0], 'worker_stop_observed')
                 self.assertNotIn('worker_stopped', [x.args[0] for x in r.event.call_args_list])
 
-    def test_normal_zero_or_term_stop_is_accepted_after_process_absence(self):
-        for code, status in [('1', '0'), ('2', '15')]:
+    def test_only_natural_zero_stop_is_accepted_after_process_absence(self):
+        for code, status in [('1', '0')]:
             with self.subTest(code=code, status=status):
                 r = m.Release({'service_uid': 985}, '/', {}, b''); r.cmd = mock.Mock()
                 r.service = lambda: {'Result': 'success', 'ExecMainCode': code, 'ExecMainStatus': status,
                                      'ActiveState': 'inactive', 'SubState': 'dead', 'MainPID': '0', 'ControlPID': '0'}
                 r.event = mock.Mock()
+                r.natural_completion = mock.Mock()
                 with mock.patch.object(m.Path, 'iterdir', return_value=iter(())): r.stop()
                 self.assertFalse(r.stop_unconfirmed)
                 self.assertEqual(r.event.call_args.args[0], 'worker_stopped')
@@ -194,6 +196,23 @@ class LifecycleTests(unittest.TestCase):
         body['projects'][0]['jobs'] = [{'status': 'running'}]
         r.c['projects_sha256'] = m.canonical(body)
         with self.assertRaisesRegex(RuntimeError, 'not drained'): r.projects()
+
+    def test_pending_voice_mutation_cannot_be_treated_as_idle(self):
+        for status in ('submitting', 'deleting'):
+            body = {'projects': [{'id': 'one', 'voice': {'status': status}, 'jobs': []}]}
+            r = m.Release({'project_count': 1, 'projects_sha256': m.canonical(body)}, '/', {}, b'')
+            r.http = lambda *a: (200, json.dumps(body).encode())
+            with self.assertRaisesRegex(RuntimeError, 'voice mutation'): r.projects()
+
+    def test_stopped_worker_requires_this_callers_exact_natural_exit(self):
+        state = {'ActiveState': 'inactive', 'MainPID': '0', 'ExecMainStartTimestampMonotonic': '123',
+                 'NRestarts': '0', 'Result': 'success', 'ExecMainCode': '1', 'ExecMainStatus': '0'}
+        r = m.Release({}, '/', {}, b''); r.service = lambda: state; r.cmd = mock.Mock()
+        with self.assertRaisesRegex(RuntimeError, 'no matching'): r.natural_completion()
+        r.closed_identity = r.closed_generation(state); r.natural_completion()
+        state['ExecMainStartTimestampMonotonic'] = '456'
+        with self.assertRaisesRegex(RuntimeError, 'no matching'): r.natural_completion()
+        r.cmd.assert_not_called()
 
 
 class FenceTests(unittest.TestCase):

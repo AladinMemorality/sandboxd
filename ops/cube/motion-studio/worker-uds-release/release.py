@@ -5,6 +5,7 @@ import contextlib
 import fcntl
 import hashlib
 import http.client
+import importlib.util
 import itertools
 import json
 import os
@@ -28,6 +29,8 @@ LOCKS = ('/opt/baarcha/deploy-release.lock', '/opt/sandboxd/deploy-state/deploy.
 FILES = ('server/index.mjs', 'server/listen.mjs', 'server/multipart.mjs')
 SHA = re.compile(r'[0-9a-f]{64}')
 MAX_JSON = 8 * 1024 * 1024
+NATURAL_SOURCES = {'natural_stop.py': 'fab99c89fac043e6220638593fb9323cb334f9da8677aebaa1405941b09d4f02',
+                   'natural_drain.mjs': '67989798e46cb39851db603347c4ba8d610a1cfeb9d602efe7ee2453979d2402'}
 
 
 def need(ok, message):
@@ -220,6 +223,7 @@ class Release:
         self.stop_unconfirmed = False
         self.installed = []
         self.drop_dir_created = False
+        self.closed_identity = None
 
     def event(self, name, **detail):
         row = {'event': name, 'utc_ns': time.time_ns(), 'boottime': time.clock_gettime(time.CLOCK_BOOTTIME), **detail}
@@ -239,7 +243,7 @@ class Release:
         return result.stdout
 
     def service(self):
-        raw = self.cmd(['systemctl', 'show', UNIT, '--property=ActiveState,SubState,MainPID,ControlPID,ControlGroup,MemoryMax,CPUQuotaPerSecUSec,KillMode,User,Group,FragmentPath,DropInPaths,Result,ExecMainCode,ExecMainStatus'])
+        raw = self.cmd(['systemctl', 'show', UNIT, '--property=ActiveState,SubState,MainPID,ControlPID,ControlGroup,MemoryMax,CPUQuotaPerSecUSec,KillMode,User,Group,FragmentPath,DropInPaths,Result,ExecMainCode,ExecMainStatus,Restart,Job,InvocationID,ExecMainStartTimestampMonotonic,NRestarts'])
         return dict(line.split('=', 1) for line in raw.decode().splitlines() if '=' in line)
 
     def http(self, path, transport='tcp', auth='valid'):
@@ -288,10 +292,13 @@ class Release:
         need(set(body) == {'projects'} and isinstance(body['projects'], list), 'projects schema')
         projects = body['projects']
         need(len(projects) == self.c['project_count'] and canonical(body) == self.c['projects_sha256'], 'project state changed')
-        need(all(j.get('status') not in ('queued', 'running') for p in projects for j in p.get('jobs', [])), 'jobs not drained')
+        need(all(j.get('status') in ('ready', 'failed', 'cancelled', 'interrupted') for p in projects for j in p.get('jobs', [])), 'jobs not drained')
+        need(all((p.get('voice') or {}).get('status') not in ('submitting', 'deleting') for p in projects),
+             'voice mutation remains pending')
         return body
 
     def preflight(self):
+        self.natural_module()  # Verify both operator helpers before any mutation.
         self.fence()
         c = self.c
         row = json.loads(self.cmd(['docker', 'inspect', c['controller_id']]))[0]
@@ -318,14 +325,43 @@ class Release:
         self.fence()
         self.event('preflight_passed', projects=c['project_count'])
 
+    def natural_module(self):
+        here = Path(__file__).resolve().parent
+        for name, expected in NATURAL_SOURCES.items():
+            need(digest(regular(here / name)) == expected, 'natural drain helper drift')
+        spec = importlib.util.spec_from_file_location('motion_natural_stop', here / 'natural_stop.py')
+        module = importlib.util.module_from_spec(spec); spec.loader.exec_module(module)
+        return module
+
+    @staticmethod
+    def closed_generation(properties):
+        return {key: properties.get(key) for key in ('ExecMainStartTimestampMonotonic', 'NRestarts',
+                                                     'Result', 'ExecMainCode', 'ExecMainStatus')}
+
+    def natural_completion(self):
+        current = self.service()
+        if current.get('ActiveState') == 'inactive' and current.get('MainPID') == '0':
+            # Source rollback before another start may reuse only this caller's
+            # already observed normal exit, never an unrelated stopped service.
+            need(self.closed_identity is not None and self.closed_generation(current) == self.closed_identity,
+                 'inactive worker has no matching natural-exit observation')
+            return
+        self.projects(); self.fence()
+        result = self.natural_module().stop(service=self.service, command=self.cmd, fence=self.fence,
+                    event=self.event, stage=self.stage, uid=self.c['service_uid'],
+                    helper_sha256=NATURAL_SOURCES['natural_drain.mjs'])
+        need(result.get('natural_exit') is True and result.get('forced') is False and result.get('exit_code') == 0,
+             'natural worker completion not proved')
+        self.closed_identity = self.closed_generation(self.service())
+
     def stop(self):
         self.stop_unconfirmed = True
-        self.cmd(['systemctl', 'stop', UNIT], timeout=120)
+        self.natural_completion()
         p = self.service()
         self.event('worker_stop_observed', result=p.get('Result'),
                    exit_code=p.get('ExecMainCode'), exit_status=p.get('ExecMainStatus'))
         need(p.get('Result') == 'success' and
-             (p.get('ExecMainCode'), p.get('ExecMainStatus')) in (('1', '0'), ('2', '15')),
+             (p.get('ExecMainCode'), p.get('ExecMainStatus')) == ('1', '0'),
              'worker stop was not proven graceful; retain fence for review')
         need(p['ActiveState'] == 'inactive' and p['SubState'] == 'dead' and p['MainPID'] == '0' and p['ControlPID'] == '0', 'worker not fully stopped')
         group = p.get('ControlGroup')
