@@ -74,3 +74,11 @@ provider table and status stays pinned. The coordinator samples again after
 traffic is fenced, then disables this allowance before pausing guests; only
 its acknowledged pauses can advance the frozen baseline afterward. Read-only
 preflight and execution receipts retain any observed count changes.
+
+During a foreground native migration CLI, observe the operator event files,
+private CLI output files and systemd process state. Do not open the canonical
+SQLite database from a separate status monitor, even read-only: the CLI checks
+for other database descriptors before every phase, and such a reader correctly
+causes its exclusive-access check to refuse. Database inspection is safe only
+after the foreground CLI has exited, or inside the coordinator's serialized
+checks between CLI invocations.

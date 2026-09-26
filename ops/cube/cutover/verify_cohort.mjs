@@ -76,7 +76,11 @@ try {
     }
     result.entry_modules_verified = scripts.length;
     result.files_verified = [];
-    for (const name of ['package.json', 'sandbox.yaml', 'index.html']) {
+    // The two reviewed Next.js sources render app/page.js and have no static
+    // index.html. The native migration still verifies the entire workspace;
+    // these files additionally exercise the normal authenticated file API.
+    const sourceFiles = ['package.json', 'sandbox.yaml', row.preset === 'nextjs' ? 'app/page.js' : 'index.html'];
+    for (const name of sourceFiles) {
       const before = await fs.readFile(original + '/workspace/app/' + name);
       const current = await runtime('/v1/sandboxes/' + sb + '/files/content?path=' + encodeURIComponent(name));
       assert(current.status === 200 && hash(current.body) === hash(before), 'Transferred source differs: ' + name);
