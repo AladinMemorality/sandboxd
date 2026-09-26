@@ -90,7 +90,7 @@ class CohortTests(unittest.TestCase):
             with self.assertRaises(c.b.Refused): c.accepted_binding(db, row)
 
     def test_failed_phase_never_reopens_retries_or_powers_worker(self):
-        for fail in ('preflight', 'drain', 'migrate_cohort', 'restore_controller', 'ready_fence'):
+        for fail in ('preflight', 'drain', 'migrate_cohort', 'restore_controller', 'ready_fence', 'verify_apis'):
             host = mock.Mock(); host.c = config(); getattr(host, fail).side_effect = RuntimeError('injected')
             events = []; sequence = c.Sequence(host, lambda phase, value=None: events.append(phase))
             with self.subTest(fail=fail), self.assertRaises(RuntimeError): sequence.start(sequence.stop())

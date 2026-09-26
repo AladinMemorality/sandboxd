@@ -6,12 +6,14 @@ No worker power operation, source retirement, database rewind or default change.
 """
 import contextlib
 import copy
+import base64
 import http.client
 import importlib.util
 import json
 import os
 from pathlib import Path
 import re
+import shlex
 import sqlite3
 import stat
 import subprocess
@@ -26,7 +28,10 @@ WORKSPACES = Path('/var/lib/sandboxd/workspaces')
 MOTION_APP = '01M3CKN983PFRGMD711PCEPDFD'
 SOCKET = Path('/run/baarcha-motion-studio/worker.sock')
 KIND = 'current-generation-project-cohort'
-FILES = tuple(dict.fromkeys((*p.FILES, Path(__file__).resolve(), CONFIG,
+DEFAULTS = Path(__file__).resolve().with_name('template_defaults.py')
+VERIFY = Path(__file__).resolve().with_name('verify_cohort.mjs')
+PLATFORM_ENV = Path('/opt/baarcha/landing.env')
+FILES = tuple(dict.fromkeys((*p.FILES, Path(__file__).resolve(), CONFIG, DEFAULTS, VERIFY, PLATFORM_ENV,
     *(ROOT / ('worker-lifecycle/' + name) for name in
       ('planned.py', 'maintenance.py', 'boot_transition.py', 'external_clean.py')))))
 
@@ -96,6 +101,7 @@ class Sequence:
         need(receipt == {'cohort_verified': True}, 'Verified cohort receipt required')
         h = self.host
         self.event('controller-start-intent'); h.restore_controller(); h.ready_fence()
+        self.event('application-api-verification-intent'); h.verify_apis(); h.ready_fence()
         self.event('reopen-intent'); h.reopen(); h.close_nested()
         result = {'version': 1, 'online_restored': True, 'customer_projects_migrated': len(h.c['projects']),
                   'worker_power_operations': 0, 'original_sources_retained': True, 'full_backup': False,
@@ -178,6 +184,37 @@ class Host(p.Host):
             value = projects[row['sandbox_id']]
             need(value['state'] == 'preflight_passed' and value['target_preset'] == row['preset']
                  and value['template_id'] == row['template_id'], 'Selected project no longer eligible')
+    def reconcile_template_default(self, row):
+        self.fence(); self.source_fence()
+        with self.db() as db:
+            target = db.execute('''SELECT s.app_id,s.runtime_provider,r.phase,r.runtime_id,r.template_id,
+                                  r.archive_sha256,r.home_sha256 FROM sandbox s JOIN runtime_migration r
+                                  ON r.sandbox_id=s.id WHERE s.id=?''', (row['sandbox_id'],)).fetchone()
+        need(target is not None and target[:3] == (row['app_id'], 'docker', 'imported')
+             and re.fullmatch(r'[a-f0-9]{32}', target[3]) and target[4] == row['template_id']
+             and all(b.SHA.fullmatch(v) for v in target[5:]), 'Exact imported target and verified source archives required')
+        source = WORKSPACES / row['sandbox_id'] / '.bash_logout'
+        if source.exists() or source.is_symlink():
+            self.event('template-default-source-owned', {'sandbox_id': row['sandbox_id']})
+            return
+        defaults = b.load_module(DEFAULTS)
+        need(b.digest(DEFAULTS) == self.plan['files'][str(DEFAULTS)], 'Reviewed template helper changed')
+        self.event('template-default-review-intent', {'sandbox_id': row['sandbox_id'], 'runtime_id': target[3],
+                   'source_absent': True, 'stock_sha256': defaults.STOCK_SHA256,
+                   'stock_base64': base64.b64encode(defaults.STOCK).decode()})
+        code = b.trusted(DEFAULTS, False).decode() + '\nimport json\nprint("CUBE_DEFAULT="+json.dumps(reconcile()))\n'
+        command = ['ctr', '--address', '/data/cubelet/cubelet.sock', '--namespace', 'default', 'tasks', 'exec',
+                   '--tty', '--exec-id', 'cohort-default-' + row['sandbox_id'].lower(), target[3], '/usr/bin/python3', '-c', code]
+        result = subprocess.run(b.SSH[:1] + ['-tt'] + b.SSH[1:] + [shlex.join(command)],
+                                capture_output=True, timeout=30, pass_fds=self.fds)
+        lines = [v for v in result.stdout.decode().splitlines() if v.startswith('CUBE_DEFAULT=')]
+        need(result.returncode == 0 and len(lines) == 1, 'Target default reconciliation refused; retain journal for review')
+        proof = b.strict(lines[0].split('=', 1)[1])
+        need(proof.get('path') == '.bash_logout' and proof.get('absent') is True and
+             (proof.get('removed') is False or (proof.get('removed') is True and
+              proof.get('sha256') == defaults.STOCK_SHA256 and proof.get('bytes') == 220)), 'Invalid target default receipt')
+        self.event('template-default-reconciled', {'sandbox_id': row['sandbox_id'], 'runtime_id': target[3], **proof})
+        self.fence()
     def migrate_cohort(self):
         self.fence(); self.inputs(); self.source_fence(); self.inventory('frozen-preflight')
         root = Path(self.c['archives'])
@@ -196,7 +233,10 @@ class Host(p.Host):
             self.fence(); self.source_fence(); self.inputs()
             self.event('project-migration-intent', {'sandbox_id': row['sandbox_id']})
             result = self.run_cli(['--sandbox', row['sandbox_id'], '--preset', row['preset'],
-                                   '--expected-fleet', self.c['fleet_sha256'], 'migrate'], row['sandbox_id'], 1900)
+                                   '--expected-fleet', self.c['fleet_sha256'], '--stop-after-import', 'migrate'], row['sandbox_id'] + '-import', 1900)
+            need(result['sandbox_id'] == row['sandbox_id'] and result['phase'] == 'imported', 'CLI did not stop at the import boundary')
+            self.reconcile_template_default(row)
+            result = self.run_cli(['--sandbox', row['sandbox_id'], '--expected-fleet', self.c['fleet_sha256'], 'resume'], row['sandbox_id'] + '-verify', 1900)
             need(result['sandbox_id'] == row['sandbox_id'] and result['phase'] == 'complete', 'CLI did not complete project migration')
             with self.db() as db: binding = accepted_binding(db, row)
             self.source_fence()
@@ -221,6 +261,16 @@ class Host(p.Host):
              and observed.get('bindings') == len(self.plan['bindings']), 'Canonical Cube bindings not reconciled')
         self.bridge.fresh(b.strict(b.trusted(b.GUARD)), 0)
         self.bindings_readonly(); self.source_fence()
+    def verify_apis(self):
+        self.ready_fence()
+        need(b.digest(VERIFY) == self.plan['files'][str(VERIFY)] and b.digest(PLATFORM_ENV) == self.plan['files'][str(PLATFORM_ENV)],
+             'Reviewed API verifier or credentials changed')
+        result = b.strict(self.command(['/opt/baarcha/node22/bin/node', '--env-file=' + str(PLATFORM_ENV), str(VERIFY),
+                                        str(CONFIG), str(self.job / 'application-acceptance.json')], 600))
+        need(result.get('success') is True and result.get('ai_tasks_submitted') == 0
+             and {v['sandbox_id'] for v in result['projects']} == {v['sandbox_id'] for v in self.c['projects']}
+             and all(v.get('success') and v.get('paused_after_verification') for v in result['projects']), 'Application API acceptance incomplete')
+        self.event('application-apis-verified', result)
     def ready_fence(self):
         self.controller_ready()
         need(b.strict(b.http('/config/', 2019)) == self.routes['offline'], 'Routing reopened before verification')

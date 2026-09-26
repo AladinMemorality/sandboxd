@@ -182,6 +182,51 @@ func TestMigrationResumeEveryCommittedPhaseAndRollbackNewWrites(t *testing.T) {
 	}
 }
 
+func TestImportBoundaryRetainsDockerAndRequiresVerificationOnResume(t *testing.T) {
+	engine, backend, id, _ := fixture(t)
+	ctx := context.Background()
+	engine.StopAfterImport = true
+	for i := 0; i < 2; i++ {
+		if err := engine.Run(ctx, id); err != nil {
+			t.Fatal(err)
+		}
+		journal, err := engine.Store.GetRuntimeMigration(ctx, id)
+		if err != nil || journal.Phase != "imported" || journal.Binding.RuntimeID != "fresh-remote" {
+			t.Fatal("did not retain exact imported target", journal, err)
+		}
+		source, err := engine.Store.Get(ctx, id)
+		if err != nil || source.RuntimeProvider != "docker" || backend.creates != 1 {
+			t.Fatal("import boundary changed provider or allocated twice", source, backend.creates, err)
+		}
+	}
+	path := filepath.Join(backend.target, "data", "owner.db")
+	if err := os.WriteFile(path, []byte("unexpected target mutation"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	engine.StopAfterImport = false
+	if err := engine.Run(ctx, id); err == nil {
+		t.Fatal("resume skipped target checksum verification")
+	}
+	source, err := engine.Store.Get(ctx, id)
+	if err != nil || source.RuntimeProvider != "docker" {
+		t.Fatal("failed verification changed provider", err)
+	}
+	if err = os.WriteFile(path, []byte("original private data"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	if err = engine.Run(ctx, id); err != nil {
+		t.Fatal(err)
+	}
+	source, err = engine.Store.Get(ctx, id)
+	if err != nil || source.RuntimeProvider != "cube" || backend.creates != 1 {
+		t.Fatal("verified resume did not commit exact existing target", err)
+	}
+	engine.StopAfterImport = true
+	if err = engine.Run(ctx, id); err == nil {
+		t.Fatal("completed journal silently accepted as an imported target")
+	}
+}
+
 func TestRollbackResumeEveryCommittedPhase(t *testing.T) {
 	for _, phase := range []string{"rollback_started", "rollback_archived", "rollback_restored", "rolled_back"} {
 		t.Run(phase, func(t *testing.T) {

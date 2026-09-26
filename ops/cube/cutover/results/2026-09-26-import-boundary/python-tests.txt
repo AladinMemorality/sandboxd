@@ -1,0 +1,15 @@
+test_binding_requires_complete_journal_matching_target_and_hashes (test_cohort.CohortTests.test_binding_requires_complete_journal_matching_target_and_hashes) ... ok
+test_cli_retains_canonical_paths_and_has_no_retirement_action (test_cohort.CohortTests.test_cli_retains_canonical_paths_and_has_no_retirement_action) ... ok
+test_explicit_small_ordinary_cohort_only (test_cohort.CohortTests.test_explicit_small_ordinary_cohort_only) ... ok
+test_failed_phase_never_reopens_retries_or_powers_worker (test_cohort.CohortTests.test_failed_phase_never_reopens_retries_or_powers_worker) ... ok
+test_legacy_short_database_id_is_pinned_to_exact_inspected_full_id (test_cohort.CohortTests.test_legacy_short_database_id_is_pinned_to_exact_inspected_full_id) ... ok
+test_running_or_restartable_customer_source_never_accepted (test_cohort.CohortTests.test_running_or_restartable_customer_source_never_accepted) ... ok
+test_source_mount_and_image_identity_are_exact (test_cohort.CohortTests.test_source_mount_and_image_identity_are_exact) ... ok
+test_changed_same_size_script_never_removed (test_template_defaults.TemplateDefaultTests.test_changed_same_size_script_never_removed) ... ok
+test_exact_stock_removed_and_absence_is_replayable (test_template_defaults.TemplateDefaultTests.test_exact_stock_removed_and_absence_is_replayable) ... ok
+test_link_directory_mode_owner_and_noncanonical_home_refused (test_template_defaults.TemplateDefaultTests.test_link_directory_mode_owner_and_noncanonical_home_refused) ... ok
+
+----------------------------------------------------------------------
+Ran 10 tests in 0.038s
+
+OK
