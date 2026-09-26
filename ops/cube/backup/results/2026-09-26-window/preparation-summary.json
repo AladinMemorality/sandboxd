@@ -1,0 +1,55 @@
+{
+  "apps": 73,
+  "available_bytes": 1527889752064,
+  "controller_id": "be9e6ffdff9219c2c18efdb78a2335bbf04746adb7b43a6a06ab181db312fb2a",
+  "docker_homes": 72,
+  "docker_running": 7,
+  "full_pair_captured": false,
+  "minimum_free_bytes": 747324309504,
+  "motion": {
+    "active_jobs": 0,
+    "projects": 7,
+    "projects_sha256": "2481c1d545589395d51e8bb2b06ea732edf06a2e4c54ee030bcf9d02878703c7",
+    "terminal_jobs": 29
+  },
+  "pending": [
+    "new immutable image export",
+    "fresh execution plan and backup lifecycle integration",
+    "actual writer closure and clean PostgreSQL control proof",
+    "cold paired capture and independent off-host restore"
+  ],
+  "prepared_only": true,
+  "providers": {
+    "cube": 1,
+    "docker": 72
+  },
+  "snapshots": 38,
+  "source_images": [
+    {
+      "id": "sha256:307ae5f047d37207dec9a726a0f43017d2c64bed6d38e359b4160017adb50933",
+      "size": 1203354285
+    },
+    {
+      "id": "sha256:38c1e17d0c108a597668048e45f6d662e6d1c225f598dd96b0256ba20f66873a",
+      "size": 1203352887
+    },
+    {
+      "id": "sha256:8d11d8fd25f3cd126b659822e2368439da72bb8635616e65ecce7aa4412c6b6d",
+      "size": 1203358030
+    },
+    {
+      "id": "sha256:9ec445151344a7baa295b085bebe1a0352ab930601fe0d9ed2bf1283bbaa6678",
+      "size": 1152329648
+    },
+    {
+      "id": "sha256:f05e2d5103acbc1bda4ba22d618eabba93307f914dd26bf2f2f3f4163c458434",
+      "size": 1203357529
+    },
+    {
+      "id": "sha256:f343341e0d3cf2c926ecd0a7ba8e293a5bca5f8dab6f9281ebcb1ff58044361b",
+      "size": 103961773
+    }
+  ],
+  "version": 1,
+  "worker_boot_id": "ae6250ea-8933-416b-9621-cbb1eadfc54b"
+}
