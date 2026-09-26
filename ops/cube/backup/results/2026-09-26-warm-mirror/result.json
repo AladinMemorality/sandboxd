@@ -1,0 +1,23 @@
+{
+  "customer_projects_migrated": 0,
+  "full_backup_accepted": false,
+  "kind": "native-warm-mirror-integration-review",
+  "native_linux_root": true,
+  "paid_ai_tasks_submitted": 0,
+  "production_helpers_installed": false,
+  "production_services_changed": false,
+  "skips": 0,
+  "source_bundle_sha256": "a6cfe69505cec0abdd1c1fb91e83a11468f63736fae0f3c55e5b6a03200befde",
+  "source_sha256": {
+    "capture_roles.py": "f436bf86473d23fb13fccb61a5c05f8ad96b4dfa054b76dbaf4ee1bb0f0ec7dd",
+    "test_capture_roles.py": "c50c607825ff932761549be7045087c2c82ea271633ec549f3e3d3b577c8dddf",
+    "test_warm_mirror.py": "035b945b68aa91fcb89ba2d05541cd77c068b336ba450d47ae0e82a8351ecd4b",
+    "test_window.py": "361ed0f2609fca3168301322ce0e0ec80dd2542445a25b2a209ed1badd7007b5",
+    "warm_mirror.py": "8c242282df6186ffd0af844580613c9f6590bb595650a90cae3f28b0ad311c06",
+    "window.py": "3007ef0d270e667f21d80c7820562feafdcc304889fc8a2e363d425df82b7910"
+  },
+  "success": true,
+  "tests": 100,
+  "tests_sha256": "9d849f4c77ede173621fa403b952f9ad5a84f6943972b39e7c8186f4a66ae26f",
+  "version": 1
+}

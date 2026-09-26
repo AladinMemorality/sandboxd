@@ -1,0 +1,22 @@
+{
+  "upstream_commit": "31d911e430fdf8a8879bd062b8e78066c1a8e89d",
+  "patch_sha256": "a76b46571d30e733d1f7700652ae64628ed1c328ba5cdd1cf8c91b4fa280293e",
+  "source_manifest_sha256": "00d37634853b9a5df89c0e7815abc1a7470b50f32325eeb84b3364246c79ff73",
+  "generated_source_changes": [],
+  "candidate_sha256": "1d220e762665f986efd9f92773b10c501cd9607e10ee6b398e04672d2d543459",
+  "installed_sha256": "d72fa20dfc78c81e46ac3db3ee45b3216d9ad68e7627f4685ecd1f73e9cb13a1",
+  "build_exit_code": 0,
+  "test_filter": "hypervisor::snapshot::tests",
+  "tests_passed": 6,
+  "tests_failed": 0,
+  "tests_filtered": 60,
+  "first_build_result": "linker missing libcap-ng.so development alias; runtime libcap-ng.so.0 exists",
+  "second_build_result": "private build-libs alias to existing runtime library; no system library changes",
+  "rust_toolchain": "1.89.0",
+  "cpu_limit": 2,
+  "memory_limit_bytes": 4294967296,
+  "tasks_limit": 256,
+  "build_log_sha256": "d68b148d9f5b98c7529286265105fdbd9b85f5ab84336376c39fc5be4e3c8251",
+  "installed": false,
+  "live_acceptance": false
+}

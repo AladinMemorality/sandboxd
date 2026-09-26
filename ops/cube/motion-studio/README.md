@@ -98,6 +98,14 @@ body as failure. The 1 GiB media cap is an explicit supported limit, not a claim
 that arbitrary exports fit it. Closing an incomplete channel upload aborts that
 stream without draining a malicious unfinished body or retaining its goroutine.
 
+## Production worker release
+
+The real worker UDS release passed on September 26, preserving its TCP listener,
+all seven projects and 29 terminal jobs. Its scoped maintenance window lasted
+49.84 seconds, with full route and writer restoration independently verified.
+See [live release evidence](worker-uds-release/results/2026-09-26-live-release/README.md).
+Controller mount/app mapping and actual guest/owned-film acceptance remain.
+
 ## Acceptance and remaining rollout work
 
 [Sanitized source/test evidence](results/2026-09-25.json) records the two Linux

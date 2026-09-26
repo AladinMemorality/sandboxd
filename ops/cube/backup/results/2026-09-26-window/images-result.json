@@ -1,0 +1,13 @@
+{
+  "all_descriptor_sizes_and_digests_verified": true,
+  "at": 1790440484.3123407,
+  "bytes": 1457399296,
+  "exact_oci_manifest_ids_verified": true,
+  "full_pair_captured": false,
+  "immutable_images_exported": 6,
+  "prior_failure": "Initial verification compared config blob digests to image manifest IDs; original archive retained, verified without re-export.",
+  "sha256": "0db8aa7d045d19a595decb20a63d79595a6e1c969210e668db78fcd9477d2d3b",
+  "source_containers_modified": false,
+  "verified_blobs": 54,
+  "version": 1
+}

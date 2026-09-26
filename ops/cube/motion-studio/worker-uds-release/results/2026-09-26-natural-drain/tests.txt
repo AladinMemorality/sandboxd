@@ -1,0 +1,99 @@
+TAP version 13
+# Subtest: natural shutdown retains disconnected request tail until real I/O completes
+ok 1 - natural shutdown retains disconnected request tail until real I/O completes
+  ---
+  duration_ms: 2244.269415
+  type: 'test'
+  ...
+# Subtest: check inspects without closing the application and disables the inspector
+ok 2 - check inspects without closing the application and disables the inspector
+  ---
+  duration_ms: 338.127686
+  type: 'test'
+  ...
+# Subtest: idle target exits normally after acknowledging listener close
+ok 3 - idle target exits normally after acknowledging listener close
+  ---
+  duration_ms: 76.699761
+  type: 'test'
+  ...
+# Subtest: wrong pid refuses before closing the application
+ok 4 - wrong pid refuses before closing the application
+  ---
+  duration_ms: 82.265942
+  type: 'test'
+  ...
+# Subtest: wrong uid refuses before closing the application
+ok 5 - wrong uid refuses before closing the application
+  ---
+  duration_ms: 90.035219
+  type: 'test'
+  ...
+# Subtest: wrong listeners refuses before closing the application
+ok 6 - wrong listeners refuses before closing the application
+  ---
+  duration_ms: 89.304616
+  type: 'test'
+  ...
+# Subtest: wrong argv refuses before closing the application
+ok 7 - wrong argv refuses before closing the application
+  ---
+  duration_ms: 87.059281
+  type: 'test'
+  ...
+# Subtest: wrong cwd refuses before closing the application
+ok 8 - wrong cwd refuses before closing the application
+  ---
+  duration_ms: 79.785222
+  type: 'test'
+  ...
+# Subtest: an accepted client connection refuses close instead of aborting it
+ok 9 - an accepted client connection refuses close instead of aborting it
+  ---
+  duration_ms: 96.668476
+  type: 'test'
+  ...
+1..9
+# tests 9
+# suites 0
+# pass 9
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3260.147828
+test_pidfd_systemd_normal_exit_preserves_real_disconnected_sharp_write (test_natural_stop.NativeStopTests.test_pidfd_systemd_normal_exit_preserves_real_disconnected_sharp_write) ... ok
+test_release_wrapper_accepts_only_its_own_closed_generation (test_natural_stop.NativeStopTests.test_release_wrapper_accepts_only_its_own_closed_generation) ... ok
+test_wrong_service_uid_never_signals_or_opens_inspector (test_natural_stop.NativeStopTests.test_wrong_service_uid_never_signals_or_opens_inspector) ... ok
+test_exact_three_regular_members (test_release.CandidateTests.test_exact_three_regular_members) ... ok
+test_extra_path_traversal_link_and_duplicate_refused (test_release.CandidateTests.test_extra_path_traversal_link_and_duplicate_refused) ... ok
+test_modified_candidate_refused (test_release.CandidateTests.test_modified_candidate_refused) ... ok
+test_expired_fence_or_live_routing_drift_refused (test_release.FenceTests.test_expired_fence_or_live_routing_drift_refused) ... ok
+test_private_metadata_does_not_accept_public_mode (test_release.FenceTests.test_private_metadata_does_not_accept_public_mode) ... ok
+test_running_controller_or_proxy_refused (test_release.FenceTests.test_running_controller_or_proxy_refused) ... ok
+test_timer_and_inflight_requests_cannot_masquerade_as_empty_queue (test_release.FenceTests.test_timer_and_inflight_requests_cannot_masquerade_as_empty_queue) ... ok
+test_verified_stopped_writers_empty_connections (test_release.FenceTests.test_verified_stopped_writers_empty_connections) ... ok
+test_atomic_preserves_explicit_mode_and_owner (test_release.FilesystemTests.test_atomic_preserves_explicit_mode_and_owner) ... ok
+test_exclusive_journal_input_refuses_replay (test_release.FilesystemTests.test_exclusive_journal_input_refuses_replay) ... ok
+test_snapshot_rejects_symlink_and_hardlink (test_release.FilesystemTests.test_snapshot_rejects_symlink_and_hardlink) ... ok
+test_different_open_description_owner_is_refused_and_retained (test_release.InheritedLockTests.test_different_open_description_owner_is_refused_and_retained) ... ok
+test_exact_held_description_accepts_and_duplicate_close_retains (test_release.InheritedLockTests.test_exact_held_description_accepts_and_duplicate_close_retains) ... ok
+test_failure_inside_four_lock_context_retains_caller_locks (test_release.InheritedLockTests.test_failure_inside_four_lock_context_retains_caller_locks) ... ok
+test_shared_descriptor_is_refused_without_upgrading (test_release.InheritedLockTests.test_shared_descriptor_is_refused_without_upgrading) ... ok
+test_unlocked_descriptor_is_refused_without_acquiring (test_release.InheritedLockTests.test_unlocked_descriptor_is_refused_without_acquiring) ... ok
+test_abnormal_systemd_stop_refuses_backup_and_retains_evidence (test_release.LifecycleTests.test_abnormal_systemd_stop_refuses_backup_and_retains_evidence) ... ok
+test_only_natural_zero_stop_is_accepted_after_process_absence (test_release.LifecycleTests.test_only_natural_zero_stop_is_accepted_after_process_absence) ... ok
+test_partial_install_restores_only_source_not_customer_data (test_release.LifecycleTests.test_partial_install_restores_only_source_not_customer_data) ... ok
+test_pending_voice_mutation_cannot_be_treated_as_idle (test_release.LifecycleTests.test_pending_voice_mutation_cannot_be_treated_as_idle) ... ok
+test_preflight_failure_never_stops_or_restarts (test_release.LifecycleTests.test_preflight_failure_never_stops_or_restarts) ... ok
+test_projects_require_exact_complete_state_and_drained_jobs (test_release.LifecycleTests.test_projects_require_exact_complete_state_and_drained_jobs) ... ok
+test_rollback_failure_is_not_success (test_release.LifecycleTests.test_rollback_failure_is_not_success) ... ok
+test_rollback_refuses_unrelated_source_drift (test_release.LifecycleTests.test_rollback_refuses_unrelated_source_drift) ... ok
+test_stop_backup_partial_install_startup_failure_are_retained (test_release.LifecycleTests.test_stop_backup_partial_install_startup_failure_are_retained) ... ok
+test_stopped_worker_requires_this_callers_exact_natural_exit (test_release.LifecycleTests.test_stopped_worker_requires_this_callers_exact_natural_exit) ... ok
+test_success_order_backup_precedes_install_and_no_reopen (test_release.LifecycleTests.test_success_order_backup_precedes_install_and_no_reopen) ... ok
+
+----------------------------------------------------------------------
+Ran 30 tests in 5.514s
+
+OK

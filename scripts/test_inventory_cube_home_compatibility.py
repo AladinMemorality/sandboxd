@@ -29,8 +29,8 @@ class InventoryTests(unittest.TestCase):
         with sqlite3.connect(self.db) as conn:
             conn.execute("CREATE TABLE app(id TEXT,runtime_preset TEXT)")
             conn.execute("INSERT INTO app VALUES('app','')")
-            conn.execute("CREATE TABLE sandbox(id TEXT,app_id TEXT,status TEXT,workspace_mnt TEXT,container_id TEXT)")
-            conn.execute("INSERT INTO sandbox VALUES(?,'app','stopped','','fixture')", (SID,))
+            conn.execute("CREATE TABLE sandbox(id TEXT,app_id TEXT,status TEXT,workspace_mnt TEXT,container_id TEXT,runtime_provider TEXT)")
+            conn.execute("INSERT INTO sandbox VALUES(?,'app','stopped','','fixture','docker')", (SID,))
         self.out = self.root / "private"
 
     def scan(self):
@@ -68,6 +68,23 @@ class InventoryTests(unittest.TestCase):
         for file in self.out.iterdir():
             self.assertNotIn("secret.txt", file.read_text())
             self.assertNotIn("OUTSIDE_DATA", file.read_text())
+
+    def test_cube_home_is_not_read_as_a_docker_source(self):
+        cube_id = "01M3D1Q0E1KM1FEM244XVHEC65"
+        with sqlite3.connect(self.db) as conn:
+            conn.execute("INSERT INTO app VALUES('cube-app','node-postgres')")
+            conn.execute("INSERT INTO sandbox VALUES(?,'cube-app','running','','','cube')", (cube_id,))
+        # No host home exists for this Cube guest. Its old archive, if present,
+        # must not be mistaken for the live source of customer data.
+        result = self.scan()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        report = json.loads((self.out / "review-private.json").read_text())
+        self.assertEqual(report["sandbox_count"], 2)
+        self.assertEqual(report["already_cube_sandboxes"], [cube_id])
+        self.assertEqual(report["apps_without_sandbox"], [])
+        self.assertEqual([p["sandbox_id"] for p in report["projects"]], [SID])
+        manifests = json.loads((self.out / "candidate-home-manifests.json").read_text())
+        self.assertEqual(list(manifests), [SID])
 
     def test_refuses_symlinked_workspace_ancestor(self):
         original = self.workspaces

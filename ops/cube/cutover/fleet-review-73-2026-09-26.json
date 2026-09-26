@@ -1,0 +1,68 @@
+{
+  "at": "2026-09-26T15:03:26.651494+00:00",
+  "read_only": true,
+  "frozen_for_migration": false,
+  "sandbox_count": 73,
+  "snapshot_count": 38,
+  "providers": {
+    "cube": 1,
+    "docker": 72
+  },
+  "project_states": {
+    "preflight_passed": 71,
+    "blocked": 1,
+    "already_cube": 1
+  },
+  "blocked_projects": 1,
+  "blocked_snapshots": 0,
+  "blocked_reasons": {
+    "owner home manifest validation failed": 1
+  },
+  "identity_sha256": "2b0987c0afdf18baedf78b8926922b5a8ff26c8b009861555c6e5e84d2116626",
+  "same_ids_before_after": true,
+  "task_states_after": {
+    "failed": 42,
+    "succeeded": 123
+  },
+  "home_manifests": 72,
+  "legacy_assignments": 11,
+  "target_preset_counts": {
+    "react-pro": 53,
+    "react-vite": 15,
+    "node-express": 2,
+    "nextjs": 2,
+    "node-postgres": 1
+  },
+  "custom_tool_projects_requiring_guest_verification": 15,
+  "unreviewed_home_links": 0,
+  "unsupported_app_links": 0,
+  "app_bytes": 16052520689,
+  "additional_release_blockers": [
+    "Motion Studio requires its separate authenticated UDS template/worker acceptance; ordinary React template preflight is insufficient",
+    "Complete paired encrypted off-host restore and real application verification",
+    "Healthy worker lifecycle and host reboot fencing",
+    "Successful production coding task; no additional paid attempt authorized",
+    "Dedicated Cube controller lifecycle/Compose integration and cutover"
+  ],
+  "authorizes_cutover": false,
+  "artifact_sha256": {
+    "scan.py": "f1c9feef76d85a2c17e33c816b4b9a40031bcc84d852d039b6fdaac727ac558e",
+    "out/cube-migrate": "176e4d6a47e47773ff905a9e38ec512192b40ab077d62950912fd71605cd0c06",
+    "template-map.json": "c57f1502ba9897480016262e0a66d75a26bd5f4115de687db21f65dc9ec8f5a3",
+    "template-resources.json": "e841d87429f0e62c5a9eb9e8165a81111f0a5e7ea70b8bba78b6aa7d52cc01ab",
+    "scan/candidate-home-manifests.json": "6731a714957f3f94814d04a42f20e683185ef69cebd3e78320aaaffcad58a28d",
+    "scan/candidate-preset-assignments.json": "ecc57e23027696b0b483a03a3a9d61d5430651fa2facda791c4f1e6491abffd4",
+    "fleet-preflight.private.json": "878c3b295e93d3c6f0be867699cb4290038440f3cf8f8efbf5cf200ecf5a7ac7",
+    "fleet-preflight-r2.private.json": "882ef7241e8eb93a3c0278f33ac5baa9fb4ac15267e796a327e6ab7d50c8db5a"
+  },
+  "first_preflight_limited_by": "Isolated base image lacked Docker CLI, so resource inspection failed for all Docker rows; corrected native read-only preflight retained separately",
+  "blocked_details": [
+    {
+      "app_id": "01M37PPK7VDKCQMNRYKW8CCD4W",
+      "sandbox_id": "01M37PPK85JN1K0WEMP4ZYER6C",
+      "reasons": [
+        "owner home manifest validation failed"
+      ]
+    }
+  ]
+}

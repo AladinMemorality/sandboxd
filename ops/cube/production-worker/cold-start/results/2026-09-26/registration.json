@@ -1,0 +1,16 @@
+{
+  "ready": true,
+  "job_id": "043b054b-914f-401a-a5be-502973ac8b4e",
+  "template_id": "tpl-c0c9813b42db46898f7ddd9f",
+  "alias": "baarcha-motion-coldstart-20260926-01",
+  "image_id": "sha256:44300a2cae0310b81e1a7e2901f6aeaa2a7f53b2404feebd9f7f70e2a4b9d5bd",
+  "repo_digest": "127.0.0.1:5000/baarcha/motion-react-vite@sha256:44300a2cae0310b81e1a7e2901f6aeaa2a7f53b2404feebd9f7f70e2a4b9d5bd",
+  "unchanged_prior_templates": 10,
+  "remaining_provider_ids": [
+    "095a0076b90b4b009ab995837909e276"
+  ],
+  "authenticated_guest_capability_tested": false,
+  "global_mapping_changed": false,
+  "stock_shim_restored": true,
+  "installed_shim_sha256": "d72fa20dfc78c81e46ac3db3ee45b3216d9ad68e7627f4685ecd1f73e9cb13a1"
+}

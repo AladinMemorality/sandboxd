@@ -11,6 +11,7 @@ import socket
 import sqlite3
 import stat
 import subprocess
+import tarfile
 import sys
 import tempfile
 import types
@@ -126,6 +127,22 @@ class RoleTests(unittest.TestCase):
   self.assertEqual(result['sha256'],hashlib.sha256(b'closed-fixture').hexdigest())
   with mock.patch.object(roles.subprocess,'run',side_effect=fake),self.assertRaises(FileExistsError):roles.archive([str(source)],target,max_bytes=1024)
   self.assertEqual(target.read_bytes(),b'closed-fixture')
+
+ @unittest.skipUnless(sys.platform=='linux' and os.geteuid()==0,'native root GNU tar archive required')
+ def test_sealed_mirror_archive_retains_original_paths_links_and_bytes(self):
+  mirror=self.root/'mirror';mirror.mkdir(mode=0o700)
+  source='/reviewed/owner/home';home=mirror/source.lstrip('/');home.mkdir(parents=True)
+  data=home/'-private\nfile';data.write_bytes(b'closed owner data');data.chmod(0o640)
+  os.link(data,home/'hardlink');(home/'symlink').symlink_to(data.name)
+  target=self.root/'mirrored.tar'
+  result=roles.archive([source],target,max_bytes=1024**2,source_root=mirror)
+  self.assertEqual(result['sha256'],hashlib.sha256(target.read_bytes()).hexdigest())
+  with tarfile.open(target) as archive:
+   members=archive.getmembers();self.assertTrue(all(m.name.startswith('reviewed/owner/home') for m in members))
+   files=[m for m in members if m.isfile()];self.assertEqual(len(files),1)
+   self.assertEqual(archive.extractfile(files[0]).read(),b'closed owner data')
+   self.assertEqual(files[0].mode,0o640)
+   self.assertEqual(sum(m.islnk() for m in members),1);self.assertEqual(sum(m.issym() for m in members),1)
 
  def test_space_reserved_for_subsequent_fullpair_and_role_copy(self):
   with mock.patch.object(roles.shutil,'disk_usage',return_value=types.SimpleNamespace(free=self.config['minimum_free_bytes'])):

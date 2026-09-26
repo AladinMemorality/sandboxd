@@ -2,6 +2,7 @@
 """Prepare closed recovery roles only. Never stops, starts or repairs a source."""
 import argparse,contextlib,fcntl,hashlib,json,os,pathlib,re,resource,shutil,sqlite3,stat,subprocess,sys,time,urllib.parse,urllib.request
 import cold_pair
+import warm_mirror
 Path=pathlib.Path
 LOCKS=('/opt/baarcha/deploy-release.lock','/opt/sandboxd/deploy-state/deploy.lock','/run/lock/cube-operator-acceptance.lock')
 DB=Path('/var/lib/sandboxd/state/sandboxd.db')
@@ -42,6 +43,9 @@ def validate_config(c):
   if not role.endswith('-extra'):need(paths,'Required role is empty')
  need(all(any(Path(p)==Path(root) or Path(root) in Path(p).parents for root in c['role_paths']['controller-config']+c['role_paths']['worker-config']+c['role_paths']['worker-launch']) for p in c['reviewed_files']),'Pinned configuration omitted from archives')
  need(len({x['path'] for x in c['ephemeral_sockets']})==len(c['ephemeral_sockets']),'Duplicate socket review')
+ if 'warm_mirror' in c:
+  mirror=c['warm_mirror'];need(set(mirror)=={'cache','prepared_sha256'},'Exact prepared mirror selection required')
+  need(Path(mirror['cache']).is_absolute() and re.fullmatch('[0-9a-f]{64}',mirror['prepared_sha256']),'Invalid prepared mirror identity')
 
 def verify_inputs(c):
  for p,digest in c['reviewed_files'].items():
@@ -89,16 +93,23 @@ def validate_sources(paths,allowed_sockets=()):
  need(set(omitted)==set(allowed),'Reviewed ephemeral socket set changed')
  return omitted
 
-def archive(paths,target,allowed_sockets=(),max_bytes=None):
+def archive(paths,target,allowed_sockets=(),max_bytes=None,source_root=None):
  paths=list(dict.fromkeys(paths));need(paths,'Empty recovery role')
  need(type(max_bytes) is int and max_bytes>0,'Archive byte ceiling required')
  need(all(Path(p)!=target.parent and Path(p) not in target.parent.parents for p in paths),'Archive source contains its output directory')
- omitted=validate_sources(paths,allowed_sockets)
+ if source_root is None:
+  omitted=validate_sources(paths,allowed_sockets);directory=Path('/')
+ else:
+  directory=private(source_root,True)
+  need(not allowed_sockets,'A sealed mirror contains no ephemeral sockets')
+  need(all(Path(p).is_absolute() and '..' not in Path(p).parts for p in paths),'Unsafe mirrored role path')
+  need(directory!=target.parent and directory not in target.parent.parents,'Mirror contains archive output')
+  validate_sources([str(directory/str(Path(p)).lstrip('/')) for p in paths]);omitted=[]
  listing=target.with_name(target.name+'.inputs.nul');fd=os.open(listing,os.O_CREAT|os.O_EXCL|os.O_WRONLY|os.O_NOFOLLOW,0o600)
  with os.fdopen(fd,'wb') as f:f.write(b'\0'.join(str(Path(p)).lstrip('/').encode() for p in paths)+b'\0');f.flush();os.fsync(f.fileno())
  # GNU tar cannot archive socket inodes. Only exact, pre-reviewed stopped-source
  # sockets are omitted; regular files never match an exclusion wildcard.
- args=['tar','--create','--file=-','--directory=/','--numeric-owner','--acls','--xattrs','--sparse','--no-wildcards']
+ args=['tar','--create','--file=-','--directory='+str(directory),'--numeric-owner','--acls','--xattrs','--sparse','--no-wildcards']
  for p in omitted:args+=['--exclude='+p.lstrip('/')]
  args+=['--null','--verbatim-files-from','--files-from='+str(listing)]
  part=target.with_name(target.name+'.INCOMPLETE');fd=os.open(part,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600);log=target.with_name(target.name+'.private.log')
@@ -241,12 +252,19 @@ def capture(config,output,inherited):
     need(isinstance(record,dict) and all(any(Path(v)==Path(p) or Path(p) in Path(v).parents for p in config['role_paths']['rollback-extra']) for v in record.values()),'Recovery archive references missing from rollback role')
    need(shutil.disk_usage(stage).free>=config['minimum_free_bytes'],'Insufficient reviewed backup space')
    results={'postgres':pg_control(config,stage)}
+   library=list(dict.fromkeys([r['image_path'] for r in inventory['snapshots']]+config['role_paths']['library-extra']))
+   mirror=None
+   if 'warm_mirror' in config:
+    selected=config['warm_mirror'];cache=private(selected['cache'],True)
+    seal=warm_mirror.seal(cache,selected['prepared_sha256'],homes+config['role_paths']['rollback-extra']+library,
+                          cache/('sealed-'+stage.parent.name),lambda:observe(config,True),config['ephemeral_sockets'],CAPTURE_FDS)
+    mirror=Path(seal['tree']);write(stage/'mirror-sealed.json',seal)
    inspections=json.loads(run(['docker','inspect',config['controller_id'],*[r['container_id'] for r in config['docker_homes']]]))
    write(stage/'frozen-identities.PRIVATE.json',{'config':config,'containers':inspections})
    for role in ('controller-config','worker-config','worker-launch'):
     paths=config['role_paths'][role]+([image['path'],str(stage/'frozen-identities.PRIVATE.json')] if role=='controller-config' else []);results[role]=archive(paths,stage/role,max_bytes=remaining_budget(config,results,stage));observe(config,True)
-   results['rollback']=archive(homes+config['role_paths']['rollback-extra'],stage/'rollback',config['ephemeral_sockets'],remaining_budget(config,results,stage));observe(config,True)
-   library=list(dict.fromkeys([r['image_path'] for r in inventory['snapshots']]+config['role_paths']['library-extra']));results['library']=archive(library,stage/'library',max_bytes=remaining_budget(config,results,stage));observe(config,True)
+   results['rollback']=archive(homes+config['role_paths']['rollback-extra'],stage/'rollback',() if mirror else config['ephemeral_sockets'],remaining_budget(config,results,stage),source_root=mirror);observe(config,True)
+   results['library']=archive(library,stage/'library',max_bytes=remaining_budget(config,results,stage),source_root=mirror);observe(config,True)
    results['platform-db']=pg_dump(stage,remaining_budget(config,results,stage));observe(config,True)
    role_bytes=sum(r.get('bytes',0) for r in results.values())
    need(role_bytes<=config['role_byte_budget'] and shutil.disk_usage(stage).free>=PAIR_RESERVE+role_bytes,'Role budget or remaining paired-copy reserve exceeded')

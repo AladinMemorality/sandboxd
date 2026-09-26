@@ -55,9 +55,12 @@ def dump(n,o):
 ROOT=os.environ.get('CUBE_INVENTORY_WORKSPACES',ROOT);DB=os.environ.get('CUBE_INVENTORY_DATABASE',DB)
 c=sqlite3.connect('file:'+DB+'?mode=ro',uri=True);c.row_factory=sqlite3.Row
 apps=[dict(x) for x in c.execute("SELECT id,COALESCE(runtime_preset,'') preset FROM app ORDER BY id")]
-rows=[dict(x) for x in c.execute("SELECT id,COALESCE(app_id,'') app_id,status,workspace_mnt,COALESCE(container_id,'') container_id FROM sandbox ORDER BY id")]
+rows=[dict(x) for x in c.execute("SELECT id,COALESCE(app_id,'') app_id,status,workspace_mnt,COALESCE(container_id,'') container_id,runtime_provider FROM sandbox ORDER BY id")]
+already_cube=[r['id'] for r in rows if r['runtime_provider']=='cube']
+if any(r['runtime_provider'] not in ('docker','cube') for r in rows):raise ValueError('unknown runtime provider')
 appmap={x['id']:x for x in apps};report=[];manifests={};assignments={};linkrows=[];natives=[]
 for row in rows:
+ if row['runtime_provider']=='cube':continue # The retained host archive is not this guest's current home.
  sid=row['id'];home=os.path.join(ROOT,sid);rec={'sandbox_id':sid,'app_id':row['app_id'],'source_preset':appmap.get(row['app_id'],{}).get('preset',''),'status':row['status'],'issues':[],'stock_matches':{},'home_categories':{},'app_link_count':0,'home_link_count':0,'unsupported_app_links':0,'unsupported_home_links':0,'native_files':0,'custom_categories':[]};nodes={};protected=[];homeissues=[]
  if not re.fullmatch('[0-9A-HJKMNP-TV-Z]{26}',sid):rec['issues'].append('noncanonical_identity');report.append(rec);continue
  for p in [home,home+'/workspace',home+'/workspace/app']:
@@ -152,6 +155,6 @@ for row in rows:
   else:rec['issues'].append('missing_preset_requires_further_review')
  else:rec['candidate_preset']=rec['source_preset'];rec['preset_rationale']='Existing durable project preset retained'
  report.append(rec)
-allreport={'observed_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'scope':'read-only metadata, stock hashes, selected package capabilities and native headers; no code executed','sandbox_count':len(rows),'app_count':len(apps),'apps_without_sandbox':[x for x in apps if x['id'] not in {r['app_id'] for r in rows}],'projects':report}
+allreport={'observed_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'scope':'read-only Docker source metadata, stock hashes, selected package capabilities and native headers; no code executed','sandbox_count':len(rows),'app_count':len(apps),'already_cube_sandboxes':already_cube,'apps_without_sandbox':[x for x in apps if x['id'] not in {r['app_id'] for r in rows}],'projects':report}
 dump('review-private.json',allreport);dump('candidate-home-manifests.json',manifests);dump('candidate-preset-assignments.json',assignments);dump('links-private.json',linkrows);dump('native-headers-private.json',natives)
 print(json.dumps({'sandboxes':len(rows),'apps':len(apps),'candidate_manifests':len(manifests),'preset_candidates':len(assignments),'unsupported_home_links':sum(x['unsupported_home_links'] for x in report),'unsupported_app_links':sum(x['unsupported_app_links'] for x in report),'candidate_link_contracts':sum(x['candidate_link_contracts'] for x in report),'unreviewed_home_links':sum(x['unreviewed_home_links'] for x in report),'issue_counts':dict(collections.Counter(k for x in report for k in x['issues']))}))

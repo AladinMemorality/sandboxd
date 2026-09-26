@@ -113,9 +113,9 @@ def file_digest(path):
         for fd in reversed(fds):os.close(fd)
 
 
-def validate_plan(p):
+def validate_plan(p,*,kind='current-generation-external-recovery',files=FILES):
     object_keys(p,{'version','kind','expected','files','bindings','routing','motion','provider_terminal_counts'},'maintenance plan schema differs; heavy backup is not supported')
-    need(p['version']==1 and p['kind']=='current-generation-external-recovery','explicit incident recovery plan required')
+    need(p['version']==1 and p['kind']==kind,'explicit reviewed maintenance kind required')
     e=p['expected'];object_keys(e,EXPECTED,'exact old generation required')
     need(b.SHA.fullmatch(e['controller_id']) and re.fullmatch(r'sha256:[a-f0-9]{64}',e['controller_image']),'immutable controller required')
     for key in ('outer_machine_id','worker_machine_id'):need(b.HEX.fullmatch(e[key]) and e[key]!='0'*32,'machine identity missing')
@@ -123,7 +123,7 @@ def validate_plan(p):
     for prefix in ('supervisor','qemu'):
         need(type(e[prefix+'_pid']) is int and e[prefix+'_pid']>1 and re.fullmatch(r'[1-9][0-9]*',e[prefix+'_start_time']),'exact process generation required')
     need(e['qemu_pid']!=e['supervisor_pid'],'supervised QEMU generation required')
-    object_keys(p['files'],map(str,FILES),'all installed source/config pins required')
+    object_keys(p['files'],map(str,files),'all installed source/config pins required')
     need(all(b.SHA.fullmatch(v) for v in p['files'].values()),'invalid artifact hash')
     need(isinstance(p['bindings'],list) and 0<len(p['bindings'])<=4,'explicit nonempty reviewed binding set required')
     for v in p['bindings']:
@@ -245,6 +245,8 @@ class Sequence:
 
 
 class Host:
+    source_state='stop-blocked'
+    def validate_plan(self):validate_plan(self.plan)
     def __init__(self,plan,directory,fds,event):
         self.plan=plan;self.e=plan['expected'];self.job=Path(directory);self.fds=tuple(fds);self.event=event;self.children=[];self.want_stop=None;self.before_stop=None;self.motion_baseline=None
         self.observer=b.load_module('/usr/local/libexec/baarcha-cube-drain-observe.py')
@@ -266,7 +268,7 @@ class Host:
         need(Path('/etc/machine-id').read_text().strip()==self.e['outer_machine_id'] and Path('/proc/sys/kernel/random/boot_id').read_text().strip()==self.e['outer_boot_id'],'outer generation changed')
         for prefix in ('qemu','supervisor'):need(x.ticks(self.e[prefix+'_pid'])==self.e[prefix+'_start_time'],'original process generation changed')
         need(Path('/proc/'+str(self.e['qemu_pid'])+'/cmdline').read_bytes().split(b'\0')[:-1]==[v.encode() for v in self.life.fixed_qemu()],'original QEMU launch changed')
-        status=b.strict(b.trusted(ROOT/'lifecycle-status.json'));need(status['state']=='stop-blocked' and status['qemu_pid']==self.e['qemu_pid'] and status['supervisor_pid']==self.e['supervisor_pid'],'explicit stop-blocked source required')
+        status=b.strict(b.trusted(ROOT/'lifecycle-status.json'));need(status['state']==self.source_state and status['qemu_pid']==self.e['qemu_pid'] and status['supervisor_pid']==self.e['supervisor_pid'],'reviewed source lifecycle state required')
         need(self.command(['/usr/bin/systemctl','show','baarcha-cube-worker-01.service','-p','Job','--value']).strip() in (b'',b'0'),'queued worker operation exists')
     def provider(self):
         code='import json,subprocess\ntables='+repr(sorted(TABLES))+'\n'+'''command=['docker','exec','-i','cube-sandbox-mysql','sh','-c','MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --batch --skip-column-names']
@@ -303,7 +305,7 @@ print(json.dumps(out))
                 if time.monotonic()>=end:raise
                 time.sleep(1)
     def preflight(self,defer_busy=False):
-        validate_plan(self.plan)
+        self.validate_plan()
         self.platform_homes() # Check real homepage behavior before any routing fence.
         for path,hash_value in self.plan['files'].items():need(file_digest(path)==hash_value,'reviewed file changed')
         self.same();cp=self.cp();need(cp['State']['Running'] and cp['HostConfig']['RestartPolicy']['Name']=='unless-stopped','unexpected initial controller state')
@@ -416,7 +418,7 @@ print(json.dumps(out))
         b.atomic(b.STOP,b.encoded(wanted));self.before_stop=raw;self.want_stop=wanted
     def capture_before(self):
         self.event('backup-not-included',{'full_backup':False,'closed_roles':False})
-    def pause(self):
+    def predrain(self):
         self.fence();self.quiet_tasks();jobs=self.provider()
         inventory=b.strict(self.command(['/usr/local/libexec/baarcha-cube-worker-stop','--config',str(b.STOP),'--inventory']))
         verify_bindings(inventory['Bindings'],self.plan['bindings'])
@@ -425,6 +427,9 @@ print(json.dumps(out))
         receipt={k:self.e[k] for k in ('controller_id','worker_boot_id','qemu_pid','qemu_start_time')}
         receipt.update(version=1,generated_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),inventory_sha256=inventory['SHA256'],caddy_configuration_sha256=b.sha(b.encoded(self.routes['offline'])),evidence_sha256=b.sha(b.encoded(evidence)),traffic_fenced=True,existing_requests_drained=True,direct_writers_fenced=True,provider_jobs_drained=True)
         x.publish(self.job/'pre-drain.json',receipt)
+        return inventory
+    def pause(self):
+        inventory=self.predrain()
         process=start_pause_process(['/usr/local/libexec/baarcha-cube-worker-stop','--config',str(b.STOP)],self.fds,self.job/'native-pause.stderr')
         self.children.append(process);end=time.monotonic()+600;raw=b''
         while time.monotonic()<end:
@@ -522,9 +527,9 @@ print(json.dumps(out))
         b.Host(self.transition_plan).fresh(b.strict(b.trusted(b.GUARD)),0)
 
 
-def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--plan',type=Path,required=True);parser.add_argument('--directory',type=Path,required=True);mode=parser.add_mutually_exclusive_group();mode.add_argument('--execute',action='store_true');mode.add_argument('--check',action='store_true');args=parser.parse_args()
-    need(os.geteuid()==0,'native root required');plan=b.strict(b.trusted(args.plan));validate_plan(plan)
+def run_cli(host_type,sequence_type,plan_validator,description):
+    parser=argparse.ArgumentParser(description=description);parser.add_argument('--plan',type=Path,required=True);parser.add_argument('--directory',type=Path,required=True);mode=parser.add_mutually_exclusive_group();mode.add_argument('--execute',action='store_true');mode.add_argument('--check',action='store_true');args=parser.parse_args()
+    need(os.geteuid()==0,'native root required');plan=b.strict(b.trusted(args.plan));plan_validator(plan)
     if not args.execute and not args.check:
         print(json.dumps({'version':1,'plan_valid':True,'execution_authorized':False,'bindings':len(plan['bindings']),'full_backup':False}));return
     need(args.directory.parent==ROOT/'maintenance' and re.fullmatch(r'[a-z0-9-]{1,80}',args.directory.name),'fixed fresh maintenance generation required')
@@ -536,7 +541,7 @@ def main():
             if phase=='drain-intent':changed[0]=True
             row={'version':1,'at':time.time(),'phase':phase,'value':value};x.publish(args.directory/('%03d-%s.json'%(len(events),phase)),row);events.append(row)
             b.atomic(args.directory/'current.json',b.encoded({'version':1,'phase':phase,'plan_sha256':b.sha(b.encoded(plan)),'locks_held':True,'full_backup':False}))
-        host=Host(plan,args.directory,fds,event);sequence=Sequence(host,event)
+        host=host_type(plan,args.directory,fds,event);sequence=sequence_type(host,event)
         # Never let a generic TERM release maintenance locks after any mutation.
         def hold_signal(_number,_frame):
             if not changed[0]:raise KeyboardInterrupt
@@ -557,5 +562,7 @@ def main():
             while True:time.sleep(30)
         finally:
             if host.nested_context is not None and not changed[0]:host.nested_context.__exit__(None,None,None)
+
+def main():run_cli(Host,Sequence,validate_plan,__doc__)
 
 if __name__=='__main__':main()
