@@ -113,6 +113,49 @@ class PGRestoreProof(unittest.TestCase):
         for field in ('server_version', 'database_collate', 'database_ctype', 'datlocprovider', 'datcollversion'):
             self.assertIn(field, verify.DIAGNOSTIC_SQL)
 
+    def test_temporary_entrypoint_and_transient_sql_are_not_ready(self):
+        def response(value, code=0): return subprocess.CompletedProcess([], code, value, b'')
+        responses = [response(b'bash\n'), response(b'postgres\n'), response(b'ready'),
+                     response(b'', 2), response(b'postgres\n'), response(b'ready'), response(b'170011\n')]
+        with tempfile.TemporaryDirectory() as td, mock.patch.object(verify, 'command', side_effect=responses) as call, mock.patch.object(verify.time, 'sleep'):
+            self.assertEqual(verify.wait_final_postgres('owned', Path(td)), '170011')
+            commands = [x.args[0] for x in call.call_args_list]
+            self.assertEqual(commands[0][-2:], ['cat', '/proc/1/comm'])
+            self.assertEqual(commands[1][-2:], ['cat', '/proc/1/comm'])
+            saved = json.loads((Path(td) / 'startup-attempts.PRIVATE.json').read_text())
+            self.assertNotIn('pg_isready_status', saved['attempts'][0])
+            self.assertEqual(saved['attempts'][1]['sql_status'], 2)
+            self.assertEqual(saved['attempts'][2]['sql_status'], 0)
+            self.assertTrue(all(0 < x.kwargs['timeout'] <= 5 for x in call.call_args_list))
+
+    def test_startup_deadline_and_wrong_major_fail_with_private_evidence(self):
+        with tempfile.TemporaryDirectory() as td, mock.patch.object(verify.time, 'monotonic', side_effect=[0, 31]):
+            with self.assertRaisesRegex(RuntimeError, 'bound exceeded'):
+                verify.wait_final_postgres('owned', Path(td))
+            self.assertTrue((Path(td) / 'startup-attempts.PRIVATE.json').is_file())
+        responses = [subprocess.CompletedProcess([], 0, value, b'') for value in
+                     (b'postgres\n', b'ready', b'180001\n')]
+        with tempfile.TemporaryDirectory() as td, mock.patch.object(verify, 'command', side_effect=responses):
+            with self.assertRaisesRegex(RuntimeError, 'major changed'):
+                verify.wait_final_postgres('owned', Path(td))
+            self.assertEqual((Path(td) / 'startup-attempts.PRIVATE.json').stat().st_mode & 0o777, 0o600)
+
+    def test_startup_failure_logs_are_bounded_and_identity_checked(self):
+        with tempfile.TemporaryDirectory() as td:
+            owned = {'State': {'Running': False, 'ExitCode': 1, 'OOMKilled': False}}
+            response = subprocess.CompletedProcess([], 0, b'x' * 70000, b'initdb failed')
+            with mock.patch.object(verify, 'inspect_owned', return_value=owned) as checked, mock.patch.object(verify, 'command', return_value=response) as call:
+                verify.startup_diagnostics('owned', 'name', 'run', 'image', Path(td))
+            checked.assert_called_once_with('owned', 'name', 'run', 'image')
+            self.assertIn('--tail=100', call.call_args.args[0])
+            saved = json.loads((Path(td) / 'startup-failure.PRIVATE.json').read_text())
+            self.assertTrue(saved['truncated'])
+            self.assertEqual(len(saved['stdout']), 65536)
+            self.assertEqual(saved['state']['ExitCode'], 1)
+        with tempfile.TemporaryDirectory() as td, mock.patch.object(verify, 'inspect_owned', side_effect=RuntimeError('wrong identity')), mock.patch.object(verify, 'command') as call:
+            verify.startup_diagnostics('owned', 'name', 'run', 'image', Path(td))
+            call.assert_not_called()
+
     def test_query_reports_only_hashes_counts_and_owned_metadata(self):
         query = Path(__file__).with_name('provenance.sql').read_text()
         self.assertIn('sha256(convert_to', query)

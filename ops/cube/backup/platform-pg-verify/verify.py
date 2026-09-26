@@ -81,6 +81,62 @@ def proof_difference(expected, actual):
             'fixture_owners_equal': expected['fixture_owners'] == actual.get('fixture_owners')}
 
 
+def wait_final_postgres(cid, stage):
+    deadline = time.monotonic() + 30
+    attempts = []
+    try:
+        while True:
+            need(time.monotonic() < deadline, 'Final PostgreSQL readiness bound exceeded')
+            def probe(args):
+                remaining = deadline - time.monotonic()
+                need(remaining > 0, 'Final PostgreSQL readiness bound exceeded')
+                return command(['docker', 'exec', '--user=70:70', cid, *args],
+                               timeout=min(5, remaining), check=False)
+            # The official entrypoint starts a temporary postmaster during
+            # initdb. It can answer pg_isready but is not the final server.
+            comm = probe(['cat', '/proc/1/comm'])
+            attempt = {'pid1_status': comm.returncode,
+                       'pid1_comm': comm.stdout[:128].decode('utf-8', errors='replace')}
+            attempts.append(attempt)
+            if comm.returncode == 0 and comm.stdout.strip() == b'postgres':
+                ready = probe(['pg_isready', '-U', 'postgres', '-d', 'restoreproof'])
+                attempt['pg_isready_status'] = ready.returncode
+                if ready.returncode == 0:
+                    sql = probe(['psql', '-qAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres',
+                                 '-d', 'restoreproof', '-c', 'SHOW server_version_num'])
+                    attempt.update(sql_status=sql.returncode,
+                                   sql_stdout=sql.stdout[:128].decode('utf-8', errors='replace'),
+                                   sql_stderr=sql.stderr[:4096].decode('utf-8', errors='replace'))
+                    if sql.returncode == 0:
+                        version = sql.stdout.decode().strip()
+                        need(version.isdigit() and 170000 <= int(version) < 180000,
+                             'PostgreSQL major changed')
+                        return version
+            remaining = deadline - time.monotonic()
+            need(remaining > 0, 'Final PostgreSQL readiness bound exceeded')
+            time.sleep(min(.25, remaining))
+    finally:
+        write(stage / 'startup-attempts.PRIVATE.json', {'attempts': attempts[:121],
+                                                     'truncated': len(attempts) > 121})
+
+
+def startup_diagnostics(cid, name, run, image, stage):
+    result = {}
+    try:
+        owned = inspect_owned(cid, name, run, image)
+        state = owned['State']
+        result['state'] = {key: state.get(key) for key in
+                           ('Status', 'Running', 'Pid', 'ExitCode', 'OOMKilled', 'Error', 'StartedAt', 'FinishedAt')}
+        log = command(['docker', 'logs', '--tail=100', '--timestamps', cid], timeout=5, check=False)
+        result.update(log_returncode=log.returncode,
+                      stdout=log.stdout[:65536].decode('utf-8', errors='replace'),
+                      stderr=log.stderr[:65536].decode('utf-8', errors='replace'),
+                      truncated=len(log.stdout) > 65536 or len(log.stderr) > 65536)
+    except Exception as error:
+        result['diagnostics_exception_type'] = type(error).__name__
+    write(stage / 'startup-failure.PRIVATE.json', result)
+
+
 def create_args(name, run):
     return ['docker', 'create', '--pull=never', '--name', name, '--label', LABEL + '=' + run,
             '--network=none', '--userns=host', '--read-only', '--user=70:70', '--cap-drop=ALL',
@@ -167,15 +223,8 @@ def verify(source, stage, source_sha):
         inspect_owned(cid, name, run, image['Id'])
         mark('start-readiness')
         command(['docker', 'start', cid], timeout=30)
-        deadline = time.monotonic() + 30
-        while True:
-            p = command(['docker', 'exec', '--user=70:70', cid, 'pg_isready', '-U', 'postgres', '-d', 'restoreproof'], check=False)
-            if p.returncode == 0: break
-            need(time.monotonic() < deadline, 'PostgreSQL readiness bound exceeded')
-            time.sleep(.25)
+        wait_final_postgres(cid, stage)
         inspect_owned(cid, name, run, image['Id'])
-        version = command(['docker', 'exec', '--user=70:70', cid, 'psql', '-qAt', '-U', 'postgres', '-d', 'restoreproof', '-c', 'SHOW server_version_num']).stdout.decode().strip()
-        need(version.isdigit() and 170000 <= int(version) < 180000, 'PostgreSQL major changed')
         mark('server-diagnostics')
         diagnostics = command(['docker', 'exec', '--user=70:70', cid, 'psql', '-qAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', 'restoreproof', '-c', DIAGNOSTIC_SQL], check=False)
         private_query_result(stage, 'server-locale-version', diagnostics)
@@ -201,6 +250,8 @@ def verify(source, stage, source_sha):
         passed = True
         mark('validated')
     except Exception as error:
+        if cid and phase == 'start-readiness':
+            startup_diagnostics(cid, name, run, image['Id'], stage)
         write(stage / 'failure.json', {'phase': phase, 'exception_type': type(error).__name__, 'at': time.time(), 'verified': False})
         raise
     finally:
