@@ -37,6 +37,16 @@ def source():
 
 
 class CohortTests(unittest.TestCase):
+    def test_preview_can_expand_short_container_id_without_changing_source(self):
+        row = project()
+        for container in (row['recorded_container_id'], row['container_id']):
+            self.assertTrue(c.source_binding_matches((row['app_id'], 'docker', container), row))
+        for actual in (None, ('other-app', 'docker', row['container_id']),
+                       (row['app_id'], 'cube', row['container_id']),
+                       (row['app_id'], 'docker', row['container_id'][:-1] + 'a'),
+                       (row['app_id'], 'docker', row['container_id'][:11])):
+            self.assertFalse(c.source_binding_matches(actual, row))
+
     def test_only_ready_pause_snapshot_counts_can_change_online(self):
         original = {name: {'READY': 1} for name in c.m.TABLES}
         for count in (0, 2, 29):

@@ -92,6 +92,13 @@ def validate_config(c):
         need(Path(path).is_absolute() and '..' not in Path(path).parts and b.SHA.fullmatch(digest), 'Invalid cohort input pin')
 
 
+def source_binding_matches(actual, row):
+    # A normal preview wake expands a stored Docker short ID to its full ID.
+    # The source fence still inspects the exact pinned container/image/mount.
+    return actual in ((row['app_id'], 'docker', row['recorded_container_id']),
+                      (row['app_id'], 'docker', row['container_id']))
+
+
 def stopped_source(value, row, allow_running=False):
     state = value['State']
     need(value['Id'] == row['container_id'] and value['Image'] == row['image'], 'Docker source generation changed')
@@ -187,7 +194,7 @@ class Host(p.Host):
         with self.db() as db:
             for row in self.c['projects']:
                 actual = db.execute('SELECT app_id,runtime_provider,container_id FROM sandbox WHERE id=?', (row['sandbox_id'],)).fetchone()
-                need(actual == (row['app_id'], 'docker', row['recorded_container_id']), 'Current Docker binding differs')
+                need(source_binding_matches(actual, row), 'Current Docker binding differs')
                 journal = db.execute('SELECT phase,runtime_id FROM runtime_migration WHERE sandbox_id=?', (row['sandbox_id'],)).fetchone()
                 if 'retry_from_runtime_id' in row:
                     need(journal == ('aborted', row['retry_from_runtime_id']), 'Reviewed aborted journal changed')
@@ -431,7 +438,7 @@ class Host(p.Host):
                 else:
                     need(journal is None or journal[0] == 'aborted', 'Native abort did not settle target')
                     actual = db.execute('SELECT app_id,runtime_provider,container_id FROM sandbox WHERE id=?', (sid,)).fetchone()
-                    need(actual == (row['app_id'], 'docker', row['recorded_container_id']), 'Original source binding changed')
+                    need(source_binding_matches(actual, row), 'Original source binding changed')
         self.partial = True
         self.restoration_scope()
         self.source_fence(); self.bindings_readonly(); self.fence()
@@ -449,7 +456,7 @@ class Host(p.Host):
                 else:
                     need(self.partial, 'Cohort incomplete without settlement')
                     value = db.execute('SELECT app_id,runtime_provider,container_id FROM sandbox WHERE id=?', (row['sandbox_id'],)).fetchone()
-                    need(value == (row['app_id'], 'docker', row['recorded_container_id']), 'Unaccepted source changed')
+                    need(source_binding_matches(value, row), 'Unaccepted source changed')
 
     def restore_controller(self):
         self.restoration_scope()
