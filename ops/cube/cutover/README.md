@@ -33,3 +33,19 @@ Remove only these imports after the new controller, provider bindings, aliases
 and owner previews pass acceptance. Validate/adapt and reload Caddy again, then
 verify external routes. Restoring routing is not a data rollback: use the
 per-project migration journal to retain any writes made on Cube.
+
+For reviewed version2 cohorts, a terminal foreground migration CLI failure stops
+further waves. The coordinator retains completed Cube projects and may abort
+only known uncommitted targets using the native CLI. It reopens only after all
+journals are terminal, every original source is retained, current bindings match,
+and accepted projects pass normal API checks. Timeouts, uncertain creation,
+postcommit incomplete phases and failed aborts retain the fence for explicit
+recovery. Aborted journals and archives are never deleted; retry requires an
+explicit audited replan. The result records partial completion accurately.
+
+`proxy_import_limit.py` renders (but does not install) the migration-only4GiB
+upload locations from a pinned installed Cube proxy config. Validate with the
+actual nginx image, retain the original file, and preserve its bind-mounted inode
+when applying a graceful reload. The runtime accepts the same bounded size;
+ordinary uploads retain their existing limit. See the production receipt in
+`results/2026-09-26-import-proxy-limit` for scope and verification limits.

@@ -1,4 +1,5 @@
 import copy
+import contextlib
 import importlib.util
 from pathlib import Path
 import sqlite3
@@ -119,11 +120,64 @@ class CohortTests(unittest.TestCase):
             with self.subTest(fail=fail), self.assertRaises(RuntimeError): sequence.start(sequence.stop())
             host.reopen.assert_not_called(); host.start_worker.assert_not_called(); host.supervisor_stop.assert_not_called()
             self.assertNotIn('complete', events)
-        host = mock.Mock(); host.c = config(); events = []
+        host = mock.Mock(); host.c = config(); host.accepted = [project()]; host.partial = False; events = []
         sequence = c.Sequence(host, lambda phase, value=None: events.append(phase)); result = sequence.start(sequence.stop())
         self.assertTrue(result['original_sources_retained']); self.assertFalse(result['global_migration_complete'])
         self.assertEqual(result['customer_projects_migrated'], 1)
         self.assertEqual(host.migrate_cohort.call_count, 1); host.start_worker.assert_not_called()
+
+    def settlement_fixture(self, phase='staged'):
+        db = sqlite3.connect(':memory:'); self.addCleanup(db.close)
+        db.executescript('''CREATE TABLE sandbox(id,app_id,runtime_provider,container_id);
+          CREATE TABLE runtime_binding(sandbox_id,provider,runtime_id,template_id,config_revision);
+          CREATE TABLE runtime_migration(sandbox_id,phase,runtime_id,template_id,archive_sha256,home_sha256);''')
+        host = c.Host.__new__(c.Host); host.c = config(); host.accepted = []; host.partial = False
+        rows = [dict(project(), sandbox_id='1'*24 + '%02d' % i, app_id='0'*24 + '%02d' % i) for i in range(3)]
+        host.c['projects'] = rows; host.plan = {'bindings': []}
+        host.db = lambda: contextlib.nullcontext(db)
+        for name in ('fence', 'source_fence', 'inputs', 'event', 'bindings_readonly'):
+            setattr(host, name, mock.Mock())
+        for i, row in enumerate(rows):
+            db.execute('INSERT INTO sandbox VALUES(?,?,?,?)', (row['sandbox_id'], row['app_id'], 'cube' if i == 0 else 'docker', row['recorded_container_id']))
+            if i < 2:
+                db.execute('INSERT INTO runtime_migration VALUES(?,?,?,?,?,?)', (row['sandbox_id'], 'complete' if i == 0 else phase, 'vm'+str(i), row['template_id'], 'a'*64, 'b'*64))
+        db.execute('INSERT INTO runtime_binding VALUES(?,?,?,?,?)', (rows[0]['sandbox_id'], 'cube', 'vm0', rows[0]['template_id'], 0))
+        def abort(args, name, timeout):
+            self.assertEqual(args[-1], 'abort'); self.assertEqual(args[1], rows[1]['sandbox_id'])
+            db.execute("UPDATE runtime_migration SET phase='aborted' WHERE sandbox_id=?", (args[1],))
+            return {'sandbox_id': args[1], 'phase': 'aborted'}
+        host.run_cli = mock.Mock(side_effect=abort)
+        return host, db, rows
+
+    def test_partial_failure_preserves_complete_bindings_and_original_sources(self):
+        host, db, rows = self.settlement_fixture()
+        before = db.execute('SELECT * FROM sandbox ORDER BY id').fetchall()
+        host.settle_failed_cohort(); host.restoration_scope()
+        self.assertTrue(host.partial)
+        self.assertEqual([v['sandbox_id'] for v in host.accepted], [rows[0]['sandbox_id']])
+        self.assertEqual(host.plan['bindings'], host.accepted)
+        self.assertEqual(db.execute('SELECT * FROM sandbox ORDER BY id').fetchall(), before)
+        self.assertEqual(db.execute('SELECT phase FROM runtime_migration ORDER BY sandbox_id').fetchall(), [('complete',), ('aborted',)])
+        host.run_cli.assert_called_once()
+        # The unattempted third row remains in the original source fence.
+        self.assertEqual(len(host.c['projects']), 3)
+
+    def test_uncertain_create_or_committed_phase_never_auto_aborted(self):
+        for phase in ('creating', 'committed', 'rollback_started'):
+            host, db, rows = self.settlement_fixture(phase)
+            with self.subTest(phase=phase), self.assertRaises(c.b.Refused): host.settle_failed_cohort()
+            host.run_cli.assert_not_called(); self.assertFalse(host.partial)
+
+    def test_failed_abort_or_changed_source_prevents_restoration(self):
+        host, db, rows = self.settlement_fixture()
+        host.run_cli.side_effect = c.NativeMigrationFailed('provider failed')
+        with self.assertRaises(c.NativeMigrationFailed): host.settle_failed_cohort()
+        self.assertFalse(host.partial)
+        with self.assertRaises(c.b.Refused): host.restoration_scope()
+        host, db, rows = self.settlement_fixture()
+        host.settle_failed_cohort()
+        db.execute("UPDATE sandbox SET container_id='replacement' WHERE id=?", (rows[2]['sandbox_id'],))
+        with self.assertRaises(c.b.Refused): host.restoration_scope()
 
     def test_cli_retains_canonical_paths_and_has_no_retirement_action(self):
         host = c.Host.__new__(c.Host); host.c = config()
