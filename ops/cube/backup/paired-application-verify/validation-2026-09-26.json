@@ -1,0 +1,17 @@
+{
+  "version": 1,
+  "scope": "Source validation only; no full-pair application restore executed",
+  "native_linux_race": true,
+  "native_linux_vet": true,
+  "native_linux_build": true,
+  "macos_race_and_vet": true,
+  "final_source_archive_sha256": "7170c60545a870efd20dba9735be0af9504a8fafd00affec9a1f1aed2c8cd213",
+  "linux_binary_sha256": "c1399ba0a915364df3ac9f28dbf5551cbc8ad31217a9dee67670061337122380",
+  "private_build_stage": "/opt/baarcha-bench/cube-boot-native-20260926-03",
+  "final_lock_check": "Independent SH contender must already be blocked before confirming the inherited exclusive OFD; unlocked/shared parents are refused without upgrade",
+  "resource_limit": {"cpu": 2, "memory_bytes": 2147483648, "network": "none"},
+  "build_container_removed": true,
+  "source_worker_or_guest_mutations": false,
+  "production_restore_verified": false,
+  "ai_coding_passed": false
+}
