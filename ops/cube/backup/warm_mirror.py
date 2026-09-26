@@ -7,6 +7,7 @@ CLI operations are online preparation and a read-only delta estimate.
 import argparse
 import contextlib
 import errno
+import functools
 import hashlib
 import json
 import os
@@ -68,10 +69,19 @@ def normalized(roots):
     return values
 
 
+@functools.lru_cache(maxsize=16)
+def root_set(roots):
+    return frozenset(str(Path(root)) for root in roots)
+
+
 def contained(path, roots):
     p = Path(path)
-    return p.is_absolute() and '..' not in p.parts and str(p) == path and any(
-        p == Path(root) or Path(root) in p.parents for root in roots)
+    if not p.is_absolute() or '..' in p.parts or str(p) != path:
+        return False
+    # Millions of entries share this scope. Constructing every root and every
+    # parent chain for each comparison made preparation CPU-bound on NVMe.
+    selected = root_set(tuple(roots))
+    return str(p) in selected or any(str(parent) in selected for parent in p.parents)
 
 
 def records(roots):

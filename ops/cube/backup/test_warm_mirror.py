@@ -19,6 +19,19 @@ import warm_mirror as w
 NATIVE = sys.platform == 'linux' and Path('/usr/bin/rsync').exists()
 
 
+class ScopeTests(unittest.TestCase):
+    def test_many_root_scope_preserves_exact_ancestry_and_literal_names(self):
+        roots = ['/data/owner-' + str(n) for n in range(112)]
+        for path, expected in (
+            ('/data/owner-111', True), ('/data/owner-111/deep/.private\nfile', True),
+            ('/data/owner-111-extra/file', False), ('/data/owner-112/file', False),
+            ('/data/owner-111/../owner-112/file', False), ('/data/owner-111//file', False),
+            ('data/owner-111/file', False), ('/data', False), ('/', False)):
+            with self.subTest(path=path): self.assertEqual(w.contained(path, roots), expected)
+        self.assertTrue(w.contained('/data/owner-1/file', [Path('/data/owner-1')]))
+        self.assertTrue(w.contained('/data/owner-1/file', ['/data/owner-1/']))
+
+
 class MirrorTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()

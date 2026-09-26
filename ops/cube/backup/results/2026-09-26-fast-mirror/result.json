@@ -1,0 +1,1 @@
+{"benchmark_only": true, "candidate_seconds": 0.01786757167428732, "helper_sha256": "b95bff01478d9b4f9bb1d7818131057e270167fe75379afd71504ac2f98f44e2", "native_test_skips": 0, "native_tests": 20, "paths": 1000, "prior_seconds": 4.224630665034056, "production_services_changed": false, "roots": 112, "scope_check_speedup": 236.44123230878617, "version": 1}
