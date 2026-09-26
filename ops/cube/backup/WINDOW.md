@@ -48,3 +48,11 @@ Private review/config preparation is in
 stage is `/opt/baarcha-bench/cube-paired-window-tests-20260926-01`.
 Test/preflight success is not a full capture or restore receipt. Consumed plans
 and historical PIDs must never be replayed.
+
+The first production capture was aborted because archiving 1.94 million source
+entries inside the maintenance window was too slow. Production was restored at
+17:03:14 UTC after 1008.03 seconds; the worker never stopped. The independent
+owned canary passed afterward. See [restoration evidence](results/2026-09-26-abort-restored/).
+The incomplete role archive is not a backup. Prepare and validate a bulk copy
+while production is online before attempting another window; size/mtime-only
+comparison is insufficient to seal that copy against frozen source data.
