@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "kind": "owned-canary-after-worker-recovery",
+  "app": "01M3CZB4HXT2Y8HP8CEY75PCWY",
+  "sandbox": "01M3D1Q0E1KM1FEM244XVHEC65",
+  "started_at": "2026-09-26T13:49:09.339Z",
+  "ai_tasks_submitted": 0,
+  "first_authenticated_health_ms": 3241.9021009999997,
+  "file_modes_links_uid_and_bytes_preserved": true,
+  "acknowledged_sql_row_preserved": true,
+  "preview_marker_present": true,
+  "source_hashes_preserved": true,
+  "four_task_results_and_events_preserved": true,
+  "private_capture": {
+    "owner": true,
+    "foreign_denied": true,
+    "anonymous_denied": true,
+    "ms": 1541.78381,
+    "sha256": "f742809c6b06035d90e1e88051d893f5fbf28de2bbe2b1aafc166c0224837771"
+  },
+  "success": true,
+  "completed_at": "2026-09-26T13:49:15.562Z",
+  "actual_visual_review": {
+    "passed": true,
+    "description": "Notes page, saved acknowledgement row and operator marker visible; no login or error page."
+  }
+}

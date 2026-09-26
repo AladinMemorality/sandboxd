@@ -1,0 +1,48 @@
+{
+  "purpose": "Prepare measured 4/6/8/12 benchmark stages; no guest runs or production quota changes",
+  "native_source_archive_sha256": "8a6bcbe3277c276891fc83ec464796226f0c1295804ba3f39ab70d33fac0c841",
+  "native_source_manifest_sha256": "3371e45cbb8acd6598b3981041d0d9ccbf2f65ff08bd63d9f79f4ab4e3614990",
+  "native_owned_source_sha256": {
+    "control-plane/internal/store/cube_workload_live_linux_test.go": "25c000c8904976573fa436bd373f340984aa211bfb9a4529bdc0a665e3516c0d",
+    "control-plane/internal/store/cube_workload_baseline_linux_test.go": "3f934420346f602f489996c6a003eac3630ea9056485ac3b6b02d6189c6d6b9e",
+    "control-plane/internal/store/cube_workload_monitor_linux_test.go": "ddbf174321989ae940aca454913d6e80b8e4d0397df6e7fe5c9b503e05581f07",
+    "control-plane/internal/store/testdata/cube-workload.cjs": "02df418dac17934cf7564f7a993f4022128eeef6e4ab13afbfcadee56260daaa"
+  },
+  "operator_source_sha256": {
+    "ops/cube/workload/run-stage.py": "64d1702aaed3d0a255dbe78c2bf99604e6a8e32ebad46bf53fe60209381f01e2",
+    "ops/cube/workload/test_run_stage.py": "78d86c1e01ba4c462a09518a1e76db7050242e8789e8e6254fafe153b61a73a1",
+    "ops/cube/workload/test_script.cjs": "eb1402b48c610a36c6bbe77c8d55a7a1a109b2c8d1c681ce8be4971f4359edfe"
+  },
+  "native_tests": "go test -race -p 1 -count=1 ./internal/egress ./internal/store",
+  "native_test_result": "PASS",
+  "native_log_sha256": "d5e5cf1416b27bea7744d6cce817ceb15b365c3891843c72d863ba2d2dfbea58",
+  "prior_full_nine_package_suite": "PASS on r2; see docs/security/file-api-2026-09-25/compatibility-validation.json",
+  "python_prerequisite_and_latency_tests": {
+    "passed": 4
+  },
+  "deterministic_node_profile_test": "PASS: no real large allocation, guest or network; resource fault counters plus unchanged4MiB chunks/512MiB/20s preparation/45s steady profile and60/80s auto stops",
+  "binary": {
+    "path": "/opt/baarcha-bench/cube-files-motion-native-20260925-03/bin/cube-workload.test",
+    "sha256": "7568544cea6567cb87f9ee1fd8bd8172c436934f56c04965e02178a504109e21",
+    "source_cwd": "/opt/baarcha-bench/cube-files-motion-native-20260925-03/source/control-plane/internal/store",
+    "mode": "0700",
+    "native_go": "1.22 linux/amd64 CGO enabled; non-race executable for future measurement",
+    "live_executions": 0
+  },
+  "cleanup": {
+    "native_test_container_absent": true,
+    "unit_inactive": true,
+    "worker_operations": false
+  },
+  "production_max_active": 4,
+  "live_higher_capacity_proven": false,
+  "prerequisites": [
+    "exact controller stopped; Cube=false alone insufficient",
+    "exact retained canary paused with full provider/resources/owner/config/marker fingerprint; never mutated by fixture",
+    "zero canonical charged/tasks; no worker tasks or active provider jobs; LCM frozen",
+    "reviewed test native quota actually reported and prior config preserved",
+    "fresh BOOTTIME/boot-bound drain receipt, genuine storage observer, finite epoch reserve",
+    "2CPU/2GiB/128task unit; three outerlocks plus fixture workload and workerlocks",
+    "sequential measured4 baseline then6/8 and only then12; operator restores quota/LCM/controller after independent cleanup"
+  ]
+}

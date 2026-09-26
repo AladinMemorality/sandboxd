@@ -1,0 +1,34 @@
+{
+  "at": "2026-09-26T15:12:06Z",
+  "original_failed_job": "b19c16a9-5951-42d2-8278-dd0b36f77407",
+  "original_failed_template": "tpl-447c4a10db90487ab6f23a2b",
+  "original_failure": "Receive event timeout after 10000ms before supervisor readiness",
+  "first_trial": "Refused upstream tar UID1001 before shim replacement or template submission; preserved private stage 01",
+  "successful_job": "043b054b-914f-401a-a5be-502973ac8b4e",
+  "ready_template": "tpl-c0c9813b42db46898f7ddd9f",
+  "measured_vsock_ready_ms": 3093,
+  "timeout_causality_proven": false,
+  "causality_note": "Successful startup took less than the original ten-second window; timing variation or warm state may explain success. Do not claim a permanent timeout fix was proved.",
+  "stock_shim_restored": true,
+  "stock_shim_restored_uid": 0,
+  "stock_shim_restored_mode": "0755",
+  "template_baseline_after": {
+    "READY": 9,
+    "FAILED": 2
+  },
+  "previous_templates_deleted": false,
+  "customer_projects_migrated": 0,
+  "paid_model_calls": 0,
+  "global_mapping_changed": false,
+  "four_outer_locks_released": true,
+  "outer_private_stage": "/opt/baarcha-bench/cube-motion-coldstart-20260926-02",
+  "inner_private_stage": "/root/cube-production/motion-coldstart-20260926-02",
+  "inner_source_sha256": "d236ad4c6c4d818d452189ff36674e73be3036d1cc8a4b0888b9ef110769b528",
+  "outer_source_sha256": "f6640da0492abdfd164364e5e4cbeb6bfee9da50e97cf335ad35f386df9a7e38",
+  "pending_checks": [
+    "Authenticated fresh guest capability and restore through stock shim",
+    "Dedicated Motion worker UDS release with full request drain",
+    "Owned Motion upload, range playback and revocation acceptance",
+    "Scoped controller configuration and journaled customer migration"
+  ]
+}

@@ -1,0 +1,5 @@
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/auth	1.015s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/egress	29.270s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/api	35.395s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/runtimed	1.810s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/sandboxd	1.054s

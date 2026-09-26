@@ -1,0 +1,24 @@
+{
+  "cases": [
+    {
+      "attached_ready": true,
+      "cleanup_natural_exit_verified": true,
+      "exact_child_exit0_observed": true,
+      "mode": "normal-exit",
+      "parent_actual_exit1_preserved": true,
+      "trace_sha256": "2815a6bae032249b11d4d3a0af3d35afb75eeb405c091fe1408c4f12c8cbbc90"
+    },
+    {
+      "attached_ready": true,
+      "both_original_processes_alive_after_detach": true,
+      "cleanup_natural_exit_verified": true,
+      "mode": "detach-while-alive",
+      "only_owned_tracer_detached": true
+    }
+  ],
+  "external_clean_receipt_created": false,
+  "real_guest_os_shutdown_tested": false,
+  "scope": "Owned disposable Python parent and sleep child only; no VM, worker, services or network changes",
+  "source_sha256": "e1a4e9da9f1a98f473e2553451ed90c8df49fc64964997c753e2a840a2d978ab",
+  "version": 1
+}

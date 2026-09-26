@@ -85,7 +85,7 @@ func (g *Guest) ServiceHandler(kind string) http.Handler {
 			http.Error(w, "loopback only", 403)
 			return
 		}
-		if (kind != "model" && kind != "bridge") || r.URL.IsAbs() || r.Method == http.MethodConnect {
+		if (kind != "model" && kind != "bridge" && kind != "motion") || r.URL.IsAbs() || r.Method == http.MethodConnect {
 			http.Error(w, "invalid fixed service", 400)
 			return
 		}

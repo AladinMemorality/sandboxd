@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "run": "REVIEW_NEW_16_HEX_RUN",
+  "app_id": "01M3CZB4HXT2Y8HP8CEY75PCWY",
+  "sandbox_id": "01M3D1Q0E1KM1FEM244XVHEC65",
+  "stage": "/opt/baarcha-bench/cube-operator-recovery-REVIEW",
+  "original_journal": "/ROOT_PRIVATE_ORIGINAL_AI_JOURNAL",
+  "original_journal_sha256": "REVIEW",
+  "task_inventory_sha256": "REVIEW",
+  "controller_id": "REVIEW_CURRENT_CONTROLLER",
+  "controller_image": "sha256:REVIEW_CURRENT_IMAGE",
+  "runtime_id": "REVIEW_EXACT_PROVIDER_ID",
+  "worker_boot_id": "REVIEW_CURRENT_BOOT",
+  "enrollment_runner": "/ROOT_REVIEWED_ENROLLMENT_SOURCE/execute.py",
+  "enrollment_runner_sha256": "REVIEW",
+  "canonical_wrapper_sha256": "REVIEW",
+  "canonical_fixture_sha256": "REVIEW",
+  "before_sha256": {
+    "sandbox.yaml": "REVIEW",
+    "server.mjs": "REVIEW",
+    "public/index.html": "REVIEW"
+  },
+  "source_sha256": {
+    "main.mjs": "REVIEW",
+    "fixture.mjs": "REVIEW",
+    "home-worker.mjs": "REVIEW",
+    "run.py": "REVIEW",
+    "repair.mjs": "REVIEW"
+  }
+}

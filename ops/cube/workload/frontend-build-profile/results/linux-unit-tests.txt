@@ -1,0 +1,25 @@
+Running as unit: cube-frontend-profile-unit-20260925-01.service
+test_closed_stdout_process_still_obeys_deadline (test_guest.GuestTests.test_closed_stdout_process_still_obeys_deadline) ... ok
+test_copy_preserves_internal_links_without_mutating_source (test_guest.GuestTests.test_copy_preserves_internal_links_without_mutating_source) ... ok
+test_escape_special_inode_and_deadline_refused (test_guest.GuestTests.test_escape_special_inode_and_deadline_refused) ... ok
+test_exited_parent_cannot_leave_term_ignoring_writer (test_guest.GuestTests.test_exited_parent_cannot_leave_term_ignoring_writer) ... ok
+test_generated_workload_is_owned_and_repeat_refuses (test_guest.GuestTests.test_generated_workload_is_owned_and_repeat_refuses) ... ok
+test_no_environment_credentials_passed_to_build (test_guest.GuestTests.test_no_environment_credentials_passed_to_build) ... ok
+test_root_exec_is_not_silently_accepted (test_guest.GuestTests.test_root_exec_is_not_silently_accepted) ... ok
+test_success_and_log_cap (test_guest.GuestTests.test_success_and_log_cap) ... ok
+test_terminal_guard_refuses_missing_extra_or_active_tasks (test_guest.GuestTests.test_terminal_guard_refuses_missing_extra_or_active_tasks) ... ok
+test_empty_worker_list_and_unsupported_layout (test_prepare.PlanTests.test_empty_worker_list_and_unsupported_layout) ... ok
+test_preserves_existing_web_pg_build_bytes (test_prepare.PlanTests.test_preserves_existing_web_pg_build_bytes) ... ok
+test_restore_is_exact_and_rejects_concurrent_edit (test_prepare.PlanTests.test_restore_is_exact_and_rejects_concurrent_edit) ... ok
+test_validated_services_must_be_exactly_preserved (test_prepare.PlanTests.test_validated_services_must_be_exactly_preserved) ... ok
+
+----------------------------------------------------------------------
+Ran 13 tests in 1.111s
+
+OK
+Finished with result: success
+Main processes terminated with: code=exited/status=0
+Service runtime: 1.205s
+CPU time consumed: 168ms
+Memory peak: 448.0K
+Memory swap peak: 0B

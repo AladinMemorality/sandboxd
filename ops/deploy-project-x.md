@@ -43,6 +43,23 @@ supervisor and application behavior. The same sequence runs when rolling back th
 succeed, the running controller image must match, and both authenticated
 readiness and unauthenticated API denial must pass.
 
+When `/etc/baarcha-cube/worker-stop.json` is installed, the release also checks
+its private ownership, current controller and worker boot, absence of a stop
+marker, and exact agreement between the database migrations and the configured
+coordinator migration directory (including migration 34). After readiness it
+atomically updates only `controller_id`; rollback performs the same update for
+the restored controller. A concurrent configuration edit or incompatible schema
+leaves the controller stopped for operator review instead of overwriting the
+coordinator configuration. Original bytes and update receipts remain in the
+private release directory. This does not create a pause receipt or authorize
+shutdown. Cube releases require this configuration; Docker-only installations
+without it remain supported. `PROJECT_X_WORKER_STOP_CONFIG` overrides its path
+for isolated deployment tests.
+The candidate checkout's migration filenames and contents must also exactly
+match that directory before any image build or activation. A release adding a
+schema migration therefore needs reviewed coordinator enrollment first; it
+cannot discover the mismatch only after migrating the live database.
+
 On activation failure the candidate controller is stopped before restoring the
 old source, environment and image references. The database and tenant files
 are **never automatically restored**: this preserves writes accepted during the

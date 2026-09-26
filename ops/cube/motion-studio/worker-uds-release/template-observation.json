@@ -1,0 +1,70 @@
+{
+  "source": "read-only cubemastercli tpl list --json on actual worker",
+  "observed_date": "2026-09-25",
+  "prior_manifest_sha256": "bef0756e930600cf6e9f51b4066ef3f3e90de3de07d2a429f1da5c909377917a",
+  "templates": [
+    {
+      "template_id": "tpl-47a3d334cd8d4003859d7813",
+      "status": "READY",
+      "preset": "worker",
+      "known_image_digest": "127.0.0.1:5000/baarcha/worker@sha256:d6947de9c563fbc408e1115dbe5d1d118672b7ef9bb792ac8925e575e96367b7",
+      "motion_capability_verified": false
+    },
+    {
+      "template_id": "tpl-d1d9d24fe26641f7812e1287",
+      "status": "READY",
+      "preset": "fastapi",
+      "known_image_digest": "127.0.0.1:5000/baarcha/fastapi@sha256:bbc7fe7dab61546df715c1253c816ca3ab96a3259e2c3a92132068ef2bd16613",
+      "motion_capability_verified": false
+    },
+    {
+      "template_id": "tpl-54737fedc9074c0f887c6ac5",
+      "status": "READY",
+      "preset": "node-express",
+      "known_image_digest": "127.0.0.1:5000/baarcha/node-express@sha256:25b6a882d49edd2a52843d17a6510229890dfa836dbc9db7199deb21134061fb",
+      "motion_capability_verified": false
+    },
+    {
+      "template_id": "tpl-1e84e515952f4ef996dcb546",
+      "status": "READY",
+      "preset": "nextjs",
+      "known_image_digest": "127.0.0.1:5000/baarcha/nextjs@sha256:a6026ccaf642bdf82d8d94aed3681c6d6b34a2e6d46d259f52a0a860ecfd233a",
+      "motion_capability_verified": false
+    },
+    {
+      "template_id": "tpl-5abec4cb4fcc41cc8e611f69",
+      "status": "READY",
+      "preset": "react-vite",
+      "known_image_digest": "127.0.0.1:5000/baarcha/react-vite@sha256:b8ece62881111a7c1b6ce3efaaf13960818a53b54cf03c10454dba8938a68c96",
+      "motion_capability_verified": false
+    },
+    {
+      "template_id": "tpl-af77de3e32d742d6946d729c",
+      "status": "READY",
+      "preset": "marketplace",
+      "known_image_digest": "127.0.0.1:5000/baarcha/marketplace@sha256:8ae36753b770bac06b49ef75d266ff5074fd30e567ebc1857e281e4ae9b566d4",
+      "motion_capability_verified": false
+    },
+    {
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104",
+      "status": "READY",
+      "preset": "react-pro",
+      "known_image_digest": "127.0.0.1:5000/baarcha/react-pro@sha256:82bcbc1f26582cbe3bcb2119d1d462db7d9920aa7575dc4964c49fc42f6c1a43",
+      "motion_capability_verified": false
+    },
+    {
+      "template_id": "tpl-ce1ee426e686460bbc8c3bfc",
+      "status": "READY",
+      "preset": "node-postgres",
+      "known_image_digest": "127.0.0.1:5000/baarcha/node-postgres@sha256:b72798aaa51aa770dc9c950eefb1f0ea5fd17fc9454e6b94c1b8bf4be7f40e85",
+      "motion_capability_verified": false
+    },
+    {
+      "template_id": "tpl-f551a4d59a404ddc9403ed2b",
+      "status": "FAILED",
+      "preset": null,
+      "known_image_digest": null,
+      "motion_capability_verified": false
+    }
+  ]
+}

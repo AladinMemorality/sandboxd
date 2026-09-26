@@ -6,6 +6,7 @@ Run: python3 -m unittest discover -s ops -p test_deploy_project_x.py -v
 """
 import fcntl
 import http.server
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -29,6 +30,7 @@ a=sys.argv[1:]; root=Path(os.environ['FAKE_ROOT']); p=root/'docker.json'; s=json
 with (root/'commands.jsonl').open('a') as f:f.write(json.dumps(a)+'\n')
 fail=os.environ.get('FAIL_MODE','')
 def save():p.write_text(json.dumps(s))
+def cid():return s.get('id','a'*64)
 def image(name):
  if name.startswith('sha256:'):return name
  if name not in s['images']:sys.exit(1)
@@ -49,10 +51,10 @@ def config():
 def inspect():
  e=dict(config()['services']['sandboxd']['environment'])
  if 'cube' in s:e['SANDBOXD_CUBE_ENABLED']=s['cube']
- return [{'Id':'controller','Image':s['current'],'State':{'Running':s['running']},'Config':{'Env':[k+'='+v for k,v in e.items()],'Labels':{'com.docker.compose.project':'src'}}}]
+ return [{'Id':cid(),'Image':s['current'],'State':{'Running':s['running']},'Config':{'Env':[k+'='+v for k,v in e.items()],'Labels':{'com.docker.compose.project':'src'}}}]
 if a[0]=='compose':
  command=next(x for x in a if x in ['ps','config','up','stop'])
- if command=='ps':print(a[-1] if a[-1].startswith('cube-management-') else 'controller')
+ if command=='ps':print(a[-1] if a[-1].startswith('cube-management-') else cid())
  elif command=='config':
   print(json.dumps(config()))
  elif command=='stop':
@@ -66,15 +68,21 @@ if a[0]=='compose':
   assert a[-1]=='sandboxd' and all(x in a for x in ['--no-deps','--no-build','--pull','never'])
   files=[a[i+1] for i,x in enumerate(a) if x=='-f']; active=json.load(open(files[-1]))['services']['sandboxd']
   assert config()['services']['sandboxd']['environment'].get('SANDBOXD_CUBE_ENABLED','false')==env().get('SANDBOXD_CUBE_ENABLED','false')
-  s['current']=image(active['image']);s['running']=True;s['phase']='candidate' if ':release-' in active['image'] else 'rollback';save()
+  s['current']=image(active['image']);s['running']=True;s['phase']='candidate' if ':release-' in active['image'] else 'rollback';s['id']=('b' if s['phase']=='candidate' else 'c')*64;save()
   if s['phase']=='candidate':
+   if fail=='pin_after':(root/'src/traefik/dynamic/myhometroc.yml').write_text('changed-after-start')
    with sqlite3.connect(root/'data/state/sandboxd.db') as db:db.execute("insert into events values ('accepted-during-release')")
+   if fail=='pin_drift':
+    config=root/'worker/worker-stop.json';value=json.loads(config.read_text());value['receipt']='operator-changed';config.write_text(json.dumps(value))
+   if fail=='pin_boot':(root/'worker/boot').write_text('ffffffff-ffff-ffff-ffff-ffffffffffff')
+   if fail=='pin_schema':
+    with sqlite3.connect(root/'data/state/sandboxd.db') as db:db.execute('INSERT INTO migration VALUES(35)')
    if fail in ['up','stop']:sys.exit(1)
    if fail=='image':s['current']='sha256:'+'9'*64;save()
 elif a[0]=='inspect':
  if '-f' in a:print(s['current'])
  elif a[-2:]==['cube-management-api','cube-management-proxy']:
-  namespace='container:obsolete' if fail=='namespace' and s['phase']=='candidate' else 'container:controller'
+  namespace='container:obsolete' if fail=='namespace' and s['phase']=='candidate' else 'container:'+cid()
   relay={'HostConfig':{'NetworkMode':namespace},'State':{'Running':True,'Health':{'Status':'healthy'}}}
   print(json.dumps(inspect()+[relay,relay]))
  else:print(json.dumps(inspect()))
@@ -86,6 +94,8 @@ elif a[:2]==['image','inspect']:
 elif a[:2]==['image','tag']:
  s['images'][a[-1]]=image(a[-2]);save()
 elif a[0]=='build':
+ if fail=='review_after_build':
+  review=Path(os.environ['PROJECT_X_CUBE_ALLOWLIST_RELEASE_FILE']);review.write_text(review.read_text()+'\n')
  tag=a[a.index('-t')+1]
  if fail=='build' and tag.startswith('sandboxd-control-plane:'):sys.exit(1)
  s['images'][tag]='sha256:'+('3' if tag.startswith('sandboxd-control-plane:') else '4')*64
@@ -106,7 +116,7 @@ elif a[0]=='run':
 elif a[:2]==['rm','-f']:
  assert a[-1].startswith('sandboxd-deploy-check-')
 elif a[0]=='exec':
- assert a[1:4]==['-i','controller','curl'] and a[-2:]==['--config','-']
+ assert a[1:4]==['-i',cid(),'curl'] and a[-2:]==['--config','-']
  request=sys.stdin.read()
  assert 'url = ' in request and '/sandboxes?limit=1' in request
  print('503' if fail=='cube_api' and s['phase']=='candidate' else ('200' if 'X-API-Key:' in request else '401'),end='')
@@ -126,7 +136,7 @@ class DeployTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory(prefix="runtime-deploy-test-")
         self.addCleanup(self.tmp.cleanup)
-        self.root = Path(self.tmp.name)
+        self.root = Path(self.tmp.name).resolve()
         self.src = self.root / "src"
         self.src.mkdir()
         self.bin = self.root / "bin"
@@ -136,13 +146,16 @@ class DeployTest(unittest.TestCase):
         # The fake Docker checks finish immediately. The outer test timeout
         # remains real; production uses the host's GNU timeout for image tests.
         (self.bin / "timeout").write_text("#!/usr/bin/env python3\nimport os,sys\na=sys.argv[1:]\nwhile a[0].startswith('--'):a.pop(0)\na.pop(0)\nos.execvp(a[0],a)\n")
+        (self.bin / 'ssh').write_text("#!/usr/bin/env python3\nimport os,pathlib\nprint((pathlib.Path(os.environ['FAKE_ROOT'])/'worker/boot').read_text().strip())\n")
         for path in self.bin.iterdir():
             path.chmod(0o755)
         self.git("init", "-q")
         self.git("config", "user.email", "deploy-test@invalid.example")
         self.git("config", "user.name", "Synthetic deploy test")
-        for directory in ("host", "image", "control-plane", "traefik/dynamic", "scripts", "image/services/postgres"):
+        for directory in ("host", "image", "control-plane/migrations", "traefik/dynamic", "scripts", "image/services/postgres"):
             (self.src / directory).mkdir(parents=True, exist_ok=True)
+        for number in range(1, 35):
+            (self.src / "control-plane/migrations" / f"{number:04d}_fixture.sql").write_text("-- fixture\n")
         (self.src / "host/sandbox-isolation.sh").write_text(ISOLATION)
         (self.src / "host/sandbox-isolation.sh").chmod(0o755)
         (self.src / "docker-compose.yml").write_text("services: {sandboxd: {image: old}}\n")
@@ -199,7 +212,7 @@ class DeployTest(unittest.TestCase):
     def deploy(self, mode=""):
         self.mode = mode
         env = {**os.environ, "PATH": str(self.bin) + os.pathsep + os.environ["PATH"], "FAKE_ROOT": str(self.root), "FAIL_MODE": mode,
-               "PROJECT_X_SRC_DIR": str(self.src), "PROJECT_X_DEPLOY_STATE": str(self.root / "deploy-state")}
+               "PROJECT_X_SRC_DIR": str(self.src), "PROJECT_X_DEPLOY_STATE": str(self.root / "deploy-state"), "PROJECT_X_WORKER_STOP_CONFIG": str(self.root / "worker/worker-stop.json"), **getattr(self,"extra_env",{})}
         return subprocess.run(["bash", str(SCRIPT), self.sha], env=env, text=True, capture_output=True, timeout=20)
 
     def commands(self):
@@ -325,7 +338,174 @@ class DeployTest(unittest.TestCase):
         self.db.execute("create table app_runtime (provider text)")
         self.db.execute("insert into app_runtime values ('cube')")
         self.db.commit()
+        self.install_worker_config()
         return cube
+
+    def enable_allowlist_review(self):
+        cube=self.enable_existing_cube()
+        cube['SANDBOXD_CUBE_ROLLOUT']='allowlist'
+        cube['SANDBOXD_CUBE_APP_IDS']='01M3CZB4HXT2Y8HP8CEY75PCWY'
+        self.env_text=self.env_text.replace('SANDBOXD_CUBE_ROLLOUT=global','SANDBOXD_CUBE_ROLLOUT=allowlist')+'SANDBOXD_CUBE_APP_IDS='+cube['SANDBOXD_CUBE_APP_IDS']+'\n'
+        (self.src/'.env').write_text(self.env_text)
+        for name in ['runtime-compose.json','active-images.json']:
+            path=self.root/'deploy-state'/name;value=json.loads(path.read_text());value['services']['sandboxd']['environment']=dict(cube);path.write_text(json.dumps(value))
+        rendered=json.loads(subprocess.check_output([str(self.bin/'docker'),'compose','config'],env={**os.environ,'FAKE_ROOT':str(self.root)}))
+        folder=self.root/'review';folder.mkdir(mode=0o700)
+        review=folder/'allowlist.json'
+        value={'version':1,'candidate_sha':self.sha,'controller_id':'a'*64,'app_ids':[cube['SANDBOXD_CUBE_APP_IDS']],
+            'runtime_override_sha256':hashlib.sha256((self.root/'deploy-state/runtime-compose.json').read_bytes()).hexdigest(),
+            'rendered_config_sha256':hashlib.sha256(json.dumps(rendered,sort_keys=True,separators=(',',':')).encode()).hexdigest()}
+        review.write_text(json.dumps(value));review.chmod(0o600)
+        self.extra_env={'PROJECT_X_CUBE_ALLOWLIST_RELEASE_FILE':str(review)}
+        return review,cube
+
+    def test_explicit_allowlist_review_preserves_exact_scope_and_guest_ownership(self):
+        review,cube=self.enable_allowlist_review()
+        result=self.deploy();self.assertEqual(result.returncode,0,result.stderr)
+        after=json.loads((self.root/'deploy-state/active-images.json').read_text())
+        self.assertEqual(after['services']['sandboxd']['environment'],cube)
+        self.assertEqual(self.db.execute('select provider from app_runtime').fetchall(),[('cube',)])
+        self.assert_preserved()
+        receipt=next((self.root/'deploy-state/releases').glob('*/cube-allowlist-review.json'))
+        self.assertEqual(receipt.read_bytes(),review.read_bytes())
+        self.assertNotIn('synthetic-cube-key',result.stdout+result.stderr)
+
+    def test_allowlist_without_explicit_review_refused_before_build(self):
+        self.enable_allowlist_review();self.extra_env={}
+        result=self.deploy();self.assertNotEqual(result.returncode,0)
+        self.assertFalse(any(c[0]=='build' or 'up' in c for c in self.commands()))
+
+    def test_allowlist_review_drift_permissions_and_scope_refused_before_build(self):
+        for mutation in ['sha','controller','scope','override','render','mode','symlink','duplicate']:
+            with self.subTest(mutation=mutation):
+                if mutation!='sha':self.doCleanups();self.setUp()
+                review,_=self.enable_allowlist_review();value=json.loads(review.read_text())
+                if mutation=='sha':value['candidate_sha']='f'*40
+                elif mutation=='controller':value['controller_id']='d'*64
+                elif mutation=='scope':value['app_ids']=['01M3CKN983PFRGMD711PCEPDFD']
+                elif mutation=='override':value['runtime_override_sha256']='0'*64
+                elif mutation=='render':value['rendered_config_sha256']='0'*64
+                review.write_text(json.dumps(value))
+                if mutation=='mode':review.chmod(0o644)
+                elif mutation=='symlink':
+                    other=review.with_suffix('.saved');review.rename(other);review.symlink_to(other)
+                elif mutation=='duplicate':review.write_text(review.read_text()[:-1]+',"version":1}')
+                result=self.deploy();self.assertNotEqual(result.returncode,0,result.stderr)
+                self.assertFalse(any(c[0]=='build' or 'up' in c for c in self.commands()))
+
+    def test_allowlist_review_changed_during_build_never_activates(self):
+        self.enable_allowlist_review();result=self.deploy('review_after_build')
+        self.assertNotEqual(result.returncode,0)
+        self.assertTrue(any(c[0]=='build' for c in self.commands()))
+        self.assertFalse(any('up' in c or 'stop' in c for c in self.commands()))
+        self.assertEqual(self.git('rev-parse','HEAD'),self.old)
+        self.assertEqual((self.src/'.env').read_text(),self.env_text)
+
+    def test_allowlist_review_cannot_be_reused_after_controller_recreation(self):
+        self.enable_allowlist_review();result=self.deploy();self.assertEqual(result.returncode,0,result.stderr)
+        count=len(self.commands());result=self.deploy();self.assertNotEqual(result.returncode,0)
+        self.assertFalse(any(c[0]=='build' or 'up' in c for c in self.commands()[count:]))
+
+    def install_worker_config(self):
+        directory = self.root / "worker"
+        directory.mkdir(mode=0o700)
+        migrations = directory / "migrations"
+        migrations.mkdir(mode=0o700)
+        for number in range(1, 35):
+            (migrations / f"{number:04d}_fixture.sql").write_text("-- fixture\n")
+        self.db.execute("CREATE TABLE migration(id INTEGER PRIMARY KEY)")
+        self.db.executemany("INSERT INTO migration VALUES(?)", [(i,) for i in range(1, 35)])
+        self.db.commit()
+        boot = "11111111-1111-1111-1111-111111111111"
+        (directory / "boot").write_text(boot)
+        config = {"version": 1, "controller_id": "a" * 64, "database": str(self.root / "data/state/sandboxd.db"),
+                  "worker_boot_id": boot, "worker_machine_id": "machine", "data_uuid": "data-uuid", "migrations": str(migrations),
+                  "receipt": "retained-private-receipt", "api_key": "not-in-logs",
+                  "admission": {"storage_guard": {"expected_boot_id": boot, "worker_machine_id": "machine", "inner_fs_uuid": "data-uuid"}}}
+        (directory / "worker-stop.json").write_text(json.dumps(config))
+        (directory / "worker-stop.json").chmod(0o600)
+        return config
+
+    def test_configured_docker_release_also_refreshes_pin(self):
+        before = self.install_worker_config()
+        result = self.deploy()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        after = json.loads((self.root / "worker/worker-stop.json").read_text())
+        self.assertEqual(after, dict(before, controller_id="b" * 64))
+        self.assertNotIn("not-in-logs", result.stdout + result.stderr)
+
+    def test_stale_pin_refused_before_build(self):
+        self.install_worker_config()
+        path = self.root / "worker/worker-stop.json"
+        config = json.loads(path.read_text()); config["controller_id"] = "d" * 64
+        path.write_text(json.dumps(config))
+        result = self.deploy()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(any(c[0] == "build" or "up" in c for c in self.commands()))
+
+    def test_candidate_schema_or_migration_drift_refused_before_build_or_restart(self):
+        for change in ("new_schema", "changed_sql"):
+            with self.subTest(change=change):
+                if change != "new_schema":
+                    self.doCleanups(); self.setUp()
+                before = self.install_worker_config()
+                self.git("checkout", "--detach", self.sha)
+                filename = "0035_new.sql" if change == "new_schema" else "0034_fixture.sql"
+                (self.src / "control-plane/migrations" / filename).write_text("-- incompatible new schema\n")
+                self.git("add", "control-plane/migrations")
+                self.git("commit", "-qm", "candidate schema drift")
+                self.sha = self.git("rev-parse", "HEAD")
+                self.git("checkout", "--detach", self.old)
+                result = self.deploy()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(any(c[0] == "build" or "up" in c or "stop" in c for c in self.commands()))
+                self.assertEqual(self.git("rev-parse", "HEAD"), self.old)
+                self.assertEqual(self.db.execute("SELECT MAX(id) FROM migration").fetchone()[0], 34)
+                self.assertEqual(json.loads((self.root / "worker/worker-stop.json").read_text()), before)
+
+    def test_worker_config_permissions_symlink_and_stop_marker_fail_closed(self):
+        for mode in ("permissions", "symlink", "marker"):
+            with self.subTest(mode=mode):
+                if mode != "permissions":
+                    self.doCleanups(); self.setUp()
+                self.install_worker_config()
+                path = self.root / "worker/worker-stop.json"
+                if mode == "permissions": path.chmod(0o644)
+                elif mode == "symlink":
+                    target = path.with_name("retained.json"); path.rename(target); path.symlink_to(target)
+                else: (self.root / "data/state/sandboxd.db.worker-stop.json").write_text("retained stop")
+                result = self.deploy()
+                self.assertNotEqual(result.returncode, 0)
+                self.assertFalse(any(c[0] == "build" or "up" in c for c in self.commands()))
+
+    def test_cube_release_requires_installed_worker_configuration(self):
+        self.enable_existing_cube()
+        (self.root / "worker/worker-stop.json").unlink()
+        result = self.deploy()
+        self.assertNotEqual(result.returncode, 0)
+        self.assertFalse(any(c[0] == "build" or "up" in c for c in self.commands()))
+
+    def test_changed_config_or_boot_or_schema_never_overwritten(self):
+        for mode in ("pin_drift", "pin_boot", "pin_schema"):
+            with self.subTest(mode=mode):
+                if mode != "pin_drift":
+                    self.doCleanups(); self.setUp()
+                original = self.install_worker_config()
+                result = self.deploy(mode)
+                self.assertNotEqual(result.returncode, 0)
+                config = json.loads((self.root / "worker/worker-stop.json").read_text())
+                self.assertEqual(config["controller_id"], original["controller_id"])
+                if mode == "pin_drift": self.assertEqual(config["receipt"], "operator-changed")
+                self.assertFalse(json.loads((self.root / "docker.json").read_text())["running"])
+
+    def test_rollback_refreshes_previously_refreshed_controller_pin(self):
+        before = self.install_worker_config()
+        result = self.deploy("pin_after")
+        self.assertNotEqual(result.returncode, 0)
+        after = json.loads((self.root / "worker/worker-stop.json").read_text())
+        self.assertEqual(after, dict(before, controller_id="c" * 64))
+        receipts = list((self.root / "deploy-state/releases").glob("*/worker-stop-pin-*.json"))
+        self.assertEqual(len(receipts), 2)
 
     def test_cube_release_preserves_configuration_and_reconnects_relays(self):
         cube = self.enable_existing_cube()

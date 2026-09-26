@@ -1,0 +1,10 @@
+{
+  "exit_code": 0,
+  "node": "v22.23.2",
+  "node_sha256": "3517c2df0b2f8cd7f422b4b8450ef81c6889f08eb03e281d6de9079b15e6a327",
+  "installed_sharp_exercised": true,
+  "native_pidfd_systemd_fixture": true,
+  "production_motion_identity_unchanged": true,
+  "test_log_sha256": "f0e7a35ca8c477fd9f7e83c20992f9bb645dda8d243013e475416e2f611b5386",
+  "production_worker_operations": false
+}

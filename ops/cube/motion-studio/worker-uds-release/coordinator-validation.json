@@ -1,0 +1,31 @@
+{
+  "recorded_at": "2026-09-26T11:57:11.648519+00:00",
+  "scope": "source-only Motion worker three-file plus drop-in coordinator",
+  "live_release_executed": false,
+  "remote_mutations": false,
+  "local_tests": {
+    "command": "python3 -m unittest discover -s ops/cube/motion-studio/worker-uds-release -p test_release.py -v",
+    "passed": 25,
+    "failed": 0
+  },
+  "pinned_tar_validation": {
+    "sha256": "432309a16306180f972b1f50bb62c0dc2c2aaaf84d4a9e3501763ad785e3cb7a",
+    "regular_members": 3,
+    "passed": true
+  },
+  "sources": {
+    "release.py": "156ddeae818e5f7a084f3e09b1f94f2067fb348fb5d32c522eb8e70e047f8eef",
+    "test_release.py": "eecef2d30ab084a7e5218dbdcc5737943ba2e6990e8267e8270d4c046c1cc509",
+    "COORDINATOR.md": "01a249f582714ddd4fc97bca786d1c895ddcc14029a3ced7646f2abe05b8ccbc"
+  },
+  "limits": [
+    "No Linux systemd live release/rollback acceptance performed.",
+    "Requires reviewed caller-established admission and writer fence; queue counts alone do not qualify.",
+    "Power loss/SIGKILL remains explicit manual recovery; no automatic uncertain-journal replay.",
+    "Worker recovery incident currently holds all live Motion/template actions."
+  ],
+  "review_corrections": [
+    "Inherited descriptors must already hold exclusive OFD locks; no shared/unlocked conversion.",
+    "Abnormal or unknown worker stop refuses backup/install and automated restart; actual exit disposition retained."
+  ]
+}

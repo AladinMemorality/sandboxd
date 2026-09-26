@@ -1,0 +1,122 @@
+{
+  "version": 2,
+  "run": "8f4fe20a0dfc9f45",
+  "task_terminal_status": "failed",
+  "package_sha256": "2b1da52f6cedb7b064fa9d7c0286eec9e47b54b7f87c915676ae43fa42aaf6e5",
+  "phases": [
+    {
+      "name": "copy_started",
+      "wall_time_ns": 1790374060226867835,
+      "monotonic_ns": 7251387250617
+    },
+    {
+      "name": "copy_finished",
+      "wall_time_ns": 1790374075552273801,
+      "monotonic_ns": 7266712355113
+    },
+    {
+      "name": "frontend_process_start",
+      "wall_time_ns": 1790374075553094473,
+      "monotonic_ns": 7266713175265
+    },
+    {
+      "name": "frontend_modules_and_api_ready",
+      "wall_time_ns": 1790374080216383460,
+      "monotonic_ns": 7271376464102
+    },
+    {
+      "name": "warm_api_finished",
+      "wall_time_ns": 1790374082348995880,
+      "monotonic_ns": 7273509077232
+    },
+    {
+      "name": "build_started",
+      "wall_time_ns": 1790374082350862431,
+      "monotonic_ns": 7273510943853
+    },
+    {
+      "name": "build_finished",
+      "wall_time_ns": 1790374090665011530,
+      "monotonic_ns": 7281825092402
+    },
+    {
+      "name": "hmr_started",
+      "wall_time_ns": 1790374098964370905,
+      "monotonic_ns": 7290124452637
+    },
+    {
+      "name": "hmr_finished",
+      "wall_time_ns": 1790374099208477093,
+      "monotonic_ns": 7290368558135
+    },
+    {
+      "name": "finished",
+      "wall_time_ns": 1790374099211283514,
+      "monotonic_ns": 7290371364496
+    },
+    {
+      "name": "owned_children_stopped",
+      "wall_time_ns": 1790374099516193299,
+      "monotonic_ns": 7290676274731
+    }
+  ],
+  "successful": true,
+  "production_speed_claim": false,
+  "dependency_mode": "prepared cache; no install command; npm offline configured",
+  "cold_scope": "new frontend process after copy; no VM or page-cache-cold claim",
+  "notes_and_pg_supervisor_restart": true,
+  "react_render_verified": false,
+  "copy": {
+    "entries": 13319,
+    "logical_bytes": 148538032,
+    "metadata_manifest_sha256": "3b51773ff6ff2f157a497a7d6160bde06ab2de407945cd4b9032841fcc6919e4"
+  },
+  "ready": {
+    "mode": "ready",
+    "elapsed_ms": 4074.2280360000004,
+    "transformed_feature_modules": 48,
+    "api_valid": true
+  },
+  "warm": {
+    "mode": "warm",
+    "started_wall_ms": 1790374080310.6152,
+    "elapsed_ms": 2026.4001990000002,
+    "requests": 8,
+    "concurrency": 1,
+    "starts_per_second_max": 4,
+    "failures": 0,
+    "latency_median_ms": 8.361292000000049,
+    "latency_p95_ms": 140.38153699999987,
+    "latency_max_ms": 140.38153699999987
+  },
+  "build": {
+    "elapsed_ms": 8312,
+    "exit_code": 0,
+    "timed_out": false,
+    "max_child_rss_kib": 242572,
+    "user_cpu_s": 7.2195219999999996,
+    "system_cpu_s": 4.744553,
+    "log_bytes_observed": 589,
+    "log_truncated": false,
+    "rss_scope": "Linux RUSAGE_CHILDREN cumulative high-water RSS; not simultaneous process-tree or total guest RAM"
+  },
+  "load": {
+    "mode": "load",
+    "started_wall_ms": 1790374082450.673,
+    "elapsed_ms": 16460.344254,
+    "requests": 64,
+    "concurrency": 1,
+    "starts_per_second_max": 4,
+    "failures": 0,
+    "latency_median_ms": 5.735692000000199,
+    "latency_p95_ms": 16.501718999999866,
+    "latency_max_ms": 39.45298599999978
+  },
+  "hmr": {
+    "mode": "hmr",
+    "websocket_update_ms": 16.514670999999993,
+    "transformed_marker_verified": true,
+    "browser_render_verified": false
+  },
+  "dist_index_sha256": "7dadbe9b405eddaacaff7ffc5875c8de730c4f1558c6bc9228ab030c08b4ff22"
+}

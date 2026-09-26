@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "scope": "read-only single-owned-app controller enrollment preflight",
+  "preflight_passed_at": "2026-09-25T19:23:29.650181+00:00",
+  "completed_at": "2026-09-25T19:23:29.692616+00:00",
+  "result": "PASS",
+  "execution_performed": false,
+  "service_changes": false,
+  "guest_operations": false,
+  "production_cube_enabled": false,
+  "global_rollout_authorized": false,
+  "operator_writer_handoff_pending": true,
+  "runner_sha256": "aadd19a240df2503d72dafec3ef18194faaa930de443b59547fa42c55c81f5e4",
+  "private_input_sha256": "4bb979f119e2cfa34a41796bce300839929921d6ce0c548fd06b22b0b4098193",
+  "review_manifest_sha256": "08ea8147a64ecba7df757b9845bf3b942e3492c97562750a8aaef3969b23f3a5",
+  "drain_observer_sha256": "06dd5e379fa594ec6fbfa37d36971fa5703ff5969b8766bac98196ee10c0f92e",
+  "routing_candidates_installed": false,
+  "routing_candidate_hashes": {
+    "drain.json": "8406ddff0d74ee3937f769987b9cebd1a526e32e7adda59e73798a4274586096",
+    "offline.json": "850a00a156e28c11b41170212f403bfa341c3373405682904c6e0e9b5ba6472c"
+  },
+  "live_caddy_canonical_sha256": "79c2c4de52d56d36f39df2f2c39586be9245190f3d459736a21599d7bf769bff",
+  "preserved_live_alias": "MotionStudio exact host and route ID; Traefik upstream",
+  "platform_revision": "1b4e9ac2a02dde0e51021dbe09898548860df4a1",
+  "runtime_revision": "6b4fd4d054dbf8247287c9edb7d7e87ce9668e9a",
+  "controller_id": "54f9d073a7c2739b55481d5bbbb80f22847cb1e1d3225fe5af9590f2f48de5f3",
+  "controller_image": "sha256:14e9b9244729875d15b95082c100b61582c929b48deba1ecd60b38729f344f82",
+  "database_counts": {"apps": 68, "bindings": 0, "admission": 0, "recovery": 0, "active": 0},
+  "four_outer_locks_and_nested_fixture_lock_released": true,
+  "unit_tests_passed": 9,
+  "prior_preflights_retained": [
+    "check01 refused historical observer path; exact reviewed observer staged separately",
+    "check02 refused Compose normalized bind default; explicit false/omitted equivalence tested",
+    "check03 found one live alias absent from disk Caddyfile; preserve-and-fence transformation separately reviewed"
+  ],
+  "private_evidence_directory": "/opt/baarcha-bench/cube-controller-cutover-check-04"
+}

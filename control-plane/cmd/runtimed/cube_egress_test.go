@@ -78,7 +78,12 @@ func TestCubeProxyMuxSupportsConnectAndFixedServices(t *testing.T) {
 				t.Error("incorrect bridge rewrite")
 			}
 			io.WriteString(w, "bridge")
-		}), "model": http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, "model") })}})
+		}), "model": http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { io.WriteString(w, "model") }), "motion": http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/projects" {
+				t.Error("incorrect Motion path rewrite")
+			}
+			io.WriteString(w, "motion")
+		})}})
 	}()
 	defer func() {
 		cancel()
@@ -110,7 +115,7 @@ func TestCubeProxyMuxSupportsConnectAndFixedServices(t *testing.T) {
 	if err != nil || string(body) != "TLS fixture" {
 		t.Fatalf("CONNECT mux failed: %q %v", body, err)
 	}
-	for path, want := range map[string]string{"/__cube/bridge": "bridge", "/__cube/model/v1/cube-model/cube-one/01ARZ3NDEKTSV4RRFFQ69G5FAV/v1/messages": "model"} {
+	for path, want := range map[string]string{"/__cube/motion/api/projects": "motion", "/__cube/bridge": "bridge", "/__cube/model/v1/cube-model/cube-one/01ARZ3NDEKTSV4RRFFQ69G5FAV/v1/messages": "model"} {
 		resp, err := http.Post(proxy.URL+path, "application/json", strings.NewReader("{}"))
 		if err != nil {
 			t.Fatal(err)
@@ -149,5 +154,22 @@ func TestCubeAppStartWaitsForAuthenticatedChannelAndCancels(t *testing.T) {
 	case <-started:
 	default:
 		t.Fatal("Docker startup changed")
+	}
+}
+
+func TestMotionWorkerCapabilityRequiresReverseGuest(t *testing.T) {
+	a := &app{bootedAt: time.Now()}
+	if len(a.status().Capabilities) != 0 {
+		t.Fatal("Docker/old supervisor advertised reverse capability")
+	}
+	g, err := egress.NewGuest(egress.GuestOptions{Authenticate: func(*http.Request) bool { return false }})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer g.Close()
+	a.cubeEgress = g
+	capabilities := a.status().Capabilities
+	if len(capabilities) != 1 || capabilities[0] != "motion-worker-v1" {
+		t.Fatal("reviewed supervisor capability absent")
 	}
 }

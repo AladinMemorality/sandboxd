@@ -1,5 +1,10 @@
 # Bounded four-or-twelve-app workload fixture
 
+This page preserves the historical September25 workload/results and invocation.
+For the current4/6/8/12 source, explicit CPU/memory profiles, benchmark-only build
+tag and actual Master/template preflight, follow [staged runner](staged-runner.md).
+Do not use the historical executable/configuration as higher-capacity acceptance.
+
 **Twelve-app acceptance failed on2026-09-25.** The corrected asynchronous run
 exceeded the20-second resident-memory deadline; it did not reach steady work.
 See [recorded results](live-validation-2026-09-25.json) and

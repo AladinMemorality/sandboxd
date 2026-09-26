@@ -47,12 +47,20 @@ type workloadSample struct {
 	Cycles  uint64                        `json:"cycles"`
 	RSS     int64                         `json:"rss"`
 	CPU     struct{ User, System uint64 } `json:"cpu"`
+	Faults  struct{ Minor, Major uint64 } `json:"faults"`
 }
 type workloadMemory struct {
-	Host         string `json:"host"`
-	AvailableKiB uint64 `json:"available_kib"`
-	SwapFreeKiB  uint64 `json:"swap_free_kib"`
-	OOMKills     uint64 `json:"oom_kills"`
+	Host            string  `json:"host"`
+	AvailableKiB    uint64  `json:"available_kib"`
+	SwapFreeKiB     uint64  `json:"swap_free_kib"`
+	OOMKills        uint64  `json:"oom_kills"`
+	SwapTotalKiB    uint64  `json:"swap_total_kib"`
+	PageFaults      uint64  `json:"page_faults"`
+	MajorFaults     uint64  `json:"major_faults"`
+	CPUUserTicks    uint64  `json:"cpu_user_ticks"`
+	CPUSystemTicks  uint64  `json:"cpu_system_ticks"`
+	Runnable        uint64  `json:"runnable"`
+	MemoryFullAvg10 float64 `json:"memory_full_avg10"`
 }
 type workloadHostSample struct {
 	At     time.Time      `json:"at"`
@@ -74,6 +82,32 @@ func parseWorkloadMemory(raw []byte) (workloadMemory, error) {
 			continue
 		}
 		key := strings.TrimSuffix(fields[0], ":")
+		if key == "cpu" && len(fields) >= 5 {
+			m.CPUUserTicks, _ = strconv.ParseUint(fields[1], 10, 64)
+			m.CPUSystemTicks, _ = strconv.ParseUint(fields[3], 10, 64)
+			continue
+		}
+		if key == "full" && len(fields) >= 2 && strings.HasPrefix(fields[1], "avg10=") {
+			m.MemoryFullAvg10, _ = strconv.ParseFloat(strings.TrimPrefix(fields[1], "avg10="), 64)
+			continue
+		}
+		if key == "SwapTotal" || key == "pgfault" || key == "pgmajfault" || key == "procs_running" {
+			n, err := strconv.ParseUint(fields[1], 10, 64)
+			if err != nil {
+				return m, errors.New("invalid extended host metric")
+			}
+			switch key {
+			case "SwapTotal":
+				m.SwapTotalKiB = n
+			case "pgfault":
+				m.PageFaults = n
+			case "pgmajfault":
+				m.MajorFaults = n
+			case "procs_running":
+				m.Runnable = n
+			}
+			continue
+		}
 		if key != "MemAvailable" && key != "SwapFree" && key != "oom_kill" {
 			continue
 		}
@@ -156,7 +190,7 @@ func workloadMetrics(ctx context.Context) (workloadHostSample, error) {
 	defer cancel()
 	sample := workloadHostSample{At: time.Now().UTC()}
 	var local bytes.Buffer
-	for _, p := range []string{"/proc/sys/kernel/hostname", "/proc/meminfo", "/proc/vmstat"} {
+	for _, p := range []string{"/proc/sys/kernel/hostname", "/proc/meminfo", "/proc/vmstat", "/proc/stat", "/proc/pressure/memory"} {
 		b, e := os.ReadFile(p)
 		if e != nil {
 			return sample, e
@@ -168,7 +202,7 @@ func workloadMetrics(ctx context.Context) (workloadHostSample, error) {
 	if err != nil {
 		return sample, err
 	}
-	raw, err := workloadSSH(ctx, "cat /proc/sys/kernel/hostname /proc/meminfo /proc/vmstat")
+	raw, err := workloadSSH(ctx, "cat /proc/sys/kernel/hostname /proc/meminfo /proc/vmstat /proc/stat /proc/pressure/memory")
 	if err != nil {
 		return sample, err
 	}
@@ -182,13 +216,16 @@ func workloadMetrics(ctx context.Context) (workloadHostSample, error) {
 	return sample, nil
 }
 func workloadMemorySafe(before, now workloadHostSample, initial bool) error {
-	workerFloor, outerFloor := uint64(4<<20), uint64(2<<20)
+	workerFloor, outerFloor := uint64(6<<20), uint64(8<<20)
 	if initial {
 		workerFloor = 12 << 20
-		outerFloor = 4 << 20
+		outerFloor = 12 << 20
 	}
 	if now.Worker.AvailableKiB < workerFloor || now.Outer.AvailableKiB < outerFloor {
 		return errors.New("available memory below fixture safety floor")
+	}
+	if now.Worker.SwapTotalKiB > now.Worker.SwapFreeKiB || now.Outer.SwapTotalKiB > now.Outer.SwapFreeKiB {
+		return errors.New("host swap use detected")
 	}
 	if now.Worker.OOMKills != before.Worker.OOMKills || now.Outer.OOMKills != before.Outer.OOMKills {
 		return errors.New("host OOM counter changed")
@@ -274,14 +311,14 @@ func validateWorkloadSample(old, s workloadSample) error {
 	return nil
 }
 
-func validWorkloadSlots(slots int) bool { return slots == 4 || slots == 12 }
+func validWorkloadSlots(slots int) bool { return slots == 4 || slots == 6 || slots == 8 || slots == 12 }
 
 // A reviewed, explicitly scheduled operator fixture. Never enabled in ordinary CI.
 // Run on the outer host; inner worker must contain no other guest or template job.
 func TestLiveCubeAppWorkload(t *testing.T) {
 	path := os.Getenv("CUBE_WORKLOAD_LIVE_CONFIG")
 	if path == "" {
-		t.Skip("opt-in synthetic4-or12-app workload; requires exclusive worker handoff")
+		t.Skip("opt-in synthetic4/6/8/12-app workload; requires exclusive worker handoff")
 	}
 	if e := workloadEgressPolicy().Validate(); e != nil {
 		t.Fatal(e)
@@ -300,9 +337,29 @@ func TestLiveCubeAppWorkload(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	var cfg admissionLiveConfig
-	if json.Unmarshal(raw, &cfg) != nil || !validWorkloadSlots(cfg.MaxActive) || cfg.APIURL != "http://127.0.0.1:20300" || cfg.ProxyURL != "http://127.0.0.1:20080" || cfg.Domain != "cube.app" || !strings.HasPrefix(cfg.WorkDir, "/opt/baarcha-bench/cube-workload-") || filepath.Clean(cfg.WorkDir) != cfg.WorkDir || cfg.TemplateID == "" {
-		t.Fatal("exact fresh-worker endpoint, private unique stage, and4-or12-slot config required")
+	var config struct {
+		admissionLiveConfig
+		PausedBaseline *workloadPausedBaseline `json:"paused_baseline,omitempty"`
+		Profile        string                  `json:"profile"`
+	}
+	cfg := &config.admissionLiveConfig
+	if json.Unmarshal(raw, &config) != nil || !validWorkloadSlots(cfg.MaxActive) || cfg.APIURL != "http://127.0.0.1:20300" || cfg.ProxyURL != "http://127.0.0.1:20080" || cfg.Domain != "cube.app" || !strings.HasPrefix(cfg.WorkDir, "/opt/baarcha-bench/cube-workload-") || filepath.Clean(cfg.WorkDir) != cfg.WorkDir || cfg.TemplateID == "" {
+		t.Fatal("exact fresh-worker endpoint, private unique stage, and4/6/8/12-slot config required")
+	}
+	resources, err := workloadProfile(config.Profile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !cube.BenchmarkAdmissionBuild && (cfg.MaxActive > 4 || resources.CPUCount != 2 || resources.MemoryMB != 2048) {
+		t.Fatal("capacity/profile requires cube_workload_benchmark test build")
+	}
+	if config.PausedBaseline != nil {
+		if e = config.PausedBaseline.validate(); e != nil {
+			t.Fatal(e)
+		}
+	}
+	if cfg.StorageGuard == nil {
+		t.Fatal("benchmark requires the real storage guard")
 	}
 	if e = os.Mkdir(cfg.WorkDir, 0700); e != nil {
 		t.Fatal("workload stage must be fresh")
@@ -339,8 +396,8 @@ func TestLiveCubeAppWorkload(t *testing.T) {
 		defer r.Body.Close()
 		b, e := io.ReadAll(io.LimitReader(r.Body, 65537))
 		var rows []json.RawMessage
-		if e != nil || r.StatusCode != 200 || len(b) > 65536 || json.Unmarshal(b, &rows) != nil || len(rows) != 0 || !bytes.Equal(bytes.TrimSpace(b), []byte("[]")) {
-			return errors.New("provider inventory must be exactly empty")
+		if e != nil || r.StatusCode != 200 || len(b) > 65536 || json.Unmarshal(b, &rows) != nil || rows == nil || validateWorkloadInventory(rows, config.PausedBaseline) != nil {
+			return errors.New("provider inventory differs from reviewed paused baseline or empty inventory")
 		}
 		return nil
 	}
@@ -351,11 +408,18 @@ func TestLiveCubeAppWorkload(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
+	expectedCount := "0"
+	if config.PausedBaseline != nil {
+		expectedCount = "1"
+		if !strings.Contains(string(all), config.PausedBaseline.RuntimeID) {
+			t.Fatal("paused baseline missing from all-state inventory")
+		}
+	}
 	zero := false
 	for _, line := range strings.Split(string(all), "\n") {
 		f := strings.Fields(line)
 		if len(f) == 2 && f[0] == "SANDBOX_COUNT" {
-			if f[1] != "0" || zero {
+			if f[1] != expectedCount || zero {
 				t.Fatal("nonempty all-state inventory")
 			}
 			zero = true
@@ -381,6 +445,10 @@ func TestLiveCubeAppWorkload(t *testing.T) {
 			t.Error("fixture evidence write failed")
 		}
 	}
+	report["paused_baseline"] = config.PausedBaseline
+	report["profile"] = config.Profile
+	report["resources"] = resources
+	report["benchmark_build"] = cube.BenchmarkAdmissionBuild
 	save("result.json", report)
 	st, e := store.Open(ctx, filepath.Join(cfg.WorkDir, "admission.db")+"?_journal=WAL&_busy_timeout=5000&_fk=1", "../../migrations")
 	if e != nil {
@@ -391,7 +459,7 @@ func TestLiveCubeAppWorkload(t *testing.T) {
 	if e != nil {
 		t.Fatal(e)
 	}
-	admission := cube.AdmissionConfig{MaxActive: cfg.MaxActive, CPUCount: 2, MemoryMB: 2048, Templates: map[string]cube.AdmissionResources{cfg.TemplateID: {CPUCount: 2, MemoryMB: 2048}}, StorageGuard: cfg.StorageGuard}
+	admission := cube.AdmissionConfig{MaxActive: cfg.MaxActive, CPUCount: resources.CPUCount, MemoryMB: resources.MemoryMB, Templates: map[string]cube.AdmissionResources{cfg.TemplateID: resources}, StorageGuard: cfg.StorageGuard}
 	if cfg.StorageGuard != nil {
 		admission.WritableDiskMB = 10240
 		report["storage_guard_enabled"] = true
@@ -450,6 +518,18 @@ func TestLiveCubeAppWorkload(t *testing.T) {
 		report["charged_remaining"] = charged
 		save("result.json", report)
 	}()
+	monitor, e := startWorkloadMonitor(ctx, cancel, cfg.WorkDir, before)
+	if e != nil {
+		t.Fatal(e)
+	}
+	defer func() {
+		monitor.stop()
+		report["monitor"] = monitor.result()
+		if monitor.abort != "" {
+			t.Error("workload aborted by safety monitor:", monitor.abort)
+		}
+	}()
+	monitor.phase("provisioning")
 	archive, e := workloadArchive()
 	if e != nil {
 		t.Fatal(e)
@@ -525,7 +605,7 @@ func TestLiveCubeAppWorkload(t *testing.T) {
 		var lastPreviewError, lastStatusError string
 		var lastStatus *guestapi.Status
 		for readyCtx.Err() == nil {
-			s, _, err := workloadResponse(readyCtx, hc, cfg, vm, "GET", "/health")
+			s, _, err := workloadResponse(readyCtx, hc, *cfg, vm, "GET", "/health")
 			status, statusErr := guest.Status(readyCtx)
 			lastStatus = status
 			if err != nil {
@@ -590,7 +670,7 @@ func TestLiveCubeAppWorkload(t *testing.T) {
 				if start {
 					method, path = "POST", "/start"
 				}
-				s, d, err := workloadResponse(batchCtx, hc, cfg, owned[i], method, path)
+				s, d, err := workloadResponse(batchCtx, hc, *cfg, owned[i], method, path)
 				r := result{Index: i, Sample: s, HTTPMS: float64(d.Microseconds()) / 1000, Err: err}
 				if err == nil {
 					at := time.Now()
@@ -610,6 +690,7 @@ func TestLiveCubeAppWorkload(t *testing.T) {
 		return results
 	}
 
+	monitor.phase("preparation")
 	prepareStarted := time.Now()
 	report["preparation_started_at"] = prepareStarted.UTC()
 	prepareCtx, prepareCancel := context.WithTimeout(ctx, 20*time.Second)
@@ -650,6 +731,7 @@ func TestLiveCubeAppWorkload(t *testing.T) {
 	}
 	prepareCancel()
 	report["preparation_seconds"] = time.Since(prepareStarted).Seconds()
+	monitor.phase("steady")
 	started := time.Now()
 	report["steady_work_started_at"] = started.UTC()
 	refusalAt := time.Now()
@@ -806,14 +888,40 @@ func TestWorkloadEgressPolicyIsValidAndDeniesAllFamilies(t *testing.T) {
 }
 
 func TestWorkloadAllowsOnlyReviewedSlotCounts(t *testing.T) {
-	for _, slots := range []int{4, 12} {
+	for _, slots := range []int{4, 6, 8, 12} {
 		if !validWorkloadSlots(slots) {
 			t.Fatal("reviewed slot count refused")
 		}
 	}
-	for _, slots := range []int{-1, 0, 1, 3, 5, 8, 11, 13, 24} {
+	for _, slots := range []int{-1, 0, 1, 3, 5, 7, 9, 11, 13, 24} {
 		if validWorkloadSlots(slots) {
 			t.Fatal("unreviewed workload scale accepted")
+		}
+	}
+}
+
+// Explicit fixture profiles; omission is not silently treated as a resource choice.
+func workloadProfile(name string) (cube.AdmissionResources, error) {
+	switch name {
+	case "cpu1-mem1024":
+		return cube.AdmissionResources{CPUCount: 1, MemoryMB: 1024}, nil
+	case "cpu1-mem2048":
+		return cube.AdmissionResources{CPUCount: 1, MemoryMB: 2048}, nil
+	case "cpu2-mem2048":
+		return cube.AdmissionResources{CPUCount: 2, MemoryMB: 2048}, nil
+	default:
+		return cube.AdmissionResources{}, errors.New("explicit reviewed fixture profile required")
+	}
+}
+func TestWorkloadProfilesAreExplicit(t *testing.T) {
+	for _, name := range []string{"cpu1-mem1024", "cpu1-mem2048", "cpu2-mem2048"} {
+		if _, err := workloadProfile(name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, name := range []string{"", "cpu2-mem1024", "cpu4-mem2048", "cpu1-mem4096"} {
+		if _, err := workloadProfile(name); err == nil {
+			t.Fatalf("accepted %q", name)
 		}
 	}
 }

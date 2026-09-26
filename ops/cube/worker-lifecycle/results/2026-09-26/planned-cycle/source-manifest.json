@@ -1,0 +1,28 @@
+{
+  "archive_sha256": "2b23ec2916ef1dd6077c1077e8e0bf1b840ca0ada32a4e5de6eeb66a0cb6e5da",
+  "files": {
+    "10-reviewed-preflight.conf": "b6520219aa1acd0ce3aa163d649625fd9e276a941c173fe936b547496420f301",
+    "99-baarcha-cube-worker.needrestart.conf": "673bfb6c9e7830c959a77763a283461032cbcbf0d84755cdf44f70a2ef3ac821",
+    "acceptance.py": "8484cced73e525e6e93bf1dd737caedc925b065b26c0376c9cd980950ab2733c",
+    "baarcha-cube-observe.service": "1a4f70ad39b22cc780799ba2dab36eb54e95003f9a3218d24c47cb3ee823b37d",
+    "baarcha-cube-preflight.service": "51a97a04933dbdd211f03d5fdcc212b00d122b3c6e4b0e57fd4d091726605036",
+    "baarcha-cube-reviewed.target": "8bbc216a0c2e73da0114a94d313b548371865d3a022ca21f42e1a700f4b4f484",
+    "baarcha-cube-worker-01.service": "3aa77889f7a4b0eb305782145f2ee7eb1906d1d6bd7dca663645c4a9404112a8",
+    "backup_monitor.py": "a76d2df6b9c45e57b1455c40b090184e3af6139f507e99e36fd0258fa9de7455",
+    "boot_transition.py": "cdee7171f5d0607adfd4db7c66f76051fb1c5b5e7411b9aa4c34bb316e6fe8ad",
+    "external_clean.py": "78da3957e6f57739fb4347fe397b800b43417ef0c1bc4e477c07592c3dad855b",
+    "lifecycle.py": "45716609089f94a46309dfb3acc87e3fff60418c959223da7489fb1b79302d23",
+    "maintenance.py": "46aa24e20a023cc4838489a3c9812655cd3f3084081ea1de7dc269228dec1911",
+    "ownership_plan.py": "c9fad6fce3e6c935883e16b8828a560a84a0d3ab6913df8794919581d9f40f19",
+    "planned.py": "0bfe2de89182606df5e8f27967d3147aadeac6a9562b169fee15342128d1a57a",
+    "render_nested.py": "5c1263c3e6a18670f4f95009d8c7412b74f3de3ba46f11b004b8a2907355dd88",
+    "test_backup_monitor.py": "9da128a1a0b8db194820ffe072a5c72df4b707ff7b0392ef52b14fb519814054",
+    "test_boot_transition.py": "f4a9d68cb0a15a71ddbb929bd08853b8161cb13c27e71237a5753fb7601be088",
+    "test_external_clean.py": "bc91d1d3e7605c6814e3004033e39aa6af789eeebd1745c0f6b3b9ac40682755",
+    "test_lifecycle.py": "6dbea73a74e39d8f6d4295ff7e7484093e9c982d09673a78126747dc8429d275",
+    "test_maintenance.py": "ef5ffe294b5565e71336ab4df01a485b7234303bc4650a44262080f6b8fab562",
+    "test_ownership_plan.py": "7cf110f5fed6c3f0d97db5dbe9b370e38cc57ab02ae3fc2aea7a428f91288bbe",
+    "test_planned.py": "31edff86f4e576699c34a045f84661f0238634e0206eacbb07d4baf50b810dd6",
+    "test_render_nested.py": "6025b28f2a58fa0ff25d8b683ac7a7ab4d38d7a54f69b6757658bce30f749239"
+  }
+}

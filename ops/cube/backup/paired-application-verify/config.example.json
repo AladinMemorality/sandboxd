@@ -1,0 +1,95 @@
+{
+  "version": 1,
+  "generation": "/opt/baarcha-cube/backup-generations/REVIEWED-RESTORE",
+  "database": {
+    "path": "",
+    "sha256": ""
+  },
+  "key": {
+    "path": "",
+    "sha256": ""
+  },
+  "operator_journal": {
+    "path": "",
+    "sha256": ""
+  },
+  "runtime_id": "",
+  "template_id": "tpl-ce1ee426e686460bbc8c3bfc",
+  "domain": "cube.app",
+  "owner_token_sha256": "",
+  "config_revision": 0,
+  "files": {
+    "sandbox.yaml": "",
+    "server.mjs": "",
+    "public/index.html": "",
+    ".operator-recovery/8bb03c01d5527213/home-worker.mjs": "",
+    ".operator-recovery/8bb03c01d5527213/app marker #.txt": ""
+  },
+  "tasks": [
+    {
+      "id": "",
+      "result": {
+        "path": "",
+        "sha256": ""
+      },
+      "events": {
+        "path": "",
+        "sha256": ""
+      }
+    },
+    {
+      "id": "",
+      "result": {
+        "path": "",
+        "sha256": ""
+      },
+      "events": {
+        "path": "",
+        "sha256": ""
+      }
+    },
+    {
+      "id": "",
+      "result": {
+        "path": "",
+        "sha256": ""
+      },
+      "events": {
+        "path": "",
+        "sha256": ""
+      }
+    },
+    {
+      "id": "",
+      "result": {
+        "path": "",
+        "sha256": ""
+      },
+      "events": {
+        "path": "",
+        "sha256": ""
+      }
+    }
+  ],
+  "clone": {
+    "pid": 0,
+    "start_ticks": "",
+    "exe": "/usr/bin/qemu-system-x86_64",
+    "cmdline_sha256": ""
+  },
+  "proxy": {
+    "pid": 0,
+    "start_ticks": "",
+    "exe": "/usr/bin/ssh",
+    "cmdline_sha256": ""
+  },
+  "clone_root": "",
+  "clone_data": "",
+  "lock_fds": {
+    "/opt/baarcha/deploy-release.lock": 0,
+    "/opt/sandboxd/deploy-state/deploy.lock": 0,
+    "/run/lock/cube-operator-acceptance.lock": 0,
+    "/opt/baarcha-bench/cube-workload-operator.lock": 0
+  },
+  "worker_lock_fd": 0
+}

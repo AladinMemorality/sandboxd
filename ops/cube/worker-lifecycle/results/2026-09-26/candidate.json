@@ -1,0 +1,20 @@
+{
+  "disposable_witness_functions_identical_to_final_candidate": [
+    "WaitWitness",
+    "parse_wait4",
+    "complete_trace"
+  ],
+  "drain_observer_sha256": "06dd5e379fa594ec6fbfa37d36971fa5703ff5969b8766bac98196ee10c0f92e",
+  "installed_python_candidates": {
+    "boot_transition.py": "abb8843977cbcaf2adaf7d49d90b8d5556f1922e5728fd07135b6927f7e5bc8f",
+    "external_clean.py": "7c86875b15452ee583301d9d22ce4ee6f64fd04d52c9289ca5b6eaccbbe3adf5",
+    "lifecycle.py": "45716609089f94a46309dfb3acc87e3fff60418c959223da7489fb1b79302d23",
+    "maintenance.py": "df7d1172d5474781ef7a15e11eb607591074f3065ea76c64a7928174a2fc194f"
+  },
+  "native_python_tests_passed": 91,
+  "native_source_archive_sha256": "d7927d44a4f19a22cf753c59c4b43d758e7ffa610d57bf7c494d18f12731cc8a",
+  "native_start_sha256": "e3a67dd0dfc54a2ba23caf11c9c10c4416efe8632cda661b8a5478039d5b666c",
+  "python_source_archive_sha256": "1bc4e4ada63ed95f23f7a1de840a1809bc2d90a838bff18b9e248dd40572bdfe",
+  "real_worker_lifecycle_executed": false,
+  "unattended_restart_enabled": false
+}

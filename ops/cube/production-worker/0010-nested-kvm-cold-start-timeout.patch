@@ -1,0 +1,16 @@
+--- a/CubeShim/shim/src/sandbox/sb.rs
++++ b/CubeShim/shim/src/sandbox/sb.rs
+@@ -895,8 +895,12 @@
+         {
+             let ch = self.ch.as_mut().unwrap().lock().await;
+             let start = Instant::now();
++            // A fresh guest agent can exceed ten seconds under nested KVM.
++            // Keep restored-guest latency bounded as before, and still require
++            // the actual VsockServerReady event before accepting either path.
++            let ready_timeout = Duration::from_secs(if snapshot { 10 } else { 60 });
+             let ev = ch
+-                .wait_notify(Duration::from_nanos(1000 * 1000 * 1000 * 10 as u64))
++                .wait_notify(ready_timeout)
+                 .await?;
+ 
+             if CH::NotifyEvent::VsockServerReady != ev {

@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/api"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
 )
@@ -37,6 +38,9 @@ func loadCubeConfig() (cubeConfig, error) {
 	}
 	if enabled != "true" {
 		return cfg, fmt.Errorf("SANDBOXD_CUBE_ENABLED must be true or false")
+	}
+	if err := auth.ValidatePreviewSecrets(os.Getenv("SANDBOXD_PREVIEW_TOKEN_SECRETS")); err != nil {
+		return cfg, err
 	}
 	switch os.Getenv("SANDBOXD_CUBE_ROLLOUT") {
 	case "", "allowlist":

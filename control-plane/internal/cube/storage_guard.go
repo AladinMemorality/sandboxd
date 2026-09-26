@@ -129,8 +129,17 @@ func ReadStorageObservation(c StorageGuardConfig, now StorageClock) (StorageObse
 // RequireStorageGuard is used by production entrypoints. Library-only synthetic
 // fixtures can omit the guard on a DB where it has never been enrolled.
 func (c AdmissionConfig) RequireStorageGuard() error {
-	if c.StorageGuard == nil || c.MaxActive > 4 || c.WritableDiskMB != 10240 {
-		return errors.New("Cube production admission requires storage guard and at most four active guests")
+	if c.CPUCount != 2 || c.MemoryMB != 2048 || c.MaxActive < 1 || c.MaxActive > 4 {
+		return errors.New("Cube production requires 2CPU/2GiB and at most four active guests")
+	}
+	return c.validateStorageGuard()
+}
+
+// The benchmark ceiling changes only in a tagged test build. The guard identity,
+// disk allowance, freshness and transactional reservation rules stay identical.
+func (c AdmissionConfig) validateStorageGuard() error {
+	if c.StorageGuard == nil || c.MaxActive < 1 || c.MaxActive > GuardedAdmissionLimit || c.WritableDiskMB != 10240 {
+		return errors.New("Cube admission requires storage guard, reviewed compiled capacity and 10GiB writable disk")
 	}
 	return c.StorageGuard.Validate()
 }

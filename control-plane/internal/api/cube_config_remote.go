@@ -34,7 +34,12 @@ func (s *Server) syncCubeAppConfigWithManifest(ctx context.Context, id string, r
 	if err != nil {
 		return err
 	}
-	if !reloadManifest && b.ConfigRevision == b.ConfigAppliedRevision {
+	sb, err := s.Store.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	motionScoped := s.cubeEgress != nil && sb.AppID.Valid && s.cubeEgress.config.MotionStudioAppID == sb.AppID.String
+	if !reloadManifest && !motionScoped && b.ConfigRevision == b.ConfigAppliedRevision {
 		return nil
 	}
 	active, err := s.Store.SandboxHasRunningTask(ctx, id)
@@ -43,10 +48,6 @@ func (s *Server) syncCubeAppConfigWithManifest(ctx context.Context, id string, r
 	}
 	if active {
 		return errCubeConfigBusy
-	}
-	sb, err := s.Store.Get(ctx, id)
-	if err != nil {
-		return err
 	}
 	if !sb.AppID.Valid {
 		return errors.New("Cube config owner unavailable")
@@ -61,6 +62,9 @@ func (s *Server) syncCubeAppConfigWithManifest(ctx context.Context, id string, r
 		if ok {
 			env[key] = value
 		}
+	}
+	if err := runtime.ValidateMotionStudioScope(env, motionScoped); err != nil {
+		return err
 	}
 	revision := id + ":" + strconv.FormatInt(b.ConfigRevision, 10)
 	client := s.runtimeClientFor(id)
@@ -87,10 +91,18 @@ func (s *Server) syncCubeAppConfigWithManifest(ctx context.Context, id string, r
 	if err != nil {
 		return err
 	}
+	if motionScoped {
+		env, err = runtime.MotionStudioEnvironment(env, status)
+		if err != nil {
+			return err
+		}
+		revision += ":" + runtime.MotionWorkerCapability
+		request = runtime.AppConfigRequest{Env: env, Revision: revision}
+	}
 	if status.ActiveTask != nil {
 		return errCubeConfigBusy
 	}
-	if reloadManifest && status.AppConfigRevision == revision {
+	if (reloadManifest || motionScoped) && status.AppConfigRevision == revision {
 		return s.Store.MarkCubeConfigApplied(ctx, id, b.ConfigRevision)
 	}
 	if err := client.ApplyAppConfig(ctx, request); err != nil {

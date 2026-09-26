@@ -1,0 +1,15 @@
+{
+  "binaries": {
+    "cube-worker-start": "e3a67dd0dfc54a2ba23caf11c9c10c4416efe8632cda661b8a5478039d5b666c"
+  },
+  "exit_code": 1,
+  "limits": {
+    "cpus": 2,
+    "memory_bytes": 2147483648,
+    "network": "none",
+    "pids": 256
+  },
+  "source_archive_sha256": "d7927d44a4f19a22cf753c59c4b43d758e7ffa610d57bf7c494d18f12731cc8a",
+  "tests_sha256": "714ad1ab39184fed5cdd38fd32a411f44268e6de860012248aa5e9c718769ad5",
+  "worker_operations": false
+}

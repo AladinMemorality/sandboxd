@@ -1,0 +1,19 @@
+# Review-only candidate. Build context contains only the three compiled binaries.
+# Mirrors the prepared-template stages of image/cube/Dockerfile at 5fdb953.
+FROM sha256:9ec445151344a7baa295b085bebe1a0352ab930601fe0d9ed2bf1283bbaa6678
+USER root
+COPY runtimed cube-init cube-template /usr/local/bin/
+RUN mkdir -p /home/sandbox/workspace/app \
+ && chown sandbox:sandbox /home/sandbox/workspace /home/sandbox/workspace/app
+USER sandbox
+WORKDIR /home/sandbox/workspace
+ENV RUNTIMED_RUNTIME_PRESET=react-vite RUNTIMED_CUBE_REVERSE_EGRESS=1
+RUN node -e 'const [major,minor]=process.versions.node.split(".").map(Number); if(major!==22 || minor<21) throw new Error("reviewed Node22.21+ required")' \
+ && /usr/local/bin/cube-template react-vite
+USER root
+RUN rm -rf /home/sandbox/.cache/pnpm-store \
+ && mkdir -p /home/sandbox/.cache \
+ && chown sandbox:sandbox /home/sandbox/.cache
+USER sandbox
+ENTRYPOINT ["/usr/bin/tini", "--"]
+CMD ["/usr/local/bin/cube-init"]

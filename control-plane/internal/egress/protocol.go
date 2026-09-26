@@ -118,7 +118,7 @@ func (s *session) run() {
 		st := s.streams[f.ID]
 		lastID := s.next
 		if f.Type == "open" {
-			if s.onOpen == nil || st != nil || f.ID <= s.next || f.ID > 1<<53 || len(f.Data) != 0 || f.Credit != 0 || len(f.Host) > 253 || (f.Kind != "public" && f.Kind != "model" && f.Kind != "bridge") {
+			if s.onOpen == nil || st != nil || f.ID <= s.next || f.ID > 1<<53 || len(f.Data) != 0 || f.Credit != 0 || len(f.Host) > 253 || (f.Kind != "public" && f.Kind != "model" && f.Kind != "bridge" && f.Kind != "motion") {
 				s.mu.Unlock()
 				return
 			}

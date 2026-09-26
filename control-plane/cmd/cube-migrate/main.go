@@ -244,7 +244,7 @@ func run(args []string) error {
 		if e != nil {
 			return e
 		}
-		broker, e = migration.NewMigrationBroker(ctx, policy, os.Getenv("SANDBOXD_CUBE_APP_HTTP_SERVICES"))
+		broker, e = migration.NewMigrationBrokerWithOptions(ctx, policy, migration.MigrationBrokerOptions{HTTPServices: os.Getenv("SANDBOXD_CUBE_APP_HTTP_SERVICES"), MotionStudioAppID: os.Getenv("SANDBOXD_CUBE_MOTION_STUDIO_APP_ID"), Journal: st})
 		if e != nil {
 			return e
 		}

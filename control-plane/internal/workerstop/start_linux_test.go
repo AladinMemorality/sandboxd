@@ -2,7 +2,9 @@ package workerstop
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
@@ -10,12 +12,14 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 )
 
 func startFixture(t *testing.T) (*stopFixture, StopMarker, *sql.DB) {
 	f := fixture(t)
+	freshStartupStorage(t, &f.held.config)
 	ctx := context.Background()
 	if _, e := f.held.prepare(ctx, f.client, f.controller, f.sync, f.databaseUsers); e != nil {
 		t.Fatal(e)
@@ -205,5 +209,93 @@ func TestStartupDatabaseScanFailureNeverClearsMarker(t *testing.T) {
 				t.Fatal("startup mutated provider")
 			}
 		})
+	}
+}
+
+// Shared with test_boot_transition.py: journal interruption recovery must match
+// Go's struct hash, not the sorted JSON map bytes written by the original stop.
+func TestStartupMarkerHashMatchesBootTransitionContract(t *testing.T) {
+	m := StopMarker{Version: 1, Phase: "preparing", ReceiptSHA256: strings.Repeat("1", 64), InventorySHA256: strings.Repeat("2", 64),
+		Bindings: []store.WorkerStopBinding{{SandboxID: "stable", AppID: "app", RuntimeID: "provider", TemplateID: "reviewed", Domain: "private.invalid", ConfigSHA256: strings.Repeat("e", 64), OwnerSHA256: strings.Repeat("f", 64), ConfigRevision: 8}},
+		QEMUPID:  10, QEMUStartTime: "123", WorkerBootID: "11111111-1111-1111-1111-111111111111", WorkerMachineID: strings.Repeat("a", 32), DataUUID: "44444444-4444-4444-4444-444444444444"}
+	if hash(m) != "0d97a7af2fbb666c75ba16dda56d4c38865ae28975320d30579587cab3e68fd1" {
+		t.Fatal("native startup marker hash contract changed")
+	}
+}
+
+func TestExternalCleanRequiresPinnedVerifierAndActualReceiptResult(t *testing.T) {
+	if os.Geteuid() != 0 {
+		t.Skip("native root artifact ownership")
+	}
+	dir := t.TempDir()
+	verifier := filepath.Join(dir, "external.py")
+	code := []byte("# reviewed external evidence verifier fixture\n")
+	if e := os.WriteFile(verifier, code, 0700); e != nil {
+		t.Fatal(e)
+	}
+	p := Proof{QEMUPID: 43, QEMUStartTime: "101", WorkerBootID: "old-boot"}
+	receipt := CleanReceipt{Version: 1, State: "externally-stopped-clean", Proof: p, External: &ExternalCleanEvidence{Version: 1, Method: externalCleanMethod, OuterBootID: "11111111-1111-1111-1111-111111111111", SupervisorPID: 42, SupervisorStartTime: "100", QEMUPID: 43, QEMUStartTime: "101", WorkerBootID: "old-boot", EvidenceDirectory: dir, EvidenceSHA256: strings.Repeat("a", 64)}}
+	raw, e := json.Marshal(receipt)
+	if e != nil {
+		t.Fatal(e)
+	}
+	sc := StartConfig{Version: 1, CleanReceipt: filepath.Join(dir, "receipt.json"), ExternalVerifierSHA256: fmt.Sprintf("%x", sha256.Sum256(code))}
+	if e = os.WriteFile(sc.CleanReceipt, raw, 0600); e != nil {
+		t.Fatal(e)
+	}
+	answer := map[string]any{"version": 1, "verified": true, "receipt_sha256": fmt.Sprintf("%x", sha256.Sum256(raw)), "method": externalCleanMethod, "qemu_pid": 43, "qemu_start_time": "101", "worker_boot_id": "old-boot"}
+	calls := 0
+	run := func(ctx context.Context, args ...string) ([]byte, error) {
+		calls++
+		if len(args) != 4 || args[0] != "/usr/bin/python3" || args[1] != verifier || args[2] != "--verify" || args[3] != sc.CleanReceipt {
+			t.Fatal("unreviewed command", args)
+		}
+		if d, ok := ctx.Deadline(); !ok || time.Until(d) > 15*time.Second {
+			t.Fatal("missing bounded deadline")
+		}
+		return json.Marshal(answer)
+	}
+	if e = verifyExternalCleanWith(context.Background(), sc, receipt, verifier, run); e != nil {
+		t.Fatal(e)
+	}
+	if calls != 1 {
+		t.Fatal("verifier not run")
+	}
+	for _, field := range []string{"verified", "receipt_sha256", "method", "qemu_pid", "qemu_start_time", "worker_boot_id"} {
+		t.Run(field, func(t *testing.T) {
+			old := answer[field]
+			answer[field] = "wrong"
+			defer func() { answer[field] = old }()
+			if verifyExternalCleanWith(context.Background(), sc, receipt, verifier, run) == nil {
+				t.Fatal("accepted mismatched verifier result")
+			}
+		})
+	}
+	for _, kind := range []string{"missing-pin", "changed-code", "changed-receipt", "schema-only", "other-path"} {
+		t.Run(kind, func(t *testing.T) {
+			c, r := sc, receipt
+			before := calls
+			switch kind {
+			case "missing-pin":
+				c.ExternalVerifierSHA256 = ""
+			case "changed-code":
+				c.ExternalVerifierSHA256 = strings.Repeat("b", 64)
+			case "changed-receipt":
+				r.GeneratedAt++
+			case "schema-only":
+				r.External = nil
+			case "other-path":
+				c.CleanReceipt = filepath.Join(dir, "other.json")
+			}
+			if verifyExternalCleanWith(context.Background(), c, r, verifier, run) == nil {
+				t.Fatal("accepted invalid external proof")
+			}
+			if calls != before {
+				t.Fatal("executed verifier before validating pinned inputs")
+			}
+		})
+	}
+	if e = verifyExternalCleanWith(context.Background(), sc, receipt, verifier, func(context.Context, ...string) ([]byte, error) { return nil, errors.New("fixture failure") }); e == nil {
+		t.Fatal("verifier failure accepted")
 	}
 }

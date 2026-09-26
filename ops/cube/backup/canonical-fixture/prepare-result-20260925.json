@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "date": "2026-09-25",
+  "executed_by": "root operator",
+  "run": "6ff432593177fb12",
+  "owner_id": 103,
+  "foreign_owner_id": 104,
+  "notification_queues_suppressed_before_commit": true,
+  "first_app_request": {
+    "http_status": 400,
+    "cause": "Template directory name node-postgres-standard incorrectly used as API preset ID",
+    "app_rows_after_failure": 0,
+    "owner_apps_after_failure": 0,
+    "pending_at": "2026-09-25T19:01:32.421Z"
+  },
+  "reviewed_correction": {
+    "api_preset": "node-postgres",
+    "action": "resume-rejected-app",
+    "fixture_sha256": "91ef0990d4590d8606c213793ae220ef6b586523341d740c4fbbfbcfec4440df",
+    "wrapper_sha256": "ea5bc3fda3ab5e0e28284cc0edf1550c155b0e318dd1a98b66bce5a5467de9e4",
+    "original_owners_and_intent_preserved": true,
+    "returned_app_id": "01M3CZB4HXT2Y8HP8CEY75PCWY",
+    "operator_reported_exit_code": 0
+  },
+  "resources_not_created_by_these_phases": [
+    "sandbox",
+    "credit grant",
+    "agent task",
+    "application SQL row"
+  ],
+  "private_evidence_directory": "/opt/baarcha-bench/cube-canonical-fixture-live-20260925-01",
+  "credential_values_committed": false
+}

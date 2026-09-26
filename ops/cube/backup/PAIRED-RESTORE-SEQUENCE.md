@@ -3,20 +3,20 @@
 The helpers never start a service or alter a lifecycle gate. These steps are
 prepared commands, not recorded execution. Keep global Cube routing disabled.
 
-1. **Finish empty host enrollment first.** Deploy the reviewed controller with
-   Cube disabled to apply its additive SQLite migrations, preserve its consistent
-   DB/key/config/image backup, finish owned recovery cleanup, and approve the
-   source-gate/host helper hashes. Under the genuine global traffic/direct-writer
-   drain, complete the first empty supervisor stop → clean poweroff → boot →
-   offline startup reconciliation cycle. It must produce real receipts and clear
-   only its own marker. Manual paused-reboot/loss proof does not replace this.
-2. **Create a canonical operator fixture without global rollout.** Authenticated
-   `POST /v1/apps` with the body below creates the canonical app row without a
-   sandbox. Retain the actual returned ID; no direct SQL seeding is necessary:
-
-   ```json
-   {"name":"SYNTHETIC paired backup acceptance","runtime_preset":"node-postgres","external_user_id":"cube-backup-operator-fixture","external_project_id":"paired-backup-20260925"}
-   ```
+1. **Empty host enrollment passed on September25.** The actual controller-fenced
+   stop/boot/startup-reconciliation cycle completed at16:08UTC, including the
+   documented retained-lock recovery continuations. See
+   [actual enrollment evidence](../cutover/enrollment/actual-enrollment-2026-09-25.json).
+   The deployed controller includes the additive migrations through34. Preserve
+   its actual DB/key/config/image and require a new genuine scoped traffic/direct
+   writer drain and real stop/start receipts for the backup cycle. Do not rerun
+   the historical empty-enrollment runner against changed production identities.
+2. **Use the existing canonical operator fixture.** The corrected API creation
+   succeeded for app `01M3CZB4HXT2Y8HP8CEY75PCWY`, owner103, foreign owner104.
+   See [actual prepare result](canonical-fixture/prepare-result-20260925.json).
+   Do not create another app or rerun owner preparation. The API preset key is
+   `node-postgres`; `node-postgres-standard` is the image template name and was
+   rejected before any app write. No sandbox/task/credit was created by prepare.
 
    Root separately reviews a manual immutable-image Compose override with
    `SANDBOXD_CUBE_ENABLED=true`, `SANDBOXD_CUBE_ROLLOUT=allowlist`, and
@@ -65,8 +65,11 @@ Do not stop active customer tasks to manufacture an idle inventory.
 ## Bounded commands after those gates pass
 
 Use new unique job names; paths below are an example generation, not existing
-receipts. Root first stages reviewed helpers under
-`/opt/baarcha-cube/backup-tools` and creates root0700
+receipts. The helpers are installed under
+`/opt/baarcha-cube/backup-tools`; the real synthetic129MiB multipart/full-readback,
+off-host GPG pipe and strict disk/SQLite restore passed (see
+[multipart evidence](multipart-transport-result-2026-09-25.json)). This is not a
+full-worker capture. Root creates root0700
 `/opt/baarcha-cube/backup-generations`. Configs are root0600. The fixed receiver
 expects `stream_restore.py` at the former path. No helper is installed by Git.
 
@@ -129,7 +132,10 @@ Boot **separate writable copies** of the restored matched pair, with a unique
 QEMU name/socket, distinct loopback management/API/proxy ports, restrictive user
 networking and no host directory shares or production routes. Retain the immutable
 validated restored pair. Review host memory before adding a40GiB worker clone;
-otherwise serialize this fixture with the original. Do not automatically start
+the current62GiB host cannot safely run the40GiB original and40GiB clone
+together. Serialize their boot windows: upload, readback, decrypt and strict
+offline restore while the original is running; stop the original only for the
+separately coordinated application-proof window. Do not automatically start
 the restored production controller, which has Docker identities and jobs for the
 whole fleet. Use a narrow offline verifier against the copied SQLite/key and
 only the owned synthetic provider in the isolated worker.
@@ -142,10 +148,14 @@ do not prove these. Keep actual evidence and cleanup only exact owned clone/fixt
 resources after review. Generate monitoring copy/restore receipts only from
 successful observed outputs, never by setting all booleans true in advance.
 
-The read-only September25 observation was about100GB of current qcow files and
-1.56TB free outer RAID space; recheck authoritative space before each stage.
-Capture reserves both virtual disks (160+320GiB) plus roles. Budget additional
+The September25 19:08UTC observation recorded1,553,528,197,120bytes free on
+outer RAID,416,053,002,240bytes on NVMe, about24GiB of Docker workspaces and
+4.1GiB of library data. Recheck authoritative space before each stage.
+Capture reserves both virtual disks (120+448=568GiB) plus roles. Budget additional
 ciphertext, full readback, plaintext tar, restored pair and writable restore copies.
 No fixed compression ratio or downtime is promised. The Mac's55GiB free space is
 not used as a full-archive cache. Cold backups leave a recovery-point interval;
 running-loss recovery and redundant off-host key custody remain separate gates.
+
+Concrete role preparation and observed Docker/PostgreSQL consistency limits are
+in [ROLE-COMMANDS.md](ROLE-COMMANDS.md).

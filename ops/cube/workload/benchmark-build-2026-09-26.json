@@ -1,0 +1,92 @@
+{
+  "benchmark_profiles": [
+    "cpu1-mem1024",
+    "cpu1-mem2048",
+    "cpu2-mem2048"
+  ],
+  "benchmark_stages": [
+    4,
+    6,
+    8,
+    12
+  ],
+  "date": "2026-09-26",
+  "historical_evidence_unchanged": [
+    "four-app-durable-validation-2026-09-25.json",
+    "live-validation-2026-09-25.json",
+    "staged-validation-2026-09-25.json"
+  ],
+  "live_executions": 0,
+  "local_tests": {
+    "bounded_node_workload_regression": "PASS; mocked page/clock primitives, no guest or real 512MiB allocation",
+    "default_and_tagged_admission_storage_race": "PASS using external linker for Go1.22/macOS compatibility",
+    "extra_python_case": "compiles the embedded worker read-only observation and validates interface wiring; added after native snapshot",
+    "python_tests": 7
+  },
+  "native": {
+    "binaries": {
+      "cube-workload.test": "70f6b4534d0e16308957fd4c890cefa25e462b3e19ab398b7e6b3fc1659b11c5"
+    },
+    "build_tags": [
+      "cube_workload_benchmark"
+    ],
+    "cleanup_verified": true,
+    "exit_code": 0,
+    "limits": {
+      "cpus": 2,
+      "memory_bytes": 2147483648,
+      "network": "none",
+      "pids": 256
+    },
+    "live_fixture_config_supplied": false,
+    "source_archive_sha256": "9b64b815127a57e54f94327c22f557cbd56f12d6839a3f8cda75d5307db16f44",
+    "tests_sha256": "7df5486418bb31c92da099d70e5261767a1fa4864f5c4fce0a22fa37b8c9bd3b",
+    "worker_operations": false
+  },
+  "native_binary": "/opt/baarcha-bench/cube-capacity-build-20260926-01/out/cube-workload.test",
+  "native_image": "sha256:3d699e4d15d0f8f13c9195c0632a16702b8cbdece2955af1c23b37ae5d55a253",
+  "native_source_cwd": "/opt/baarcha-bench/cube-capacity-build-20260926-01/source/control-plane/internal/store",
+  "native_source_manifest_sha256": "8dcb024d1a9e92c8b394b9ff5ba9351e7327fcf4962301ec099484a77312dd7c",
+  "native_stage": "/opt/baarcha-bench/cube-capacity-build-20260926-01",
+  "native_tests": {
+    "benchmark_cube_race_seconds": 1.225,
+    "benchmark_store_race_seconds": 2.688,
+    "default_cube_race_seconds": 1.208,
+    "default_store_race_seconds": 2.547,
+    "outcome": "PASS",
+    "python_tests": 6,
+    "tagged_daemon_admission_seconds": 0.032
+  },
+  "owned_go_sources_match_native_snapshot": true,
+  "owned_source_sha256": {
+    "control-plane/internal/cube/admission.go": "9a27e4a723f7a4963954aef19519ec58d5a9ccad2576bfe9010cbf5c25318fd6",
+    "control-plane/internal/cube/admission_profile_benchmark.go": "7dcbe9cbfb3fcd2772a9915788fe4174cff61069a6225b8f93d9f5b26994a255",
+    "control-plane/internal/cube/admission_profile_default.go": "9bba7625590ce2bd73d26f198b7b1179443278a81161d143eb7b6b4e50db44ba",
+    "control-plane/internal/cube/admission_profile_test.go": "9d58502bd31a0a786d2a15c89c29a9b76ce93a7318327e1c3cc0871b8a61be90",
+    "control-plane/internal/cube/storage_guard.go": "306c15f3457217ff8ace57a3bcb14835e5d6cb56f52b5ca494714531591cbbe9",
+    "control-plane/internal/cube/storage_guard_test.go": "3d954da35938c31fdc74d33ed97f523971ccef9af4759625605112208fc1df1e",
+    "control-plane/internal/store/cube_benchmark_admission_test.go": "5bf8f7022de0bb8d1a44c55d01e86eac572ae249a1aba5797673ba394a268f4f",
+    "control-plane/internal/store/cube_storage_guard.go": "e7b8d9a922b486bf5514e1cb838ff666f82931f697004db1f72b669d6a5975f5",
+    "control-plane/internal/store/cube_workload_live_linux_test.go": "bb2b2503a72be36282d4e35403f528a8f60e3bcef12fce2f442377872e7cdedb",
+    "ops/cube/workload/README.md": "5a95ceeff911434078d42641186e82b7de55358f14b55eaabd00b04ead0277db",
+    "ops/cube/workload/run-stage.py": "39590df667995d14dde6e9ec9a953cc6defd3cc0e9daccc531b836cfec61182a",
+    "ops/cube/workload/staged-runner.md": "0f5b763c0f22adbc048ec27e4030003c541979be0dadfe24c0a5200bec377562",
+    "ops/cube/workload/test_run_stage.py": "9b41b1d85d9aca7c31e4022b915167265c56c52c24e442985b61958dc42ac59e"
+  },
+  "production_admission": {
+    "cpu_count": 2,
+    "max_active": 4,
+    "memory_mb": 2048,
+    "production_entrypoints_reject_benchmark_choices_even_when_tagged": true
+  },
+  "production_changed": false,
+  "purpose": "Offline benchmark build preparation; no capacity or 1GiB workload pass claimed",
+  "remaining_live_requirements": [
+    "complete worker recovery before maintenance handoff",
+    "prepare/review matching immutable templates; do not resize retained canary",
+    "actual Master/template preflight not yet executed live",
+    "fresh guarded four baseline then6/8/12 with unchanged thresholds and independent owned cleanup",
+    "realistic coding/build1CPU memory comparison still requires disposable fixture/sampler adaptation"
+  ],
+  "storage_debit_per_allocation_bytes": 12884901888
+}

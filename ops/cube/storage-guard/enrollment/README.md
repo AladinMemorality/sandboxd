@@ -1,7 +1,26 @@
 # Storage guard enrollment preparation
 
-**Nothing in this directory has been installed.** The post-cycle worker boot ID
-is deliberately invalid in `pins.NON-AUTHORIZING.json`. Do not replace it with
+**The observer alone was installed and validated on 2026-09-25.** See
+`actual-installation-2026-09-25.json` for exact hashes, actual first measurement
+and timer advancement. `installed-20260925.py` records that one-time operation;
+it refuses an existing installation and is not an upgrade command. No guest,
+controller, worker or coordinator lifecycle operation was part of installation.
+The controller remains on Docker with Cube disabled. Root subsequently installed
+the exact schema34 coordinators, migration directory and refreshed stop
+configuration; `coordinator-installation-2026-09-25.json` records that operation.
+The installation itself did not invoke a coordinator or enroll the canonical
+database guard. Real coordinator/restore acceptance remains a separate gate.
+
+`coordinator-installed-20260925.py` records the exact bounded installer. It checks
+the former hashes, takes all four operator/deployment locks, preserves old
+binaries/configuration, and writes only reviewed replacements. Its default is
+read-only; its one-time install mode now refuses the existing installation.
+Do not restore the old schema33-only coordinators after a storage policy or Cube
+binding exists. Prior clean-stop/start receipts and lifecycle configuration were
+preserved, and a future stop still requires its own fresh reviewed drain receipt.
+
+The post-cycle worker boot ID is deliberately invalid in the reusable
+`pins.NON-AUTHORIZING.json`. Do not replace it with
 the previous boot, copy it into production, or treat the rendering tool as proof
 that an actual restart/readiness check passed. The outer boot, machine and UUID
 pins were read-only observations on2026-09-25. Reverify them before enrollment.
@@ -67,7 +86,7 @@ changes. Refresh the exact stop configuration from a new independently checked
 controller identity **before any coordinator invocation**. The renderer does
 not inspect Docker or act as an automatic identity updater.
 
-## Reviewed installation sequence — operator only, not executed here
+## Reviewed enrollment sequence — observer step completed separately
 
 1. Keep the existing traffic/admission fence and Cube rollout flags false. Take
    the required controller backup and deploy the reviewed schema34 runtime.

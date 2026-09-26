@@ -28,7 +28,8 @@ function sample() {
   let pages = 0;
   if (memory && active) for (let i = 0; i < memory.length; i += 4096) pages += memory[i];
   return { nonce, pid: process.pid, started, active, bytes: memory ? memory.length : 0,
-    pages, cycles, checksum, rss: process.memoryUsage().rss, cpu: process.cpuUsage() };
+    pages, cycles, checksum, rss: process.memoryUsage().rss, cpu: process.cpuUsage(),
+    faults: { minor: process.resourceUsage().minorPageFault, major: process.resourceUsage().majorPageFault } };
 }
 const server = http.createServer((req, res) => {
   if (req.url === '/start' && req.method === 'POST' && !started) {

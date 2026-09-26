@@ -451,9 +451,26 @@ func (b *OfflineBackend) VerifyTarget(ctx context.Context, m *store.RuntimeMigra
 			env[key] = value
 		}
 	}
+	motionScoped := b.Broker != nil && b.Broker.motionAppID != "" && m.Source.AppID.Valid && b.Broker.motionAppID == m.Source.AppID.String
+	if err := runtime.ValidateMotionStudioScope(env, motionScoped); err != nil {
+		return err
+	}
+	if motionScoped {
+		status, e := client.Status(ctx)
+		if e != nil {
+			return e
+		}
+		env, e = b.Broker.motionEnvironment(ctx, m, status, env)
+		if e != nil {
+			return e
+		}
+	}
 	revision := m.SandboxID + ":0"
 	if len(env) > 0 {
 		revision = m.SandboxID + ":1"
+	}
+	if motionScoped {
+		revision += ":" + runtime.MotionWorkerCapability
 	}
 	if err = client.ApplyAppConfig(ctx, runtime.AppConfigRequest{Env: env, Revision: revision}); err != nil {
 		return fmt.Errorf("apply target app config: %w", err)

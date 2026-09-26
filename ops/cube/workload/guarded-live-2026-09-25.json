@@ -1,0 +1,61 @@
+{
+  "scope": "Actual four synthetic Cube guests with installed storage observer; production customer bindings remain Docker. Not global production acceptance.",
+  "source_binary_sha256": "c4859ef42dd4e046627f44c5d5284cd5ac328c56fbcdc4097bd9c8fa5214e428",
+  "wrapper_sha256": "2c06fabf93f2bfffaf8d40096f76c45a8d08fbf56b0b433ac5c3d2441b63115b",
+  "test_duration_seconds": 88.02,
+  "test_returncode": 0,
+  "private_remote_result": "/opt/baarcha-bench/cube-workload-guarded-live-20260925-01/result.json",
+  "result_sha256": "8d48257a73d58688179c918e9535868c2a1467afa900bd0adc842967694f0f5d",
+  "cgroup_report_sha256": "c02a6873f96c6001d4105cbcad8e24c926f632f033a7be951fcdfc513d24702f",
+  "guests": 4,
+  "per_guest_bytes": 536870912,
+  "preparation_seconds": 18.591888245,
+  "measured_load_seconds": 45.335388526,
+  "capacity_refusal_ms": 0.741,
+  "all_apps_memory_and_cpu_verified": true,
+  "over_budget_refused": true,
+  "cleanup_verified": true,
+  "charged_remaining": 0,
+  "storage_guard_enabled": true,
+  "production_accepted": false,
+  "HTTPMS": {
+    "samples": 84,
+    "median": 6.4094999999999995,
+    "p95_upper_rank": 11.583,
+    "max": 62.833
+  },
+  "StatusMS": {
+    "samples": 84,
+    "median": 2.3375000000000004,
+    "p95_upper_rank": 4.224,
+    "max": 5.762
+  },
+  "worker_cgroup": {
+    "sampled_peak_bytes": 7433502720,
+    "before": {
+      "unix_time": 1790362304.454071,
+      "memory.current": "3896881152\n",
+      "memory.peak": "4793331712\n",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\n",
+      "memory.swap.current": "0\n",
+      "memory.pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=0\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+      "cpu.stat": "usage_usec 4192726033\nuser_usec 2482204731\nsystem_usec 1710521301\ncore_sched.force_idle_usec 0\nnr_periods 98682\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n"
+    },
+    "after": {
+      "unix_time": 1790362392.5121295,
+      "memory.current": "7415238656\n",
+      "memory.peak": "7434268672\n",
+      "memory.events": "low 0\nhigh 0\nmax 0\noom 0\noom_kill 0\noom_group_kill 0\n",
+      "memory.swap.current": "0\n",
+      "memory.pressure": "some avg10=0.00 avg60=0.00 avg300=0.00 total=0\nfull avg10=0.00 avg60=0.00 avg300=0.00 total=0\n",
+      "cpu.stat": "usage_usec 4343444606\nuser_usec 2538651278\nsystem_usec 1804793327\ncore_sched.force_idle_usec 0\nnr_periods 99563\nnr_throttled 0\nthrottled_usec 0\nnr_bursts 0\nburst_usec 0\n"
+    },
+    "kernel_peak_is_lifetime": true
+  },
+  "comparison": {
+    "prior_preparation_seconds": 18.4289,
+    "prior_http_median_ms": 5.7695,
+    "prior_http_p95_ms": 10.84,
+    "note": "Single-run bounded workload, not advertised VM startup or fleet latency; bounds unchanged."
+  }
+}

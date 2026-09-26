@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 	"os"
@@ -41,5 +42,11 @@ func loadCubeReverseEgressConfig(cfg cubeConfig) (*api.CubeEgressConfig, error) 
 	if err != nil {
 		return nil, err
 	}
-	return &api.CubeEgressConfig{Policy: policy, BridgeURL: bridge, AppHTTPServices: services}, nil
+	motionApp := os.Getenv("SANDBOXD_CUBE_MOTION_STUDIO_APP_ID")
+	if motionApp != "" {
+		if _, err := egress.NewMotionStudio(motionApp, func(context.Context, egress.Identity, string) bool { return false }); err != nil {
+			return nil, err
+		}
+	}
+	return &api.CubeEgressConfig{Policy: policy, BridgeURL: bridge, AppHTTPServices: services, MotionStudioAppID: motionApp}, nil
 }

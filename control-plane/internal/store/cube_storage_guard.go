@@ -45,7 +45,7 @@ func (s *Store) ConfigureStorageGuard(ctx context.Context, cfg *cube.StorageGuar
 		if e2 := tx.QueryRowContext(ctx, `SELECT max_active FROM cube_admission_policy WHERE singleton=1`).Scan(&max); e2 != nil {
 			return e2
 		}
-		if max > 4 {
+		if max < 1 || max > cube.GuardedAdmissionLimit {
 			return cube.ErrStorageUnavailable
 		}
 		if errors.Is(e, sql.ErrNoRows) {

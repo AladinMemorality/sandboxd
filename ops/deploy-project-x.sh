@@ -22,6 +22,7 @@ activation_started=0
 controller_attempted=0
 check_container=''
 project=''
+worker_stop=${PROJECT_X_WORKER_STOP_CONFIG:-/etc/baarcha-cube/worker-stop.json}
 
 compose() {
   local args=(-p "$project" --env-file "$src/.env" -f "$src/docker-compose.yml")
@@ -45,6 +46,83 @@ os.replace(path+'.new',path)
 PY
 }
 isolation() { SANDBOXD_SRC_DIR="$src" "$src/host/sandbox-isolation.sh"; }
+worker_pin() {
+  local action=$1 expected_image=$2 current
+  current=$(compose ps -q sandboxd)
+  python3 - "$action" "$worker_stop" "$run" "$db" "$current" "$expected_image" "$runtime_mode" "$project" <<'PY'
+import contextlib,hashlib,json,os,re,sqlite3,stat,subprocess,sys,tempfile
+from pathlib import Path
+action,name,directory,database,controller,image,mode,project=sys.argv[1:]
+p=Path(name);root=Path(directory);expected=root/'worker-stop.expected.json'
+def need(value):
+ if not value:raise RuntimeError('Worker coordinator identity refresh refused; preserve configuration for operator review')
+def private(path):
+ need(path.is_absolute() and path.resolve(strict=True)==path)
+ s=path.stat();uid=0 if name=='/etc/baarcha-cube/worker-stop.json' else os.geteuid()
+ need(stat.S_ISREG(s.st_mode) and s.st_uid==uid and s.st_nlink==1 and stat.S_IMODE(s.st_mode)==0o600 and s.st_size<=131072)
+ need(path.parent.stat().st_uid==uid and path.parent.stat().st_mode&0o022==0)
+ return path.read_bytes()
+def decode(raw):
+ def unique(pairs):
+  result={}
+  for k,v in pairs:need(k not in result);result[k]=v
+  return result
+ return json.loads(raw,object_pairs_hook=unique)
+def atomic(path,raw):
+ fd,temp=tempfile.mkstemp(prefix='.'+path.name+'.release-',dir=path.parent)
+ try:
+  with os.fdopen(fd,'wb') as f:f.write(raw);f.flush();os.fsync(f.fileno())
+  os.replace(temp,path)
+  fd=os.open(path.parent,os.O_RDONLY|os.O_DIRECTORY)
+  try:os.fsync(fd)
+  finally:os.close(fd)
+ finally:
+  if os.path.exists(temp):os.unlink(temp)
+if action=='prepare' and not p.exists() and not p.is_symlink():
+ need(mode=='docker');(root/'worker-stop.absent').write_text('No worker coordinator was installed.\n');sys.exit(0)
+if action in ('candidate','refresh') and (root/'worker-stop.absent').exists():
+ need(not p.exists() and not p.is_symlink());sys.exit(0)
+raw=private(p);c=decode(raw)
+need(re.fullmatch('[0-9a-f]{64}',controller) and c.get('database')==database)
+need(not Path(database+'.worker-stop.json').exists() and not Path(database+'.worker-stop.json').is_symlink())
+need(c.get('worker_boot_id')==c.get('admission',{}).get('storage_guard',{}).get('expected_boot_id'))
+need(c.get('data_uuid')==c['admission']['storage_guard'].get('inner_fs_uuid') and c.get('worker_machine_id')==c['admission']['storage_guard'].get('worker_machine_id'))
+migrations=Path(c['migrations']);need(migrations.is_dir() and migrations.resolve()==migrations and migrations.stat().st_uid==p.stat().st_uid and migrations.stat().st_mode&0o022==0)
+ids=sorted(int(q.name.split('_',1)[0]) for q in migrations.glob('*.sql') if re.fullmatch(r'[0-9]{4}_.+\.sql',q.name))
+need(ids and 34 in ids and ids==list(range(1,max(ids)+1)))
+with contextlib.closing(sqlite3.connect('file:'+database+'?mode=ro',uri=True,timeout=5)) as db:
+ need([row[0] for row in db.execute('SELECT id FROM migration ORDER BY id')]==ids)
+ssh=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oBatchMode=yes','-oConnectTimeout=5','-oServerAliveInterval=3','-oServerAliveCountMax=1','-oStrictHostKeyChecking=yes','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','root@127.0.0.1','cat /proc/sys/kernel/random/boot_id']
+boot=subprocess.run(ssh,check=True,capture_output=True,text=True,timeout=12).stdout.strip()
+need(re.fullmatch('[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}',boot) and boot==c['worker_boot_id'])
+live=json.loads(subprocess.check_output(['docker','inspect',controller]))[0]
+need(live['Id']==controller and live['Image']==image and live['State']['Running'] and live['Config']['Labels']['com.docker.compose.project']==project)
+if action=='prepare':
+ need(c.get('controller_id')==controller and not expected.exists())
+ atomic(root/'worker-stop.before.json',raw);atomic(expected,raw)
+elif action=='candidate':
+ need(raw==private(expected) and c.get('controller_id')==controller)
+ candidate=root/'source/control-plane/migrations'
+ def manifest(directory):
+  result={}
+  for path in directory.glob('*.sql'):
+   need(re.fullmatch(r'[0-9]{4}_.+\.sql',path.name) and path.is_file() and not path.is_symlink())
+   result[path.name]=hashlib.sha256(path.read_bytes()).hexdigest()
+  return result
+ # Refuse a new schema BEFORE the candidate can migrate the live DB. A
+ # binary rollback cannot undo such a migration or upgrade old coordinators.
+ need(candidate.is_dir() and manifest(candidate)==manifest(migrations))
+elif action=='refresh':
+ need(raw==private(expected))
+ c['controller_id']=controller;updated=(json.dumps(c,indent=2)+'\n').encode()
+ # CAS recheck immediately before replacement under the existing deploy lock.
+ need(private(p)==raw and not Path(database+'.worker-stop.json').exists())
+ atomic(p,updated);atomic(expected,updated)
+ receipt={'controller_id':controller,'worker_boot_id':boot,'config_sha256':hashlib.sha256(updated).hexdigest(),'only_controller_id_changed':True,'pause_receipt_created':False}
+ atomic(root/('worker-stop-pin-'+controller+'.json'),(json.dumps(receipt)+'\n').encode())
+else:need(False)
+PY
+}
 reconnect_management() {
   [[ "$runtime_mode" == cube ]] || return 0
   compose up -d --no-deps --no-build --pull never --force-recreate cube-management-api cube-management-proxy
@@ -134,7 +212,7 @@ rollback() {
       docker image tag "$old_base" "$base_compat" &&
       override "$rollback_control" || { echo 'Cannot restore release configuration; controller remains stopped' >&2; exit 1; }
     if [[ "$controller_attempted" == 1 ]]; then
-      compose up -d --no-deps --no-build --pull never sandboxd && reconnect_management && isolation && verify "$old_control" || {
+      compose up -d --no-deps --no-build --pull never sandboxd && reconnect_management && isolation && verify "$old_control" && worker_pin refresh "$old_control" || {
         compose stop -t 30 sandboxd
         echo 'Rollback readiness/isolation failed; controller left stopped for operator recovery' >&2
         exit 1
@@ -169,8 +247,10 @@ print(c['Config']['Labels']['com.docker.compose.project'])
 PY
 )
 compose config --format json >"$run/config.json"
-runtime_mode=$(python3 - "$run/container.before.json" "$run/config.json" "$runtime_compose" <<'PY'
-import json,os,re,sys
+validate_runtime_mode() {
+  python3 - "$1" "$2" "$runtime_compose" "$sha" "${PROJECT_X_CUBE_ALLOWLIST_RELEASE_FILE:-}" "$run" "$state" "$3" <<'PY'
+import hashlib,json,os,re,stat,sys
+from pathlib import Path
 c=json.load(open(sys.argv[1]))[0]
 live=dict(x.split('=',1) for x in c['Config']['Env'] if '=' in x)
 config=json.load(open(sys.argv[2])); e=config['services']['sandboxd']['environment']
@@ -180,8 +260,43 @@ enabled=str(e.get('SANDBOXD_CUBE_ENABLED','false'))
 assert enabled in ('false','true'), 'Invalid Cube enabled value'
 if enabled=='true':
  assert os.path.isfile(sys.argv[3]), 'Active Cube release requires durable runtime-compose.json'
- for key,value in {'SANDBOXD_CUBE_ROLLOUT':'global','SANDBOXD_CUBE_REVERSE_EGRESS':'true','SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED':'true','SANDBOXD_CUBE_EGRESS_CLIENT_PROFILE':'proxy-http-v1'}.items():
-  assert str(e.get(key,''))==value, 'Cube deployment must retain its accepted global configuration'
+ for key,value in {'SANDBOXD_CUBE_REVERSE_EGRESS':'true','SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED':'true','SANDBOXD_CUBE_EGRESS_CLIENT_PROFILE':'proxy-http-v1'}.items():
+  assert str(e.get(key,''))==value, 'Cube deployment must retain its accepted egress configuration'
+ rollout=str(e.get('SANDBOXD_CUBE_ROLLOUT','allowlist'))
+ review_name=sys.argv[5]
+ if rollout=='global':
+  assert not review_name, 'Allowlist release review cannot authorize global routing'
+ else:
+  assert rollout=='allowlist' and review_name, 'Existing Cube allowlist requires an explicit exact release review'
+  def need(value):
+   if not value:raise RuntimeError('Exact Cube allowlist release review refused; configuration remains unchanged')
+  review=Path(review_name)
+  need(review.is_absolute() and review.resolve(strict=True)==review)
+  info=review.stat();uid=0 if sys.argv[7]=='/opt/sandboxd/deploy-state' else os.geteuid()
+  need(stat.S_ISREG(info.st_mode) and info.st_uid==uid and stat.S_IMODE(info.st_mode)==0o600 and info.st_nlink==1 and info.st_size<=16384)
+  parent=review.parent.stat();need(parent.st_uid==uid and stat.S_IMODE(parent.st_mode)==0o700)
+  fd=os.open(review,os.O_RDONLY|os.O_NOFOLLOW)
+  try:
+   current=os.fstat(fd);need((current.st_dev,current.st_ino,current.st_size)==(info.st_dev,info.st_ino,info.st_size))
+   raw=os.read(fd,16385);need(len(raw)<=16384)
+  finally:os.close(fd)
+  def unique(pairs):
+   value={}
+   for k,v in pairs:need(k not in value);value[k]=v
+   return value
+  r=json.loads(raw,object_pairs_hook=unique)
+  need(set(r)=={'version','candidate_sha','controller_id','app_ids','runtime_override_sha256','rendered_config_sha256'})
+  apps=str(e.get('SANDBOXD_CUBE_APP_IDS','')).split(',')
+  need(apps and len(apps)==len(set(apps)) and all(re.fullmatch('[0-9A-HJKMNP-TV-Z]{26}',a) for a in apps))
+  need(r['version']==1 and r['candidate_sha']==sys.argv[4] and r['controller_id']==c['Id'] and c['State']['Running'])
+  need(r['app_ids']==sorted(apps))
+  need(r['runtime_override_sha256']==hashlib.sha256(Path(sys.argv[3]).read_bytes()).hexdigest())
+  need(r['rendered_config_sha256']==hashlib.sha256(json.dumps(config,sort_keys=True,separators=(',',':')).encode()).hexdigest())
+  retained=Path(sys.argv[6])/'cube-allowlist-review.json'
+  if sys.argv[8]=='initial':
+   fd=os.open(retained,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+   with os.fdopen(fd,'wb') as f:f.write(raw);f.flush();os.fsync(f.fileno())
+  else:need(retained.read_bytes()==raw)
  for name in ('cube-management-api','cube-management-proxy'):
   service=config['services'].get(name,{})
   assert service.get('network_mode')=='service:sandboxd', 'Cube relay must share the controller network namespace'
@@ -189,10 +304,13 @@ if enabled=='true':
   assert re.fullmatch(r'(?:[^\s]+@)?sha256:[0-9a-f]{64}',service.get('image','')), 'Cube relay requires an immutable image digest or local image ID'
  print('cube')
 else:
+ assert not sys.argv[5], 'Allowlist review requires already enabled Cube'
  assert str(e.get('SANDBOXD_CUBE_REVERSE_EGRESS','false'))=='false', 'Reverse egress requires Cube enabled'
  print('docker')
 PY
-)
+}
+if ! validate_runtime_mode "$run/container.before.json" "$run/config.json" initial >"$run/runtime-mode"; then rollback 1; fi
+runtime_mode=$(cat "$run/runtime-mode")
 db=$(python3 - "$run/config.json" <<'PY'
 import json,os,sqlite3,sys
 e=json.load(open(sys.argv[1]))['services']['sandboxd']['environment']
@@ -213,6 +331,7 @@ PY
 )
 old_control=$(docker inspect -f '{{.Image}}' "$cid")
 old_base=$(docker image inspect -f '{{.Id}}' "$base_compat")
+worker_pin prepare "$old_control"
 rollback_control="sandboxd-control-plane:rollback-$(basename "$run")"
 docker image tag "$old_control" "$rollback_control"
 docker image tag "$old_base" "sandboxd-base:rollback-$(basename "$run")"
@@ -226,6 +345,7 @@ git -C "$src" fetch --no-tags origin "$sha"
 # Scope this umask only to Git; the enclosing release directory stays 0700 and
 # environment, database and inspection artifacts retain the private 077 umask.
 (umask 022; git -C "$src" worktree add --detach "$run/source" "$sha")
+worker_pin candidate "$old_control"
 # A retry may reuse a completed immutable artifact, but cannot overwrite it or
 # accept an unrelated pre-existing tag. Only this reviewed source SHA is valid.
 build_image() {
@@ -285,6 +405,12 @@ acceptance postgres 180 --entrypoint node \
   -v "$run/check-fixtures/paths.test.mjs:/opt/services/postgres/paths.test.mjs:ro" \
   -v "$run/check-fixtures/worker.test.mjs:/opt/services/postgres/worker.test.mjs:ro" \
   "$base_tag" --test /opt/services/postgres/paths.test.mjs /opt/services/postgres/worker.test.mjs >"$run/postgres-acceptance.txt"
+# Recheck the reviewed scope/old controller after build and before any activation.
+# A stale receipt cannot authorize a later controller generation or changed mounts.
+docker inspect "$cid" >"$run/container.pre-activation.json"
+compose config --format json >"$run/config.pre-activation.json"
+if ! validate_runtime_mode "$run/container.pre-activation.json" "$run/config.pre-activation.json" recheck >"$run/runtime-mode.rechecked"; then rollback 1; fi
+cmp -s "$run/runtime-mode" "$run/runtime-mode.rechecked" || rollback 1
 # SQLite online backup includes committed WAL frames while the old controller
 # remains live; never cp an open database or restore this snapshot automatically.
 python3 - "$db" "$run/sandboxd.backup.sqlite" <<'PY'
@@ -317,6 +443,7 @@ compose up -d --no-deps --no-build --pull never sandboxd
 reconnect_management
 isolation
 verify "$new_control"
+worker_pin refresh "$new_control"
 if [[ -f "$run/traefik-dynamic.before/myhometroc.yml" ]]; then
   cmp "$run/traefik-dynamic.before/myhometroc.yml" "$src/traefik/dynamic/myhometroc.yml"
 fi

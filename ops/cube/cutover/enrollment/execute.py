@@ -5,16 +5,17 @@ shutdown. On mutation failure it holds locks for explicit recovery commands.
 """
 import argparse, contextlib, datetime, fcntl, hashlib, importlib.util, json, os
 from pathlib import Path
-import re, shlex, signal, sqlite3, stat, subprocess, sys, time, urllib.request, fnmatch
+import re, shlex, signal, sqlite3, stat, subprocess, sys, time, urllib.request, fnmatch, selectors
 
 BASE=Path('/opt/baarcha-bench/cube-host-lifecycle-enrollment-20260925')
 REVIEW=BASE/'review-02'; RELEASE=BASE/'release-be24d2fa8ca1'
 WORKER=Path('/opt/baarcha-cube/worker-01'); CONF=Path('/etc/baarcha-cube')
 UNIT='baarcha-cube-worker-01.service'; CP='5fb591f9c2705b5611efee74d0fff7c3169897afc7719977c7f2a0d52f25fe67'
 IMAGE='sha256:26222f6de55d5923f65f7b48489f2ea3b79b2f21a948e17adff370ca5101c747'
-PLATFORM='30cd5c24ff44183fc72f4c051377f8ae931d9863'
+PLATFORM='2e61df6ec62f80b420ce4a15cbcf375f83a3b434'
 INITIAL_BOOT='7ee095fe-0461-4779-93e6-42e2b557440f'; INITIAL_PID=2917754; INITIAL_START='482723086'
 MACHINE='2b9e31d4abd345e3bd4b966591e61296'; DATA='793c3349-db9c-4815-9842-989ed484f1f8'
+OBSERVER_SHA='06dd5e379fa594ec6fbfa37d36971fa5703ff5969b8766bac98196ee10c0f92e'
 HOST_SHA='94398ad7ebd42af9288c705924e2bbf5c4214561582afeef54d55f32714dbffd'
 NESTED_SHA='e1e34848f59f507d0e2ae42b23e2887284248ea0454bd739d827ea716f17e205'
 STOP_SHA='ab55a5dda0bfceb6053a1870c7c73413ce2902e53e4c5ea2d2e0f903d20c469f'
@@ -26,6 +27,8 @@ TIMERS=tuple('baarcha-'+x+'.timer' for x in ('project-env-apply','classroom-egre
 SSH=['/usr/bin/ssh','-i',str(WORKER/'operator-key'),'-p20222','-oBatchMode=yes','-oConnectTimeout=5',
      '-oStrictHostKeyChecking=yes','-oUserKnownHostsFile='+str(WORKER/'known_hosts'),'root@127.0.0.1']
 ROUTING=WORKER/'cutover-routing'; SCRIPT='/usr/local/libexec/baarcha-cube-worker-lifecycle.py'
+PREVIEW_HOST_FILE=BASE/'reviewed-preview-host.json'
+PREVIEW_HOST_SHA='a544037d172cc01b85974e4c32099a242ba341963db7821521dcf58cd30265c0'
 HOLD=Path('/etc/systemd/system/baarcha-cube-worker-01.service.d/90-empty-checkpoint-hold.conf')
 ALLOW=Path('/opt/baarcha-bench/cube-durable-enrollment-20260925/allow-worker')
 HOLD_SHA='2e67ebf32800b4c734e0d368f0d5ee5875670c505cd62cd19ddb218e1c5fcfe1'
@@ -59,6 +62,17 @@ def run(argv, timeout=20):
     p=subprocess.run(argv,capture_output=True,timeout=timeout)
     need(p.returncode==0,'command failed: '+Path(argv[0]).name)
     need(len(p.stdout)<=4*1024*1024,'oversized command result'); return p.stdout
+
+def install_parent_preflight():
+    for p in (Path('/usr/local'),Path('/usr/local/libexec')):
+        need(p.exists() and p.resolve()==p,'required canonical installation directory absent')
+        st=p.stat()
+        need(stat.S_ISDIR(st.st_mode) and st.st_uid==0 and st.st_gid==0 and stat.S_IMODE(st.st_mode)==0o755,'installation directory must be root:root0755')
+
+def reviewed_observer():
+    path=BASE/'drain_observe.py'
+    need(sha(path)==OBSERVER_SHA,'drain observer differs; stage reviewed deterministic-close source')
+    return load_module(path,'enrollment_observer')
 
 def unit(name):
     raw=run(['systemctl','show',name,'-p','ActiveState','-p','SubState','-p','MainPID','-p','Restart','-p','UnitFileState','-p','FragmentPath','-p','DropInPaths','-p','KillMode','-p','SendSIGKILL','-p','TimeoutStopUSec']).decode()
@@ -175,8 +189,15 @@ def model_routes_unfenced(scopes):
     paths=['/api/v1/chat/completions','/api/live/transcribe']
     return all(not any(all(matches(group,path) for group in ancestors) for ancestors in scopes) for path in paths)
 
+def reviewed_preview_host():
+    value=json.loads(private(PREVIEW_HOST_FILE).read_text())
+    need(set(value)=={'host'} and isinstance(value['host'],str),'unexpected preview host input')
+    host=value['host']
+    need(re.fullmatch(r's-[0-9a-z]{26}-3000\.preview\.65\.108\.225\.153\.sslip\.io',host) and hashlib.sha256(host.encode()).hexdigest()==PREVIEW_HOST_SHA,'reviewed existing-certificate preview host differs')
+    return host
+
 def route_status(path,preview=False):
-    host='s-00000000000000000000000000-3000.preview.baarcha.tn' if preview else 'baarcha.tn'
+    host=reviewed_preview_host() if preview else 'baarcha.tn'
     return int(run(['curl','--silent','--show-error','--max-time','10','--resolve',host+':443:127.0.0.1','--output','/dev/null','--write-out','%{http_code}','https://'+host+path],12))
 
 def wait_for(fn,seconds):
@@ -186,24 +207,92 @@ def wait_for(fn,seconds):
         need(time.monotonic()<end,'bounded observation deadline')
         time.sleep(1)
 
+NESTED_LOCK_CODE=r'''
+import fcntl,json,os,pathlib,stat,sys
+p=pathlib.Path('/run/lock/cube-operator-acceptance.lock')
+assert p.is_absolute() and p.parent.resolve(strict=True)==p.parent
+fd=os.open(p,os.O_RDWR|os.O_CREAT|os.O_NOFOLLOW,0o600)
+s=os.fstat(fd);assert stat.S_ISREG(s.st_mode) and s.st_uid==0 and stat.S_IMODE(s.st_mode)==0o600
+fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+boot=pathlib.Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+def answer(value):print(json.dumps(value),flush=True)
+answer({'held':True,'boot_id':boot,'pid':os.getpid(),'device':s.st_dev,'inode':s.st_ino})
+for line in sys.stdin:
+ if line.strip()=='ping':
+  current=p.stat();assert (current.st_dev,current.st_ino)==(s.st_dev,s.st_ino)
+  answer({'held':True,'boot_id':boot})
+ elif line.strip()=='release':
+  os.close(fd);fd=-1;answer({'released':True,'boot_id':boot});break
+ else:raise RuntimeError('invalid lock protocol')
+if fd>=0:os.close(fd)
+'''
+
+class NestedLock:
+    retired=[]
+    def __init__(self,boot):
+        self.boot=boot;self.buffer=b''
+        args=SSH[:-1]+['-oServerAliveInterval=2','-oServerAliveCountMax=2']+SSH[-1:]+['python3 -u -c '+shlex.quote(NESTED_LOCK_CODE)]
+        self.process=subprocess.Popen(args,stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,bufsize=0)
+        try:
+            self.identity=self.receive(10)
+            need(self.identity.get('held') is True and self.identity.get('boot_id')==boot,'nested acceptance lock not held for expected boot')
+        except Exception:
+            self.process.stdin.close()
+            try:self.process.wait(timeout=5);self.process.stdout.close()
+            except subprocess.TimeoutExpired:self.retired.append(self.process)
+            raise
+    def receive(self,timeout):
+        end=time.monotonic()+timeout
+        with selectors.DefaultSelector() as selector:
+            selector.register(self.process.stdout,selectors.EVENT_READ)
+            while b'\n' not in self.buffer:
+                remaining=end-time.monotonic();need(remaining>0,'nested lock response deadline')
+                need(selector.select(remaining),'nested lock response deadline')
+                chunk=os.read(self.process.stdout.fileno(),4097-len(self.buffer))
+                need(chunk and len(self.buffer)+len(chunk)<=4096,'nested lock channel closed/oversized')
+                self.buffer+=chunk
+        line,self.buffer=self.buffer.split(b'\n',1)
+        return json.loads(line)
+    def heartbeat(self):
+        need(self.process.poll() is None,'nested acceptance lock lost')
+        self.process.stdin.write(b'ping\n');self.process.stdin.flush()
+        value=self.receive(5)
+        need(value=={'held':True,'boot_id':self.boot},'nested acceptance lock heartbeat differs')
+    def close(self,poweroff_confirmed=False):
+        if poweroff_confirmed:
+            # The exact QEMU generation is already gone: no guest process can
+            # still own this boot's flock. Do not kill a possibly lingering SSH
+            # client or mistake transport EOF for poweroff authorization.
+            self.process.stdin.close()
+            try:self.process.wait(timeout=5);self.process.stdout.close()
+            except subprocess.TimeoutExpired:self.retired.append(self.process)
+            return
+        if self.process.poll() is None:
+            self.process.stdin.write(b'release\n');self.process.stdin.flush()
+            value=self.receive(5)
+            need(value=={'released':True,'boot_id':self.boot},'nested lock release unacknowledged')
+            self.process.stdin.close()
+        need(self.process.wait(timeout=5)==0,'nested lock release failed');self.process.stdout.close()
+
 class Enrollment:
     def __init__(self,job,resize=False):
-        self.job=job;self.resize=resize; self.phase='created';self.changed=False;self.worker_touched=False;self.baseline=None
+        self.job=job;self.resize=resize; self.phase='created';self.changed=False;self.worker_touched=False;self.baseline=None;self.nested=None
         self.stop=json.loads((REVIEW/'candidates/worker-stop.json').read_text())
         self.life=load_module(RELEASE/'source/ops/cube/worker-lifecycle/lifecycle.py','enrollment_life')
-        self.observer=load_module(BASE/'drain_observe.py','enrollment_observer')
+        self.observer=reviewed_observer()
     def event(self,name,value): atomic(self.job/(name+'.json'),value)
     def advance(self,phase,value=None):
         self.phase=phase;self.event(phase,{'at':utc(),'phase':phase,**(value or {})})
         atomic(self.job/'status.json',{'phase':phase,'at':utc(),'runner_pid':os.getpid(),'worker_touched':self.worker_touched,'changed':self.changed},True)
         print(json.dumps({'phase':phase,'job':str(self.job)}),flush=True)
     def empty(self):
-        c=db_counts();need(c=={'apps':66,'bindings':0,'admission':0,'recovery':0,'active':0},'canonical fleet differs/not empty of Cube')
+        need(self.nested is not None,'nested lock missing');self.nested.heartbeat()
+        c=db_counts();need(c=={'apps':67,'bindings':0,'admission':0,'recovery':0,'active':0},'canonical fleet differs/not empty of Cube')
         api=json.loads(http('http://127.0.0.1:20300/sandboxes',self.stop['api_key']));need(api==[],'provider inventory not empty')
         inv=worker('cubemastercli -a 127.0.0.1 list --all --wide')
         need(re.findall(r'^SANDBOX_COUNT\s+(\d+)\s*$',inv,re.M)==['0'] and re.search(r'^NODES_SCANNED\s+1/1\s*$',inv,re.M),'incomplete provider CLI inventory')
         need(not worker('ctr --address /data/cubelet/cubelet.sock --namespace default tasks list --quiet'),'provider tasks present')
-        self.latest_provider_jobs=provider_jobs()
+        self.latest_provider_jobs=provider_jobs();self.nested.heartbeat()
         return c
     def nested_ready(self,old_boot=None):
         boot=worker('cat /proc/sys/kernel/random/boot_id');need(boot!=old_boot,'worker did not reboot')
@@ -221,6 +310,7 @@ class Enrollment:
         self.stop.update(qemu_pid=pid,qemu_start_time=starttime(pid),worker_boot_id=worker('cat /proc/sys/kernel/random/boot_id'),receipt=str(self.job/'pre-drain.json'),evidence_directory=str(self.job/'evidence'))
         atomic(CONF/'worker-stop.json',self.stop,True)
     def preflight(self):
+        install_parent_preflight()
         need(sha(RELEASE/'source/ops/cube/worker-lifecycle/lifecycle.py')==HOST_SHA,'host helper changed')
         need(sha(RELEASE/'binaries/cube-worker-stop')==STOP_SHA and sha(RELEASE/'binaries/cube-worker-start')==START_SHA,'coordinator changed')
         need(run(['git','-C','/opt/baarcha/app/landing','rev-parse','HEAD']).decode().strip()==PLATFORM,'platform deployment changed')
@@ -228,6 +318,8 @@ class Enrollment:
         state=unit(UNIT);need(int(state['MainPID'])==INITIAL_PID and state['Restart']=='no','direct worker changed')
         need(starttime(INITIAL_PID)==INITIAL_START,'direct QEMU generation changed')
         need(Path(f'/proc/{INITIAL_PID}/cmdline').read_bytes().rstrip(b'\0').decode().split('\0')==self.life.fixed_qemu(),'direct QEMU argv differs')
+        self.nested=NestedLock(INITIAL_BOOT)
+        self.event('nested-lock-initial',{'scope':'inside worker /run/lock/cube-operator-acceptance.lock','identity':self.nested.identity})
         need(worker('cat /proc/sys/kernel/random/boot_id')==INITIAL_BOOT,'worker boot drift')
         for p in [MARKER,WORKER/'lifecycle-status.json',Path(SCRIPT),CONF/'lifecycle.json']:
             need(not p.exists() and not p.is_symlink(),'first-enrollment artifact exists')
@@ -238,7 +330,8 @@ class Enrollment:
         need(online==adapted==reviewed,'Caddy online baseline changed')
         for name in ['drain','offline']:
             run(['caddy','validate','--config',str(ROUTING/(name+'.json'))])
-        self.baseline={'controller_id':CP,'controller_image':IMAGE,'restart':'unless-stopped','worker_unit':state,'outer_boot_hold':hold,
+        reviewed_preview_host()
+        self.baseline={'preview_host_sha256':PREVIEW_HOST_SHA,'controller_id':CP,'controller_image':IMAGE,'restart':'unless-stopped','worker_unit':state,'outer_boot_hold':hold,
                        'timers':{t:unit(t) for t in TIMERS},'platform_revision':PLATFORM,'caddy':online,'containers':container_identities(),'retained_orphan':orphan_stat()}
         self.event('baseline',self.baseline)
         unitpath=Path(state['FragmentPath']);need(unitpath==Path('/etc/systemd/system/'+UNIT),'unexpected worker unit path')
@@ -256,7 +349,7 @@ class Enrollment:
         scopes=caddy_fence_scopes(json.loads((ROUTING/'offline.json').read_text()))
         need(scopes and model_routes_unfenced(scopes),'unrelated model/voice route may be fenced')
         checks={path:route_status(path) for path in ['/api/projects','/api/bridge','/api/apps/not-an-app/preview','/api/tools/call']}
-        checks['preview_dummy']=route_status('/',True);checks['landing']=route_status('/')
+        checks['reviewed_preview']=route_status('/',True);checks['landing']=route_status('/')
         need(checks['landing']==200 and all(code==503 for path,code in checks.items() if path!='landing'),'actual offline route fence failed')
         self.event('offline-route-checks',{'statuses':checks,'model_routes_checked_in_config_only':True})
         wait_for(lambda: self.observer.process_sockets(inspect_cp()['State']['Pid'])['tcp_non_listen']==0,120)
@@ -311,10 +404,11 @@ class Enrollment:
         args=' --machine-id '+MACHINE+' --boot-id '+INITIAL_BOOT+' --data-uuid '+DATA
         stopped=json.loads(worker('python3 '+SCRIPT+' shutdown-components'+args,240));need(stopped.get('stopped') and stopped['boot_id']==INITIAL_BOOT,'manual retained stop failed')
         self.event('manual-retained-stop',stopped)
-        need(starttime(INITIAL_PID)==INITIAL_START,'QEMU changed before powerdown')
+        need(starttime(INITIAL_PID)==INITIAL_START,'QEMU changed before powerdown');self.nested.heartbeat()
         self.life.qmp_powerdown(WORKER/'qmp.sock')
         wait_for(lambda:not Path(f'/proc/{INITIAL_PID}').exists(),180)
         need(unit(UNIT)['ActiveState']=='inactive' and unit(UNIT)['MainPID']=='0','old unit not inactive')
+        self.nested.close(poweroff_confirmed=True);self.nested=None
         self.advance('direct-qemu-exited')
     def resize_disk(self):
         if not self.resize:return
@@ -369,6 +463,13 @@ class Enrollment:
         self.advance('host-artifacts-installed')
     def boot(self,previous,label):
         run(['systemctl','start',UNIT]);boot=None
+        def ssh_up():
+            nonlocal boot
+            try:boot=worker('cat /proc/sys/kernel/random/boot_id');return boot!=previous
+            except (RuntimeError,subprocess.SubprocessError,OSError):return False
+        wait_for(ssh_up,180)
+        self.nested=NestedLock(boot)
+        self.event('nested-lock-'+label,{'scope':'inside worker acceptance lock','identity':self.nested.identity})
         if self.resize and label=='first-supervisor-ready':
             def ssh_ready():
                 try:return worker('cat /proc/sys/kernel/random/boot_id')!=previous
@@ -407,6 +508,8 @@ class Enrollment:
             need(s['state'] not in ('stop-blocked','worker-lost'),'supervisor refused/lost worker; retain fence')
             return s['state']=='stopped-clean' and unit(UNIT)['ActiveState']=='inactive' and unit(UNIT)['MainPID']=='0'
         wait_for(stopped,1080)
+        need(not Path('/proc/'+str(self.stop['qemu_pid'])).exists(),'old QEMU still exists after stopped-clean')
+        self.nested.close(poweroff_confirmed=True);self.nested=None
         need(MARKER.exists(),'coordinator marker absent')
         proofs=list((self.job/'evidence').glob('pause-*.json'));need(len(proofs)==1,'pause proof not unique')
         proof=json.loads(proofs[0].read_text());need(proof['verified'] and proof['guest_states']=={},'actual pause proof wrong')
@@ -495,5 +598,7 @@ def main():
                 task.preflight();task.advance('check-only-complete',{'service_changes':False,'review_flags_set':False});return
             task.execute()
         except Exception as error:task.failed(error);raise SystemExit(1)
+        finally:
+            if task.nested is not None:task.nested.close()
 
 if __name__=='__main__':main()

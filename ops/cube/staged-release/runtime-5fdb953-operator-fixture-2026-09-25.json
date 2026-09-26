@@ -1,0 +1,89 @@
+{
+  "version": 1,
+  "observed_at": "2026-09-25T22:38:04.760443+00:00",
+  "runtime": {
+    "revision": "5fdb953dea1aafaf486b5e3fdd63e20de2781a89",
+    "ci_run": 36194231117,
+    "release_unit": "cube-runtime-release-20260925-02",
+    "unit_result": {
+      "Result": "success",
+      "ExecMainStatus": "0",
+      "ActiveState": "inactive"
+    },
+    "release_directory": "/opt/sandboxd/deploy-state/releases/20260925T220931-5fdb953dea1a-3365710",
+    "controller_id": "76d8ce7041e4b9c86b75bd676ada1500db0167d63025f81a05f24e0e1a8f04c7",
+    "image": "sha256:f343341e0d3cf2c926ecd0a7ba8e293a5bca5f8dab6f9281ebcb1ff58044361b",
+    "global_enabled": false,
+    "allowed_apps": [
+      "01M3CZB4HXT2Y8HP8CEY75PCWY"
+    ]
+  },
+  "operator_fixture": {
+    "run": "8bb03c01d5527213",
+    "sandbox_id": "01M3D1Q0E1KM1FEM244XVHEC65",
+    "verified_at": "2026-09-25T22:27:41.220Z",
+    "pending": null,
+    "manifest_restored": true,
+    "uid": 1000,
+    "file_mode": "0640",
+    "script_mode": "0750",
+    "hardlink_count": 2,
+    "hardlink_same_inode": true,
+    "relative_symlink_and_special_filename": true,
+    "postgres_row_acknowledged_and_independently_read": true,
+    "postgres_row_id": "1",
+    "postgres_row_created_at": "2026-09-25T22:27:38.800Z",
+    "private_capture_owner_read": true,
+    "private_capture_foreign_anonymous_denied": true,
+    "visual_review": {
+      "reviewer": "parent operator",
+      "sql_note_and_app_marker_visible": true,
+      "machine_visual_flag_remains_false": true
+    },
+    "preserved_failed_tasks": 4,
+    "preserved_event_receipts": 4,
+    "initial_failure": "Prepared worker command omitted required run argument; helper refused before home creation. Source app markers were already installed.",
+    "repair": "Separate exact-run repair journal, pinned source/history hashes, only worker argv corrected; actual proof checked before original operator journal advanced. Original AI journal and failure retained.",
+    "source_commit": "0eb62d1",
+    "tests": {
+      "node": 31,
+      "python": 4
+    }
+  },
+  "artifacts": {
+    "config.REPAIR.json": {
+      "bytes": 2537,
+      "sha256": "7d26739f6551949e8ea0d65a8a270870063587c389014598d71b6002e6528f91"
+    },
+    "original-ai-journal.json": {
+      "bytes": 13930,
+      "sha256": "9a575cfb388f0e18bffb5ec115a77dfb3a09a8d940e51af93addb110d878e246"
+    },
+    "argument-repair.json": {
+      "bytes": 1332,
+      "sha256": "8ed2b8d11cd740cc00abcf2b84f5a6eb6baa104cb0d152b42cb1f24cccda8fa0"
+    },
+    "private-capture.jpg": {
+      "bytes": 86634,
+      "sha256": "f742809c6b06035d90e1e88051d893f5fbf28de2bbe2b1aafc166c0224837771"
+    },
+    "journal.json": {
+      "bytes": 14938,
+      "sha256": "8dcee6fde79ed46c4eeb527c342fe9598c2ee1ac2ed77a620ddce759d219e3b0"
+    }
+  },
+  "limitations": {
+    "ai_coding_passed": false,
+    "full_paired_backup_passed": false,
+    "full_offhost_restore_passed": false,
+    "fleet_migration_passed": false
+  },
+  "caddy_review": {
+    "startup_uses_disk_config": true,
+    "uses_resume": false,
+    "active_motion_id_route_missing_disk": true,
+    "original_wildcard_already_routes_same_host_upstream_and_tls": true,
+    "functional_reboot_gap_proven": false,
+    "candidate_applied": false
+  }
+}
