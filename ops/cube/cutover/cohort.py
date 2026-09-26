@@ -31,8 +31,11 @@ KIND = 'current-generation-project-cohort'
 DEFAULTS = Path(__file__).resolve().with_name('template_defaults.py')
 VERIFY = Path(__file__).resolve().with_name('verify_cohort.mjs')
 PAUSE = Path(__file__).resolve().with_name('pause_existing.mjs')
+NATIVE_TOOLS = Path(__file__).resolve().with_name('native_tool_probe.py')
+native_spec = importlib.util.spec_from_file_location('cohort_native_tools', NATIVE_TOOLS)
+native_tools = importlib.util.module_from_spec(native_spec); native_spec.loader.exec_module(native_tools)
 PLATFORM_ENV = Path('/opt/baarcha/landing.env')
-FILES = tuple(dict.fromkeys((*p.FILES, Path(__file__).resolve(), CONFIG, DEFAULTS, VERIFY, PAUSE, PLATFORM_ENV,
+FILES = tuple(dict.fromkeys((*p.FILES, Path(__file__).resolve(), CONFIG, DEFAULTS, VERIFY, PAUSE, NATIVE_TOOLS, PLATFORM_ENV,
     *(ROOT / ('worker-lifecycle/' + name) for name in
       ('planned.py', 'maintenance.py', 'boot_transition.py', 'external_clean.py')))))
 
@@ -302,6 +305,34 @@ class Host(p.Host):
               proof.get('sha256') == defaults.STOCK_SHA256 and proof.get('bytes') == 220)), 'Invalid target default receipt')
         self.event('template-default-reconciled', {'sandbox_id': row['sandbox_id'], 'runtime_id': target[3], **proof})
         self.fence()
+    def verify_native_tools(self, row):
+        if row['sandbox_id'] not in native_tools.SUPPORTED: return
+        self.fence(); self.source_fence(); self.inputs()
+        need(b.digest(NATIVE_TOOLS) == self.plan['files'][str(NATIVE_TOOLS)], 'Reviewed native tool probe changed')
+        with self.db() as db:
+            target = db.execute('''SELECT s.app_id,s.runtime_provider,r.phase,r.runtime_id,r.template_id
+                                   FROM sandbox s JOIN runtime_migration r ON r.sandbox_id=s.id WHERE s.id=?''',
+                                (row['sandbox_id'],)).fetchone()
+        need(target is not None and target[:3] == (row['app_id'], 'docker', 'imported')
+             and re.fullmatch(r'[a-f0-9]{32}', target[3]) and target[4] == row['template_id'],
+             'Native tools require the exact imported, uncommitted target')
+        self.event('native-tool-verification-intent', {'sandbox_id': row['sandbox_id'], 'runtime_id': target[3]})
+        command = ['ctr', '--address', '/data/cubelet/cubelet.sock', '--namespace', 'default', 'tasks', 'exec',
+                   '--tty', '--exec-id', 'cohort-tools-' + row['sandbox_id'].lower(), target[3],
+                   '/usr/bin/python3', '-c', b.trusted(NATIVE_TOOLS, False).decode(), row['sandbox_id']]
+        result = subprocess.run(b.SSH[:1] + ['-tt'] + b.SSH[1:] + [shlex.join(command)],
+                                capture_output=True, timeout=45, pass_fds=self.fds)
+        # A lost SSH connection or observation timeout is not a completed probe.
+        need(result.returncode != 255, 'Native tool transport lost; inspect actual guest process')
+        if result.returncode != 0:
+            self.event('native-tool-verification-failed', {'sandbox_id': row['sandbox_id'], 'exit_code': result.returncode})
+            raise NativeMigrationFailed('Native tool failed before commit; settle the imported target')
+        lines = [v for v in result.stdout.decode().splitlines() if v.startswith('CUBE_NATIVE_TOOL=')]
+        need(len(lines) == 1, 'Native tool proof missing')
+        proof = b.strict(lines[0].split('=', 1)[1])
+        need(proof.get('sandbox_id') == row['sandbox_id'] and proof.get('success') is True, 'Native tool acceptance failed')
+        self.event('native-tools-verified', proof)
+
     def migrate_cohort(self):
         self.fence(); self.inputs(); self.source_fence(); self.inventory('frozen-preflight')
         root = Path(self.c['archives'])
@@ -333,6 +364,7 @@ class Host(p.Host):
                                    '--expected-fleet', self.c['fleet_sha256'], '--stop-after-import', 'migrate'], row['sandbox_id'] + '-import', 1900)
             need(result['sandbox_id'] == row['sandbox_id'] and result['phase'] == 'imported', 'CLI did not stop at the import boundary')
             self.reconcile_template_default(row)
+            self.verify_native_tools(row)
             result = self.run_cli(['--sandbox', row['sandbox_id'], '--expected-fleet', self.c['fleet_sha256'], 'resume'], row['sandbox_id'] + '-verify', 1900)
             need(result['sandbox_id'] == row['sandbox_id'] and result['phase'] == 'complete', 'CLI did not complete project migration')
             with self.db() as db: binding = accepted_binding(db, row)
@@ -363,7 +395,9 @@ class Host(p.Host):
                  and {v['sandbox_id'] for v in values} == {r['sandbox_id'] for r in rows}
                  and all(v['phase'] == phase for v in values), 'Parallel wave did not reach the exact verified boundary')
             if action == 'migrate':
-                for row in rows: self.reconcile_template_default(row)
+                for row in rows:
+                    self.reconcile_template_default(row)
+                    self.verify_native_tools(row)
         for row in rows:
             with self.db() as db: binding = accepted_binding(db, row)
             self.accepted.append(binding)
