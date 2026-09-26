@@ -54,7 +54,9 @@ def validate_config(c):
         need(type(c['parallelism']) is int and 1 <= c['parallelism'] <= 4, 'One to four parallel migrations required')
     ids, apps, containers = set(), set(), set()
     for row in c['projects']:
-        need(set(row) == {'app_id', 'sandbox_id', 'preset', 'template_id', 'container_id', 'recorded_container_id', 'image'}, 'Exact source identity required')
+        need(set(row) == {'app_id', 'sandbox_id', 'preset', 'template_id', 'container_id', 'recorded_container_id', 'image'} | ({'retry_from_runtime_id'} if 'retry_from_runtime_id' in row else set()), 'Exact source identity required')
+        if 'retry_from_runtime_id' in row:
+            need(c['version'] == 2 and re.fullmatch(r'[a-f0-9]{32}', row['retry_from_runtime_id']), 'Exact aborted target identity required')
         need(all(re.fullmatch(r'[0-9A-HJKMNP-TV-Z]{26}', row[k]) for k in ('app_id', 'sandbox_id')), 'Invalid project identity')
         need(row['app_id'] != MOTION_APP, 'Motion requires its separate guest and worker acceptance')
         need(row['preset'] in ('react-vite', 'react-pro', 'nextjs', 'node-express'), 'Database and special presets require separate closure')
@@ -64,6 +66,8 @@ def validate_config(c):
              and row['container_id'].startswith(row['recorded_container_id']), 'Recorded Docker ID does not match inspected full identity')
         need(row['sandbox_id'] not in ids and row['app_id'] not in apps and row['container_id'] not in containers, 'Duplicate cohort identity')
         ids.add(row['sandbox_id']); apps.add(row['app_id']); containers.add(row['container_id'])
+    if any('retry_from_runtime_id' in row for row in c['projects']):
+        need(len(c['projects']) <= 4 and all('retry_from_runtime_id' in row for row in c['projects']), 'Retries require a separate bounded cohort')
     need(c['archives'] == '/mnt/nvme/baarcha-cube/migration-archives', 'Private NVMe migration archive root required')
     for name in ('cli', 'homes', 'presets', 'resources', 'templates'):
         need(c[name] in c['files'], 'Unpinned cohort input')
@@ -167,7 +171,11 @@ class Host(p.Host):
             for row in self.c['projects']:
                 actual = db.execute('SELECT app_id,runtime_provider,container_id FROM sandbox WHERE id=?', (row['sandbox_id'],)).fetchone()
                 need(actual == (row['app_id'], 'docker', row['recorded_container_id']), 'Current Docker binding differs')
-                need(db.execute('SELECT count(*) FROM runtime_migration WHERE sandbox_id=?', (row['sandbox_id'],)).fetchone()[0] == 0, 'Existing journal requires explicit continuation')
+                journal = db.execute('SELECT phase,runtime_id FROM runtime_migration WHERE sandbox_id=?', (row['sandbox_id'],)).fetchone()
+                if 'retry_from_runtime_id' in row:
+                    need(journal == ('aborted', row['retry_from_runtime_id']), 'Reviewed aborted journal changed')
+                else:
+                    need(journal is None, 'Existing journal requires explicit continuation')
                 need(self.templates.get(row['preset']) == row['template_id'], 'Target template differs')
         self.inventory('online-preflight')
         if self.c['version'] == 2:
@@ -243,7 +251,13 @@ class Host(p.Host):
         self.event('template-default-review-intent', {'sandbox_id': row['sandbox_id'], 'runtime_id': target[3],
                    'source_absent': True, 'stock_sha256': defaults.STOCK_SHA256,
                    'stock_base64': base64.b64encode(defaults.STOCK).decode()})
-        code = b.trusted(DEFAULTS, False).decode() + '\nimport json\nprint("CUBE_DEFAULT="+json.dumps(reconcile()))\n'
+        cache = WORKSPACES / row['sandbox_id'] / '.cache'
+        cache_absent = not cache.exists() and not cache.is_symlink()
+        code = b.trusted(DEFAULTS, False).decode() + '\nimport json\nproof=reconcile()\n'
+        if cache_absent:
+            self.event('empty-stock-cache-review-intent', {'sandbox_id': row['sandbox_id'], 'source_absent': True})
+            code += 'proof["cache"]=reconcile_empty_cache()\n'
+        code += 'print("CUBE_DEFAULT="+json.dumps(proof))\n'
         command = ['ctr', '--address', '/data/cubelet/cubelet.sock', '--namespace', 'default', 'tasks', 'exec',
                    '--tty', '--exec-id', 'cohort-default-' + row['sandbox_id'].lower(), target[3], '/usr/bin/python3', '-c', code]
         result = subprocess.run(b.SSH[:1] + ['-tt'] + b.SSH[1:] + [shlex.join(command)],
@@ -298,12 +312,19 @@ class Host(p.Host):
         self.bindings_readonly(); self.fence()
     def migrate_wave(self, rows, index):
         self.fence(); self.source_fence(); self.inputs()
+        retry = all('retry_from_runtime_id' in row for row in rows)
+        if retry:
+            for row in rows:
+                self.event('aborted-project-replan-intent', {'sandbox_id': row['sandbox_id'], 'former_runtime_id': row['retry_from_runtime_id']})
+                result = self.run_cli(['--sandbox', row['sandbox_id'], '--preset', row['preset'], '--expected-fleet', self.c['fleet_sha256'], 'replan'],
+                                      'replan-' + row['sandbox_id'], 600)
+                need(result.get('sandbox_id') == row['sandbox_id'] and result.get('phase') == 'planned', 'Replan did not create a fresh journal')
         path = self.job / ('wave-%03d.PRIVATE.json' % index)
         x.publish(path, {'version': 1, 'projects': [dict(sandbox_id=row['sandbox_id'], preset=row['preset']) for row in rows]})
         self.event('parallel-wave-intent', {'index': index, 'sandboxes': [row['sandbox_id'] for row in rows]})
         arguments = ['--batch', str(path), '--expected-fleet', self.c['fleet_sha256']]
         for action, phase in (('migrate', 'imported'), ('resume', 'complete')):
-            args = arguments + (['--stop-after-import'] if action == 'migrate' else []) + [action]
+            args = arguments + (['--stop-after-import'] if action == 'migrate' else []) + [('resume' if retry else 'migrate') if action == 'migrate' else action]
             result = self.run_cli(args, 'wave-%03d-%s' % (index, action), 1900)
             values = result.get('projects', [])
             need(result.get('success') is True and len(values) == len(rows)

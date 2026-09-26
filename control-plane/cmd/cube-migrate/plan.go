@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/manifest"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/migration"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
@@ -15,6 +16,10 @@ import (
 )
 
 func beginMigration(ctx context.Context, st *store.Store, backend *migration.OfflineBackend, workspaces, id, targetPreset string, homes map[string]runtime.HomeManifest, resources map[string]migration.ResourceLimits) error {
+	return planMigration(ctx, st, backend, workspaces, id, targetPreset, homes, resources, false)
+}
+
+func planMigration(ctx context.Context, st *store.Store, backend *migration.OfflineBackend, workspaces, id, targetPreset string, homes map[string]runtime.HomeManifest, resources map[string]migration.ResourceLimits, replan bool) error {
 	rows, err := migration.InventoryWithHome(ctx, st.DB(), workspaces, id, homes)
 	if err != nil {
 		return err
@@ -67,8 +72,33 @@ func beginMigration(ctx context.Context, st *store.Store, backend *migration.Off
 	if e = migration.ValidateResourceSelection(templates[targetPreset], source.ContainerID.String, resources, inspected); e != nil {
 		return e
 	}
+	if replan {
+		previous, e := st.GetRuntimeMigration(ctx, id)
+		if e != nil {
+			return e
+		}
+		if previous.Phase != "aborted" {
+			return errors.New("replan requires an aborted journal")
+		}
+		if e = confirmReplanTargetGone(ctx, backend.Cube, previous.Binding.RuntimeID); e != nil {
+			return e
+		}
+		return st.ReplanAbortedRuntimeMigrationWithHome(ctx, id, targetPreset, templates[targetPreset], domain, homeJSON)
+	}
 	if err = st.BeginRuntimeMigrationWithHome(ctx, id, targetPreset, templates[targetPreset], domain, homeJSON); err != nil {
 		return err
+	}
+	return nil
+}
+
+func confirmReplanTargetGone(ctx context.Context, client *cube.Client, runtimeID string) error {
+	if runtimeID == "" {
+		return nil
+	}
+	_, err := client.Get(ctx, runtimeID)
+	var upstream *cube.APIError
+	if !errors.As(err, &upstream) || upstream.StatusCode != 404 {
+		return errors.New("former Cube target must be confirmed deleted before replan")
 	}
 	return nil
 }
