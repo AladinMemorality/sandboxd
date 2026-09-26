@@ -18,11 +18,29 @@ of waitlist, sessions, published apps, uploads and schema versions, plus the exa
 owned private cover's noncredential provenance. Source data must fit256MiB and
 the custom-format dump128MiB; larger data needs explicit resource review.
 
-After root reviews/pins these three source files and stages them privately:
+Review and pin all **five** runtime source files, preserving this exact layout
+inside a private staging directory:
+
+```text
+PRIVATE-REVIEWED-SOURCE/
+├── cold_pair.py
+├── select_role_members.py
+└── platform-pg-verify/
+    ├── capture.mjs
+    ├── provenance.sql
+    └── verify.py
+```
+
+`verify.py` imports `select_role_members.py` from its parent directory, and that
+helper imports `cold_pair.py`. Copying only the three files in
+`platform-pg-verify/` is insufficient. Keep these reviewed helpers alongside the
+subdirectory; do not substitute installed or unrelated versions.
+
+Run the source phase from the staged layout:
 
 ```text
 /opt/baarcha/node22/bin/node --env-file=/opt/baarcha/landing.env \
-  /PRIVATE-REVIEWED-SOURCE/capture.mjs \
+  /PRIVATE-REVIEWED-SOURCE/platform-pg-verify/capture.mjs \
   /opt/baarcha-bench/cube-platform-pg-SOURCE-NEW
 ```
 
@@ -37,7 +55,7 @@ Independently hash/review `source.json`, then run only in an approved bounded
 fixture window with a **new** private stage:
 
 ```text
-python3 /PRIVATE-REVIEWED-SOURCE/verify.py \
+python3 /PRIVATE-REVIEWED-SOURCE/platform-pg-verify/verify.py \
   --source /opt/baarcha-bench/cube-platform-pg-SOURCE-NEW/source.json \
   --source-sha256 ACTUAL-REVIEWED-SOURCE-SHA \
   --stage /ROOT0700-PARENT/RESTORE-NEW --execute
