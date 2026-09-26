@@ -503,7 +503,7 @@ func (b *OfflineBackend) ReadyTarget(ctx context.Context, m *store.RuntimeMigrat
 		return err
 	}
 	probe := migrationReadiness{Window: 2 * time.Second}
-	return wait(ctx, 90*time.Second, func() bool {
+	err = wait(ctx, 90*time.Second, func() bool {
 		status, e := client.Status(ctx)
 		if e != nil {
 			probe.Observe(nil, time.Now())
@@ -511,6 +511,13 @@ func (b *OfflineBackend) ReadyTarget(ctx context.Context, m *store.RuntimeMigrat
 		}
 		return probe.Observe(status, time.Now())
 	})
+	if err != nil {
+		return err
+	}
+	if b.Broker != nil && b.Broker.motionAppID != "" && m.Source.AppID.Valid && m.Source.AppID.String == b.Broker.motionAppID {
+		return b.verifyMotionTarget(ctx, m)
+	}
+	return nil
 }
 
 func (b *OfflineBackend) ArchiveTarget(ctx context.Context, m *store.RuntimeMigration) (string, error) {
