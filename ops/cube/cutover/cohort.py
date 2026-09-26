@@ -72,10 +72,11 @@ def validate_config(c):
         need(Path(path).is_absolute() and '..' not in Path(path).parts and b.SHA.fullmatch(digest), 'Invalid cohort input pin')
 
 
-def stopped_source(value, row):
+def stopped_source(value, row, allow_running=False):
     state = value['State']
     need(value['Id'] == row['container_id'] and value['Image'] == row['image'], 'Docker source generation changed')
-    need(not state['Running'] and not state['Restarting'] and not state['Paused'] and state['Pid'] == 0
+    need((allow_running or not state['Running']) and not state['Restarting'] and not state['Paused']
+         and ((state['Running'] and allow_running and state['Pid'] > 0) or (not state['Running'] and state['Pid'] == 0))
          and not state['OOMKilled'] and state['ExitCode'] == 0, 'Cohort accepts only cleanly stopped sources')
     need(value['HostConfig']['RestartPolicy'] == {'Name': 'no', 'MaximumRetryCount': 0}, 'Source restart must already be disabled')
     mounts = value['Mounts']
@@ -151,12 +152,12 @@ class Host(p.Host):
         finally: conn.close()
     def inputs(self):
         for path, digest in self.c['files'].items(): need(b.digest(path) == digest, 'Reviewed migration input changed')
-    def source_fence(self):
-        for row in self.c['projects']: stopped_source(self.inspect(row['container_id']), row)
+    def source_fence(self, allow_running=False):
+        for row in self.c['projects']: stopped_source(self.inspect(row['container_id']), row, allow_running)
     def preflight(self, defer_busy=False):
         self.inputs()
         result = super().preflight(defer_busy=defer_busy)
-        self.source_fence()
+        self.source_fence(allow_running=self.c['version'] == 2)
         self.environment = dict(v.split('=', 1) for v in self.cp()['Config']['Env'])
         self.bridge.plan = {'controller_image': self.e['controller_image']}
         need(self.bridge.recreated(self.environment) == self.e['controller_id'], 'Controller or relay baseline differs')
@@ -179,12 +180,15 @@ class Host(p.Host):
         # The shared drain has fenced all traffic and drained incoming requests.
         # Pause through the live controller so its supervisor-task checks apply.
         need(b.strict(b.http('/config/', 2019)) == self.routes['offline'], 'Preview traffic must be fenced before pausing')
-        self.quiet_tasks(); self.source_fence(); self.bindings_readonly()
+        self.quiet_tasks(); self.source_fence(allow_running=True); self.bindings_readonly()
         need(b.digest(PAUSE) == self.plan['files'][str(PAUSE)], 'Reviewed pause helper changed')
         path = self.job / 'existing-bindings.PRIVATE.json'
-        x.publish(path, self.plan['bindings'])
+        expected = [dict(sandbox_id=v['sandbox_id'], provider='cube') for v in self.plan['bindings']]
+        expected.extend(dict(sandbox_id=v['sandbox_id'], provider='docker') for v in self.c['projects'])
+        x.publish(path, expected)
         proof = b.strict(self.command(['/opt/baarcha/node22/bin/node', '--env-file=' + str(PLATFORM_ENV), str(PAUSE), str(path)], 600))
-        need(proof.get('success') is True and set(proof.get('paused', [])) == {v['sandbox_id'] for v in self.plan['bindings']}, 'Existing guest pause incomplete')
+        need(proof.get('success') is True and set(proof.get('paused', [])) == {v['sandbox_id'] for v in expected}, 'Task-aware guest pause incomplete')
+        self.source_fence()
         observation = self.bridge.observe()
         need(observation.get('consistent') is True and observation.get('active') == 0, 'Active guests remain; do not start imports')
         self.event('existing-guests-paused', proof)

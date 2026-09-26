@@ -18,11 +18,12 @@ const paused = [];
 for (const binding of bindings) {
   const sid = binding.sandbox_id;
   assert(/^[0-9A-HJKMNP-TV-Z]{26}$/.test(sid) && !paused.includes(sid));
+  assert(['cube', 'docker'].includes(binding.provider));
   const before = await api(sid);
-  assert(before.runtime_provider === 'cube', 'Existing binding changed');
+  assert(before.runtime_provider === binding.provider, 'Existing binding changed');
   if (before.status !== 'stopped') await api(sid, '/stop', 'POST');
   const after = await api(sid);
-  assert(after.runtime_provider === 'cube' && after.status === 'stopped', 'Guest did not pause');
+  assert(after.runtime_provider === binding.provider && after.status === 'stopped', 'Guest did not pause');
   paused.push(sid);
 }
 console.log(JSON.stringify({success: true, paused, ai_tasks_submitted: 0}));
