@@ -37,6 +37,33 @@ def source():
 
 
 class CohortTests(unittest.TestCase):
+    def test_only_ready_pause_snapshot_counts_can_change_online(self):
+        original = {name: {'READY': 1} for name in c.m.TABLES}
+        for count in (0, 2, 29):
+            actual = copy.deepcopy(original)
+            actual['t_cube_pause_snapshot'] = {'READY': count} if count else {}
+            self.assertEqual(c.preview_snapshot_counts(actual, original), actual)
+            self.assertEqual(original['t_cube_pause_snapshot'], {'READY': 1})
+        for table, state in [('t_cube_pause_snapshot', 'CREATING'), ('t_cube_pause_snapshot', 'FAILED'),
+                             ('t_cube_template_definition', 'READY')]:
+            actual = copy.deepcopy(original); actual[table][state] = 2
+            with self.assertRaises(c.b.Refused): c.preview_snapshot_counts(actual, original)
+
+    def test_snapshot_adoption_requires_consistent_bindings_and_stops_after_fence(self):
+        host = c.Host.__new__(c.Host)
+        host.plan = {'bindings': ['binding'], 'provider_terminal_counts': {name: {} for name in c.m.TABLES}}
+        host.e = {'worker_boot_id': 'boot'}; host.allow_preview_snapshot_changes = True
+        actual = copy.deepcopy(host.plan['provider_terminal_counts']); actual['t_cube_pause_snapshot'] = {'READY': 1}
+        host.provider_counts = mock.Mock(return_value=actual); host.bindings_readonly = mock.Mock(); host.event = mock.Mock()
+        host.bridge = mock.Mock(); host.bridge.observe.return_value = {'consistent': False}
+        with self.assertRaises(c.b.Refused): host.provider()
+        self.assertEqual(host.plan['provider_terminal_counts']['t_cube_pause_snapshot'], {})
+        host.bridge.observe.return_value = {'consistent': True, 'bindings': 1, 'worker_boot_id': 'boot'}
+        host.provider(); self.assertEqual(host.plan['provider_terminal_counts'], actual)
+        host.allow_preview_snapshot_changes = False
+        actual['t_cube_pause_snapshot']['READY'] = 2
+        with self.assertRaises(c.b.Refused): host.provider()
+
     def test_retry_cohort_pins_aborted_runtime_and_cannot_mix_new_projects(self):
         value = config(); value.update(version=2, parallelism=2)
         value['projects'][0]['retry_from_runtime_id'] = 'a'*32
@@ -77,7 +104,8 @@ class CohortTests(unittest.TestCase):
             host.quiet_tasks.side_effect = None
             host.before_controller_stop(); host.command.assert_called_once()
             self.assertEqual(host.plan['provider_terminal_counts']['t_cube_pause_snapshot'], {'READY': 14})
-            host.provider.assert_called_once()
+            self.assertEqual(host.provider.call_count, 2)
+            self.assertFalse(host.allow_preview_snapshot_changes)
             host.bridge.observe.return_value = {'consistent': True, 'active': 1}
             with self.assertRaises(c.b.Refused): host.before_controller_stop()
 

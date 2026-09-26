@@ -272,7 +272,7 @@ class Host:
         need(Path('/proc/'+str(self.e['qemu_pid'])+'/cmdline').read_bytes().split(b'\0')[:-1]==[v.encode() for v in self.life.fixed_qemu()],'original QEMU launch changed')
         status=b.strict(b.trusted(ROOT/'lifecycle-status.json'));need(status['state']==self.source_state and status['qemu_pid']==self.e['qemu_pid'] and status['supervisor_pid']==self.e['supervisor_pid'],'reviewed source lifecycle state required')
         need(self.command(['/usr/bin/systemctl','show','baarcha-cube-worker-01.service','-p','Job','--value']).strip() in (b'',b'0'),'queued worker operation exists')
-    def provider(self):
+    def provider_counts(self):
         code='import json,subprocess\ntables='+repr(sorted(TABLES))+'\n'+'''command=['docker','exec','-i','cube-sandbox-mysql','sh','-c','MYSQL_PWD="$MYSQL_ROOT_PASSWORD" exec mysql -uroot --batch --skip-column-names']
 sql="SELECT table_name FROM information_schema.tables WHERE table_schema='cube_mvp' AND table_name IN ("+','.join("'"+t+"'" for t in tables)+") ORDER BY table_name;"
 p=subprocess.run(command,input=sql,text=True,capture_output=True,timeout=15)
@@ -284,7 +284,9 @@ for line in p.stdout.splitlines():
  t,status,n=line.split('\\t');assert t in out and status not in out[t];out[t][status]=int(n)
 print(json.dumps(out))
 '''
-        return verify_counts(self.worker(code),self.plan['provider_terminal_counts'])
+        return self.worker(code)
+    def provider(self):
+        return verify_counts(self.provider_counts(),self.plan['provider_terminal_counts'])
     def pg_counts(self):
         code="""const {createRequire}=require('node:module');const postgres=createRequire('/opt/baarcha/app/landing/package.json')('postgres');const db=postgres(process.env.DATABASE_URL,{max:1,connect_timeout:3,connection:{statement_timeout:3000}});(async()=>{try{const r=await db.begin('read only',async q=>({thumbnail:Number((await q`SELECT count(*) n FROM project_thumbnail_capture WHERE state='capturing'`)[0].n),env_pending:Number((await q`SELECT count(*) n FROM project_env_apply WHERE pending`)[0].n)}));console.log(JSON.stringify(r))}catch{process.exitCode=1}finally{await db.end({timeout:3})}})();"""
         return b.strict(self.command(['/opt/baarcha/node22/bin/node','--env-file=/opt/baarcha/landing.env','-e',code],12))

@@ -66,3 +66,11 @@ owned0755 directory or contains only the approved empty owned0644 `.gitkeep`.
 Any nonempty cache, changed metadata or symlink is retained. The source manifest
 is never expanded or weakened to ignore owner data. This accompanies the existing
 exact-stock `.bash_logout` reconciliation at the imported/quiesced boundary.
+
+While previews remain online, their normal resumes consume READY pause
+snapshots. Version2 cohorts may refresh only that terminal count after checking
+the exact canonical bindings and current native reconciliation. Every other
+provider table and status stays pinned. The coordinator samples again after
+traffic is fenced, then disables this allowance before pausing guests; only
+its acknowledged pauses can advance the frozen baseline afterward. Read-only
+preflight and execution receipts retain any observed count changes.

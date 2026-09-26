@@ -41,6 +41,19 @@ class NativeMigrationFailed(RuntimeError):
     """The foreground CLI exited; no provider operation is still running in it."""
 
 
+def preview_snapshot_counts(actual, expected):
+    candidate = copy.deepcopy(expected)
+    snapshots = actual.get('t_cube_pause_snapshot', {})
+    count = snapshots.get('READY', 0)
+    need(type(count) is int and count >= 0, 'Invalid ready pause snapshot count')
+    candidate['t_cube_pause_snapshot'].pop('READY', None)
+    if 'READY' in snapshots: candidate['t_cube_pause_snapshot']['READY'] = count
+    # Normal preview resumes consume pause snapshots. No job, template or
+    # non-READY snapshot transition is authorized by this reconciliation.
+    m.verify_counts(actual, candidate)
+    return candidate
+
+
 def validate_plan(plan):
     m.validate_plan(plan, kind=KIND, files=FILES)
 
@@ -129,6 +142,7 @@ class Host(p.Host):
         self.c = b.strict(b.trusted(CONFIG)); validate_config(self.c)
         self.accepted = []
         self.partial = False
+        self.allow_preview_snapshot_changes = self.c['version'] == 2
     def validate_plan(self): validate_plan(self.plan)
     def db(self):
         db = sqlite3.connect('file:' + str(DATABASE) + '?mode=ro', uri=True, timeout=2)
@@ -183,12 +197,30 @@ class Host(p.Host):
             need(observation.get('consistent') is True and 0 <= observation.get('active', -1) <= 4,
                  'Parallel migration requires a consistent bounded active inventory')
         return result
+    def provider(self):
+        actual = self.provider_counts()
+        expected = self.plan['provider_terminal_counts']
+        if self.allow_preview_snapshot_changes and actual != expected:
+            candidate = preview_snapshot_counts(actual, expected)
+            self.bindings_readonly()
+            observation = self.bridge.observe()
+            need(observation.get('consistent') is True and observation.get('bindings') == len(self.plan['bindings'])
+                 and observation.get('worker_boot_id') == self.e['worker_boot_id'], 'Preview snapshot change requires reconciled bindings')
+            self.event('online-preview-snapshots-observed', {'before': expected['t_cube_pause_snapshot'],
+                       'after': candidate['t_cube_pause_snapshot']})
+            self.plan = copy.deepcopy(self.plan)
+            self.plan['provider_terminal_counts'] = candidate
+        return m.verify_counts(actual, self.plan['provider_terminal_counts'])
     def before_controller_stop(self):
         if self.c['version'] != 2: return
         # The shared drain has fenced all traffic and drained incoming requests.
         # Pause through the live controller so its supervisor-task checks apply.
         need(b.strict(b.http('/config/', 2019)) == self.routes['offline'], 'Preview traffic must be fenced before pausing')
         self.quiet_tasks(); self.source_fence(allow_running=True); self.bindings_readonly()
+        # Traffic is now fenced; account for previews that woke since preflight.
+        # From this point only our acknowledged pauses may advance the baseline.
+        self.provider()
+        self.allow_preview_snapshot_changes = False
         need(b.digest(PAUSE) == self.plan['files'][str(PAUSE)], 'Reviewed pause helper changed')
         path = self.job / 'existing-bindings.PRIVATE.json'
         expected = [dict(sandbox_id=v['sandbox_id'], provider='cube') for v in self.plan['bindings']]
