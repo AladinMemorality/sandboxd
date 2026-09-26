@@ -119,3 +119,43 @@ class RealEntryPointTests(unittest.TestCase):
             current=json.loads((job/'current.json').read_bytes());self.assertEqual(current['phase'],'read-only-preflight-deferred')
             events=list(job.glob('0*.json'));self.assertEqual(len(events),1);self.assertEqual(json.loads(events[0].read_bytes())['value']['work']['runtime']['active_tasks'],1)
             host.preflight.assert_called_once_with(defer_busy=True);host.drain.assert_not_called();host.pause.assert_not_called();host.start_worker.assert_not_called();host.nested_context.__exit__.assert_called_once()
+
+@unittest.skipUnless(__import__('os').geteuid()==0 and __import__('sys').platform=='linux','native ownership namespace fixture')
+class MotionFingerprintTests(unittest.TestCase):
+    def test_exact_service_owned_source_layout_and_generic_root_boundary(self):
+        import tempfile,os,hashlib
+        from unittest import mock
+        with tempfile.TemporaryDirectory(prefix='motion-review-',dir='/root') as temp:
+            root=Path(temp);app=root/'app';server=app/'server';server.mkdir(parents=True)
+            os.chown(app,985,985);os.chown(server,985,985);app.chmod(0o755);server.chmod(0o755)
+            source=server/'index.mjs';source.write_bytes(b'// reviewed source\n');source.chmod(0o644);os.chown(source,985,985)
+            with mock.patch.object(m,'MOTION_SOURCE_ROOT',server):
+                self.assertEqual(m.file_digest(source),hashlib.sha256(source.read_bytes()).hexdigest())
+                for path in (source,server,app):
+                    os.chown(path,986,986)
+                    with self.subTest(owner=str(path)),self.assertRaises(m.b.Refused):m.file_digest(source)
+                    os.chown(path,985,985)
+                    mode=path.stat().st_mode&0o777;path.chmod(mode|0o020)
+                    with self.subTest(mode=str(path)),self.assertRaises(m.b.Refused):m.file_digest(source)
+                    path.chmod(mode)
+                extra=server/'unreviewed.mjs';extra.write_bytes(b'not an allowlisted input');os.chown(extra,985,985)
+                with self.assertRaises(m.b.Refused):m.file_digest(extra)
+                target=server/'jobs.mjs';target.symlink_to(source)
+                with self.assertRaises(OSError):m.file_digest(target)
+                source.write_bytes(b'x'*(m.MOTION_SOURCE_LIMIT+1))
+                with self.assertRaises(m.b.Refused):m.file_digest(source)
+    def test_intermediate_symlink_and_concurrent_file_replacement_refused(self):
+        import tempfile,os
+        from unittest import mock
+        with tempfile.TemporaryDirectory(prefix='motion-review-',dir='/root') as temp:
+            root=Path(temp);app=root/'app';server=app/'server';server.mkdir(parents=True);source=server/'index.mjs';source.write_bytes(b'first')
+            with mock.patch.object(m,'MOTION_SOURCE_ROOT',server):
+                original=os.read;changed=[False]
+                def race(fd,size):
+                    raw=original(fd,size)
+                    if raw and not changed[0]:
+                        changed[0]=True;replacement=server/'replacement';replacement.write_bytes(b'other');os.replace(replacement,source)
+                    return raw
+                with mock.patch.object(m.os,'read',side_effect=race),self.assertRaises(m.b.Refused):m.file_digest(source)
+                moved=root/'moved';server.rename(moved);server.symlink_to(moved,target_is_directory=True)
+                with self.assertRaises(OSError):m.file_digest(source)

@@ -10,6 +10,7 @@ import copy
 import datetime
 import importlib.util
 import json
+import hashlib
 import os
 from pathlib import Path
 import re
@@ -42,12 +43,53 @@ FILES=tuple(dict.fromkeys((*b.PINNED,b.STOP,b.GUARD,b.COMPOSE,
  Path('/usr/local/libexec/baarcha-cube-maintenance.py'),
  Path('/usr/local/libexec/baarcha-cube-drain-observe.py'),
  Path('/etc/caddy/Caddyfile'),Path('/opt/baarcha/motion-studio/worker.env'),Path('/opt/baarcha/motion-studio/app/server/index.mjs'),Path('/opt/baarcha/motion-studio/app/server/jobs.mjs'),Path('/opt/baarcha/motion-studio/app/server/store.mjs'),Path('/opt/baarcha/motion-studio/app/server/voice.mjs'),Path('/opt/baarcha/motion-studio/app/server/render.mjs'))))
+MOTION_SOURCE_ROOT=Path('/opt/baarcha/motion-studio/app/server')
+MOTION_SOURCE_NAMES=frozenset(('index.mjs','jobs.mjs','store.mjs','voice.mjs','render.mjs'))
+MOTION_SOURCE_LIMIT=1024*1024
 API_PATHS=['/api/projects','/api/projects/*','/api/apps/*/remix','/api/apps/*/preview','/api/chat','/api/tools/call','/api/voice','/api/admin/actions']
 
 
 def need(ok,message):b.require(ok,message)
 def object_keys(value,keys,why):need(isinstance(value,dict) and set(value)==set(keys),why)
 def strings(value):return isinstance(value,list) and bool(value) and len(value)==len(set(value)) and all(isinstance(s,str) and s for s in value)
+
+def file_digest(path):
+    """Fingerprint five non-executed Motion review inputs in service UID layout.
+
+    Helpers/configs retain the generic root-only contract. This narrow reader
+    walks retained directory FDs without following links and checks identity,
+    ownership and file generation again after hashing bounded bytes.
+    """
+    p=Path(path)
+    if p.parent!=MOTION_SOURCE_ROOT or p.name not in MOTION_SOURCE_NAMES:
+        return b.digest(p)
+    need(p.is_absolute(),'absolute Motion review path required')
+    fds=[];layout=[]
+    def identity(st):return (st.st_dev,st.st_ino,st.st_uid,st.st_gid,st.st_mode)
+    def generation(st):return (*identity(st),st.st_nlink,st.st_size,st.st_mtime_ns,st.st_ctime_ns)
+    try:
+        fd=os.open('/',os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW);fds.append(fd)
+        current=Path('/')
+        for part in p.parts[1:-1]:
+            current=current/part
+            child=os.open(part,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW,dir_fd=fd);fds.append(child);st=os.fstat(child)
+            owners=(0,985) if current in (MOTION_SOURCE_ROOT.parent,MOTION_SOURCE_ROOT) else (0,)
+            need(stat.S_ISDIR(st.st_mode) and st.st_uid in owners and not st.st_mode&0o022,'Motion source ancestor ownership/mode differs')
+            layout.append((fd,part,child,identity(st)));fd=child
+        source=os.open(p.name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK,dir_fd=fd);fds.append(source);before=os.fstat(source)
+        need(stat.S_ISREG(before.st_mode) and before.st_uid in (0,985) and not before.st_mode&0o022 and before.st_nlink==1 and before.st_size<=MOTION_SOURCE_LIMIT,'untrusted or oversized Motion review source')
+        h=hashlib.sha256();size=0
+        while True:
+            raw=os.read(source,min(65536,MOTION_SOURCE_LIMIT+1-size))
+            if not raw:break
+            size+=len(raw);need(size<=MOTION_SOURCE_LIMIT,'Motion review source exceeds bound');h.update(raw)
+        need(size==before.st_size and generation(os.fstat(source))==generation(before) and generation(os.stat(p.name,dir_fd=fd,follow_symlinks=False))==generation(before),'Motion source changed while fingerprinting')
+        for parent,name,child,expected in layout:
+            need(identity(os.fstat(child))==expected and identity(os.stat(name,dir_fd=parent,follow_symlinks=False))==expected,'Motion source directory generation changed')
+        return h.hexdigest()
+    finally:
+        for fd in reversed(fds):os.close(fd)
+
 
 def validate_plan(p):
     object_keys(p,{'version','kind','expected','files','bindings','routing','motion','provider_terminal_counts'},'maintenance plan schema differs; heavy backup is not supported')
@@ -225,7 +267,7 @@ print(json.dumps(out))
                 time.sleep(1)
     def preflight(self,defer_busy=False):
         validate_plan(self.plan)
-        for path,hash_value in self.plan['files'].items():need(b.digest(path)==hash_value,'reviewed file changed')
+        for path,hash_value in self.plan['files'].items():need(file_digest(path)==hash_value,'reviewed file changed')
         self.same();cp=self.cp();need(cp['State']['Running'] and cp['HostConfig']['RestartPolicy']['Name']=='unless-stopped','unexpected initial controller state')
         stop=b.strict(b.trusted(b.STOP))
         for k in ('controller_id','worker_machine_id','worker_boot_id','data_uuid','qemu_pid','qemu_start_time'):need(stop[k]==self.e[k],'stop config stale before recovery')
@@ -275,6 +317,8 @@ print(json.dumps(out))
             return motion_job_summary(b.strict(body))
         finally:conn.close()
     def writers(self):
+        for name in MOTION_SOURCE_NAMES:
+            path=MOTION_SOURCE_ROOT/name;need(file_digest(path)==self.plan['files'][str(path)],'reviewed Motion mutation scope source changed')
         for stem in (*self.observer.WRITERS,'baarcha-motion-access'):
             for suffix in ('.timer','.service'):
                 u=self.unit(stem+suffix);need(u['LoadState']=='loaded' and u['ActiveState']=='inactive' and u['MainPID']=='0','scheduled writer not inactive')
