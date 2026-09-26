@@ -1,4 +1,6 @@
 import copy
+import json
+import tempfile
 import importlib.util
 from pathlib import Path
 import subprocess
@@ -80,6 +82,36 @@ class PGRestoreProof(unittest.TestCase):
             changed = copy.deepcopy(row)
             changed['HostConfig'][field] = value
             with self.assertRaises(RuntimeError): call(changed)
+
+    def test_private_diagnostics_survive_failed_status_and_json(self):
+        for response in (subprocess.CompletedProcess([], 1, b'', b'bounded SQL error'),
+                         subprocess.CompletedProcess([], 0, b'not json', b'')):
+            with self.subTest(status=response.returncode), tempfile.TemporaryDirectory() as td:
+                with self.assertRaises((RuntimeError, json.JSONDecodeError)):
+                    verify.private_query_result(Path(td), 'actual-provenance', response)
+                path = Path(td) / 'actual-provenance.PRIVATE.json'
+                saved = json.loads(path.read_text())
+                self.assertEqual(saved['returncode'], response.returncode)
+                self.assertEqual(path.stat().st_mode & 0o777, 0o600)
+                self.assertEqual(saved['stdout_bytes'], len(response.stdout))
+        with tempfile.TemporaryDirectory() as td:
+            response = subprocess.CompletedProcess([], 0, b'{}', b'x' * 65537)
+            with self.assertRaises(RuntimeError): verify.private_query_result(Path(td), 'actual-provenance', response)
+            saved = json.loads((Path(td) / 'actual-provenance.PRIVATE.json').read_text())
+            self.assertTrue(saved['truncated'])
+            self.assertEqual(len(saved['stderr']), 65536)
+
+    def test_comparison_diagnostics_do_not_relax_validation(self):
+        expected = proof()
+        actual = copy.deepcopy(expected)
+        actual['tables']['upload']['sha256'] = '3' * 64
+        differences = verify.proof_difference(expected, actual)
+        self.assertFalse(differences['tables_equal']['upload'])
+        self.assertTrue(differences['canary_equal'])
+        with self.assertRaises(RuntimeError): verify.validate_proof(expected, actual)
+        self.assertIn('BEGIN READ ONLY', verify.DIAGNOSTIC_SQL)
+        for field in ('server_version', 'database_collate', 'database_ctype', 'datlocprovider', 'datcollversion'):
+            self.assertIn(field, verify.DIAGNOSTIC_SQL)
 
     def test_query_reports_only_hashes_counts_and_owned_metadata(self):
         query = Path(__file__).with_name('provenance.sql').read_text()

@@ -40,6 +40,47 @@ def command(args, timeout=15, stdin=None, log=None, check=True):
     return p
 
 
+DIAGNOSTIC_SQL = """BEGIN READ ONLY;
+SELECT jsonb_build_object('server_version',version(),
+ 'server_version_num',current_setting('server_version_num'),
+ 'server_encoding',current_setting('server_encoding'),
+ 'date_style',current_setting('DateStyle'),
+ 'database_locale_provider',d.datlocprovider,'database_collate',d.datcollate,
+ 'database_ctype',d.datctype,'database_locale',to_jsonb(d)->>'datlocale',
+ 'database_icu_locale',to_jsonb(d)->>'daticulocale',
+ 'database_collation_version',d.datcollversion)
+FROM pg_database d WHERE d.datname=current_database();
+COMMIT;"""
+
+
+def private_query_result(stage, name, result):
+    # Persist the bounded response before status/JSON validation so failed
+    # queries and malformed output remain diagnosable without console leakage.
+    need(re.fullmatch('[a-z-]+', name), 'Invalid diagnostic name')
+    write(stage / (name + '.PRIVATE.json'), {
+        'returncode': result.returncode,
+        'stdout_bytes': len(result.stdout), 'stderr_bytes': len(result.stderr),
+        'stdout_sha256': hashlib.sha256(result.stdout).hexdigest(),
+        'stderr_sha256': hashlib.sha256(result.stderr).hexdigest(),
+        'stdout': result.stdout[:1 << 20].decode('utf-8', errors='replace'),
+        'stderr': result.stderr[:65536].decode('utf-8', errors='replace'),
+        'truncated': len(result.stdout) > 1 << 20 or len(result.stderr) > 65536})
+    need(result.returncode == 0, 'Diagnostic query failed; retain private result')
+    need(len(result.stdout) <= 1 << 20 and len(result.stderr) <= 65536, 'Query diagnostic exceeds bound')
+    return json.loads(result.stdout)
+
+
+def proof_difference(expected, actual):
+    if not isinstance(actual, dict): return {'actual_object': False}
+    tables = actual.get('tables', {})
+    return {'actual_object': True,
+            'top_level_keys_equal': set(expected) == set(actual),
+            'tables_equal': {name: isinstance(tables, dict) and tables.get(name) == value
+                             for name, value in expected['tables'].items()},
+            'canary_equal': expected['canary'] == actual.get('canary'),
+            'fixture_owners_equal': expected['fixture_owners'] == actual.get('fixture_owners')}
+
+
 def create_args(name, run):
     return ['docker', 'create', '--pull=never', '--name', name, '--label', LABEL + '=' + run,
             '--network=none', '--userns=host', '--read-only', '--user=70:70', '--cap-drop=ALL',
@@ -112,12 +153,19 @@ def verify(source, stage, source_sha):
     write(stage / 'intent.json', {'version': 1, 'run': run, 'name': name, 'source_sha256': source_sha, 'created_at': time.time()})
     cid = None
     passed = False
+    phase = 'create'
+    def mark(value):
+        nonlocal phase
+        phase = value
+        write(stage / ('phase-' + value + '.json'), {'phase': value, 'at': time.time()})
     try:
+        mark('create')
         ack = command(create_args(name, run), timeout=30).stdout.decode().strip()
         need(re.fullmatch('[0-9a-f]{64}', ack), 'Create acknowledgement ambiguous; retain intent')
         cid = ack
         write(stage / 'created.json', {'id': cid, 'image': image['Id']})
         inspect_owned(cid, name, run, image['Id'])
+        mark('start-readiness')
         command(['docker', 'start', cid], timeout=30)
         deadline = time.monotonic() + 30
         while True:
@@ -128,22 +176,33 @@ def verify(source, stage, source_sha):
         inspect_owned(cid, name, run, image['Id'])
         version = command(['docker', 'exec', '--user=70:70', cid, 'psql', '-qAt', '-U', 'postgres', '-d', 'restoreproof', '-c', 'SHOW server_version_num']).stdout.decode().strip()
         need(version.isdigit() and 170000 <= int(version) < 180000, 'PostgreSQL major changed')
+        mark('server-diagnostics')
+        diagnostics = command(['docker', 'exec', '--user=70:70', cid, 'psql', '-qAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', 'restoreproof', '-c', DIAGNOSTIC_SQL], check=False)
+        private_query_result(stage, 'server-locale-version', diagnostics)
+        mark('restore')
         log_fd = os.open(stage / 'restore.PRIVATE.log', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with dump.open('rb') as input_file, os.fdopen(log_fd, 'wb') as log:
             command(['docker', 'exec', '-i', '--user=70:70', cid, 'pg_restore', '-U', 'postgres', '--dbname=restoreproof',
                      '--single-transaction', '--exit-on-error', '--clean', '--if-exists', '--no-owner', '--no-privileges'],
                     timeout=300, stdin=input_file, log=log)
             log.flush(); os.fsync(log.fileno())
+        mark('provenance-query')
         sql = b"BEGIN READ ONLY; SET LOCAL TIME ZONE 'UTC';\n" + query + b"\nCOMMIT;\n"
         # Temporary regular stdin file avoids loading a dump into process memory.
         fd = os.open(stage / 'query.sql', os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, 'wb') as f: f.write(sql); f.flush(); os.fsync(f.fileno())
         with (stage / 'query.sql').open('rb') as f:
-            p = command(['docker', 'exec', '-i', '--user=70:70', cid, 'psql', '-qAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', 'restoreproof'], stdin=f, timeout=60)
-        actual = json.loads(p.stdout)
+            p = command(['docker', 'exec', '-i', '--user=70:70', cid, 'psql', '-qAt', '-v', 'ON_ERROR_STOP=1', '-U', 'postgres', '-d', 'restoreproof'], stdin=f, timeout=60, check=False)
+        actual = private_query_result(stage, 'actual-provenance', p)
+        mark('comparison')
+        write(stage / 'comparison.PRIVATE.json', proof_difference(record['proof'], actual))
         validate_proof(record['proof'], actual)
         need(selected.cold_pair.digest(source) == source_sha and selected.cold_pair.digest(dump) == record['dump']['sha256'], 'Source changed during proof')
         passed = True
+        mark('validated')
+    except Exception as error:
+        write(stage / 'failure.json', {'phase': phase, 'exception_type': type(error).__name__, 'at': time.time(), 'verified': False})
+        raise
     finally:
         if cid:
             owned = inspect_owned(cid, name, run, image['Id'])
