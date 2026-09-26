@@ -75,6 +75,25 @@ try {
         && asset.body.length > 0, 'Application entry module unavailable');
     }
     result.entry_modules_verified = scripts.length;
+    if (app === '01M37PPK7VDKCQMNRYKW8CCD4W') {
+      assert(sb === '01M37PPK85JN1K0WEMP4ZYER6C', 'PostgreSQL project identity changed');
+      // This application's health handler executes SELECT 1 against its private
+      // PostgreSQL socket. The public handler also reads items/settings/wa_state.
+      // Native migration already compared the complete frozen database files
+      // before resuming workers; these checks exercise the transferred database.
+      const health = await preview('/api/health');
+      assert(health.status === 200 && health.body.length <= 8192, 'PostgreSQL health unavailable');
+      const database = JSON.parse(health.body);
+      assert(database.ok === true && database.database === 'PostgreSQL' && typeof database.demo === 'boolean',
+        'Application SQL health check failed');
+      const response = await preview('/api/public');
+      assert(response.status === 200, 'PostgreSQL application reads unavailable');
+      const catalog = JSON.parse(response.body);
+      assert(Array.isArray(catalog.items) && catalog.items.length <= 24 && Number.isInteger(catalog.commission)
+        && catalog.demo === database.demo && (catalog.whatsappUrl === null || typeof catalog.whatsappUrl === 'string'),
+        'Transferred application database response is invalid');
+      result.postgres = {sql_health: true, application_tables_read: true, public_items: catalog.items.length};
+    }
     result.files_verified = [];
     // The two reviewed Next.js sources render app/page.js and have no static
     // index.html. The native migration still verifies the entire workspace;
