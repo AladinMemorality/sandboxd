@@ -17,7 +17,10 @@ aborted journal are retained for an explicit audited retry.
 
 The corrected probe copies the browser bundle into its disposable temporary
 directory and redirects HOME/XDG caches there. Full-home verification stays
-unchanged. Production acceptance of this correction is still pending.
+unchanged. Both corrected Chromium source probes passed in disposable network-disabled
+containers with read-only owner homes. Autograde uses its local automation
+protocol: its headless-shell build renders DOM successfully, although the
+--dump-dom command did not terminate. Cube target acceptance is still pending.
 
 Actual Chrome verification of Avocall passed at 22:23:40 UTC: wake HTTP 200,
 5,302 body characters, no loading overlay or browser errors.
