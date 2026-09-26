@@ -1,0 +1,71 @@
+{
+  "independent-restoration.json": {
+    "version": 1,
+    "observed_at": 1790463875.8716106,
+    "unit": {
+      "MainPID": "0",
+      "Result": "success",
+      "ExecMainStatus": "0",
+      "ActiveState": "inactive",
+      "InvocationID": ""
+    },
+    "all_four_locks_reacquired": true,
+    "full_online_routes_equal": true,
+    "controller_ready": true,
+    "original_sources_retained_stopped": 1,
+    "fleet": {
+      "cube": 69,
+      "docker": 4
+    },
+    "migrations": {
+      "aborted": 1,
+      "complete": 68
+    },
+    "tasks": {
+      "failed": 42,
+      "succeeded": 123
+    },
+    "maintenance_seconds": 171.93998217582703,
+    "online_at": 1790463847.555058
+  },
+  "application-acceptance.json": {
+    "version": 1,
+    "started_at": "2026-09-26T23:03:59.065Z",
+    "projects": [
+      {
+        "sandbox_id": "01M1RVEEX30YK93FEHN50FZXT0",
+        "app_id": "01M1RVEEWFTCEEZD68S4A2F7PS",
+        "preview_status": 200,
+        "preview_ready_ms": 973.628273,
+        "entry_modules_verified": 2,
+        "files_verified": [
+          "package.json",
+          "sandbox.yaml",
+          "index.html"
+        ],
+        "historical_tasks_verified": 1,
+        "paused_after_verification": true,
+        "success": true
+      }
+    ],
+    "ai_tasks_submitted": 0,
+    "success": true,
+    "completed_at": "2026-09-26T23:04:01.445Z"
+  },
+  "complete.json": {
+    "at": 1790463847.555058,
+    "phase": "complete",
+    "value": {
+      "customer_projects_migrated": 1,
+      "full_backup": false,
+      "global_migration_complete": false,
+      "online_restored": true,
+      "original_sources_retained": true,
+      "partial_cohort": false,
+      "selected_projects": 1,
+      "version": 1,
+      "worker_power_operations": 0
+    },
+    "version": 1
+  }
+}
