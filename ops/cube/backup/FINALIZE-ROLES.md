@@ -27,7 +27,8 @@ changes are accepted:
 - Update the hash of `/etc/baarcha-cube/worker-start.json`, which must have been
   pinned and included in the original worker-config role.
 - Add the exact fresh native pause and matching clean-stop receipt paths and
-  hashes, and add those same paths to worker-config inputs.
+  hashes, and add those same paths to worker-config inputs. An externally
+  witnessed stop additionally requires its validated evidence closure below.
 
 Every other source, inventory, key, policy, hash and role entry must match. The
 parent's frozen identity sidecar must equal the unique regular member inside
@@ -52,10 +53,16 @@ retains evidence, never overwrites an existing generation, and cannot be
 treated as a completed pair or restored application. The parent keeps its locks
 and routing fence until the full maintenance transaction is resolved.
 
-Current receipt validation accepts only the actual supervisor `stopped-clean`
-schema. The separately designed recovery for the observed `stop-blocked`
-supervisor requires its explicit external evidence validator; changing the
-state string is not sufficient and is intentionally rejected here.
+Ordinary cycles require the actual supervisor `stopped-clean` receipt. The
+separate `externally-stopped-clean` recovery schema additionally requires
+`/usr/local/libexec/baarcha-cube-external-clean.py` already installed and pinned
+in the original closed role configuration. Its validator rehashes and verifies
+the exact nine-file wait/QMP evidence closure. All those files must be added with
+their exact validated hashes to the final worker-config archive. The validator
+hash must also equal the startup config's `external_verifier_sha256` field.
+The validator is called again around each archive; changing the state string or supplying a
+receipt without its complete evidence is rejected. Neither path rewrites the
+original supervisor status or constitutes independent application restore proof.
 
 Validation: `python3 -m unittest discover -s ops/cube/backup -p 'test_*.py'`.
 Tests cover configuration drift, substituted sidecars, changed heavy artifacts,

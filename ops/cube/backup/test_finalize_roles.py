@@ -57,6 +57,29 @@ class FinalRoleTests(unittest.TestCase):
         bad = {**self.pause, 'verified': False}
         with self.assertRaises(RuntimeError): check(pause=bad, clean={**self.clean, 'proof': bad})
 
+    def test_external_receipt_requires_validated_pinned_evidence_closure(self):
+        clean = {**self.clean, 'state': 'externally-stopped-clean', 'external': {'method': 'fixture'}}
+        with self.assertRaises(RuntimeError):
+            final.validate_receipts(self.start, self.pause_path, self.clean_path, self.pause, clean)
+        closure = [{'path': '/reviewed/external/wait4.trace', 'sha256': '7' * 64, 'bytes': 25}]
+        validated = {'receipt': clean, 'closure': closure, 'validator_sha256': '9' * 64}
+        start = {**self.start, 'external_verifier_sha256': '9' * 64}
+        final.validate_receipts(start, self.pause_path, self.clean_path, self.pause, clean, validated)
+        with self.assertRaisesRegex(RuntimeError, 'Installed startup config'):
+            final.validate_receipts({**start, 'external_verifier_sha256': '0' * 64}, self.pause_path,
+                                    self.clean_path, self.pause, clean, validated)
+        after = copy.deepcopy(self.after)
+        after['reviewed_files'][closure[0]['path']] = closure[0]['sha256']
+        after['role_paths']['worker-config'].append(closure[0]['path'])
+        final.validate_transition(self.before, after, self.pause_path, self.clean_path, closure)
+        after['reviewed_files'][closure[0]['path']] = '8' * 64
+        with self.assertRaisesRegex(RuntimeError, 'External evidence hash'):
+            final.validate_transition(self.before, after, self.pause_path, self.clean_path, closure)
+        with mock.patch.object(final.roles, 'verify_inputs') as verify:
+            with self.assertRaisesRegex(RuntimeError, 'validator must be pinned'):
+                final.external_evidence(self.before, self.after, self.clean_path, clean)
+            verify.assert_not_called()
+
     def parent(self):
         directory = self.root / 'closed'
         directory.mkdir(mode=0o700)

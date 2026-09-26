@@ -3,6 +3,7 @@
 import argparse
 import copy
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -16,6 +17,7 @@ import cold_pair
 CONFIG_ROLES = ('controller-config', 'worker-config', 'worker-launch')
 HEAVY_ROLES = ('rollback', 'library', 'platform-db')
 START = '/etc/baarcha-cube/worker-start.json'
+EXTERNAL_VALIDATOR = '/usr/local/libexec/baarcha-cube-external-clean.py'
 WORKER = {'worker_unit': 'baarcha-cube-worker-01.service',
           'worker_lock': '/opt/baarcha-cube/worker-01/backup.lock'}
 
@@ -30,7 +32,7 @@ def covered(path, roots):
     return any(Path(path) == Path(root) or Path(root) in Path(path).parents for root in roots)
 
 
-def validate_transition(before, after, pause, clean):
+def validate_transition(before, after, pause, clean, evidence=()):
     """Only startup receipt selection and its archived evidence may change."""
     roles.validate_config(before)
     roles.validate_config(after)
@@ -39,23 +41,32 @@ def validate_transition(before, after, pause, clean):
     old_paths, new_paths = left.pop('role_paths'), right.pop('role_paths')
     roles.need(left == right, 'Closed source inventory or policy changed')
     roles.need(START in old_files and START in new_files, 'Startup config must be pinned in both generations')
-    roles.need(set(new_files) == set(old_files) | {pause, clean}, 'Only exact stop receipts may be added')
+    additions = {pause, clean} | {item['path'] for item in evidence}
+    roles.need(set(new_files) == set(old_files) | additions, 'Only exact stop receipts may be added')
+    for item in evidence:
+        roles.need(new_files.get(item['path']) == item['sha256'], 'External evidence hash is not pinned')
     for path, digest in old_files.items():
         if path != START:
             roles.need(new_files.get(path) == digest, 'Unrelated configuration changed after role closure')
     for role, paths in old_paths.items():
-        expected = set(paths) | ({pause, clean} if role == 'worker-config' else set())
+        expected = set(paths) | (additions if role == 'worker-config' else set())
         roles.need(set(new_paths[role]) == expected and len(new_paths[role]) == len(set(new_paths[role])),
                    'Only exact worker receipt archive entries may be added')
     roles.need(covered(START, new_paths['worker-config']), 'Startup config missing from worker role')
 
 
-def validate_receipts(start, pause_path, clean_path, pause, clean):
-    roles.need(start == {'version': 1, 'pause_proof': pause_path, 'clean_receipt': clean_path},
+def validate_receipts(start, pause_path, clean_path, pause, clean, external=None):
+    expected_start = {'version': 1, 'pause_proof': pause_path, 'clean_receipt': clean_path}
+    if external is not None:
+        expected_start['external_verifier_sha256'] = external['validator_sha256']
+    roles.need(start == expected_start,
                'Installed startup config does not select this exact stop')
     roles.need(pause.get('version') == 1 and pause.get('verified') is True and pause.get('provider_jobs') == 0,
                'Actual verified native pause proof required')
-    roles.need(clean.get('version') == 1 and clean.get('state') == 'stopped-clean' and clean.get('proof') == pause,
+    accepted = clean.get('state') == 'stopped-clean'
+    if clean.get('state') == 'externally-stopped-clean':
+        accepted = external is not None and external.get('receipt') == clean and bool(external.get('closure'))
+    roles.need(clean.get('version') == 1 and accepted and clean.get('proof') == pause,
                'Matching actual clean-stop receipt required')
     # Freshness and exact SQLite binding/admission comparison are performed by
     # cold_pair.validate_pause_receipt, both before and after archiving.
@@ -63,6 +74,22 @@ def validate_receipts(start, pause_path, clean_path, pause, clean):
     generated = datetime.fromisoformat(pause['generated_at'])
     roles.need(generated.tzinfo is not None and generated.timestamp() <= clean.get('generated_at', 0) <= time.time() + 1,
                'Clean-stop receipt chronology invalid')
+
+
+def external_evidence(before, config, receipt_path, receipt):
+    if receipt.get('state') != 'externally-stopped-clean':
+        return None
+    # This fixed reviewed validator must already be present in the first closed
+    # configuration. Never import a helper named by the receipt or caller.
+    expected = before['reviewed_files'].get(EXTERNAL_VALIDATOR)
+    roles.need(expected is not None and config['reviewed_files'].get(EXTERNAL_VALIDATOR) == expected,
+               'External validator must be pinned before first role closure')
+    roles.verify_inputs({'reviewed_files': {EXTERNAL_VALIDATOR: expected}})
+    spec = importlib.util.spec_from_file_location('backup_external_clean', EXTERNAL_VALIDATOR)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    validated = module.validate_receipt(receipt_path)
+    return {**validated, 'validator_sha256': expected}
 
 
 def original_roles(directory, complete_digest):
@@ -120,14 +147,20 @@ def finalize(config, source, complete_digest, output, inherited):
             before, complete, selected = original_roles(source, complete_digest)
             start = read(START)
             pause_path, clean_path = start['pause_proof'], start['clean_receipt']
-            validate_transition(before, config, pause_path, clean_path)
-            validate_receipts(start, pause_path, clean_path, read(pause_path), read(clean_path))
+            clean = read(clean_path)
+            external = external_evidence(before, config, clean_path, clean)
+            closure = external['closure'] if external else ()
+            validate_transition(before, config, pause_path, clean_path, closure)
+            validate_receipts(start, pause_path, clean_path, read(pause_path), clean, external)
             roles.need(roles.sha(roles.private('/var/lib/sandboxd/secrets.key')) == complete['roles']['controller-key']['sha256'],
                        'Controller encryption key changed')
             def observe():
                 cold_pair.verify_unit(WORKER)
                 roles.observe(config, True)
                 cold_pair.validate_pause_receipt(roles.DB, Path(pause_path))
+                if external:
+                    roles.need(external_evidence(before, config, clean_path, read(clean_path)) == external,
+                               'External proof closure changed during finalization')
             observe()
             stage.mkdir(mode=0o700)
             roles.write(stage / 'started.json', {'version': 1, 'at': time.time(),
