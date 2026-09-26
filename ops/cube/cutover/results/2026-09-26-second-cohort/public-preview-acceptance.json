@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "app": "01M2QR4FBXNW8JP69STXJG800A",
+  "sandbox": "01M2QR4FCP4VR4G6367E4A8JN4",
+  "started_at": "2026-09-26T19:03:36.203Z",
+  "ai_tasks_submitted": 0,
+  "authenticated_preview": {
+    "status": 200,
+    "bytes": 557,
+    "first_ready_ms": 1705.987717
+  },
+  "files_verified": [
+    "package.json",
+    "sandbox.yaml",
+    "index.html"
+  ],
+  "historical_tasks_verified": 1,
+  "paused_after_verification": true,
+  "success": true,
+  "completed_at": "2026-09-26T19:03:38.870Z"
+}
