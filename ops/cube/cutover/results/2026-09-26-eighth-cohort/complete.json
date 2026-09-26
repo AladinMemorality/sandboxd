@@ -1,0 +1,16 @@
+{
+  "at": 1790459282.589292,
+  "phase": "complete",
+  "value": {
+    "customer_projects_migrated": 12,
+    "full_backup": false,
+    "global_migration_complete": false,
+    "online_restored": true,
+    "original_sources_retained": true,
+    "partial_cohort": false,
+    "selected_projects": 12,
+    "version": 1,
+    "worker_power_operations": 0
+  },
+  "version": 1
+}
