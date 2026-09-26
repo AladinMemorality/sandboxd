@@ -1,0 +1,64 @@
+{
+  "at": 1790450999.074659,
+  "bindings": [
+    {
+      "app_id": "01M2NQ9VKD18BD8Q0TWYADAQ26",
+      "config_revision": 0,
+      "runtime_id": "8c4c110769ae4a149979af3e12fa9149",
+      "sandbox_id": "01M2NQ9VME1ABTN3BFPHGV1HNP",
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104"
+    },
+    {
+      "app_id": "01M3A0HJESTH3J7Y2W2M895HMD",
+      "config_revision": 0,
+      "runtime_id": "98fe5f5cc41a4d57bd34070f97a5e828",
+      "sandbox_id": "01M3A0HJFJB7Q3PC40ES9ZMNER",
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104"
+    },
+    {
+      "app_id": "01M2CVJ36Y4K6XW2NBS2RH7R9N",
+      "config_revision": 0,
+      "runtime_id": "b9620b2f3610425180c76c2ed255e685",
+      "sandbox_id": "01M2CVJ37ND31WSFCMH1MZHH2C",
+      "template_id": "tpl-5abec4cb4fcc41cc8e611f69"
+    },
+    {
+      "app_id": "01M3BNRJ5QERYT9QCG5RQNN51G",
+      "config_revision": 0,
+      "runtime_id": "5f1b7336764b4eb1bcd0c8d413f09094",
+      "sandbox_id": "01M3BNRJ7KXXP1C5QGYMQR12RB",
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104"
+    },
+    {
+      "app_id": "01M3C9C0TN9VTJ7MBCK9Z7BQV5",
+      "config_revision": 1,
+      "runtime_id": "67e8681982074f1c857051c75c799642",
+      "sandbox_id": "01M3C9C0V0MQYNFTMCYS7CCNVC",
+      "template_id": "tpl-5abec4cb4fcc41cc8e611f69"
+    },
+    {
+      "app_id": "01M1J9BBCVQBYJJB9KE43M2993",
+      "config_revision": 0,
+      "runtime_id": "65278843e76848beaaa1e4d8fda34483",
+      "sandbox_id": "01M1J9BBCYC9F12M8B9XHHWG0T",
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104"
+    },
+    {
+      "app_id": "01M1PMEMRP5WWCREJJ3BNX78YQ",
+      "config_revision": 0,
+      "runtime_id": "625b3f6466d3445f8645b313089a2db1",
+      "sandbox_id": "01M1PMEMRS1HGSD1FTK51VGQ17",
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104"
+    }
+  ],
+  "customer_projects_migrated": 7,
+  "global_migration_complete": false,
+  "online_restored": true,
+  "original_sources_retained": true,
+  "paid_tasks_submitted": 0,
+  "private_archives_retained": true,
+  "unattempted_projects": 4,
+  "uncommitted_target_aborted": "01M36Y40QAN8DKB0GJHWR6W5Y1",
+  "version": 1,
+  "worker_power_operations": 0
+}
