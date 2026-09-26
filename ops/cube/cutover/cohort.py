@@ -30,8 +30,9 @@ SOCKET = Path('/run/baarcha-motion-studio/worker.sock')
 KIND = 'current-generation-project-cohort'
 DEFAULTS = Path(__file__).resolve().with_name('template_defaults.py')
 VERIFY = Path(__file__).resolve().with_name('verify_cohort.mjs')
+PAUSE = Path(__file__).resolve().with_name('pause_existing.mjs')
 PLATFORM_ENV = Path('/opt/baarcha/landing.env')
-FILES = tuple(dict.fromkeys((*p.FILES, Path(__file__).resolve(), CONFIG, DEFAULTS, VERIFY, PLATFORM_ENV,
+FILES = tuple(dict.fromkeys((*p.FILES, Path(__file__).resolve(), CONFIG, DEFAULTS, VERIFY, PAUSE, PLATFORM_ENV,
     *(ROOT / ('worker-lifecycle/' + name) for name in
       ('planned.py', 'maintenance.py', 'boot_transition.py', 'external_clean.py')))))
 
@@ -170,9 +171,23 @@ class Host(p.Host):
         self.inventory('online-preflight')
         if self.c['version'] == 2:
             observation = self.bridge.observe()
-            need(observation.get('consistent') is True and observation.get('active') == 0,
-                 'Parallel migration requires existing Cube guests paused; never consume an occupied slot')
+            need(observation.get('consistent') is True and 0 <= observation.get('active', -1) <= 4,
+                 'Parallel migration requires a consistent bounded active inventory')
         return result
+    def before_controller_stop(self):
+        if self.c['version'] != 2: return
+        # The shared drain has fenced all traffic and drained incoming requests.
+        # Pause through the live controller so its supervisor-task checks apply.
+        need(b.strict(b.http('/config/', 2019)) == self.routes['offline'], 'Preview traffic must be fenced before pausing')
+        self.quiet_tasks(); self.source_fence(); self.bindings_readonly()
+        need(b.digest(PAUSE) == self.plan['files'][str(PAUSE)], 'Reviewed pause helper changed')
+        path = self.job / 'existing-bindings.PRIVATE.json'
+        x.publish(path, self.plan['bindings'])
+        proof = b.strict(self.command(['/opt/baarcha/node22/bin/node', '--env-file=' + str(PLATFORM_ENV), str(PAUSE), str(path)], 600))
+        need(proof.get('success') is True and set(proof.get('paused', [])) == {v['sandbox_id'] for v in self.plan['bindings']}, 'Existing guest pause incomplete')
+        observation = self.bridge.observe()
+        need(observation.get('consistent') is True and observation.get('active') == 0, 'Active guests remain; do not start imports')
+        self.event('existing-guests-paused', proof)
     def cli_args(self):
         return [self.c['cli'], '--database', str(DATABASE), '--workspaces', str(WORKSPACES),
                 '--migrations', self.c['migrations'], '--archives', self.c['archives'],

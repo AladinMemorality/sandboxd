@@ -1,6 +1,7 @@
 import copy
 import contextlib
 import importlib.util
+import json
 from pathlib import Path
 import sqlite3
 import tempfile
@@ -36,6 +37,27 @@ def source():
 
 
 class CohortTests(unittest.TestCase):
+    def test_existing_guest_pause_requires_offline_routes_and_quiet_tasks(self):
+        host = c.Host.__new__(c.Host); host.c = dict(config(), version=2, parallelism=4)
+        host.routes = {'offline': {'reviewed': True}}
+        host.plan = {'bindings': [{'sandbox_id': 'existing'}], 'files': {str(c.PAUSE): 'digest'}}
+        host.job = Path('/private/operation')
+        for name in ('quiet_tasks', 'source_fence', 'bindings_readonly', 'event'):
+            setattr(host, name, mock.Mock())
+        host.command = mock.Mock(return_value=json.dumps({'success': True, 'paused': ['existing']}).encode())
+        host.bridge = mock.Mock(); host.bridge.observe.return_value = {'consistent': True, 'active': 0}
+        with mock.patch.object(c.b, 'http', return_value=b'{}'), mock.patch.object(c.b, 'digest', return_value='digest'), mock.patch.object(c.x, 'publish'):
+            with self.assertRaises(c.b.Refused): host.before_controller_stop()
+            host.command.assert_not_called()
+        with mock.patch.object(c.b, 'http', return_value=b'{"reviewed":true}'), mock.patch.object(c.b, 'digest', return_value='digest'), mock.patch.object(c.x, 'publish'):
+            host.quiet_tasks.side_effect = c.b.Refused('customer task active')
+            with self.assertRaises(c.b.Refused): host.before_controller_stop()
+            host.command.assert_not_called()
+            host.quiet_tasks.side_effect = None
+            host.before_controller_stop(); host.command.assert_called_once()
+            host.bridge.observe.return_value = {'consistent': True, 'active': 1}
+            with self.assertRaises(c.b.Refused): host.before_controller_stop()
+
     def test_larger_cohort_keeps_four_parallel_guest_limit(self):
         value = config(); value.update(version=2, parallelism=4)
         value['projects'] = [dict(project(), app_id='0'*24 + '%02d' % i,
