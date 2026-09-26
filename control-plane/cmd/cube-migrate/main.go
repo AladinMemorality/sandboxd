@@ -17,10 +17,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/maintenance"
-	"github.com/tastyeffectco/sandboxd/control-plane/internal/manifest"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/migration"
-	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
-	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/secrets"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
@@ -46,6 +43,7 @@ func run(args []string) error {
 	archives := flags.String("archives", filepath.Join(data, "migration-archives"), "private retained recovery archives")
 	keyfile := flags.String("keyfile", filepath.Join(data, "secrets.key"), "existing sandboxd secrets keyfile")
 	id := flags.String("sandbox", "", "stable sandbox ID")
+	batchPath := flags.String("batch", "", "private reviewed batch of up to four independent projects; migrate stops after import")
 	admissionKey := flags.String("admission-key", "", "durable app:APP_ID admission identity for fenced recovery")
 	providerDrained := flags.Bool("provider-requests-drained", false, "operator verified all previous provider mutations terminated; required for pending known-runtime recovery")
 	homeManifests := flags.String("home-manifests", "", "reviewed JSON map of sandbox IDs to private owner-home manifests")
@@ -66,6 +64,10 @@ func run(args []string) error {
 	}
 	if *stopAfterImport && action != "migrate" && action != "resume" {
 		return errors.New("--stop-after-import requires migrate or resume")
+	}
+	batch, err := readBatch(*batchPath, action, *id, *targetPreset, *expectedFleet, *stopAfterImport)
+	if err != nil {
+		return err
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
@@ -177,7 +179,7 @@ func run(args []string) error {
 	if action != "migrate" && action != "resume" && action != "rollback" && action != "rollback-check" && action != "adopt" && action != "abort" && action != "retire-source" && action != "admission-reconcile" && action != "admission-adopt" {
 		return errors.New("action must be inventory, fleet-preflight, status, migrate, resume, rollback-check, rollback, adopt, abort, retire-source, admission-status, admission-adopt or admission-reconcile (flags precede action)")
 	}
-	if *id == "" && action != "admission-reconcile" && action != "admission-adopt" {
+	if *id == "" && len(batch) == 0 && action != "admission-reconcile" && action != "admission-adopt" {
 		return errors.New("--sandbox is required")
 	}
 	if action == "admission-reconcile" && (!*providerDrained || *admissionKey == "") {
@@ -268,63 +270,38 @@ func run(args []string) error {
 		return err
 	}
 	engine := migration.Engine{Store: st, Backend: backend, BeforePhase: fence, StopAfterImport: *stopAfterImport}
-	if action == "migrate" {
-		rows, err := migration.InventoryWithHome(ctx, st.DB(), *workspaces, *id, homes)
-		if err != nil {
-			return err
-		}
-		if len(rows) != 1 || !rows[0].Eligible {
-			if len(rows) == 1 {
-				return fmt.Errorf("not eligible: %s", strings.Join(rows[0].Reasons, "; "))
+	if len(batch) > 0 {
+		if action == "migrate" {
+			for _, row := range batch {
+				if err = beginMigration(ctx, st, backend, *workspaces, row.SandboxID, row.Preset, homes, resources); err != nil {
+					return err
+				}
 			}
-			return store.ErrNotFound
 		}
-		templates := map[string]string{}
-		if err = json.Unmarshal([]byte(os.Getenv("SANDBOXD_CUBE_TEMPLATES")), &templates); err != nil {
-			return err
+		runs := make([]migration.BatchRun, 0, len(batch))
+		for _, row := range batch {
+			runs = append(runs, migration.BatchRun{SandboxID: row.SandboxID, Engine: engine})
 		}
-		if !preset.Valid(*targetPreset) || templates[*targetPreset] == "" {
-			return errors.New("--preset must select a reviewed SANDBOXD_CUBE_TEMPLATES entry")
-		}
-		definition, _ := preset.Get(*targetPreset)
-		parsed, e := manifest.Parse([]byte(definition.Manifest))
-		if e != nil {
-			return e
-		}
-		port := parsed.WebPort()
-		if port <= 0 {
-			port = 3000
-		}
-		source, e := st.Get(ctx, *id)
-		if e != nil {
-			return e
-		}
-		if len(source.Ports) != 1 || source.Ports[0] != port || (source.WebPort.Valid && source.WebPort.Int64 > 0 && int(source.WebPort.Int64) != port) {
-			return errors.New("source preview ports differ from the reviewed target preset; preserving URLs requires a compatible template")
-		}
-		domain := os.Getenv("SANDBOXD_CUBE_DOMAIN")
-		if domain == "" || strings.ContainsAny(domain, "/:\\ \r\n") {
-			return errors.New("invalid Cube domain")
-		}
-		homeJSON := ""
-		if home, ok := homes[*id]; ok {
-			raw, e := runtime.CanonicalHomeManifest(home)
+		batchErr := migration.RunBatch(ctx, runs)
+		results := make([]map[string]any, 0, len(batch))
+		for _, row := range batch {
+			journal, e := st.GetRuntimeMigration(ctx, row.SandboxID)
 			if e != nil {
-				return e
+				return errors.Join(batchErr, e)
 			}
-			homeJSON = string(raw)
+			results = append(results, map[string]any{"sandbox_id": row.SandboxID, "phase": journal.Phase})
 		}
-		inspected, e := backend.Docker.Inspect(ctx, source.ContainerID.String)
-		if e != nil {
-			return e
+		if err = json.NewEncoder(os.Stdout).Encode(map[string]any{"projects": results, "success": batchErr == nil}); err != nil {
+			return errors.Join(batchErr, err)
 		}
-		if e = migration.ValidateResourceSelection(templates[*targetPreset], source.ContainerID.String, resources, inspected); e != nil {
-			return e
-		}
-		if err = st.BeginRuntimeMigrationWithHome(ctx, *id, *targetPreset, templates[*targetPreset], domain, homeJSON); err != nil {
+		return batchErr
+	}
+	if action == "migrate" {
+		if err = beginMigration(ctx, st, backend, *workspaces, *id, *targetPreset, homes, resources); err != nil {
 			return err
 		}
 	}
+
 	switch action {
 	case "rollback":
 		err = engine.Rollback(ctx, *id)

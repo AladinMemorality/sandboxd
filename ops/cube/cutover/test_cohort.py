@@ -2,6 +2,7 @@ import copy
 import importlib.util
 from pathlib import Path
 import sqlite3
+import tempfile
 import unittest
 from unittest import mock
 
@@ -34,6 +35,28 @@ def source():
 
 
 class CohortTests(unittest.TestCase):
+    def test_larger_cohort_keeps_four_parallel_guest_limit(self):
+        value = config(); value.update(version=2, parallelism=4)
+        value['projects'] = [dict(project(), app_id='0'*24 + '%02d' % i,
+                                 sandbox_id='1'*24 + '%02d' % i,
+                                 container_id=('%064x' % (i + 1)),
+                                 recorded_container_id=('%064x' % (i + 1))) for i in range(12)]
+        c.validate_config(value)
+        for width in (0, 5, True):
+            bad = copy.deepcopy(value); bad['parallelism'] = width
+            with self.subTest(width=width), self.assertRaises(c.b.Refused): c.validate_config(bad)
+        value['projects'].append(value['projects'][0])
+        with self.assertRaises(c.b.Refused): c.validate_config(value)
+
+    def test_partial_parallel_import_never_reconciles_or_advances(self):
+        with tempfile.TemporaryDirectory() as directory:
+            host = c.Host.__new__(c.Host); host.c = config(); host.job = Path(directory)
+            host.fence = mock.Mock(); host.source_fence = mock.Mock(); host.inputs = mock.Mock()
+            host.event = mock.Mock(); host.reconcile_template_default = mock.Mock(); host.db = mock.Mock()
+            host.run_cli = mock.Mock(return_value={'success': True, 'projects': []})
+            with self.assertRaises(c.b.Refused): host.migrate_wave([project()], 0)
+            host.run_cli.assert_called_once(); host.reconcile_template_default.assert_not_called(); host.db.assert_not_called()
+
     def test_explicit_small_ordinary_cohort_only(self):
         c.validate_config(config())
         for kind in ('empty', 'duplicate', 'motion', 'database', 'unpinned', 'archive', 'mutable_image'):

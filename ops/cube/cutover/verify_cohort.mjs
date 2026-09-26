@@ -6,7 +6,7 @@ import http from 'node:http';
 const [configPath, output] = process.argv.slice(2);
 assert(configPath?.startsWith('/') && output?.startsWith('/'));
 const config = JSON.parse(await fs.readFile(configPath));
-assert(config.version === 1 && config.projects.length > 0 && config.projects.length <= 4);
+assert([1, 2].includes(config.version) && config.projects.length > 0 && config.projects.length <= (config.version === 2 ? 12 : 4));
 const rt = new URL(process.env.SANDBOXD_URL);
 assert(rt.origin === 'http://127.0.0.1:9090' && process.env.SANDBOXD_TOKEN);
 const hash = value => crypto.createHash('sha256').update(value).digest('hex');

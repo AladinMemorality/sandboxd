@@ -13,8 +13,11 @@ template resources, source container generations and fleet identity. Native
 inspection resolves legacy twelve-character database container IDs to exact
 sixty-four-character Docker identities without rewriting the database.
 
-The initial runner accepts one to four cleanly stopped, nonrestartable ordinary
-projects. It refuses Motion, PostgreSQL, active sources and existing migration
+Version1 configuration accepts one to four cleanly stopped, nonrestartable
+ordinary projects. Version2 accepts up to twelve projects with explicit
+`parallelism` from one to four. It requires existing Cube guests to be paused
+before starting, and keeps the native four-active-guest admission policy.
+It refuses Motion, PostgreSQL, active sources and existing migration
 journals; those require their own acceptance or explicit recovery. It does not
 silently skip them or claim that this restriction completes a global rollout.
 
@@ -22,7 +25,8 @@ The maintenance plan uses the existing exact worker/controller/routing identitie
 and pins all coordinator source files. Run `--check` in a fresh journal directory
 first. It acquires the actual locks and rechecks the deployed state, but changes
 no service. `--execute` repeats those checks, drains traffic and work, stops the
-controller, revalidates the fleet and runs migrations sequentially. It stores
+controller and revalidates the fleet. Version1 runs migrations sequentially;
+version2 processes waves of up to four. It stores
 private per-project archives on mounted NVMe and a diagnostic SQLite checkpoint;
 the checkpoint is never restored as a data rollback.
 
@@ -49,6 +53,18 @@ and refused. It records the stock bytes before removal, then resumes the same
 runtime and journal for the full verification. It does not weaken manifests or
 exclude future owner edits from rollback. The flag refuses unrelated actions
 and journals already beyond the requested boundary.
+
+Parallel waves use one native CLI process, one maintenance owner and the Store's
+single SQLite writer. `--batch /PRIVATE/wave.json --expected-fleet SHA
+--stop-after-import migrate` accepts a version1 JSON document containing
+`projects`, each with `sandbox_id` and `preset`. Import/export work overlaps;
+creation acknowledgments alone are serialized to preserve the durable one
+pending-create contract. After the imported boundary and template reconciliation,
+`--batch /PRIVATE/wave.json --expected-fleet SHA resume` verifies, pauses and
+commits each project independently. The CLI waits for all started siblings if
+one fails, then reports every journal phase and exits nonzero. The coordinator
+retains its fence for explicit recovery; it never starts another wave on failure.
+Separate concurrent CLI processes remain prohibited by the database fence.
 
 Retained originals and per-project archives are migration recovery
 material; neither a cohort nor the online NVMe copy proves a full off-host
