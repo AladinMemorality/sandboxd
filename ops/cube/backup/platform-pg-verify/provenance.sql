@@ -1,10 +1,10 @@
 WITH counts AS (
  SELECT 'waitlist' AS name,count(*) AS count,
- encode(sha256(convert_to(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY id),''),'UTF8')),'hex') AS sha256 FROM waitlist t
- UNION ALL SELECT 'platform_session',count(*),encode(sha256(convert_to(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY token_hash),''),'UTF8')),'hex') FROM platform_session t
- UNION ALL SELECT 'published_app',count(*),encode(sha256(convert_to(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY id),''),'UTF8')),'hex') FROM published_app t
- UNION ALL SELECT 'upload',count(*),encode(sha256(convert_to(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY id),''),'UTF8')),'hex') FROM upload t
- UNION ALL SELECT 'schema_migrations',count(*),encode(sha256(convert_to(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY version),''),'UTF8')),'hex') FROM schema_migrations t
+ encode(sha256(convert_to(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY id::text COLLATE "C"),''),'UTF8')),'hex') AS sha256 FROM waitlist t
+ UNION ALL SELECT 'platform_session',count(*),encode(sha256(convert_to(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY token_hash::text COLLATE "C"),''),'UTF8')),'hex') FROM platform_session t
+ UNION ALL SELECT 'published_app',count(*),encode(sha256(convert_to(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY id::text COLLATE "C"),''),'UTF8')),'hex') FROM published_app t
+ UNION ALL SELECT 'upload',count(*),encode(sha256(convert_to(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY id::text COLLATE "C"),''),'UTF8')),'hex') FROM upload t
+ UNION ALL SELECT 'schema_migrations',count(*),encode(sha256(convert_to(coalesce(string_agg(to_jsonb(t)::text,E'\n' ORDER BY version::text COLLATE "C"),''),'UTF8')),'hex') FROM schema_migrations t
 )
 SELECT jsonb_build_object(
  'tables',(SELECT jsonb_object_agg(name,jsonb_build_object('count',count,'sha256',sha256)) FROM counts),

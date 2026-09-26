@@ -78,8 +78,9 @@ stdout/stderr, restored server version/database locale metadata, and per-table
 comparison flags. Phase receipts identify whether restore, query parsing or
 comparison failed; no private query output is printed. These diagnostics do not
 relax equality or replace the pinned provenance query. Its text-key ordering
-uses the database collation, so differing source/destination locales can cause
-hash mismatches that require diagnosis rather than accepting different hashes.
+uses explicit `COLLATE "C"` on both sides, so fingerprints do not depend on the
+source and destination operating systems' locale implementations. All complete
+row hashes must still match; this does not relax equality.
 Failed stages remain intact; each reviewed rerun requires a new stage.
 
 Cleanup rechecks full container ID, exact name/label/image and isolation before
