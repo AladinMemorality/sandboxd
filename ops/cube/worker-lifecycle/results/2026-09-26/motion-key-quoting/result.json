@@ -1,0 +1,7 @@
+{
+  "archive_sha256": "62ac3e78dcb1698c4a3157373bbbda4278ebaf90d871636627afdbe605d19b38",
+  "exit_code": 0,
+  "test_type": "native root Linux Python fixtures",
+  "tests_sha256": "af01b7b27aa277a9f8112a02cac1edc127de394833fdac1fcb05e3c83ebcb394",
+  "worker_operations": false
+}

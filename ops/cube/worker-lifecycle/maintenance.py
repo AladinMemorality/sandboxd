@@ -162,6 +162,21 @@ def verify_counts(actual,expected):
     return {'active_jobs':0,'known_terminal_groups':actual,'scope':'all eight reviewed cube_mvp job/definition tables'}
 
 
+def motion_environment_key(raw):
+    """Reviewed single-line EnvironmentFile token subset; never shell evaluation."""
+    need(len(raw)<=65536,'Motion environment file exceeds bound')
+    values=[line.strip(b' \t').split(b'=',1)[1].strip(b' \t') for line in raw.splitlines() if line.strip(b' \t').startswith(b'STUDIO_WORKER_KEY=')]
+    need(len(values)==1 and bool(values[0]),'fixed Motion credential unavailable')
+    key=values[0]
+    if key[:1] in (b"'",b'"'):
+        need(len(key)>=2 and key[-1:]==key[:1],'unterminated Motion credential quote')
+        key=key[1:-1]
+    # General systemd escapes/continuations are deliberately unsupported. The
+    # installed key is one printable token, optionally wrapped in matching quotes.
+    need(bool(key) and len(key)<=8192 and all(33<=c<=126 for c in key) and not any(c in key for c in (b"'",b'"',b'\\')),'unsupported Motion credential format')
+    return key
+
+
 def motion_job_summary(value):
     object_keys(value,{'projects'},'Motion projects response schema differs')
     need(isinstance(value['projects'],list) and len(value['projects'])<=10000,'Motion project observation bound exceeded')
@@ -303,15 +318,14 @@ print(json.dumps(out))
     def motion_jobs(self):
         path=Path('/opt/baarcha/motion-studio/worker.env')
         raw=b.trusted(path);need(b.sha(raw)==self.plan['files'][str(path)],'Motion credential configuration changed')
-        values=[line.split(b'=',1)[1] for line in raw.splitlines() if line.startswith(b'STUDIO_WORKER_KEY=')]
-        need(len(values)==1 and values[0] and b'\r' not in values[0] and b'\n' not in values[0],'fixed Motion credential unavailable')
+        key=motion_environment_key(raw)
         m=self.plan['motion'];need(x.ticks(m['worker_pid'])==m['worker_start_time'],'Motion backend process changed')
         # Only compare selected values privately; never log/store process env.
         env=dict(line.split(b'=',1) for line in Path('/proc/'+str(m['worker_pid'])+'/environ').read_bytes().split(b'\0') if b'=' in line)
-        need(not env.get(b'STUDIO_WORKER_URL') and not env.get(b'STUDIO_WORKER_SOCKET') and env.get(b'STUDIO_WORKER_KEY')==values[0],'Motion worker is a forwarding proxy or credential generation differs')
+        need(not env.get(b'STUDIO_WORKER_URL') and not env.get(b'STUDIO_WORKER_SOCKET') and env.get(b'STUDIO_WORKER_KEY')==key,'Motion worker is a forwarding proxy or credential generation differs')
         conn=http.client.HTTPConnection('172.19.0.1',8332,timeout=5)
         try:
-            conn.request('GET','/api/projects',headers={'Authorization':'Bearer '+values[0].decode(),'Connection':'close'})
+            conn.request('GET','/api/projects',headers={'Authorization':'Bearer '+key.decode(),'Connection':'close'})
             response=conn.getresponse();body=response.read(8*1024*1024+1)
             need(response.status==200 and len(body)<=8*1024*1024,'bounded authenticated Motion job observation unavailable')
             return motion_job_summary(b.strict(body))

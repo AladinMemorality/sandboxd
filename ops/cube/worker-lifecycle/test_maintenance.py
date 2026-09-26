@@ -159,3 +159,27 @@ class MotionFingerprintTests(unittest.TestCase):
                 with mock.patch.object(m.os,'read',side_effect=race),self.assertRaises(m.b.Refused):m.file_digest(source)
                 moved=root/'moved';server.rename(moved);server.symlink_to(moved,target_is_directory=True)
                 with self.assertRaises(OSError):m.file_digest(source)
+
+class MotionEnvironmentTests(unittest.TestCase):
+    def test_reviewed_unquoted_and_matching_quoted_tokens_without_expansion(self):
+        key=b'fixture_key-Aa09+/=${LITERAL}'
+        for value in (key,b'"'+key+b'"',b"'"+key+b"'"):
+            with self.subTest(quoted=value[:1]):self.assertEqual(m.motion_environment_key(b'# ignored\nSTUDIO_WORKER_KEY= '+value+b' \nOTHER=value\n'),key)
+        for value in (b'',b'"unfinished',b"'mismatched\"",b'a b',b'""',b'a\\b',b'a\x00b',b'"a"extra',b'"a\r\nb"',b'a\t'):
+            # Trailing EnvironmentFile whitespace is valid; internal controls are not.
+            if value==b'a\t':value=b'a\tb'
+            with self.subTest(value=value),self.assertRaises(m.b.Refused):m.motion_environment_key(b'STUDIO_WORKER_KEY='+value+b'\n')
+        with self.assertRaises(m.b.Refused):m.motion_environment_key(b'STUDIO_WORKER_KEY=a\nSTUDIO_WORKER_KEY=b\n')
+    def test_jobs_compares_and_authenticates_with_same_unquoted_key(self):
+        from unittest import mock
+        key=b'fixture-quoted-key';raw=b'STUDIO_WORKER_KEY="'+key+b'"\n'
+        host=m.Host.__new__(m.Host);host.plan=plan();host.plan['files']['/opt/baarcha/motion-studio/worker.env']=m.b.sha(raw)
+        response=mock.Mock(status=200);response.read.return_value=b'{"projects":[]}'
+        connection=mock.Mock();connection.getresponse.return_value=response
+        with mock.patch.object(m.b,'trusted',return_value=raw),mock.patch.object(m.x,'ticks',return_value='123'),mock.patch.object(Path,'read_bytes',return_value=b'STUDIO_WORKER_KEY='+key+b'\0'),mock.patch.object(m.http.client,'HTTPConnection',return_value=connection):
+            self.assertEqual(host.motion_jobs()['active_jobs'],0)
+        connection.request.assert_called_once_with('GET','/api/projects',headers={'Authorization':'Bearer '+key.decode(),'Connection':'close'});connection.close.assert_called_once()
+        connection.reset_mock()
+        with mock.patch.object(m.b,'trusted',return_value=raw),mock.patch.object(m.x,'ticks',return_value='123'),mock.patch.object(Path,'read_bytes',return_value=b'STUDIO_WORKER_KEY=different\0'),mock.patch.object(m.http.client,'HTTPConnection',return_value=connection):
+            with self.assertRaises(m.b.Refused):host.motion_jobs()
+        connection.request.assert_not_called()
