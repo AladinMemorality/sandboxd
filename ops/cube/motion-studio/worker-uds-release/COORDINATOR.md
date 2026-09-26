@@ -35,7 +35,7 @@ Read-only observation on 26 September found the current Motion proxy binding
 `01M3CKN99ZF90BEEA4DS66YAQV`, container
 `02503dfa5cf882692436fcef4fa6e049b0480441b9347e506d2dec225cefedb0`, image
 `sha256:f05e2d5103acbc1bda4ba22d618eabba93307f914dd26bf2f2f3f4163c458434`.
-The worker remains PID3282578 and the refresh timer active. These observations
+The pre-release worker was PID3282578 and the refresh timer active. These historical observations
 are **not** a maintenance handoff or execution configuration; refresh all pins.
 
 The caller can pass the four held descriptors through `subprocess.run(...,
@@ -173,3 +173,18 @@ The shutdown mechanism follows Node's documented
 [SIGUSR1 debugger behavior](https://nodejs.org/download/release/v22.21.1/docs/api/process.html#signal-events),
 [HTTP server close behavior](https://nodejs.org/download/release/v22.21.1/docs/api/http.html#serverclosecallback),
 and [natural event-loop exit](https://nodejs.org/download/release/v22.21.1/docs/api/process.html#event-beforeexit).
+
+## Production window accepted on September 26
+
+`window.py` composes the existing planned-maintenance fence with this release.
+It pins all release inputs, adopts only a verified new Motion generation, restarts
+the same controller and recreates its two management relays in that controller’s
+new network namespace. Native binding/storage readiness and exact original
+routes/writer states are required before completion. It performs no worker power
+action. Failures after mutation retain the maintenance fence and parent locks.
+
+The live release passed in a 49.84-second scoped window, followed by independent
+route/lock verification and authenticated app/home/SQL/history/capture acceptance.
+See [actual release evidence](results/2026-09-26-live-release/README.md).
+This supersedes the earlier preparation-only status for the UDS worker release;
+guest capability, controller socket mount/mapping and migration remain separate.
