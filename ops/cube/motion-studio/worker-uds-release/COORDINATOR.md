@@ -45,9 +45,12 @@ pass_fds=tuple(fds))` and `--lock-fds FD0,FD1,FD2,FD3`, in this exact order:
 - `/run/lock/cube-operator-acceptance.lock`
 - `/opt/baarcha-bench/cube-workload-operator.lock`
 
-The coordinator checks inode/device/root ownership and acquires `LOCK_EX|LOCK_NB`
-on each inherited open-file description. It closes its duplicates without
-unlocking the caller. Without inherited descriptors it acquires these same locks
+The coordinator checks inode/device/root ownership. For inherited descriptors,
+an independently opened same-inode `LOCK_SH|LOCK_NB` probe must fail **before**
+touching the inherited lock; unlocked/shared descriptors are rejected without
+conversion. A subsequent same-OFD `LOCK_EX|LOCK_NB` check rejects a different
+open-file description holding the exclusive lock. It closes its duplicates
+without unlocking the caller, including on failure. Without inherited descriptors it acquires these same locks
 itself. No second, unrelated maintenance lock is invented.
 
 ## Configuration and invocation
@@ -90,7 +93,12 @@ coordinator. These are orchestration bounds, not changed worker limits.
 ## Backup, validation and failure behavior
 
 After stopping only `baarcha-motion-worker.service`, the coordinator verifies
-inactive/dead, no PID/control PID, no remaining cgroup processes, and no process
+inactive/dead, `Result=success`, and either normal exit0 (`ExecMainCode=1`,
+`ExecMainStatus=0`) or ordinary SIGTERM (`2`/`15`). Timeout, OOM, SIGKILL,
+core dumps and nonzero exits refuse backup/installation and preserve the fence
+for manual review; they do not trigger an automatic stop retry or restart. The
+observed result/code/status is journaled. It also requires no PID/control PID,
+no remaining cgroup processes, and no process
 under the dedicated service UID. It creates a closed GNU tar of data, home,
 worker.env, base unit and all prior drop-ins, preserving numeric ownership,
 symlinks, hardlinks, ACLs and xattrs without dereferencing or extracting. Special
@@ -128,5 +136,7 @@ Tests exercise candidate/path/link rejection, private metadata, atomic file
 replacement, drift refusal, failure ordering and source-only rollback preserving
 newer customer bytes, complete project-state comparison, active-job refusal,
 expired/drifted fences, running writers/controller, active timer and inflight TCP
-refusal. The actual pinned tar also passed parser/hash validation locally.
+refusal. Real local kernel flock tests cover unlocked/shared descriptors without
+upgrade, a different holder, the correct shared OFD, and retention of all four
+caller locks after an exception. The actual pinned tar also passed parser/hash validation locally.
 No live stop/install/start or Linux systemd acceptance was performed by these tests.

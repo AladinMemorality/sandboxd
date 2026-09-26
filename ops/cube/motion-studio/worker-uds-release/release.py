@@ -161,6 +161,26 @@ def validate_config(c, selected):
     return c
 
 
+def require_inherited_exclusive(name, fd):
+    # A new shared probe must fail BEFORE touching the inherited description.
+    # Otherwise an unlocked/shared FD could be upgraded and falsely presented
+    # as the caller's continuously held exclusive maintenance fence.
+    check = os.open(name, os.O_RDWR | os.O_NOFOLLOW)
+    try:
+        a, b = os.fstat(fd), os.fstat(check)
+        need((a.st_dev, a.st_ino) == (b.st_dev, b.st_ino), 'inherited lock inode changed')
+        try:
+            fcntl.flock(check, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        except BlockingIOError:
+            pass
+        else:
+            raise RuntimeError('inherited exclusive lock is not already held')
+        # If a different OFD owns the exclusion, this same-OFD check fails.
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    finally:
+        os.close(check)
+
+
 @contextlib.contextmanager
 def locks(inherited=None):
     held = []
@@ -174,7 +194,10 @@ def locks(inherited=None):
             s = os.fstat(fd)
             need(stat.S_ISREG(s.st_mode) and s.st_uid == 0 and s.st_nlink == 1 and
                  (s.st_dev, s.st_ino) == (p.stat().st_dev, p.stat().st_ino), 'lock identity')
-            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            if inherited is not None:
+                require_inherited_exclusive(p, fd)
+            else:
+                fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
         yield
     finally:
         for fd in reversed(held):
@@ -194,6 +217,7 @@ class Release:
         self.key = None
         self.before = None
         self.mutated = False
+        self.stop_unconfirmed = False
         self.installed = []
         self.drop_dir_created = False
 
@@ -215,7 +239,7 @@ class Release:
         return result.stdout
 
     def service(self):
-        raw = self.cmd(['systemctl', 'show', UNIT, '--property=ActiveState,SubState,MainPID,ControlPID,ControlGroup,MemoryMax,CPUQuotaPerSecUSec,KillMode,User,Group,FragmentPath,DropInPaths'])
+        raw = self.cmd(['systemctl', 'show', UNIT, '--property=ActiveState,SubState,MainPID,ControlPID,ControlGroup,MemoryMax,CPUQuotaPerSecUSec,KillMode,User,Group,FragmentPath,DropInPaths,Result,ExecMainCode,ExecMainStatus'])
         return dict(line.split('=', 1) for line in raw.decode().splitlines() if '=' in line)
 
     def http(self, path, transport='tcp', auth='valid'):
@@ -295,8 +319,14 @@ class Release:
         self.event('preflight_passed', projects=c['project_count'])
 
     def stop(self):
+        self.stop_unconfirmed = True
         self.cmd(['systemctl', 'stop', UNIT], timeout=120)
         p = self.service()
+        self.event('worker_stop_observed', result=p.get('Result'),
+                   exit_code=p.get('ExecMainCode'), exit_status=p.get('ExecMainStatus'))
+        need(p.get('Result') == 'success' and
+             (p.get('ExecMainCode'), p.get('ExecMainStatus')) in (('1', '0'), ('2', '15')),
+             'worker stop was not proven graceful; retain fence for review')
         need(p['ActiveState'] == 'inactive' and p['SubState'] == 'dead' and p['MainPID'] == '0' and p['ControlPID'] == '0', 'worker not fully stopped')
         group = p.get('ControlGroup')
         if group:
@@ -312,6 +342,7 @@ class Release:
                 continue
             uid = re.search(r'^Uid:\s+(\d+)\s+(\d+)', status, re.M)
             need(not uid or all(int(x) != self.c['service_uid'] for x in uid.groups()), 'service UID still has a live process')
+        self.stop_unconfirmed = False
         self.event('worker_stopped')
 
     def backup(self):
@@ -451,7 +482,9 @@ class Release:
             self.event('complete', fence_reopened=False, data_restored=False)
         except BaseException:
             self.event('failed', mutation_started=self.mutated)
-            if self.mutated:
+            if self.mutated and self.stop_unconfirmed:
+                self.event('stop_unconfirmed', manual_review_required=True, fence_reopened=False)
+            elif self.mutated:
                 try:
                     self.rollback()
                 except BaseException:

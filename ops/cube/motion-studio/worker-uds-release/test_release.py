@@ -74,13 +74,16 @@ class FilesystemTests(unittest.TestCase):
 
 class Fake(m.Release):
     def __init__(self, fail=None):
-        self.calls = []; self.fail = fail; self.mutated = False
+        self.calls = []; self.fail = fail; self.mutated = False; self.stop_unconfirmed = False
     def step(self, name):
         self.calls.append(name)
         if name == self.fail: raise RuntimeError('injected')
     def event(self, name, **detail): self.calls.append('event:' + name)
     def preflight(self): self.step('preflight')
-    def stop(self): self.step('stop')
+    def stop(self):
+        self.stop_unconfirmed = True
+        self.step('stop')
+        self.stop_unconfirmed = False
     def fence(self): self.step('fence')
     def backup(self): self.step('backup')
     def install(self): self.step('install')
@@ -107,7 +110,13 @@ class LifecycleTests(unittest.TestCase):
             with self.subTest(phase=phase):
                 r = Fake(phase)
                 with self.assertRaises(RuntimeError): r.execute()
-                self.assertIn('event:failed', r.calls); self.assertIn('rollback', r.calls)
+                self.assertIn('event:failed', r.calls)
+                if phase == 'stop':
+                    self.assertNotIn('rollback', r.calls)
+                    self.assertIn('event:stop_unconfirmed', r.calls)
+                    self.assertNotIn('backup', r.calls)
+                else:
+                    self.assertIn('rollback', r.calls)
                 self.assertNotIn('event:complete', r.calls)
 
     def test_rollback_failure_is_not_success(self):
@@ -149,6 +158,31 @@ class LifecycleTests(unittest.TestCase):
             with mock.patch.object(m, 'APP', app), self.assertRaisesRegex(RuntimeError, 'unreviewed'):
                 r.rollback()
             self.assertEqual((app / m.FILES[0]).read_bytes(), b'external change')
+
+    def test_abnormal_systemd_stop_refuses_backup_and_retains_evidence(self):
+        for result, code, status in [('timeout', '2', '9'), ('oom-kill', '2', '9'),
+                                     ('success', '2', '9'), ('success', '1', '1'),
+                                     ('success', '3', '15'), ('signal', '2', '15')]:
+            with self.subTest(result=result, code=code, status=status):
+                r = m.Release({}, '/', {}, b''); r.cmd = mock.Mock()
+                r.service = lambda: {'Result': result, 'ExecMainCode': code, 'ExecMainStatus': status,
+                                     'ActiveState': 'inactive', 'SubState': 'dead', 'MainPID': '0', 'ControlPID': '0'}
+                r.event = mock.Mock()
+                with self.assertRaisesRegex(RuntimeError, 'not proven graceful'): r.stop()
+                self.assertTrue(r.stop_unconfirmed)
+                self.assertEqual(r.event.call_args.args[0], 'worker_stop_observed')
+                self.assertNotIn('worker_stopped', [x.args[0] for x in r.event.call_args_list])
+
+    def test_normal_zero_or_term_stop_is_accepted_after_process_absence(self):
+        for code, status in [('1', '0'), ('2', '15')]:
+            with self.subTest(code=code, status=status):
+                r = m.Release({'service_uid': 985}, '/', {}, b''); r.cmd = mock.Mock()
+                r.service = lambda: {'Result': 'success', 'ExecMainCode': code, 'ExecMainStatus': status,
+                                     'ActiveState': 'inactive', 'SubState': 'dead', 'MainPID': '0', 'ControlPID': '0'}
+                r.event = mock.Mock()
+                with mock.patch.object(m.Path, 'iterdir', return_value=iter(())): r.stop()
+                self.assertFalse(r.stop_unconfirmed)
+                self.assertEqual(r.event.call_args.args[0], 'worker_stopped')
 
     def test_projects_require_exact_complete_state_and_drained_jobs(self):
         body = {'projects': [{'id': 'one', 'assets': [{'id': 'asset'}], 'jobs': []}]}
@@ -211,6 +245,72 @@ class FenceTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             p = Path(d).resolve() / 'config'; p.write_bytes(b'{}'); p.chmod(0o644)
             with self.assertRaises(RuntimeError): m.regular(p, private=True)
+
+
+class InheritedLockTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.path = Path(self.tmp.name).resolve() / 'lock'
+        self.path.touch()
+        self.fd = os.open(self.path, os.O_RDWR)
+        self.probe = os.open(self.path, os.O_RDWR)
+
+    def tearDown(self):
+        os.close(self.probe); os.close(self.fd); self.tmp.cleanup()
+
+    def test_unlocked_descriptor_is_refused_without_acquiring(self):
+        with self.assertRaisesRegex(RuntimeError, 'not already held'):
+            m.require_inherited_exclusive(self.path, self.fd)
+        m.fcntl.flock(self.probe, m.fcntl.LOCK_EX | m.fcntl.LOCK_NB)
+
+    def test_shared_descriptor_is_refused_without_upgrading(self):
+        m.fcntl.flock(self.fd, m.fcntl.LOCK_SH | m.fcntl.LOCK_NB)
+        with self.assertRaisesRegex(RuntimeError, 'not already held'):
+            m.require_inherited_exclusive(self.path, self.fd)
+        # Still shared: an independent shared holder joins, but EX cannot.
+        m.fcntl.flock(self.probe, m.fcntl.LOCK_SH | m.fcntl.LOCK_NB)
+        m.fcntl.flock(self.probe, m.fcntl.LOCK_UN)
+        with self.assertRaises(BlockingIOError):
+            m.fcntl.flock(self.probe, m.fcntl.LOCK_EX | m.fcntl.LOCK_NB)
+
+    def test_different_open_description_owner_is_refused_and_retained(self):
+        m.fcntl.flock(self.probe, m.fcntl.LOCK_EX | m.fcntl.LOCK_NB)
+        with self.assertRaises(BlockingIOError):
+            m.require_inherited_exclusive(self.path, self.fd)
+        with self.assertRaises(BlockingIOError):
+            m.fcntl.flock(self.fd, m.fcntl.LOCK_SH | m.fcntl.LOCK_NB)
+
+    def test_exact_held_description_accepts_and_duplicate_close_retains(self):
+        m.fcntl.flock(self.fd, m.fcntl.LOCK_EX | m.fcntl.LOCK_NB)
+        duplicate = os.dup(self.fd)
+        try: m.require_inherited_exclusive(self.path, duplicate)
+        finally: os.close(duplicate)
+        with self.assertRaises(BlockingIOError):
+            m.fcntl.flock(self.probe, m.fcntl.LOCK_SH | m.fcntl.LOCK_NB)
+
+    def test_failure_inside_four_lock_context_retains_caller_locks(self):
+        paths = []; owned = []
+        original_fstat = os.fstat
+        def root_owned_fstat(fd):
+            # Exercise real kernel flocks on unprivileged CI; only the root-owner
+            # policy field is synthesized for these test-owned temporary files.
+            values = list(original_fstat(fd)); values[4] = 0
+            return os.stat_result(values)
+        try:
+            for i in range(4):
+                p = Path(self.tmp.name).resolve() / ('lock' + str(i)); p.touch(); paths.append(str(p))
+                fd = os.open(p, os.O_RDWR); owned.append(fd)
+                m.fcntl.flock(fd, m.fcntl.LOCK_EX | m.fcntl.LOCK_NB)
+            with mock.patch.object(m, 'LOCKS', tuple(paths)), mock.patch.object(m.os, 'fstat', root_owned_fstat):
+                with self.assertRaisesRegex(RuntimeError, 'caller failure'):
+                    with m.locks(owned): raise RuntimeError('caller failure')
+            for path in paths:
+                fd = os.open(path, os.O_RDWR)
+                try:
+                    with self.assertRaises(BlockingIOError): m.fcntl.flock(fd, m.fcntl.LOCK_SH | m.fcntl.LOCK_NB)
+                finally: os.close(fd)
+        finally:
+            for fd in owned: os.close(fd)
 
 
 if __name__ == '__main__': unittest.main()
