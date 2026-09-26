@@ -183,3 +183,48 @@ class MotionEnvironmentTests(unittest.TestCase):
         with mock.patch.object(m.b,'trusted',return_value=raw),mock.patch.object(m.x,'ticks',return_value='123'),mock.patch.object(Path,'read_bytes',return_value=b'STUDIO_WORKER_KEY=different\0'),mock.patch.object(m.http.client,'HTTPConnection',return_value=connection):
             with self.assertRaises(m.b.Refused):host.motion_jobs()
         connection.request.assert_not_called()
+
+class HomeAndDiagnosticTests(unittest.TestCase):
+    def test_exact_home_status_and_redirect(self):
+        ok=b'HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n'
+        redirect=b'HTTP/1.1 308 Permanent Redirect\r\nLocation: https://baarcha.tn/\r\n\r\n'
+        self.assertEqual(m.platform_home_result('baarcha.tn',ok)['status'],200)
+        self.assertEqual(m.platform_home_result('www.baarcha.tn',redirect)['location'],'https://baarcha.tn/')
+        for host,raw in [('baarcha.tn',redirect),('www.baarcha.tn',ok),('other.tn',ok),('www.baarcha.tn',redirect.replace(b'https://baarcha.tn/',b'https://evil.invalid/')),('www.baarcha.tn',redirect.replace(b'\r\n\r\n',b'\r\nLocation: https://baarcha.tn/\r\n\r\n'))]:
+            with self.subTest(host=host,raw=raw),self.assertRaises(m.b.Refused):m.platform_home_result(host,raw)
+    def test_preflight_checks_homes_before_any_fence_or_other_operations(self):
+        from unittest import mock
+        host=m.Host.__new__(m.Host);host.plan=plan();host.platform_homes=mock.Mock(side_effect=m.b.Refused('home mismatch'));host.command=mock.Mock();host.reload=mock.Mock()
+        with self.assertRaisesRegex(m.b.Refused,'home mismatch'):host.preflight()
+        host.command.assert_not_called();host.reload.assert_not_called()
+    def test_route_probes_preserve_all_scope_503_and_never_follow_home(self):
+        from unittest import mock
+        host=m.Host.__new__(m.Host);host.plan=plan()
+        def run(args,timeout):
+            self.assertNotIn('-L',args);self.assertNotIn('--location',args)
+            if '--dump-header' in args:
+                return b'HTTP/1.1 308 Permanent Redirect\r\nLocation: https://baarcha.tn/\r\n\r\n' if args[-1]=='https://www.baarcha.tn/' else b'HTTP/1.1 200 OK\r\n\r\n'
+            return b'503'
+        host.command=mock.Mock(side_effect=run)
+        results=host.route_checks();self.assertEqual(sum(r['status']==503 for r in results),10);self.assertEqual([r['status'] for r in results[-2:]],[200,308])
+    def test_native_pause_stderr_is_preserved_private_and_no_overwrite(self):
+        import tempfile,os,sys,stat
+        with tempfile.TemporaryDirectory() as tmp:
+            path=Path(tmp)/'native-pause.stderr'
+            child=m.start_pause_process([sys.executable,'-c','import sys;sys.stderr.write("coordinator fixture failed\\n");sys.exit(3)'],[],path)
+            child.communicate(timeout=5)
+            self.assertEqual(child.returncode,3);self.assertEqual(path.read_text(),'coordinator fixture failed\n');self.assertEqual(stat.S_IMODE(path.stat().st_mode),0o600)
+            with self.assertRaises(FileExistsError):m.start_pause_process([sys.executable,'-c','pass'],[],path)
+    @unittest.skipUnless(__import__('os').geteuid()==0 and __import__('sys').platform=='linux','real root-only pending journal')
+    def test_main_retains_bounded_private_failure_detail(self):
+        import tempfile,contextlib,sys,stat
+        from unittest import mock
+        class EndFixture(BaseException):pass
+        with tempfile.TemporaryDirectory(prefix='cube-maintenance-error-',dir='/root') as tmp:
+            root=Path(tmp);(root/'maintenance').mkdir(mode=0o700);config=root/'plan.json';m.x.publish(config,plan());job=root/'maintenance/error-01'
+            host=mock.Mock();host.nested_context=None;host.drain.side_effect=m.b.Refused('exact diagnostic '+('x'*3000))
+            @contextlib.contextmanager
+            def locks():yield [10,11,12,13]
+            with mock.patch.object(m,'ROOT',root),mock.patch.object(m,'Host',return_value=host),mock.patch.object(m.b,'locked',locks),mock.patch.object(m.time,'sleep',side_effect=EndFixture),mock.patch.object(sys,'argv',['maintenance','--plan',str(config),'--directory',str(job),'--execute']),self.assertRaises(EndFixture):m.main()
+            files=list(job.glob('*pending-operator-review.json'));self.assertEqual(len(files),1);record=m.json.loads(files[0].read_bytes())['value']
+            self.assertTrue(record['error'].startswith('exact diagnostic '));self.assertEqual(len(record['error']),2048);self.assertEqual(stat.S_IMODE(files[0].stat().st_mode),0o600);host.pause.assert_not_called()

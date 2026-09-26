@@ -53,6 +53,28 @@ def need(ok,message):b.require(ok,message)
 def object_keys(value,keys,why):need(isinstance(value,dict) and set(value)==set(keys),why)
 def strings(value):return isinstance(value,list) and bool(value) and len(value)==len(set(value)) and all(isinstance(s,str) and s for s in value)
 
+def platform_home_result(host,raw):
+    # Only the observed canonical www redirect is allowed; never follow it.
+    need(host in ('baarcha.tn','www.baarcha.tn') and len(raw)<=32768,'unexpected platform home probe')
+    lines=raw.decode('iso-8859-1').split('\r\n')
+    need(len(lines)>=3 and re.fullmatch(r'HTTP/1\.[01] [0-9]{3}(?: .*)?',lines[0]) and lines[-2:]==['',''],'invalid platform home response headers')
+    status=int(lines[0].split(' ',2)[1]);locations=[]
+    for line in lines[1:-2]:
+        need(':' in line and not line.startswith((' ','\t')),'invalid platform home header')
+        key,value=line.split(':',1)
+        if key.lower()=='location':locations.append(value.strip())
+    expected=200 if host=='baarcha.tn' else 308
+    need(status==expected and locations==([] if expected==200 else ['https://baarcha.tn/']),'platform home status/redirect differs: '+host)
+    return {'host':host,'path':'/','status':status,**({'location':locations[0]} if locations else {})}
+
+
+def start_pause_process(args,fds,stderr_path):
+    # Keep native diagnostics private even if the child exits before its proof.
+    fd=os.open(stderr_path,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+    try:return subprocess.Popen(args,stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=fd,pass_fds=fds)
+    finally:os.close(fd)
+
+
 def file_digest(path):
     """Fingerprint five non-executed Motion review inputs in service UID layout.
 
@@ -282,6 +304,7 @@ print(json.dumps(out))
                 time.sleep(1)
     def preflight(self,defer_busy=False):
         validate_plan(self.plan)
+        self.platform_homes() # Check real homepage behavior before any routing fence.
         for path,hash_value in self.plan['files'].items():need(file_digest(path)==hash_value,'reviewed file changed')
         self.same();cp=self.cp();need(cp['State']['Running'] and cp['HostConfig']['RestartPolicy']['Name']=='unless-stopped','unexpected initial controller state')
         stop=b.strict(b.trusted(b.STOP))
@@ -303,10 +326,16 @@ print(json.dumps(out))
         self.command(['/usr/bin/caddy','validate','--config',str(self.job/(name+'.json'))])
         self.command(['/usr/bin/caddy','reload','--config',str(self.job/(name+'.json'))])
         need(b.strict(b.http('/config/',2019))==self.routes[name],'actual loaded routing differs')
+    def platform_homes(self):
+        results=[]
+        for host in self.plan['routing']['platform_hosts']:
+            raw=self.command(['/usr/bin/curl','--silent','--show-error','--http1.1','--noproxy','*','--max-time','5','--resolve',host+':443:127.0.0.1','--output','/dev/null','--dump-header','-','https://'+host+'/'],7)
+            results.append(platform_home_result(host,raw))
+        return results
     def route_checks(self):
         r=self.plan['routing'];checks=[]
         for host in r['platform_hosts']:
-            checks.extend((host,p,503) for p in ('/api/projects','/api/bridge','/api/apps/not-an-app/preview','/api/tools/call'));checks.append((host,'/',200))
+            checks.extend((host,p,503) for p in ('/api/projects','/api/bridge','/api/apps/not-an-app/preview','/api/tools/call'))
         for host in r['motion_hosts']:checks.append((host,'/',503))
         # Every actual reviewed binding supplies an exact existing preview host;
         # wildcard names are never DNS/probe targets.
@@ -314,7 +343,7 @@ print(json.dumps(out))
         for host,path,expected in checks:
             result=self.command(['/usr/bin/curl','--silent','--show-error','--noproxy','*','--max-time','5','--resolve',host+':443:127.0.0.1','--output','/dev/null','--write-out','%{http_code}','https://'+host+path],7)
             need(result==str(expected).encode(),'actual scoped route probe failed')
-        return [{'host':h,'path':p,'status':s} for h,p,s in checks]
+        return [{'host':h,'path':p,'status':s} for h,p,s in checks]+self.platform_homes()
     def motion_jobs(self):
         path=Path('/opt/baarcha/motion-studio/worker.env')
         raw=b.trusted(path);need(b.sha(raw)==self.plan['files'][str(path)],'Motion credential configuration changed')
@@ -386,7 +415,7 @@ print(json.dumps(out))
         receipt={k:self.e[k] for k in ('controller_id','worker_boot_id','qemu_pid','qemu_start_time')}
         receipt.update(version=1,generated_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),inventory_sha256=inventory['SHA256'],caddy_configuration_sha256=b.sha(b.encoded(self.routes['offline'])),evidence_sha256=b.sha(b.encoded(evidence)),traffic_fenced=True,existing_requests_drained=True,direct_writers_fenced=True,provider_jobs_drained=True)
         x.publish(self.job/'pre-drain.json',receipt)
-        process=subprocess.Popen(['/usr/local/libexec/baarcha-cube-worker-stop','--config',str(b.STOP)],stdin=subprocess.DEVNULL,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,pass_fds=self.fds)
+        process=start_pause_process(['/usr/local/libexec/baarcha-cube-worker-stop','--config',str(b.STOP)],self.fds,self.job/'native-pause.stderr')
         self.children.append(process);end=time.monotonic()+600;raw=b''
         while time.monotonic()<end:
             ready,_,_=select.select([process.stdout],[],[],1)
@@ -512,7 +541,7 @@ def main():
             if any(row['phase']=='reopen-intent' for row in events):
                 try:host.reload('offline');refenced=True
                 except Exception:pass
-            event('pending-operator-review',{'error_class':type(error).__name__,'offline_reload_confirmed':refenced,'source_retained':True})
+            event('pending-operator-review',{'error_class':type(error).__name__,'error':str(error)[:2048],'offline_reload_confirmed':refenced,'source_retained':True})
             # Intentional lifetime fence. Recovery requires same-OFD handoff or
             # review of the actual pending phase; no blind rerun or rollback.
             while True:time.sleep(30)
