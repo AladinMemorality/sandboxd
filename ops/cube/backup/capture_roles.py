@@ -116,18 +116,28 @@ def operator_locks(inherited):
    need(Path(name).parent.resolve()==Path(name).parent,'Lock ancestor must be canonical')
    if inherited:
     fd=inherited[i];a=os.fstat(fd);b=os.stat(name,follow_symlinks=False);need((a.st_dev,a.st_ino)==(b.st_dev,b.st_ino),'Inherited lock changed')
-    check=os.open(name,os.O_RDWR|os.O_NOFOLLOW)
-    try:
-     try:fcntl.flock(check,fcntl.LOCK_EX|fcntl.LOCK_NB)
-     except BlockingIOError:pass
-     else:raise RuntimeError('Inherited lock is not held')
-    finally:os.close(check)
+    require_inherited_exclusive(name,fd)
    else:
     fd=os.open(name,os.O_RDWR|os.O_NOFOLLOW);fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB);fds.append(fd)
    s=os.fstat(fd);need(stat.S_ISREG(s.st_mode) and s.st_nlink==1 and s.st_uid==0 and not(s.st_mode&0o022),'Unsafe operator lock')
   yield tuple(inherited or fds)
  finally:
   for fd in fds:os.close(fd)
+
+def require_inherited_exclusive(name,fd):
+ # A shared probe must fail BEFORE touching the inherited lock. Otherwise a
+ # merely open/shared descriptor could be silently upgraded into a claimed
+ # continuous maintenance fence. The same-OFD EX check then rejects a lock
+ # held by a different open file description.
+ check=os.open(name,os.O_RDWR|os.O_NOFOLLOW)
+ try:
+  a=os.fstat(fd);b=os.fstat(check)
+  need((a.st_dev,a.st_ino)==(b.st_dev,b.st_ino),'Inherited lock changed during observation')
+  try:fcntl.flock(check,fcntl.LOCK_SH|fcntl.LOCK_NB)
+  except BlockingIOError:pass
+  else:raise RuntimeError('Inherited exclusive lock is not already held')
+  fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+ finally:os.close(check)
 
 def observe(config,require_stopped):
  verify_inputs(config)

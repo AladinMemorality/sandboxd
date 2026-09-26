@@ -1,5 +1,6 @@
 import contextlib
 import copy
+import fcntl
 import hashlib
 import importlib.util
 import io
@@ -138,6 +139,22 @@ class RoleTests(unittest.TestCase):
   with mock.patch.object(roles,'CAPTURE_FDS',(fd,)):
    result=roles.run([sys.executable,'-c','import os,sys;print(os.fstat(int(sys.argv[1])).st_ino)',str(fd)])
   self.assertEqual(int(result),os.fstat(fd).st_ino)
+
+ def test_inherited_lock_must_already_be_exclusive_on_same_open_description(self):
+  path=self.root/'continuous.lock';fd=os.open(path,os.O_CREAT|os.O_RDWR,0o600)
+  self.addCleanup(os.close,fd)
+  with self.assertRaisesRegex(RuntimeError,'already held'):roles.require_inherited_exclusive(path,fd)
+  fcntl.flock(fd,fcntl.LOCK_SH|fcntl.LOCK_NB)
+  with self.assertRaisesRegex(RuntimeError,'already held'):roles.require_inherited_exclusive(path,fd)
+  fcntl.flock(fd,fcntl.LOCK_UN)
+  other=os.open(path,os.O_RDWR);self.addCleanup(os.close,other)
+  fcntl.flock(other,fcntl.LOCK_EX|fcntl.LOCK_NB)
+  with self.assertRaises(BlockingIOError):roles.require_inherited_exclusive(path,fd)
+  fcntl.flock(other,fcntl.LOCK_UN)
+  fcntl.flock(fd,fcntl.LOCK_EX|fcntl.LOCK_NB)
+  roles.require_inherited_exclusive(path,fd)
+  # Verification does not close/unlock the parent's inherited open description.
+  with self.assertRaises(BlockingIOError):fcntl.flock(other,fcntl.LOCK_SH|fcntl.LOCK_NB)
 
  def test_observation_requires_stopped_exact_sources_and_closed_database(self):
   database=self.root/'state.sqlite'

@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "scope": "source and kernel-lock validation only",
+  "local_backup_suite": {"tests": 45, "passed": true},
+  "native_linux_subset": {
+    "tests": 33,
+    "passed": true,
+    "unit": "cube-backup-finalize-tests-20260926-01.service",
+    "source_archive_sha256": "0cb0d4b24310ad6c799e03c10805d09f7e90b65a26572e3a5c037971e84e88d4",
+    "stage": "/opt/baarcha-bench/cube-backup-finalize-tests-20260926-01",
+    "exit_status": 0,
+    "cpu_limit": 1,
+    "memory_limit_mib": 256,
+    "network": "private",
+    "filesystem": "ProtectSystem=strict, PrivateTmp=yes"
+  },
+  "covers": [
+    "inherited exclusive lock must already be held on the same open description",
+    "unlocked, shared and different-holder descriptors are rejected",
+    "original role hashes and archived configuration provenance are verified",
+    "startup selection must match exact native pause and clean receipts",
+    "original evidence and heavy roles are retained"
+  ],
+  "production_sources_stopped": false,
+  "full_pair_captured": false,
+  "application_restore_verified": false
+}
