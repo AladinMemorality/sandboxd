@@ -2,13 +2,17 @@ package workerstop
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"path/filepath"
+	"reflect"
+	"syscall"
 	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
@@ -19,9 +23,10 @@ import (
 const StartConfigPath = "/etc/baarcha-cube/worker-start.json"
 
 type StartConfig struct {
-	Version      int    `json:"version"`
-	PauseProof   string `json:"pause_proof"`
-	CleanReceipt string `json:"clean_receipt"`
+	Version                int    `json:"version"`
+	PauseProof             string `json:"pause_proof"`
+	CleanReceipt           string `json:"clean_receipt"`
+	ExternalVerifierSHA256 string `json:"external_verifier_sha256,omitempty"`
 }
 type StopMarker struct {
 	Version         int                       `json:"version"`
@@ -36,11 +41,103 @@ type StopMarker struct {
 	DataUUID        string                    `json:"data_uuid"`
 }
 type CleanReceipt struct {
-	Version     int     `json:"version"`
-	State       string  `json:"state"`
-	GeneratedAt float64 `json:"generated_at"`
-	Proof       Proof   `json:"proof"`
+	Version     int                    `json:"version"`
+	State       string                 `json:"state"`
+	GeneratedAt float64                `json:"generated_at"`
+	Proof       Proof                  `json:"proof"`
+	External    *ExternalCleanEvidence `json:"external,omitempty"`
 }
+
+const externalVerifierPath = "/usr/local/libexec/baarcha-cube-external-clean.py"
+const externalCleanMethod = "qmp-guest-shutdown+supervisor-wait4"
+
+type ExternalCleanEvidence struct {
+	Version             int    `json:"version"`
+	Method              string `json:"method"`
+	OuterBootID         string `json:"outer_boot_id"`
+	SupervisorPID       int    `json:"supervisor_pid"`
+	SupervisorStartTime string `json:"supervisor_start_time"`
+	QEMUPID             int    `json:"qemu_pid"`
+	QEMUStartTime       string `json:"qemu_start_time"`
+	WorkerBootID        string `json:"worker_boot_id"`
+	EvidenceDirectory   string `json:"evidence_directory"`
+	EvidenceSHA256      string `json:"evidence_sha256"`
+}
+
+func validCleanReceiptKind(r CleanReceipt) bool {
+	if r.State == "stopped-clean" {
+		return r.External == nil
+	}
+	e := r.External
+	return r.State == "externally-stopped-clean" && e != nil && e.Version == 1 && e.Method == externalCleanMethod &&
+		e.SupervisorPID > 1 && e.SupervisorPID != e.QEMUPID && e.SupervisorStartTime != "" && idPattern.MatchString(e.OuterBootID) &&
+		e.QEMUPID == r.Proof.QEMUPID && e.QEMUStartTime == r.Proof.QEMUStartTime && e.WorkerBootID == r.Proof.WorkerBootID &&
+		filepath.IsAbs(e.EvidenceDirectory) && shaPattern.MatchString(e.EvidenceSHA256)
+}
+
+// Only the separately pinned fixed verifier understands the raw wait4/QMP
+// closure. State names/booleans alone never approve an external recovery receipt.
+func verifyExternalClean(ctx context.Context, sc StartConfig, r CleanReceipt) error {
+	return verifyExternalCleanWith(ctx, sc, r, externalVerifierPath, fixedCommand)
+}
+
+func verifyExternalCleanWith(ctx context.Context, sc StartConfig, r CleanReceipt, verifierPath string, command func(context.Context, ...string) ([]byte, error)) error {
+	if r.State != "externally-stopped-clean" {
+		return nil
+	}
+	if !validCleanReceiptKind(r) || !shaPattern.MatchString(sc.ExternalVerifierSHA256) || filepath.Join(r.External.EvidenceDirectory, "receipt.json") != sc.CleanReceipt {
+		return errors.New("explicit external clean evidence configuration required")
+	}
+	path, e := filepath.EvalSymlinks(verifierPath)
+	if e != nil || path != verifierPath {
+		return errors.New("fixed external verifier unavailable")
+	}
+	file, e := os.OpenFile(path, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if e != nil {
+		return e
+	}
+	defer file.Close()
+	info, e := file.Stat()
+	if e != nil {
+		return e
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok || st.Uid != 0 || !info.Mode().IsRegular() || info.Mode().Perm()&0022 != 0 || info.Size() > 131072 {
+		return errors.New("untrusted external verifier")
+	}
+	raw, e := io.ReadAll(io.LimitReader(file, 131073))
+	if e != nil || fmt.Sprintf("%x", sha256.Sum256(raw)) != sc.ExternalVerifierSHA256 {
+		return errors.New("external verifier hash differs")
+	}
+	before, e := os.ReadFile(sc.CleanReceipt)
+	if e != nil {
+		return e
+	}
+	var same CleanReceipt
+	if json.Unmarshal(before, &same) != nil || !reflect.DeepEqual(same, r) {
+		return errors.New("external receipt changed")
+	}
+	bounded, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	result, e := command(bounded, "/usr/bin/python3", verifierPath, "--verify", sc.CleanReceipt)
+	if e != nil {
+		return errors.New("external clean evidence verification refused")
+	}
+	var out struct {
+		Version       int    `json:"version"`
+		Verified      bool   `json:"verified"`
+		ReceiptSHA256 string `json:"receipt_sha256"`
+		Method        string `json:"method"`
+		QEMUPID       int    `json:"qemu_pid"`
+		QEMUStartTime string `json:"qemu_start_time"`
+		WorkerBootID  string `json:"worker_boot_id"`
+	}
+	if json.Unmarshal(result, &out) != nil || out.Version != 1 || !out.Verified || out.ReceiptSHA256 != fmt.Sprintf("%x", sha256.Sum256(before)) || out.Method != externalCleanMethod || out.QEMUPID != r.Proof.QEMUPID || out.QEMUStartTime != r.Proof.QEMUStartTime || out.WorkerBootID != r.Proof.WorkerBootID {
+		return errors.New("external clean verifier receipt mismatch")
+	}
+	return nil
+}
+
 type StartEvidence struct {
 	Version          int       `json:"version"`
 	TenantReady      bool      `json:"tenant_ready"`
@@ -103,7 +200,7 @@ func ValidateObservation(o store.WorkerObservation, actual []cube.Sandbox, cfg c
 	return nil
 }
 func validateStartProof(c Config, m StopMarker, p Proof, r CleanReceipt, now time.Time) error {
-	if m.Version != 1 || m.Phase != "preparing" || !p.Verified || p.Version != 1 || r.Version != 1 || r.State != "stopped-clean" || hash(r.Proof) != hash(p) || p.ProviderJobs != 0 {
+	if m.Version != 1 || m.Phase != "preparing" || !p.Verified || p.Version != 1 || r.Version != 1 || !validCleanReceiptKind(r) || hash(r.Proof) != hash(p) || p.ProviderJobs != 0 {
 		return errors.New("retained exact clean-stop proof required")
 	}
 	if m.WorkerMachineID != c.WorkerMachineID || m.DataUUID != c.DataUUID || p.WorkerMachineID != c.WorkerMachineID || p.DataUUID != c.DataUUID || m.WorkerBootID == c.WorkerBootID || p.WorkerBootID != m.WorkerBootID || p.QEMUPID != m.QEMUPID || p.QEMUStartTime != m.QEMUStartTime || (m.QEMUPID == c.QEMUPID && m.QEMUStartTime == c.QEMUStartTime) {
@@ -140,7 +237,35 @@ func workerCheck(ctx context.Context, c Config, action string) error {
 	}
 	return nil
 }
+
+// startupStorage verifies readiness without allocating, refunding or resetting any
+// durable admission epoch. Safe shutdown deliberately does not require this check.
+func startupStorage(c Config) error {
+	if err := c.Admission.RequireStorageGuard(); err != nil {
+		return err
+	}
+	g := c.Admission.StorageGuard
+	if g.ExpectedBootID != c.WorkerBootID || g.WorkerMachineID != c.WorkerMachineID || g.InnerFSUUID != c.DataUUID {
+		return cube.ErrStorageUnavailable
+	}
+	now, err := cube.ReadStorageClock()
+	if err != nil {
+		return err
+	}
+	o, err := cube.ReadStorageObservation(*g, now)
+	if err != nil {
+		return err
+	}
+	if o.InnerFreeBytes < cube.StorageBaseline || o.OuterFreeBytes < cube.StorageBaseline {
+		return cube.ErrStorageUnavailable
+	}
+	return nil
+}
+
 func ReconcileStart(ctx context.Context, c Config, sc StartConfig) (*StartEvidence, error) {
+	if err := startupStorage(c); err != nil {
+		return nil, err
+	}
 	if sc.Version != 1 {
 		return nil, errors.New("startup configuration version required")
 	}
@@ -172,6 +297,9 @@ func ReconcileStart(ctx context.Context, c Config, sc StartConfig) (*StartEviden
 		if e = privateJSON(entry.path, entry.out); e != nil {
 			return nil, e
 		}
+	}
+	if e = verifyExternalClean(ctx, sc, receipt); e != nil {
+		return nil, e
 	}
 	if e = validateStartProof(c, m, p, receipt, time.Now()); e != nil {
 		return nil, e
@@ -259,6 +387,9 @@ func reconcileStart(ctx context.Context, c Config, m StopMarker, db *sql.DB, pro
 	if e = ValidateObservation(observed, actual, c.Admission, true); e != nil {
 		return nil, e
 	}
+	if e := startupStorage(c); e != nil {
+		return nil, e
+	}
 	out := &StartEvidence{Version: 1, TenantReady: true, GeneratedAt: time.Now().UTC(), WorkerBootID: c.WorkerBootID, QEMUPID: c.QEMUPID, QEMUStartTime: c.QEMUStartTime, InventorySHA256: m.InventorySHA256, StopMarkerSHA256: hash(m)}
 	// Persist evidence first. A crash before exact marker removal remains fenced.
 	if e := publishJSON(filepath.Join(c.EvidenceDirectory, fmt.Sprintf("startup-%s.json", hash(out))), out); e != nil {
@@ -313,6 +444,9 @@ func publishJSON(path string, value any) error {
 // Observe is read-only: plain authenticated GETs and SQLite mode=ro. It never
 // invokes the guarded client's observation mutation or performs reconciliation.
 func Observe(ctx context.Context, c Config) (map[string]any, error) {
+	if err := startupStorage(c); err != nil {
+		return nil, err
+	}
 	if e := verifyQEMU(c); e != nil {
 		return nil, e
 	}
@@ -354,6 +488,9 @@ func Observe(ctx context.Context, c Config) (map[string]any, error) {
 		return nil, errors.New("controller changed during observation; retry next scheduled check")
 	}
 	if e = maintenance.CheckWorkerStop(c.Database); e != nil {
+		return nil, e
+	}
+	if e := startupStorage(c); e != nil {
 		return nil, e
 	}
 	active := 0

@@ -5,6 +5,7 @@ import contextlib
 import fcntl
 import hashlib
 import http.client
+import importlib.util
 import json
 import os
 from pathlib import Path
@@ -103,8 +104,18 @@ def host_preflight(config):
     require(STOP_COORDINATOR_IMPLEMENTED,'production stop coordinator is not implemented in this candidate')
     require(config.get('version')==1 and config.get('reviewed') is True,'reviewed lifecycle manifest required')
     require(config.get('drain_integration_reviewed') is True,'production drain integration is not installed')
+    authorization=None
     if STATUS.exists():
-        require(private_json(STATUS).get('state')=='stopped-clean','unclean previous worker exit requires offline recovery review')
+        previous=private_json(STATUS)
+        if previous.get('state')!='stopped-clean':
+            require(previous.get('state')=='worker-lost','blocked/live worker is not a completed external stop')
+            path=Path('/usr/local/libexec/baarcha-cube-external-clean.py')
+            auth=private_json('/etc/baarcha-cube/external-clean-start.json')
+            require(auth.get('version')==1 and auth.get('purpose')=='external-clean-one-use-start','unclean previous worker exit requires explicit one-use external start authorization')
+            require(digest(path)==auth.get('verifier_sha256'),'explicit external verifier hash required')
+            spec=importlib.util.spec_from_file_location('external_clean_start',path)
+            verifier=importlib.util.module_from_spec(spec);spec.loader.exec_module(verifier)
+            authorization=(verifier,verifier.validate_start_authorization())
     else:
         require(config.get('first_boot_empty_reviewed') is True,'initial boot needs explicit empty-worker review')
     require(Path('/dev/kvm').exists(),'KVM unavailable')
@@ -116,6 +127,7 @@ def host_preflight(config):
         value=json.loads(run(['/usr/bin/qemu-img','info','--output=json',str(path)]))
         require(value.get('format')=='qcow2' and not value.get('backing-filename') and not value.get('data-file') and not value.get('format-specific',{}).get('data',{}).get('data-file'),'standalone reviewed disks required')
     require(os.statvfs(DATA).f_bavail*os.statvfs(DATA).f_frsize>=48*1024**3,'less than 48 GiB free worker storage reserve')
+    return authorization
 
 
 REGISTRY_NAME='cube-production-registry'
@@ -585,8 +597,11 @@ def supervise(lock_path):
     signal.signal(signal.SIGTERM,request_stop);signal.signal(signal.SIGINT,request_stop)
     config=private_json(CONFIG)
     with lifetime_lock(ROOT/'supervisor.lock',INSTANCE_MARKER,True) as instance, lifetime_lock(lock_path,BACKUP_MARKER,False) as backup:
-        host_preflight(config)
+        external_authorization=host_preflight(config)
         if stop_requested[0]:return 0
+        if external_authorization is not None:
+            verifier,authorization=external_authorization
+            verifier.consume_start_authorization(authorization)
         # Inherited locks survive supervisor death until QEMU itself exits.
         child=subprocess.Popen(fixed_qemu(),stdin=subprocess.DEVNULL,close_fds=True,pass_fds=(instance,backup))
         state=Supervisor(child,{'qemu_pid':child.pid,'qemu_start_time':process_start_time(child.pid)},prepare_stop,lambda:qmp_powerdown(ROOT/'qmp.sock'),lambda value:write_status(STATUS,value),retain_clean=retain_clean_receipt)

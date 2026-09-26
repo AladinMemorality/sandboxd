@@ -292,3 +292,27 @@ class BootOrderingTests(unittest.TestCase):
         generator=importlib.util.module_from_spec(spec);spec.loader.exec_module(generator)
         docker=generator.overrides()['/etc/systemd/system/docker.service.d/99-baarcha-retained-stop.conf']
         self.assertNotIn('baarcha-cube-preflight',docker)
+
+class ExternalStartupTests(unittest.TestCase):
+    def test_consumption_precedes_new_qemu_and_failure_never_launches(self):
+        import contextlib
+        for refusal in (False,True):
+            with self.subTest(refusal=refusal):
+                calls=[];verifier=mock.Mock()
+                def consume(value):
+                    calls.append('consume')
+                    if refusal:raise life.Blocked('authorization changed')
+                verifier.consume_start_authorization.side_effect=consume
+                child=mock.Mock(pid=123);state=mock.Mock(clean=True);state.tick.return_value=False
+                def launch(*a,**kw):calls.append('launch');return child
+                with mock.patch.object(life.sys,'platform','linux'),mock.patch.object(life.os,'geteuid',return_value=0),mock.patch.object(life,'private_json',return_value={}),mock.patch.object(life.signal,'signal'),mock.patch.object(life,'lifetime_lock',side_effect=lambda *a:contextlib.nullcontext(10)),mock.patch.object(life,'host_preflight',return_value=(verifier,{'token':'pinned'})),mock.patch.object(life.subprocess,'Popen',side_effect=launch),mock.patch.object(life,'process_start_time',return_value='123'),mock.patch.object(life,'Supervisor',return_value=state):
+                    if refusal:
+                        with self.assertRaises(life.Blocked):life.supervise(life.ROOT/'backup.lock')
+                        self.assertEqual(calls,['consume'])
+                    else:
+                        self.assertEqual(life.supervise(life.ROOT/'backup.lock'),0);self.assertEqual(calls,['consume','launch'])
+    def test_failed_final_host_preflight_does_not_consume_or_launch(self):
+        import contextlib
+        with mock.patch.object(life.sys,'platform','linux'),mock.patch.object(life.os,'geteuid',return_value=0),mock.patch.object(life,'private_json',return_value={}),mock.patch.object(life.signal,'signal'),mock.patch.object(life,'lifetime_lock',side_effect=lambda *a:contextlib.nullcontext(10)),mock.patch.object(life,'host_preflight',side_effect=life.Blocked('disk identity changed')),mock.patch.object(life.subprocess,'Popen') as launch:
+            with self.assertRaises(life.Blocked):life.supervise(life.ROOT/'backup.lock')
+            launch.assert_not_called()
