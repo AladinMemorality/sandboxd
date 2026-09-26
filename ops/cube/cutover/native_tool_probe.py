@@ -6,6 +6,7 @@ temporary directory, never the transferred owner home. No network is requested.
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 
@@ -53,8 +54,16 @@ def probe(sandbox_id):
             kind = 'sharp-esbuild'
         else:
             executable, libraries = CHROME[sandbox_id]
+            # Chromium may create an extensions/ directory beside its executable
+            # even with a disposable profile. Run an exact copy of the preserved
+            # bundle so compatibility checks cannot change the imported home.
+            source = home / executable
+            bundle = Path(directory) / 'browser'
+            shutil.copytree(source.parent, bundle, symlinks=True)
+            env.update(HOME=directory, XDG_CACHE_HOME=directory + '/cache',
+                       XDG_CONFIG_HOME=directory + '/config')
             env['LD_LIBRARY_PATH'] = str(home / libraries)
-            command = [str(home / executable), '--headless', '--no-sandbox', '--disable-gpu',
+            command = [str(bundle / source.name), '--headless', '--no-sandbox', '--disable-gpu',
                        '--disable-dev-shm-usage', '--disable-background-networking',
                        '--no-first-run', '--no-default-browser-check', '--no-pings',
                        '--user-data-dir=' + directory + '/profile', '--dump-dom', 'about:blank']

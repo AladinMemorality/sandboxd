@@ -59,13 +59,16 @@ class NativeToolTests(unittest.TestCase):
 
     def test_chrome_uses_disposable_profile_and_local_document(self):
         module = c.native_tools
-        with mock.patch.object(module.os, 'getuid', return_value=1000), mock.patch.object(module.os, 'getgid', return_value=1000), mock.patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, b'<html><body></body></html>', b'')) as run:
+        with mock.patch.object(module.os, 'getuid', return_value=1000), mock.patch.object(module.os, 'getgid', return_value=1000), mock.patch.object(module.shutil, 'copytree') as copy, mock.patch.object(module.subprocess, 'run', return_value=subprocess.CompletedProcess([], 0, b'<html><body></body></html>', b'')) as run:
             proof = module.probe(next(iter(module.CHROME)))
             command = run.call_args.args[0]; options = run.call_args.kwargs
             self.assertEqual(command[-1], 'about:blank')
             self.assertIn('--disable-background-networking', command)
             self.assertIn('--user-data-dir=' + options['cwd'] + '/profile', command)
             self.assertEqual(options['env']['PYTHONDONTWRITEBYTECODE'], '1')
+            self.assertEqual(options['env']['HOME'], options['cwd'])
+            self.assertEqual(Path(command[0]).parent, Path(options['cwd']) / 'browser')
+            copy.assert_called_once_with(Path('/home/sandbox/chrom-bin'), Path(options['cwd']) / 'browser', symlinks=True)
             self.assertTrue(proof['success'])
 
 
