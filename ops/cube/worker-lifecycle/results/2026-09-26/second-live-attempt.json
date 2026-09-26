@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "date": "2026-09-26",
+  "platform_revision": "cc73d2f07d5ce0bd6f6490b8efcd828bdb44c2e1",
+  "maintenance_sha256": "b1f4c14a1707f8627619880403b3ee806d841588bc4b7999a29a35140f9a967f",
+  "preflight": {
+    "at": 1790427171.068967,
+    "phase": "read-only-preflight-passed",
+    "value": {
+      "bindings": 1,
+      "deferred": false,
+      "ready": true,
+      "version": 1,
+      "work": {
+        "platform": {
+          "env_pending": 0,
+          "thumbnail": 0
+        },
+        "quiet": true,
+        "runtime": {
+          "active_tasks": 0,
+          "runtime_bindings": 1,
+          "task_status_counts": {
+            "failed": 41,
+            "succeeded": 119
+          }
+        }
+      }
+    },
+    "version": 1
+  },
+  "result": "aborted-before-worker-operations",
+  "failure": {
+    "type": "KeyError",
+    "key": "MainPID",
+    "cause": "inactive systemd timers do not expose MainPID; helper incorrectly required it",
+    "retry_delay_seconds": 180
+  },
+  "route_checks_passed": true,
+  "controller_inbound_connections_observed": 0,
+  "controller_outbound_connections_observed": 1,
+  "outbound_peer": "127.0.0.1:20300",
+  "native_pause_started": false,
+  "worker_power_operations": 0,
+  "controller_stopped": false,
+  "restoration": {
+    "at": 1790427436.2892363,
+    "controller_unchanged": true,
+    "online_restored": true,
+    "qemu_power_operations": 0,
+    "timers_restored": true,
+    "version": 1,
+    "worker_unchanged": true
+  },
+  "all_four_operation_locks_independently_reacquired_and_released": true,
+  "owned_maintenance_process_absent": true,
+  "worker_recovery_verified": false,
+  "global_rollout_complete": false
+}
