@@ -40,11 +40,11 @@ class CohortTests(unittest.TestCase):
     def test_existing_guest_pause_requires_offline_routes_and_quiet_tasks(self):
         host = c.Host.__new__(c.Host); host.c = dict(config(), version=2, parallelism=4)
         host.routes = {'offline': {'reviewed': True}}
-        host.plan = {'bindings': [{'sandbox_id': 'existing'}], 'files': {str(c.PAUSE): 'digest'}}
+        host.plan = {'bindings': [{'sandbox_id': 'existing'}], 'files': {str(c.PAUSE): 'digest'}, 'provider_terminal_counts': {'t_cube_pause_snapshot': {'READY': 13}}}
         host.job = Path('/private/operation')
-        for name in ('quiet_tasks', 'source_fence', 'bindings_readonly', 'event'):
+        for name in ('quiet_tasks', 'source_fence', 'bindings_readonly', 'event', 'provider'):
             setattr(host, name, mock.Mock())
-        host.command = mock.Mock(return_value=json.dumps({'success': True, 'paused': ['existing', project()['sandbox_id']]}).encode())
+        host.command = mock.Mock(return_value=json.dumps({'success': True, 'paused': ['existing', project()['sandbox_id']], 'newly_paused_cube': ['existing']}).encode())
         host.bridge = mock.Mock(); host.bridge.observe.return_value = {'consistent': True, 'active': 0}
         with mock.patch.object(c.b, 'http', return_value=b'{}'), mock.patch.object(c.b, 'digest', return_value='digest'), mock.patch.object(c.x, 'publish'):
             with self.assertRaises(c.b.Refused): host.before_controller_stop()
@@ -55,6 +55,8 @@ class CohortTests(unittest.TestCase):
             host.command.assert_not_called()
             host.quiet_tasks.side_effect = None
             host.before_controller_stop(); host.command.assert_called_once()
+            self.assertEqual(host.plan['provider_terminal_counts']['t_cube_pause_snapshot'], {'READY': 14})
+            host.provider.assert_called_once()
             host.bridge.observe.return_value = {'consistent': True, 'active': 1}
             with self.assertRaises(c.b.Refused): host.before_controller_stop()
 

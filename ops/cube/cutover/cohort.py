@@ -189,6 +189,15 @@ class Host(p.Host):
         proof = b.strict(self.command(['/opt/baarcha/node22/bin/node', '--env-file=' + str(PLATFORM_ENV), str(PAUSE), str(path)], 600))
         need(proof.get('success') is True and set(proof.get('paused', [])) == {v['sandbox_id'] for v in expected}, 'Task-aware guest pause incomplete')
         self.source_fence()
+        newly = proof.get('newly_paused_cube')
+        need(isinstance(newly, list) and len(newly) == len(set(newly))
+             and set(newly) <= {v['sandbox_id'] for v in self.plan['bindings']}, 'Invalid acknowledged pause set')
+        # Each newly paused Cube guest adds one completed pause snapshot. Keep
+        # every other provider table and state pinned to the original baseline.
+        self.plan = copy.deepcopy(self.plan)
+        counts = self.plan['provider_terminal_counts']['t_cube_pause_snapshot']
+        if newly: counts['READY'] = counts.get('READY', 0) + len(newly)
+        self.provider()
         observation = self.bridge.observe()
         need(observation.get('consistent') is True and observation.get('active') == 0, 'Active guests remain; do not start imports')
         self.event('existing-guests-paused', proof)
