@@ -19,8 +19,11 @@ screen. Traffic reopened at 19:29:59 UTC after 583.791 seconds. Actual Chrome
 verification of the reported public Avocall URL passed at 19:31:10 UTC: wake200,
 iframe HTML/JS200, 5,302 body characters, zero loading overlays and no browser
 errors. The project was left awake for the user. This is real live traffic,
-not the mocked preview-wake wrapper test. A separate signed-out CompareTel
-request returned404; it is not recorded as a successful browser acceptance.
+not the mocked preview-wake wrapper test. A second real Chrome check of the public nabd-tunis page passed at19:40:01UTC:
+wake200, HTML/JS200,4,294body characters,zero overlays and no browser errors.
+A separate signed-out CompareTel request returned404. Read-only production
+metadata confirms CompareTel is private, so that response is expected; access
+was preserved and visibility was not changed.
 
 Final restoration unit: `cube-cohort-reopen-20260926-04-r2.service`, exited0.
 Invocation: `8afc444867fc4e249e43a807e7709a1c`.
