@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "observed_at": 1790456429.2737718,
+  "unit_terminal_success": true,
+  "all_four_locks_reacquired": true,
+  "full_online_routes_equal": true,
+  "controller_ready": true,
+  "original_sources_retained_stopped": 2,
+  "fleet": {
+    "cube": 30,
+    "docker": 43
+  },
+  "migrations": {
+    "complete": 29
+  },
+  "tasks": {
+    "failed": 42,
+    "succeeded": 123
+  },
+  "maintenance_seconds": 192.01322627067566,
+  "online_at": 1790456358.709935
+}

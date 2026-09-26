@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "started_at": "2026-09-26T20:59:07.810Z",
+  "projects": [
+    {
+      "sandbox_id": "01M36Y40QAN8DKB0GJHWR6W5Y1",
+      "app_id": "01M36Y40EZ5GS521R44RF2S770",
+      "preview_status": 200,
+      "preview_ready_ms": 934.390648,
+      "entry_modules_verified": 2,
+      "files_verified": [
+        "package.json",
+        "sandbox.yaml",
+        "index.html"
+      ],
+      "historical_tasks_verified": 2,
+      "paused_after_verification": true,
+      "success": true
+    },
+    {
+      "sandbox_id": "01M1XF6PYNAR67S21WRQ89781G",
+      "app_id": "01M1XF6PYN6MH83F5YBBYBKYT2",
+      "preview_status": 200,
+      "preview_ready_ms": 1112.7196920000001,
+      "entry_modules_verified": 2,
+      "files_verified": [
+        "package.json",
+        "sandbox.yaml",
+        "index.html"
+      ],
+      "historical_tasks_verified": 0,
+      "paused_after_verification": true,
+      "success": true
+    }
+  ],
+  "ai_tasks_submitted": 0,
+  "success": true,
+  "completed_at": "2026-09-26T20:59:12.522Z"
+}

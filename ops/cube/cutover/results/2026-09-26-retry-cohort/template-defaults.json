@@ -1,0 +1,36 @@
+[
+  {
+    "at": 1790456302.0140562,
+    "phase": "template-default-reconciled",
+    "value": {
+      "absent": true,
+      "bytes": 220,
+      "path": ".bash_logout",
+      "removed": true,
+      "runtime_id": "e0eefbc894fd446b97054f5e74eb5aed",
+      "sandbox_id": "01M36Y40QAN8DKB0GJHWR6W5Y1",
+      "sha256": "26882b79471c25f945c970f8233d8ce29d54e9d5eedcd2884f88affa84a18f56"
+    },
+    "version": 1
+  },
+  {
+    "at": 1790456303.3820372,
+    "phase": "template-default-reconciled",
+    "value": {
+      "absent": true,
+      "bytes": 220,
+      "cache": {
+        "absent": true,
+        "empty_stock_placeholder": false,
+        "path": ".cache",
+        "removed": true
+      },
+      "path": ".bash_logout",
+      "removed": true,
+      "runtime_id": "b4c463b9c9ce458182b9e2fb24e8fb71",
+      "sandbox_id": "01M1XF6PYNAR67S21WRQ89781G",
+      "sha256": "26882b79471c25f945c970f8233d8ce29d54e9d5eedcd2884f88affa84a18f56"
+    },
+    "version": 1
+  }
+]
