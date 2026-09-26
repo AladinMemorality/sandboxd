@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "started_at": "2026-09-26T22:01:30.843Z",
+  "projects": [
+    {
+      "sandbox_id": "01M37PPK85JN1K0WEMP4ZYER6C",
+      "app_id": "01M37PPK7VDKCQMNRYKW8CCD4W",
+      "preview_status": 200,
+      "preview_ready_ms": 1459.053891,
+      "entry_modules_verified": 2,
+      "postgres": {
+        "sql_health": true,
+        "application_tables_read": true,
+        "public_items": 5
+      },
+      "files_verified": [
+        "package.json",
+        "sandbox.yaml",
+        "index.html"
+      ],
+      "historical_tasks_verified": 0,
+      "paused_after_verification": true,
+      "success": true
+    }
+  ],
+  "ai_tasks_submitted": 0,
+  "success": true,
+  "completed_at": "2026-09-26T22:01:37.020Z"
+}

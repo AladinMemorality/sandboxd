@@ -11,11 +11,13 @@ log acknowledgment and disappearance of its PID, socket and socket lock. It
 binds the stopped source's log and control-file hashes for the frozen inventory.
 A stopped container alone is insufficient evidence of PostgreSQL shutdown.
 
-This is preparation only: **not deployed or production accepted**. Before use,
-add and verify the application's SQL-backed `/api/health` acceptance, prepare a
-fresh dedicated pinned plan, and complete source and target database acceptance.
-No PostgreSQL data or sockets have been excluded from an export manifest. No
-source container was stopped while developing these helpers.
+The dedicated production migration passed on September26: clean source stop,
+strict full transfer, target SQL health and application table reads, normal API
+acceptance and independently verified restoration. See
+[the production evidence](results/2026-09-26-embedded-postgres/README.md).
+The original Docker source remains stopped and retained. No PostgreSQL data or
+sockets were excluded from an export manifest. Any future operation requires a
+fresh plan; the successful production plan is consumed.
 
 Fourteen focused tests passed locally and on Linux. The complete 54-test cutover
 suite passed in an isolated Linux review directory with its own loopback Caddy

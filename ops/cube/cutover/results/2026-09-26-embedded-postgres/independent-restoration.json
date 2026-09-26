@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "observed_at": 1790460163.5974562,
+  "unit": {
+    "MainPID": "0",
+    "Result": "success",
+    "ExecMainStatus": "0",
+    "ActiveState": "inactive",
+    "InvocationID": ""
+  },
+  "all_four_locks_reacquired": true,
+  "full_online_routes_equal": true,
+  "controller_ready": true,
+  "original_sources_retained_stopped": 1,
+  "fleet": {
+    "cube": 55,
+    "docker": 18
+  },
+  "migrations": {
+    "complete": 54
+  },
+  "tasks": {
+    "failed": 42,
+    "succeeded": 123
+  },
+  "maintenance_seconds": 294.62337589263916,
+  "online_at": 1790460103.351013
+}
