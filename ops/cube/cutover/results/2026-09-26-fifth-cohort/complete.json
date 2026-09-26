@@ -1,0 +1,92 @@
+{
+  "at": 1790453380.0247543,
+  "bindings": [
+    {
+      "app_id": "01M2RCQAWAGSA0V7FSVPDWQKNT",
+      "config_revision": 0,
+      "runtime_id": "321052a88f124a2aadca124cd863d8ab",
+      "sandbox_id": "01M2RCQAZ5XA0KRWA72VPGFT1N",
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104"
+    },
+    {
+      "app_id": "01M1KQNEWWVTEBARHSGHR5Z0C4",
+      "config_revision": 0,
+      "runtime_id": "be230d3c7a624f8ebe44296880432493",
+      "sandbox_id": "01M1KQNEWZYRSC3KBWMWE8ET5H",
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104"
+    },
+    {
+      "app_id": "01M39MX8525ABXYP5PXRZJDEGW",
+      "config_revision": 0,
+      "runtime_id": "4778f2e5748447c1826d14e4c2489cdb",
+      "sandbox_id": "01M39MX85MJJ1HNGVAY4W3RQZH",
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104"
+    },
+    {
+      "app_id": "01M2EAAQ13Y762D44SF0X55JMJ",
+      "config_revision": 0,
+      "runtime_id": "06d4427d7a8c44ce9953805e97e36900",
+      "sandbox_id": "01M2EAAQ1M9FZDY0F1BQPRM1CA",
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104"
+    },
+    {
+      "app_id": "01M2G3FXBQZ7BK2X9MPPQMT5FG",
+      "config_revision": 0,
+      "runtime_id": "135165765123482ba07695313a06ef16",
+      "sandbox_id": "01M2G3FXCPPH6J2B36BPQWW4NY",
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104"
+    },
+    {
+      "app_id": "01M3A7NX2SM4TYJHF90G3AHVS8",
+      "config_revision": 0,
+      "runtime_id": "f510857fe8bd47ddba8bd78e6acb3388",
+      "sandbox_id": "01M3A7NX5CRT8TZ5DKK8GR4FD4",
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104"
+    },
+    {
+      "app_id": "01M24DHKQ6XCASNXAYM8BH8CFY",
+      "config_revision": 0,
+      "runtime_id": "33b582ef3741416cbd9b7c59b41657aa",
+      "sandbox_id": "01M24DHKQQWT4APTJTBMTT40PG",
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104"
+    },
+    {
+      "app_id": "01M1H8BAS5JC1XXSZ2ZGPN86P1",
+      "config_revision": 0,
+      "runtime_id": "f45c01ce9a60423ba8c4eaa23770aa8f",
+      "sandbox_id": "01M1H8BB8B5JZHM52P4C77E3R8",
+      "template_id": "tpl-5abec4cb4fcc41cc8e611f69"
+    },
+    {
+      "app_id": "01M211R5G8WGH2PKNAJ3NGG6V2",
+      "config_revision": 1,
+      "runtime_id": "c24b283513f340bf8817a81500785460",
+      "sandbox_id": "01M211R5GCN4MAPYKDP8CRMMGH",
+      "template_id": "tpl-5abec4cb4fcc41cc8e611f69"
+    },
+    {
+      "app_id": "01M2JXMTMH792Y3BQ9PS2FB6XX",
+      "config_revision": 0,
+      "runtime_id": "fd27a64cba0f4cc9a52c0e8dca30a22e",
+      "sandbox_id": "01M2JXMTMTBA5XXYDDJY2T51C9",
+      "template_id": "tpl-5abec4cb4fcc41cc8e611f69"
+    },
+    {
+      "app_id": "01M2QDV0PGYV18GMJFBJT09PMB",
+      "config_revision": 0,
+      "runtime_id": "4bed111ee1684a73b7b6dbe50381932f",
+      "sandbox_id": "01M2QDV0PGEJ1AAKE2MJXGK4P8",
+      "template_id": "tpl-98b45d63cfcc48c5b6ba9104"
+    }
+  ],
+  "customer_projects_migrated": 11,
+  "global_migration_complete": false,
+  "online_restored": true,
+  "original_sources_retained": true,
+  "paid_tasks_submitted": 0,
+  "partial_cohort": true,
+  "private_archives_retained": true,
+  "selected_projects": 12,
+  "version": 1,
+  "worker_power_operations": 0
+}
