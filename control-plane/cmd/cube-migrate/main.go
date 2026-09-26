@@ -54,6 +54,7 @@ func run(args []string) error {
 	fleetPresets := flags.String("fleet-presets", "", "reviewed JSON map of app IDs to target presets")
 	library := flags.String("library", filepath.Join(data, "library"), "snapshot library root for fleet preflight")
 	targetPreset := flags.String("preset", "", "reviewed target runtime preset")
+	stopAfterImport := flags.Bool("stop-after-import", false, "leave the journaled target quiesced after import; explicit resume is required for verification and provider commit")
 	remote := flags.String("adopt-runtime", "", "recover a known Cube VM after uncertain creation")
 	trafficFile := flags.String("traffic-token-file", "", "0600 file containing adoption ingress credential; never a command argument")
 	if err := flags.Parse(args); err != nil {
@@ -62,6 +63,9 @@ func run(args []string) error {
 	action := "inventory"
 	if flags.NArg() > 0 {
 		action = flags.Arg(0)
+	}
+	if *stopAfterImport && action != "migrate" && action != "resume" {
+		return errors.New("--stop-after-import requires migrate or resume")
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
 	defer cancel()
@@ -263,7 +267,7 @@ func run(args []string) error {
 	if err = fence(); err != nil {
 		return err
 	}
-	engine := migration.Engine{Store: st, Backend: backend, BeforePhase: fence}
+	engine := migration.Engine{Store: st, Backend: backend, BeforePhase: fence, StopAfterImport: *stopAfterImport}
 	if action == "migrate" {
 		rows, err := migration.InventoryWithHome(ctx, st.DB(), *workspaces, *id, homes)
 		if err != nil {

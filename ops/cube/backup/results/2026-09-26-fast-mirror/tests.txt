@@ -1,0 +1,25 @@
+test_budget_refusal_happens_before_cache_mutation (test_warm_mirror.MirrorTests.test_budget_refusal_happens_before_cache_mutation) ... ok
+test_cached_content_tamper_detected_even_with_restored_mtime (test_warm_mirror.MirrorTests.test_cached_content_tamper_detected_even_with_restored_mtime) ... ok
+test_cached_symlink_parent_never_reaches_external_file (test_warm_mirror.MirrorTests.test_cached_symlink_parent_never_reaches_external_file) ... ok
+test_changed_frozen_source_never_publishes_seal (test_warm_mirror.MirrorTests.test_changed_frozen_source_never_publishes_seal) ... ok
+test_consumed_cache_cannot_be_replayed (test_warm_mirror.MirrorTests.test_consumed_cache_cannot_be_replayed) ... ok
+test_deletions_type_changes_and_external_links (test_warm_mirror.MirrorTests.test_deletions_type_changes_and_external_links) ... ok
+test_exact_reviewed_socket_omitted_without_deleting_source (test_warm_mirror.MirrorTests.test_exact_reviewed_socket_omitted_without_deleting_source) ... ok
+test_inode_replacement_with_same_size_and_mtime_is_detected (test_warm_mirror.MirrorTests.test_inode_replacement_with_same_size_and_mtime_is_detected) ... ok
+test_manifest_scope_and_duplicate_rejected (test_warm_mirror.MirrorTests.test_manifest_scope_and_duplicate_rejected) ... ok
+test_new_unreviewed_socket_refuses (test_warm_mirror.MirrorTests.test_new_unreviewed_socket_refuses) ... ok
+test_omitted_socket_cannot_hide_stale_regular_cache_content (test_warm_mirror.MirrorTests.test_omitted_socket_cannot_hide_stale_regular_cache_content) ... ok
+test_online_directory_change_invalidates_descendant_reuse (test_warm_mirror.MirrorTests.test_online_directory_change_invalidates_descendant_reuse) ... ok
+test_paths_reject_overlap_root_and_traversal (test_warm_mirror.MirrorTests.test_paths_reject_overlap_root_and_traversal) ... ok
+test_permissions_xattrs_and_acl_reconciled (test_warm_mirror.MirrorTests.test_permissions_xattrs_and_acl_reconciled) ... ok
+test_prepared_database_mutation_refused (test_warm_mirror.MirrorTests.test_prepared_database_mutation_refused) ... ok
+test_private_implied_ancestor_symlink_refused (test_warm_mirror.MirrorTests.test_private_implied_ancestor_symlink_refused) ... ok
+test_same_size_same_mtime_edit_and_hardlinks_force_content_copy (test_warm_mirror.MirrorTests.test_same_size_same_mtime_edit_and_hardlinks_force_content_copy) ... ok
+test_socket_exclusion_cannot_expand_to_regular_siblings (test_warm_mirror.MirrorTests.test_socket_exclusion_cannot_expand_to_regular_siblings) ... ok
+test_stable_copy_reused_without_source_content_read (test_warm_mirror.MirrorTests.test_stable_copy_reused_without_source_content_read) ... ok
+test_many_root_scope_preserves_exact_ancestry_and_literal_names (test_warm_mirror.ScopeTests.test_many_root_scope_preserves_exact_ancestry_and_literal_names) ... ok
+
+----------------------------------------------------------------------
+Ran 20 tests in 18.522s
+
+OK

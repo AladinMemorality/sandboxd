@@ -9,6 +9,18 @@ import (
 	"testing"
 )
 
+func TestImportBoundaryRejectsUnrelatedActionsBeforeOpeningDatabase(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "must-not-create.db")
+	for _, action := range []string{"inventory", "status", "rollback", "adopt", "abort", "retire-source"} {
+		if err := run([]string{"--database", path, "--stop-after-import", action}); err == nil || !strings.Contains(err.Error(), "requires migrate or resume") {
+			t.Fatalf("invalid import boundary action %s: %v", action, err)
+		}
+	}
+	if _, err := os.Stat(path); !os.IsNotExist(err) {
+		t.Fatal("invalid action touched database", err)
+	}
+}
+
 func TestInventoryAcceptsLegacySchemaWithoutMutatingIt(t *testing.T) {
 	root := t.TempDir()
 	database := filepath.Join(root, "legacy.db")

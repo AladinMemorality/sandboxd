@@ -1,0 +1,2 @@
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-migrate	1.032s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/migration	2.897s

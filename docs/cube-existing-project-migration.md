@@ -153,6 +153,17 @@ part of the backup set. Rollback and abort remain available without the resource
 map; they do not allocate a replacement Cube VM. See the
 [current capacity review](cube-migration/cutover-review-2026-09-24.md).
 
+For reviewed operator preparation of an imported target, `migrate` and `resume`
+accept `--stop-after-import`. The command returns at the durable `imported`
+phase with the guest quiesced and Docker still authoritative. Continue with
+`resume` without that flag to perform the full content/configuration/readiness
+verification and provider commit. The option does not mark an imported target
+verified, does not allocate another runtime on replay, and refuses journals
+already past the requested boundary. Keep the same outer traffic and writer
+fence between invocations. The production cohort coordinator uses this boundary
+for an exact reviewed template-default reconciliation; arbitrary target changes
+will still fail the subsequent checksums.
+
 `rollback-check` checks
 config/task eligibility without stopping the daemon; the engine rechecks those
 predicates under maintenance before any target quiescence. It does not assert

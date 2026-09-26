@@ -27,6 +27,9 @@ type Backend interface {
 type Engine struct {
 	Store   *store.Store
 	Backend Backend
+	// StopAfterImport leaves a quiesced, journaled target for reviewed operator
+	// preparation. It never verifies or commits a provider change in that run.
+	StopAfterImport bool
 	// AfterPhase is a test-only crash injection point after a durable transition.
 	AfterPhase  func(string) error
 	BeforePhase func() error
@@ -57,6 +60,14 @@ func (e *Engine) Run(ctx context.Context, id string) error {
 		m, err := e.Store.GetRuntimeMigration(ctx, id)
 		if err != nil {
 			return err
+		}
+		if e.StopAfterImport {
+			if m.Phase == "imported" {
+				return nil
+			}
+			if m.Phase == "verified" || m.Phase == "complete" {
+				return errors.New("migration already passed the requested import boundary")
+			}
 		}
 		switch m.Phase {
 		case "planned":
