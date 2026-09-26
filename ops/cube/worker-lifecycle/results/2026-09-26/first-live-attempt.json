@@ -1,0 +1,74 @@
+{
+  "version": 1,
+  "date": "2026-09-26",
+  "global_rollout_complete": false,
+  "cube_customer_projects_migrated": 0,
+  "installed_helpers": {
+    "worker_start": "e3a67dd0dfc54a2ba23caf11c9c10c4416efe8632cda661b8a5478039d5b666c",
+    "lifecycle": "45716609089f94a46309dfb3acc87e3fff60418c959223da7489fb1b79302d23",
+    "external_clean": "7c86875b15452ee583301d9d22ce4ee6f64fd04d52c9289ca5b6eaccbbe3adf5",
+    "boot_transition": "1d0cb0f5750b295b30c7e820987cee8ec166d23c215d57ab45bc3d2a4baf0cca",
+    "maintenance": "33f40ad83a6773f7f3941c3ba36f1aa38bce821d802b2d37b1eec349c97613cb"
+  },
+  "actual_preflight": {
+    "at": 1790426577.4842832,
+    "phase": "read-only-preflight-passed",
+    "value": {
+      "bindings": 1,
+      "deferred": false,
+      "ready": true,
+      "version": 1,
+      "work": {
+        "platform": {
+          "env_pending": 0,
+          "thumbnail": 0
+        },
+        "quiet": true,
+        "runtime": {
+          "active_tasks": 0,
+          "runtime_bindings": 1,
+          "task_status_counts": {
+            "failed": 41,
+            "succeeded": 119
+          }
+        }
+      }
+    },
+    "version": 1
+  },
+  "attempt": {
+    "unit": "cube-worker-recovery-20260926-01",
+    "result": "aborted-before-worker-operations",
+    "failed_check": "www.baarcha.tn home returns valid308 canonical redirect; helper required200",
+    "actual_route_results": {
+      "baarcha_home": 200,
+      "www_home": 308,
+      "scoped_project_apis": 503,
+      "motion_preview": 503,
+      "canary_preview": 503
+    },
+    "native_pause_started": false,
+    "worker_power_operations": 0,
+    "controller_stopped": false,
+    "source_data_mutated": false
+  },
+  "restoration": {
+    "at": 1790426758.2504196,
+    "controller_unchanged": true,
+    "online_restored": true,
+    "qemu_power_operations": 0,
+    "timers_restored": true,
+    "version": 1,
+    "worker_unchanged": true
+  },
+  "post_abort": {
+    "all_four_operation_locks_independently_reacquired_and_released": true,
+    "owned_maintenance_caller_absent": true,
+    "healthz": "ok",
+    "readyz": "ready",
+    "anonymous_projects_api": 401
+  },
+  "worker_recovery_verified": false,
+  "full_pair_restore_verified": false,
+  "capacity_changed": false
+}
