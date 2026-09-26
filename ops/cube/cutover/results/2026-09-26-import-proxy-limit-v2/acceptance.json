@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "before_sha256": "bc14f0ba13365d2e510ead3d626ee70c0cb34d9ac08834c475c856b04b51dea0",
+  "after_sha256": "01ff00c30b2402198a8449291f600271124279ed0ffb7c2c6e2696a226a9580c",
+  "container_id": "da37c5684596877056cf803c0dfdc654508ccf9b8abba9a7f33e04a75dffc360",
+  "before": {
+    "large_import": 413,
+    "invalid_auth": 503
+  },
+  "after": {
+    "private-workspace-v2": 503,
+    "private-home": 503,
+    "private-home-v2": 503,
+    "ordinary_upload": 413,
+    "over_4g": 413,
+    "wrong_port": 404,
+    "wrong_method": 405,
+    "home_v2_boundary": 503,
+    "home_v2_over_limit": 413
+  },
+  "customer_sources_changed": false,
+  "controller_restarted": false,
+  "worker_restarted": false,
+  "success": true,
+  "completed_at": 1790453635.7454164
+}

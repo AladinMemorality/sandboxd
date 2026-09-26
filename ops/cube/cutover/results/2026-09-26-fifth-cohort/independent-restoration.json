@@ -1,0 +1,18 @@
+{
+  "fleet": {
+    "cube": 28,
+    "docker": 45
+  },
+  "journals": {
+    "aborted": 2,
+    "complete": 27
+  },
+  "locks_reacquired": 4,
+  "controller_ready": true,
+  "full_original_routes_restored": true,
+  "original_sources_retained": 12,
+  "idle_operators_released": true,
+  "maintenance_seconds": 677.2103548049927,
+  "historical_tasks_verified": 11,
+  "online_at": 1790453380.0247543
+}

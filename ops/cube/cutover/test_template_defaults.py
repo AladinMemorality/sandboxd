@@ -23,6 +23,22 @@ class TemplateDefaultTests(unittest.TestCase):
         changed = b'x' + d.STOCK[1:]; self.target.write_bytes(changed)
         with self.assertRaisesRegex(RuntimeError, 'content differs'): self.reconcile()
         self.assertEqual(self.target.read_bytes(), changed)
+    def test_only_empty_stock_cache_is_removed(self):
+        cache = self.root / '.cache'; cache.mkdir(mode=0o755)
+        result = d.reconcile_empty_cache(self.root, os.getuid(), os.getgid())
+        self.assertTrue(result['removed']); self.assertFalse(cache.exists())
+        cache.mkdir(mode=0o755); (cache / '.gitkeep').write_bytes(b''); (cache / '.gitkeep').chmod(0o644)
+        self.assertTrue(d.reconcile_empty_cache(self.root, os.getuid(), os.getgid())['removed'])
+        cache.mkdir(mode=0o755); (cache / 'owner-data').write_bytes(b'keep me')
+        self.assertFalse(d.reconcile_empty_cache(self.root, os.getuid(), os.getgid())['removed'])
+        self.assertEqual((cache / 'owner-data').read_bytes(), b'keep me')
+        self.assertEqual(self.owner.read_bytes(), b'unchanged owner data')
+    def test_cache_links_and_nonempty_placeholder_are_retained(self):
+        cache = self.root / '.cache'; cache.symlink_to(self.root, target_is_directory=True)
+        self.assertFalse(d.reconcile_empty_cache(self.root, os.getuid(), os.getgid())['removed']); cache.unlink()
+        cache.mkdir(mode=0o755); (cache / '.gitkeep').write_bytes(b'owner data')
+        self.assertFalse(d.reconcile_empty_cache(self.root, os.getuid(), os.getgid())['removed'])
+        self.assertEqual((cache / '.gitkeep').read_bytes(), b'owner data')
     def test_link_directory_mode_owner_and_noncanonical_home_refused(self):
         for kind in ('hardlink', 'symlink', 'directory', 'mode', 'owner', 'parent'):
             with self.subTest(kind=kind), tempfile.TemporaryDirectory() as temp:

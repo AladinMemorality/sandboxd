@@ -36,7 +36,13 @@ def render(source):
                  '            if ($request_method != PUT) { return 405; }\n'
                  '            if ($host !~ "^3031-[a-f0-9]{32}\\\\.") { return 404; }\n'
                  + body + '        }\n\n')
-        return route + match[0]
+        # Home v2 frames the archive with a four-byte length and a manifest
+        # capped at32KiB. Keep that overhead separate from the4GiB archive cap.
+        framed = route.replace(MARKER, '# Baarcha framed owner-home migration stream.').replace(
+            'location ~ ^/import/(?:private-workspace-v2|private-home)$',
+            'location = /import/private-home-v2').replace(
+            'client_max_body_size 4g;', 'client_max_body_size 4295000068;')
+        return route + framed + match[0]
 
     result = pattern.sub(replace, source)
     if sorted(ports) != ['443', '80']:

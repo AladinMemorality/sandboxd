@@ -31,13 +31,14 @@ type RuntimeMigration struct {
 	RetainedDockerRetired     bool
 	HomeManifestJSON          string `json:"-"`
 	HomeSHA256                string
+	ArchiveGeneration         string
 	RollbackHomeSHA256        string
 }
 
 func (s *Store) GetRuntimeMigration(ctx context.Context, id string) (*RuntimeMigration, error) {
 	m := &RuntimeMigration{}
 	var source string
-	err := s.db.QueryRowContext(ctx, `SELECT sandbox_id,phase,source_json,source_preset,config_fingerprint,target_preset,runtime_id,template_id,domain,token_ciphertext,token_nonce,archive_sha256,rollback_sha256,history_sha256,rollback_history_sha256,rollback_config_fingerprint,rollback_recreate,retained_docker_name,retained_docker_retired,home_manifest_json,home_sha256,rollback_home_sha256 FROM runtime_migration WHERE sandbox_id=?`, id).Scan(&m.SandboxID, &m.Phase, &source, &m.SourcePreset, &m.ConfigFingerprint, &m.TargetPreset, &m.Binding.RuntimeID, &m.Binding.TemplateID, &m.Binding.Domain, &m.Binding.TokenCiphertext, &m.Binding.TokenNonce, &m.ArchiveSHA256, &m.RollbackSHA256, &m.HistorySHA256, &m.RollbackHistorySHA256, &m.RollbackConfigFingerprint, &m.RollbackRecreate, &m.RetainedDockerName, &m.RetainedDockerRetired, &m.HomeManifestJSON, &m.HomeSHA256, &m.RollbackHomeSHA256)
+	err := s.db.QueryRowContext(ctx, `SELECT sandbox_id,phase,source_json,source_preset,config_fingerprint,target_preset,runtime_id,template_id,domain,token_ciphertext,token_nonce,archive_sha256,rollback_sha256,history_sha256,rollback_history_sha256,rollback_config_fingerprint,rollback_recreate,retained_docker_name,retained_docker_retired,home_manifest_json,home_sha256,rollback_home_sha256,archive_generation FROM runtime_migration WHERE sandbox_id=?`, id).Scan(&m.SandboxID, &m.Phase, &source, &m.SourcePreset, &m.ConfigFingerprint, &m.TargetPreset, &m.Binding.RuntimeID, &m.Binding.TemplateID, &m.Binding.Domain, &m.Binding.TokenCiphertext, &m.Binding.TokenNonce, &m.ArchiveSHA256, &m.RollbackSHA256, &m.HistorySHA256, &m.RollbackHistorySHA256, &m.RollbackConfigFingerprint, &m.RollbackRecreate, &m.RetainedDockerName, &m.RetainedDockerRetired, &m.HomeManifestJSON, &m.HomeSHA256, &m.RollbackHomeSHA256, &m.ArchiveGeneration)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -66,7 +67,18 @@ func (s *Store) BeginRuntimeMigration(ctx context.Context, id, preset, template,
 
 // BeginRuntimeMigrationWithHome freezes the reviewed manifest with the source identity.
 func (s *Store) BeginRuntimeMigrationWithHome(ctx context.Context, id, preset, template, domain, homeManifest string) error {
-	if len(homeManifest) > 4096 || (homeManifest != "" && !json.Valid([]byte(homeManifest))) {
+	return s.beginRuntimeMigration(ctx, id, preset, template, domain, homeManifest, "")
+}
+
+func (s *Store) beginRuntimeMigration(ctx context.Context, id, preset, template, domain, homeManifest, generation string) error {
+	limit := 4096
+	var protocol struct {
+		Version int `json:"version"`
+	}
+	if json.Unmarshal([]byte(homeManifest), &protocol) == nil && protocol.Version == 2 {
+		limit = 32 << 10
+	}
+	if len(homeManifest) > limit || (homeManifest != "" && !json.Valid([]byte(homeManifest))) {
 		return errors.New("invalid bounded home manifest")
 	}
 	sb, err := s.Get(ctx, id)
@@ -122,7 +134,12 @@ func (s *Store) BeginRuntimeMigrationWithHome(ctx context.Context, id, preset, t
 		if provider != "docker" {
 			return ErrConflict
 		}
-		_, err = tx.ExecContext(ctx, `INSERT INTO runtime_migration(sandbox_id,phase,source_json,source_preset,config_fingerprint,target_preset,template_id,domain,home_manifest_json,updated_at) VALUES (?,'planned',?,?,?,?,?,?,?,?)`, id, string(raw), app.RuntimePreset.String, fingerprint, preset, template, domain, homeManifest, time.Now().Unix())
+		if generation != "" {
+			if err = retainAbortedAttempt(ctx, tx, sb); err != nil {
+				return err
+			}
+		}
+		_, err = tx.ExecContext(ctx, `INSERT INTO runtime_migration(sandbox_id,phase,source_json,source_preset,config_fingerprint,target_preset,template_id,domain,home_manifest_json,archive_generation,updated_at) VALUES (?,'planned',?,?,?,?,?,?,?,?,?)`, id, string(raw), app.RuntimePreset.String, fingerprint, preset, template, domain, homeManifest, generation, time.Now().Unix())
 		if err != nil {
 			return err
 		}

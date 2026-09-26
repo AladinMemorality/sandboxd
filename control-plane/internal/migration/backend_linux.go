@@ -163,6 +163,19 @@ func (b *OfflineBackend) artifact(m *store.RuntimeMigration, name string) (strin
 	if err := os.MkdirAll(root, 0700); err != nil {
 		return "", err
 	}
+	parentInfo, err := os.Lstat(root)
+	if err != nil || !parentInfo.IsDir() || parentInfo.Mode().Perm() != 0700 {
+		return "", errors.New("migration archive parent must be a private real directory")
+	}
+	if m.ArchiveGeneration != "" {
+		if !regexp.MustCompile(`^[a-f0-9]{32}$`).MatchString(m.ArchiveGeneration) {
+			return "", errors.New("invalid archive generation")
+		}
+		root = filepath.Join(root, "attempt-"+m.ArchiveGeneration)
+	}
+	if err := os.MkdirAll(root, 0700); err != nil {
+		return "", err
+	}
 	info, err := os.Lstat(root)
 	if err != nil || !info.IsDir() || info.Mode().Perm() != 0700 {
 		return "", errors.New("migration archive directory must be a private real directory with mode 0700")
@@ -413,7 +426,7 @@ func (b *OfflineBackend) VerifyTarget(ctx context.Context, m *store.RuntimeMigra
 		return fmt.Errorf("quiesce target before verification: %w", err)
 	}
 	if err = b.verifyTargetHome(ctx, m, client); err != nil {
-		return err
+		return fmt.Errorf("verify target owner home: %w", err)
 	}
 	digest, err := b.saveWorkspaceArchive(ctx, m, "verified", func(w io.Writer) error { return client.ExportPrivateWorkspaceFile(ctx, w) })
 	if err != nil {

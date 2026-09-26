@@ -176,8 +176,11 @@ func run(args []string) error {
 		}
 		return json.NewEncoder(os.Stdout).Encode(values)
 	}
-	if action != "migrate" && action != "resume" && action != "rollback" && action != "rollback-check" && action != "adopt" && action != "abort" && action != "retire-source" && action != "admission-reconcile" && action != "admission-adopt" {
+	if action != "replan" && action != "migrate" && action != "resume" && action != "rollback" && action != "rollback-check" && action != "adopt" && action != "abort" && action != "retire-source" && action != "admission-reconcile" && action != "admission-adopt" {
 		return errors.New("action must be inventory, fleet-preflight, status, migrate, resume, rollback-check, rollback, adopt, abort, retire-source, admission-status, admission-adopt or admission-reconcile (flags precede action)")
+	}
+	if action == "replan" && len(*expectedFleet) != 64 {
+		return errors.New("replan requires the reviewed --expected-fleet identity")
 	}
 	if *id == "" && len(batch) == 0 && action != "admission-reconcile" && action != "admission-adopt" {
 		return errors.New("--sandbox is required")
@@ -296,13 +299,15 @@ func run(args []string) error {
 		}
 		return batchErr
 	}
-	if action == "migrate" {
-		if err = beginMigration(ctx, st, backend, *workspaces, *id, *targetPreset, homes, resources); err != nil {
+	if action == "migrate" || action == "replan" {
+		if err = planMigration(ctx, st, backend, *workspaces, *id, *targetPreset, homes, resources, action == "replan"); err != nil {
 			return err
 		}
 	}
 
 	switch action {
+	case "replan":
+		// Explicit planning only. The next command resumes the new generation.
 	case "rollback":
 		err = engine.Rollback(ctx, *id)
 	case "retire-source":

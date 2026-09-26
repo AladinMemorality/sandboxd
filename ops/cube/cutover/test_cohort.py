@@ -37,6 +37,27 @@ def source():
 
 
 class CohortTests(unittest.TestCase):
+    def test_retry_cohort_pins_aborted_runtime_and_cannot_mix_new_projects(self):
+        value = config(); value.update(version=2, parallelism=2)
+        value['projects'][0]['retry_from_runtime_id'] = 'a'*32
+        c.validate_config(value)
+        value['projects'].append(dict(project(), sandbox_id='1'*26, app_id='2'*26, container_id='c'*64, recorded_container_id='c'*12))
+        with self.assertRaises(c.b.Refused): c.validate_config(value)
+        value['projects'].pop(); value['projects'][0]['retry_from_runtime_id'] = 'unknown'
+        with self.assertRaises(c.b.Refused): c.validate_config(value)
+
+    def test_failed_replan_never_starts_an_import(self):
+        with tempfile.TemporaryDirectory() as directory:
+            host = c.Host.__new__(c.Host); host.c = config(); host.job = Path(directory)
+            row = dict(project(), retry_from_runtime_id='a'*32)
+            for name in ('fence', 'source_fence', 'inputs', 'event', 'reconcile_template_default'):
+                setattr(host, name, mock.Mock())
+            host.run_cli = mock.Mock(side_effect=c.NativeMigrationFailed('former target still exists'))
+            with self.assertRaises(c.NativeMigrationFailed): host.migrate_wave([row], 0)
+            host.run_cli.assert_called_once()
+            self.assertEqual(host.run_cli.call_args.args[0][-1], 'replan')
+            host.reconcile_template_default.assert_not_called()
+
     def test_existing_guest_pause_requires_offline_routes_and_quiet_tasks(self):
         host = c.Host.__new__(c.Host); host.c = dict(config(), version=2, parallelism=4)
         host.routes = {'offline': {'reviewed': True}}

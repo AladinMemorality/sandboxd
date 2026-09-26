@@ -49,3 +49,20 @@ actual nginx image, retain the original file, and preserve its bind-mounted inod
 when applying a graceful reload. The runtime accepts the same bounded size;
 ordinary uploads retain their existing limit. See the production receipt in
 `results/2026-09-26-import-proxy-limit` for scope and verification limits.
+
+Explicit retries use a separate version2 cohort of at most four rows, each pinning
+`retry_from_runtime_id` to its aborted target. The native `replan` action requires
+an offline database fence, reviewed fleet identity, current source eligibility,
+unchanged source/app identity, a deleted admission record and provider404 for the
+former target. In one transaction it retains the full old journal and task scope
+in `runtime_migration_attempt`, then freezes a new plan/task scope. Recovery files
+remain in their old directory; new artifacts use a random journaled
+`attempt-<generation>` directory. Replan creates no guest. Explicit resume performs
+the new migration. A lost replan response is inspected through the journal; do
+not replan again blindly.
+
+Source-absent `.cache` scaffolding may be removed only when it is an empty
+owned0755 directory or contains only the approved empty owned0644 `.gitkeep`.
+Any nonempty cache, changed metadata or symlink is retained. The source manifest
+is never expanded or weakened to ignore owner data. This accompanies the existing
+exact-stock `.bash_logout` reconciliation at the imported/quiesced boundary.
