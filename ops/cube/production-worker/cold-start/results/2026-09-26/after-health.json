@@ -1,0 +1,10 @@
+{
+  "healthz": {
+    "status": 200,
+    "body": "ok"
+  },
+  "readyz": {
+    "status": 200,
+    "body": "ready"
+  }
+}
