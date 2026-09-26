@@ -398,11 +398,13 @@ print(json.dumps(out))
         self.stop_motion_proxy()
         self.wait(self.writers)
         incoming=self.wait(self.controller_requests_drained);x.publish(self.job/'controller-incoming-drained.json',incoming);self.quiet_tasks();self.provider()
+        self.before_controller_stop()
         since=datetime.datetime.now(datetime.timezone.utc).isoformat();self.command(['/usr/bin/docker','update','--restart=no',self.e['controller_id']]);self.command(['/usr/bin/docker','stop','--time=-1',self.e['controller_id']],180)
         cp=self.cp(True);shutdown=self.observer.shutdown_observation(cp,since);need(shutdown['regular_http_shutdown_success_observed'],'controller normal shutdown not proved');x.publish(self.job/'controller-shutdown.json',shutdown)
         final={'tasks':self.quiet_tasks(),'provider':self.provider(),'bindings':self.bindings_readonly()}
         x.publish(self.job/'controller-after-stop.json',final)
         self.motion_baseline=self.motion_jobs();self.fence()
+    def before_controller_stop(self): pass
     def stop_motion_proxy(self):
         proxy=self.inspect(self.plan['motion']['proxy_id']);need(proxy['Image']==self.plan['motion']['proxy_image'],'Motion proxy image changed')
         if not self.baseline['motion_running']:need(not proxy['State']['Running'],'originally stopped Motion proxy unexpectedly woke')

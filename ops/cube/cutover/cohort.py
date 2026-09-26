@@ -30,10 +30,15 @@ SOCKET = Path('/run/baarcha-motion-studio/worker.sock')
 KIND = 'current-generation-project-cohort'
 DEFAULTS = Path(__file__).resolve().with_name('template_defaults.py')
 VERIFY = Path(__file__).resolve().with_name('verify_cohort.mjs')
+PAUSE = Path(__file__).resolve().with_name('pause_existing.mjs')
 PLATFORM_ENV = Path('/opt/baarcha/landing.env')
-FILES = tuple(dict.fromkeys((*p.FILES, Path(__file__).resolve(), CONFIG, DEFAULTS, VERIFY, PLATFORM_ENV,
+FILES = tuple(dict.fromkeys((*p.FILES, Path(__file__).resolve(), CONFIG, DEFAULTS, VERIFY, PAUSE, PLATFORM_ENV,
     *(ROOT / ('worker-lifecycle/' + name) for name in
       ('planned.py', 'maintenance.py', 'boot_transition.py', 'external_clean.py')))))
+
+
+class NativeMigrationFailed(RuntimeError):
+    """The foreground CLI exited; no provider operation is still running in it."""
 
 
 def validate_plan(plan):
@@ -105,7 +110,8 @@ class Sequence:
         self.event('controller-start-intent'); h.restore_controller(); h.ready_fence()
         self.event('application-api-verification-intent'); h.verify_apis(); h.ready_fence()
         self.event('reopen-intent'); h.reopen(); h.close_nested()
-        result = {'version': 1, 'online_restored': True, 'customer_projects_migrated': len(h.c['projects']),
+        result = {'version': 1, 'online_restored': True, 'customer_projects_migrated': len(h.accepted),
+                  'selected_projects': len(h.c['projects']), 'partial_cohort': h.partial,
                   'worker_power_operations': 0, 'original_sources_retained': True, 'full_backup': False,
                   'global_migration_complete': False}
         self.event('complete', result)
@@ -117,6 +123,7 @@ class Host(p.Host):
         super().__init__(*args)
         self.c = b.strict(b.trusted(CONFIG)); validate_config(self.c)
         self.accepted = []
+        self.partial = False
     def validate_plan(self): validate_plan(self.plan)
     def db(self):
         db = sqlite3.connect('file:' + str(DATABASE) + '?mode=ro', uri=True, timeout=2)
@@ -164,9 +171,23 @@ class Host(p.Host):
         self.inventory('online-preflight')
         if self.c['version'] == 2:
             observation = self.bridge.observe()
-            need(observation.get('consistent') is True and observation.get('active') == 0,
-                 'Parallel migration requires existing Cube guests paused; never consume an occupied slot')
+            need(observation.get('consistent') is True and 0 <= observation.get('active', -1) <= 4,
+                 'Parallel migration requires a consistent bounded active inventory')
         return result
+    def before_controller_stop(self):
+        if self.c['version'] != 2: return
+        # The shared drain has fenced all traffic and drained incoming requests.
+        # Pause through the live controller so its supervisor-task checks apply.
+        need(b.strict(b.http('/config/', 2019)) == self.routes['offline'], 'Preview traffic must be fenced before pausing')
+        self.quiet_tasks(); self.source_fence(); self.bindings_readonly()
+        need(b.digest(PAUSE) == self.plan['files'][str(PAUSE)], 'Reviewed pause helper changed')
+        path = self.job / 'existing-bindings.PRIVATE.json'
+        x.publish(path, self.plan['bindings'])
+        proof = b.strict(self.command(['/opt/baarcha/node22/bin/node', '--env-file=' + str(PLATFORM_ENV), str(PAUSE), str(path)], 600))
+        need(proof.get('success') is True and set(proof.get('paused', [])) == {v['sandbox_id'] for v in self.plan['bindings']}, 'Existing guest pause incomplete')
+        observation = self.bridge.observe()
+        need(observation.get('consistent') is True and observation.get('active') == 0, 'Active guests remain; do not start imports')
+        self.event('existing-guests-paused', proof)
     def cli_args(self):
         return [self.c['cli'], '--database', str(DATABASE), '--workspaces', str(WORKSPACES),
                 '--migrations', self.c['migrations'], '--archives', self.c['archives'],
@@ -180,7 +201,8 @@ class Host(p.Host):
             os.chmod(out, 0o600); os.chmod(err, 0o600)
             result = subprocess.run(self.cli_args() + arguments, env=env, stdout=stdout, stderr=stderr,
                                     pass_fds=self.fds, timeout=timeout)
-        need(result.returncode == 0, 'Native migration command failed; inspect retained private output and journal')
+        if result.returncode != 0:
+            raise NativeMigrationFailed('Native command exited; inspect retained private output and journal')
         return b.strict(b.trusted(out))
     def inventory(self, name):
         report = self.run_cli(['fleet-preflight'], name, 600)
@@ -238,7 +260,11 @@ class Host(p.Host):
         if self.c['version'] == 2:
             width = self.c['parallelism']
             for start in range(0, len(self.c['projects']), width):
-                self.migrate_wave(self.c['projects'][start:start + width], start // width)
+                try:
+                    self.migrate_wave(self.c['projects'][start:start + width], start // width)
+                except NativeMigrationFailed:
+                    self.settle_failed_cohort()
+                    break
             self.bindings_readonly(); self.fence()
             return
         for row in self.c['projects']:
@@ -279,8 +305,54 @@ class Host(p.Host):
             self.event('project-migration-verified', binding)
         self.source_fence(); self.bindings_readonly(); self.fence()
 
+    def settle_failed_cohort(self):
+        # Only reached after a foreground CLI has actually exited. Timeouts,
+        # uncertain creates and failed fences retain maintenance for review.
+        self.fence(); self.source_fence(); self.inputs()
+        self.event('partial-cohort-settlement-intent')
+        accepted_ids = {v['sandbox_id'] for v in self.accepted}
+        for row in self.c['projects']:
+            sid = row['sandbox_id']
+            with self.db() as db:
+                journal = db.execute('SELECT phase FROM runtime_migration WHERE sandbox_id=?', (sid,)).fetchone()
+            if journal and journal[0] not in ('complete', 'aborted'):
+                need(journal[0] in ('planned', 'quiesced', 'archived', 'staged', 'imported', 'verified'),
+                     'Uncertain or committed migration requires explicit recovery')
+                self.fence(); self.source_fence()
+                self.run_cli(['--sandbox', sid, '--expected-fleet', self.c['fleet_sha256'], 'abort'],
+                             'settle-' + sid, 600)
+            with self.db() as db:
+                journal = db.execute('SELECT phase FROM runtime_migration WHERE sandbox_id=?', (sid,)).fetchone()
+                if journal and journal[0] == 'complete':
+                    binding = accepted_binding(db, row)
+                    if sid not in accepted_ids:
+                        self.accepted.append(binding); accepted_ids.add(sid)
+                        self.plan = copy.deepcopy(self.plan); self.plan['bindings'].append(binding)
+                else:
+                    need(journal is None or journal[0] == 'aborted', 'Native abort did not settle target')
+                    actual = db.execute('SELECT app_id,runtime_provider,container_id FROM sandbox WHERE id=?', (sid,)).fetchone()
+                    need(actual == (row['app_id'], 'docker', row['recorded_container_id']), 'Original source binding changed')
+        self.partial = True
+        self.restoration_scope()
+        self.source_fence(); self.bindings_readonly(); self.fence()
+        self.event('partial-cohort-settled', {'accepted': sorted(accepted_ids)})
+
+    def restoration_scope(self):
+        accepted_ids = {v['sandbox_id'] for v in self.accepted}
+        need(len(accepted_ids) == len(self.accepted), 'Duplicate accepted project')
+        with self.db() as db:
+            need(db.execute("SELECT count(*) FROM runtime_migration WHERE phase NOT IN ('complete','rolled_back','aborted')").fetchone()[0] == 0,
+                 'Incomplete journal prevents controller restoration')
+            for row in self.c['projects']:
+                if row['sandbox_id'] in accepted_ids:
+                    need(accepted_binding(db, row) in self.accepted, 'Accepted project changed')
+                else:
+                    need(self.partial, 'Cohort incomplete without settlement')
+                    value = db.execute('SELECT app_id,runtime_provider,container_id FROM sandbox WHERE id=?', (row['sandbox_id'],)).fetchone()
+                    need(value == (row['app_id'], 'docker', row['recorded_container_id']), 'Unaccepted source changed')
+
     def restore_controller(self):
-        need(len(self.accepted) == len(self.c['projects']), 'Cohort incomplete; retain fence for reviewed recovery')
+        self.restoration_scope()
         self.fence(); self.source_fence()
         self.command(['/usr/bin/docker', 'start', self.e['controller_id']], 60)
         self.bridge.compose('up', '-d', '--no-deps', '--no-build', '--pull', 'never', '--force-recreate', *b.SERVICES[1:])
@@ -299,10 +371,18 @@ class Host(p.Host):
         self.ready_fence()
         need(b.digest(VERIFY) == self.plan['files'][str(VERIFY)] and b.digest(PLATFORM_ENV) == self.plan['files'][str(PLATFORM_ENV)],
              'Reviewed API verifier or credentials changed')
+        accepted_ids = {v['sandbox_id'] for v in self.accepted}
+        selected = copy.deepcopy(self.c)
+        selected['projects'] = [v for v in self.c['projects'] if v['sandbox_id'] in accepted_ids]
+        path = self.job / 'accepted-api-input.PRIVATE.json'
+        x.publish(path, selected)
+        if not selected['projects']:
+            self.event('application-apis-verified', {'projects': [], 'ai_tasks_submitted': 0, 'success': True})
+            return
         result = b.strict(self.command(['/opt/baarcha/node22/bin/node', '--env-file=' + str(PLATFORM_ENV), str(VERIFY),
-                                        str(CONFIG), str(self.job / 'application-acceptance.json')], 600))
+                                        str(path), str(self.job / 'application-acceptance.json')], 600))
         need(result.get('success') is True and result.get('ai_tasks_submitted') == 0
-             and {v['sandbox_id'] for v in result['projects']} == {v['sandbox_id'] for v in self.c['projects']}
+             and {v['sandbox_id'] for v in result['projects']} == accepted_ids
              and all(v.get('success') and v.get('paused_after_verification') for v in result['projects']), 'Application API acceptance incomplete')
         self.event('application-apis-verified', result)
     def ready_fence(self):

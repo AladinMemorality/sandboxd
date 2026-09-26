@@ -1,0 +1,114 @@
+{
+  "version": 1,
+  "started_at": "2026-09-26T19:29:38.307Z",
+  "projects": [
+    {
+      "sandbox_id": "01M2NQ9VME1ABTN3BFPHGV1HNP",
+      "app_id": "01M2NQ9VKD18BD8Q0TWYADAQ26",
+      "preview_status": 200,
+      "preview_ready_ms": 801.324494,
+      "entry_modules_verified": 2,
+      "files_verified": [
+        "package.json",
+        "sandbox.yaml",
+        "index.html"
+      ],
+      "historical_tasks_verified": 1,
+      "paused_after_verification": true,
+      "success": true
+    },
+    {
+      "sandbox_id": "01M3A0HJFJB7Q3PC40ES9ZMNER",
+      "app_id": "01M3A0HJESTH3J7Y2W2M895HMD",
+      "preview_status": 200,
+      "preview_ready_ms": 1013.8718589999999,
+      "entry_modules_verified": 2,
+      "files_verified": [
+        "package.json",
+        "sandbox.yaml",
+        "index.html"
+      ],
+      "historical_tasks_verified": 1,
+      "paused_after_verification": true,
+      "success": true
+    },
+    {
+      "sandbox_id": "01M2CVJ37ND31WSFCMH1MZHH2C",
+      "app_id": "01M2CVJ36Y4K6XW2NBS2RH7R9N",
+      "preview_status": 200,
+      "preview_ready_ms": 965.8611019999998,
+      "entry_modules_verified": 2,
+      "files_verified": [
+        "package.json",
+        "sandbox.yaml",
+        "index.html"
+      ],
+      "historical_tasks_verified": 1,
+      "paused_after_verification": true,
+      "success": true
+    },
+    {
+      "sandbox_id": "01M3BNRJ7KXXP1C5QGYMQR12RB",
+      "app_id": "01M3BNRJ5QERYT9QCG5RQNN51G",
+      "preview_status": 200,
+      "preview_ready_ms": 1170.6358339999997,
+      "entry_modules_verified": 2,
+      "files_verified": [
+        "package.json",
+        "sandbox.yaml",
+        "index.html"
+      ],
+      "historical_tasks_verified": 1,
+      "paused_after_verification": true,
+      "success": true
+    },
+    {
+      "sandbox_id": "01M3C9C0V0MQYNFTMCYS7CCNVC",
+      "app_id": "01M3C9C0TN9VTJ7MBCK9Z7BQV5",
+      "preview_status": 200,
+      "preview_ready_ms": 1028.0150589999994,
+      "entry_modules_verified": 1,
+      "files_verified": [
+        "package.json",
+        "sandbox.yaml",
+        "index.html"
+      ],
+      "historical_tasks_verified": 0,
+      "paused_after_verification": true,
+      "success": true
+    },
+    {
+      "sandbox_id": "01M1J9BBCYC9F12M8B9XHHWG0T",
+      "app_id": "01M1J9BBCVQBYJJB9KE43M2993",
+      "preview_status": 200,
+      "preview_ready_ms": 1018.2723750000005,
+      "entry_modules_verified": 2,
+      "files_verified": [
+        "package.json",
+        "sandbox.yaml",
+        "index.html"
+      ],
+      "historical_tasks_verified": 1,
+      "paused_after_verification": true,
+      "success": true
+    },
+    {
+      "sandbox_id": "01M1PMEMRS1HGSD1FTK51VGQ17",
+      "app_id": "01M1PMEMRP5WWCREJJ3BNX78YQ",
+      "preview_status": 200,
+      "preview_ready_ms": 987.515820999999,
+      "entry_modules_verified": 2,
+      "files_verified": [
+        "package.json",
+        "sandbox.yaml",
+        "index.html"
+      ],
+      "historical_tasks_verified": 1,
+      "paused_after_verification": true,
+      "success": true
+    }
+  ],
+  "ai_tasks_submitted": 0,
+  "success": true,
+  "completed_at": "2026-09-26T19:29:53.188Z"
+}
