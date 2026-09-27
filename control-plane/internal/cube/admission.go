@@ -69,13 +69,18 @@ func ParseAdmissionConfig(raw string) (AdmissionConfig, error) {
 	}
 	return cfg, cfg.validate()
 }
+
+// MaxPinnedWorkerActive is an operator ceiling; CPU, RAM and storage budgets
+// still constrain each explicitly pinned worker independently.
+const MaxPinnedWorkerActive = 100
+
 func (cfg AdmissionConfig) validate() error {
 	maximum := 12
 	if cfg.NodeID != "" {
 		if err := cfg.validateNodeBudget(); err != nil {
 			return err
 		}
-		maximum = 64
+		maximum = MaxPinnedWorkerActive
 	} else if cfg.HostCPUMillis != 0 || cfg.HostMemoryMB != 0 {
 		return errors.New("worker budget requires explicit Cube node")
 	}
@@ -96,7 +101,7 @@ func (cfg AdmissionConfig) validate() error {
 }
 
 func (cfg AdmissionConfig) validateNodeBudget() error {
-	if (validateID(cfg.NodeID) != nil && net.ParseIP(cfg.NodeID) == nil) || cfg.MaxActive < 1 || cfg.MaxActive > 64 || cfg.CPUCount != 2 || cfg.MemoryMB != 2048 || cfg.HostCPUMillis < cfg.MaxActive*2300 || cfg.HostMemoryMB < cfg.MaxActive*2160 {
+	if (validateID(cfg.NodeID) != nil && net.ParseIP(cfg.NodeID) == nil) || cfg.MaxActive < 1 || cfg.MaxActive > MaxPinnedWorkerActive || cfg.CPUCount != 2 || cfg.MemoryMB != 2048 || cfg.HostCPUMillis < cfg.MaxActive*2300 || cfg.HostMemoryMB < cfg.MaxActive*2160 {
 		return errors.New("worker requires a pinned node and CPU/memory budget including VM overhead")
 	}
 	return nil

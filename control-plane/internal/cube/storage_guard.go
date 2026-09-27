@@ -134,7 +134,7 @@ func (c AdmissionConfig) RequireStorageGuard() error {
 		if err := c.validateNodeBudget(); err != nil {
 			return err
 		}
-		limit = 64
+		limit = MaxPinnedWorkerActive
 	}
 	if c.CPUCount != 2 || c.MemoryMB != 2048 || c.MaxActive < 1 || c.MaxActive > limit {
 		return errors.New("Cube production requires 2CPU/2GiB and at most four active guests")
@@ -150,7 +150,7 @@ func (c AdmissionConfig) validateStorageGuard() error {
 		if err := c.validateNodeBudget(); err != nil {
 			return err
 		}
-		limit = 64
+		limit = MaxPinnedWorkerActive
 	}
 	if c.StorageGuard == nil || c.MaxActive < 1 || c.MaxActive > limit || c.WritableDiskMB != 10240 {
 		return errors.New("Cube admission requires storage guard, reviewed compiled capacity and 10GiB writable disk")

@@ -16,8 +16,14 @@ import (
 )
 
 // Exercise the public provider client and the real durable ledger together.
-// This is a protocol test, not evidence that 50 live microVMs were started.
+// This is a protocol test, not evidence that live microVMs were started.
 func TestCubeFleetRoutesFiftyAndKeepsUncertainPlacementCharged(t *testing.T) {
+	testCubeFleetCapacity(t, 50)
+}
+func TestCubeFleetRoutesHundredAndKeepsUncertainPlacementCharged(t *testing.T) {
+	testCubeFleetCapacity(t, 100)
+}
+func testCubeFleetCapacity(t *testing.T, total int) {
 	ctx := context.Background()
 	s := openTestStore(t)
 	now := time.Unix(1800000000, 0)
@@ -26,8 +32,8 @@ func TestCubeFleetRoutesFiftyAndKeepsUncertainPlacementCharged(t *testing.T) {
 	}
 	s.storageRead = func(cfg cube.StorageGuardConfig, _ cube.StorageClock) (cube.StorageObservation, error) {
 		o := observation(cfg, now)
-		o.InnerFreeBytes = 1024 * cube.StorageGiB
-		o.OuterFreeBytes = 2048 * cube.StorageGiB
+		o.InnerFreeBytes = 2048 * cube.StorageGiB
+		o.OuterFreeBytes = 4096 * cube.StorageGiB
 		return o, nil
 	}
 	var mu sync.Mutex
@@ -93,7 +99,7 @@ func TestCubeFleetRoutesFiftyAndKeepsUncertainPlacementCharged(t *testing.T) {
 	for _, entry := range []struct {
 		name  string
 		slots int
-	}{{"vps", 4}, {"b200", 46}} {
+	}{{"vps", 4}, {"b200", total - 4}} {
 		cfg := admissionConfig(entry.slots)
 		cfg.NodeID = "node-" + entry.name
 		cfg.HostCPUMillis = entry.slots * 2300
@@ -107,18 +113,18 @@ func TestCubeFleetRoutesFiftyAndKeepsUncertainPlacementCharged(t *testing.T) {
 	if err = c.ConfigureFleet(ctx, s, workers); err != nil {
 		t.Fatal(err)
 	}
-	for i := 0; i < 50; i++ {
+	for i := 0; i < total; i++ {
 		if _, err = c.Create(ctx, admissionInput(fmt.Sprint(i))); err != nil {
 			t.Fatalf("create %d: %v", i, err)
 		}
 	}
-	if counts["node-vps"] != 4 || counts["node-b200"] != 46 {
+	if counts["node-vps"] != 4 || counts["node-b200"] != total-4 {
 		t.Fatalf("wrong placement counts: %v", counts)
 	}
 	if _, err = c.Create(ctx, admissionInput("overflow")); !errors.Is(err, cube.ErrCapacityUnavailable) {
-		t.Fatalf("51st admission: %v", err)
+		t.Fatalf("admission %d: %v", total+1, err)
 	}
-	for _, entry := range []struct{ id, origin string }{{"vm-0", "http://vps.invalid"}, {"vm-49", "http://b200.invalid"}} {
+	for _, entry := range []struct{ id, origin string }{{"vm-0", "http://vps.invalid"}, {fmt.Sprintf("vm-%d", total-1), "http://b200.invalid"}} {
 		origin, err := c.ProxyOrigin(ctx, entry.id, "http://fallback.invalid")
 		if err != nil || origin != entry.origin {
 			t.Fatalf("proxy origin: %s %v", origin, err)
@@ -127,13 +133,13 @@ func TestCubeFleetRoutesFiftyAndKeepsUncertainPlacementCharged(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err = c.Pause(ctx, "vm-49"); err != nil {
+	if err = c.Pause(ctx, fmt.Sprintf("vm-%d", total-1)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = c.Connect(ctx, "vm-49", cube.ConnectRequest{}); err != nil {
+	if _, err = c.Connect(ctx, fmt.Sprintf("vm-%d", total-1), cube.ConnectRequest{}); err != nil {
 		t.Fatal(err)
 	}
-	if err = c.Delete(ctx, "vm-49"); err != nil {
+	if err = c.Delete(ctx, fmt.Sprintf("vm-%d", total-1)); err != nil {
 		t.Fatal(err)
 	}
 	mu.Lock()
@@ -147,7 +153,7 @@ func TestCubeFleetRoutesFiftyAndKeepsUncertainPlacementCharged(t *testing.T) {
 		t.Fatalf("uncertain charge lost: %+v %v", a, err)
 	}
 	var used int
-	if err = s.db.QueryRow(`SELECT SUM(charged) FROM cube_admission`).Scan(&used); err != nil || used != 50 {
+	if err = s.db.QueryRow(`SELECT SUM(charged) FROM cube_admission`).Scan(&used); err != nil || used != total {
 		t.Fatalf("final charges %d: %v", used, err)
 	}
 }

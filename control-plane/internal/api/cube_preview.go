@@ -31,6 +31,12 @@ var cubePreviewTransport = &http.Transport{
 	MaxIdleConnsPerHost:   20,
 }
 
+// A successful Connect grants a one-hour provider lease. Reuse its readiness
+// for five minutes to avoid repeated cross-worker lifecycle round trips. Idle
+// reaping, explicit stop and upstream errors independently invalidate this cache;
+// authentication and activity registration still run on every request.
+const cubePreviewRunningLease = 5 * time.Minute
+
 var cubePreviewDNSLabel = regexp.MustCompile(`^[a-zA-Z0-9](?:[a-zA-Z0-9-]*[a-zA-Z0-9])?$`)
 
 // TryServeCubePreview is called before the Docker wake catch-all. It retains
@@ -150,7 +156,7 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 		return true
 	}
 	// Verify/renew the runtime lease before forwarding the original body.
-	// Assets reuse a 30-second running lease instead of serializing a management
+	// Assets reuse a bounded running lease instead of serializing a management
 	// round trip and supervisor probe for every file. Never replay a failed POST.
 	passive := passiveCubePreview(r)
 	// Serialize activity registration against the idle/reclamation decision.
@@ -343,7 +349,7 @@ func (s *Server) ensureCubePreviewLease(ctx context.Context, sb *store.Sandbox) 
 		s.cubePreviewLeases.Delete(sb.ID)
 		return err
 	}
-	s.cubePreviewLeases.Store(sb.ID, time.Now().Add(30*time.Second))
+	s.cubePreviewLeases.Store(sb.ID, time.Now().Add(cubePreviewRunningLease))
 	return nil
 }
 
