@@ -376,3 +376,13 @@ func (c *Client) ReconcileAdmission(ctx context.Context, key string, providerReq
 	}
 	return c.admission.store.AdmissionFinish(ctx, a, a.RuntimeID, state)
 }
+
+// TemplateAllocation exposes only the operator-approved CPU/RAM allocation.
+// It performs no provider request and never wakes a guest.
+func (c *Client) TemplateAllocation(templateID string) (int, int, bool) {
+	if c == nil || c.admission == nil {
+		return 0, 0, false
+	}
+	profile, ok := c.admission.config.Templates[templateID]
+	return profile.CPUCount, profile.MemoryMB, ok
+}

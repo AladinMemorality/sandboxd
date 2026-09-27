@@ -37,17 +37,24 @@ type v1Preview struct {
 	BuildErrorMessage string `json:"build_error_message,omitempty"`
 }
 
+type v1Resources struct {
+	CPUCount int `json:"cpu_count"`
+	MemoryMB int `json:"memory_mb"`
+}
+
 type v1Sandbox struct {
-	RuntimeProvider string      `json:"runtime_provider"`
-	ID              string      `json:"id"`
-	Status          string      `json:"status"`
-	ErrorCode       string      `json:"error_code,omitempty"`
-	Preview         v1Preview   `json:"preview"`
-	Processes       []v1Process `json:"processes"`
-	ActiveTaskID    string      `json:"active_task_id,omitempty"`
-	Template        string      `json:"template"`
-	CreatedAt       string      `json:"created_at"`
-	UpdatedAt       string      `json:"updated_at,omitempty"`
+	RuntimeAccounting *store.RuntimeAccounting `json:"runtime_accounting,omitempty"`
+	Resources         *v1Resources             `json:"resources,omitempty"`
+	RuntimeProvider   string                   `json:"runtime_provider"`
+	ID                string                   `json:"id"`
+	Status            string                   `json:"status"`
+	ErrorCode         string                   `json:"error_code,omitempty"`
+	Preview           v1Preview                `json:"preview"`
+	Processes         []v1Process              `json:"processes"`
+	ActiveTaskID      string                   `json:"active_task_id,omitempty"`
+	Template          string                   `json:"template"`
+	CreatedAt         string                   `json:"created_at"`
+	UpdatedAt         string                   `json:"updated_at,omitempty"`
 }
 
 // v1Process is one supervised process (the web dev server or a worker) from the
@@ -170,6 +177,16 @@ func (s *Server) v1SandboxFromRow(r *http.Request, sb *store.Sandbox) v1Sandbox 
 		Template:        defaultTemplate,
 		CreatedAt:       sb.CreatedAt.UTC().Format(time.RFC3339),
 		UpdatedAt:       sb.UpdatedAt.UTC().Format(time.RFC3339),
+	}
+	if accounting, err := s.Store.RuntimeAccounting(r.Context(), sb.ID); err == nil {
+		out.RuntimeAccounting = accounting
+	}
+	if sb.RuntimeProvider == "cube" && s.Cube != nil {
+		if binding, err := s.Store.GetRuntimeBinding(r.Context(), sb.ID); err == nil {
+			if cpu, memory, ok := s.Cube.TemplateAllocation(binding.TemplateID); ok {
+				out.Resources = &v1Resources{CPUCount: cpu, MemoryMB: memory}
+			}
+		}
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
