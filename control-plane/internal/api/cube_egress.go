@@ -27,6 +27,8 @@ type CubeEgressConfig struct {
 	BridgeURL         string
 	AppHTTPServices   map[string][]egress.HTTPService
 	MotionStudioAppID string
+	// OfflineApps keeps private operator copies from issuing external actions.
+	OfflineApps map[string]bool
 }
 
 type cubeEgressSession struct {
@@ -210,11 +212,17 @@ func (s *Server) runCubeEgress(ctx context.Context, id, runtimeID string, entry 
 			entry.connected = true
 			close(entry.ready)
 			entry.mu.Unlock()
-			_ = egress.RunHost(channelCtx, conn, egress.HostOptions{
+			opts := egress.HostOptions{
 				Identity: egress.Identity{SandboxID: id, Generation: entry.generation}, Policy: m.config.Policy,
 				Services:     s.cubeNamedServices(),
 				HTTPServices: s.cubeAppHTTPServices(channelCtx, id, entry.generation),
-			})
+			}
+			if s.cubeOfflineApp(channelCtx, id) {
+				opts.Policy.ProtectedPrefixes = []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")}
+				opts.Services = nil
+				opts.HTTPServices = nil
+			}
+			_ = egress.RunHost(channelCtx, conn, opts)
 			cancel()
 			entry.mu.Lock()
 			entry.connected = false
@@ -227,6 +235,15 @@ func (s *Server) runCubeEgress(ctx context.Context, id, runtimeID string, entry 
 		case <-time.After(250 * time.Millisecond):
 		}
 	}
+}
+
+func (s *Server) cubeOfflineApp(ctx context.Context, id string) bool {
+	if len(s.cubeEgress.config.OfflineApps) == 0 {
+		return false
+	}
+	row, err := s.Store.Get(ctx, id)
+	// Failure to identify the source must never grant outgoing access.
+	return err != nil || !row.AppID.Valid || s.cubeEgress.config.OfflineApps[row.AppID.String]
 }
 
 func (s *Server) cubeAppHTTPServices(ctx context.Context, id, generation string) map[string]http.Handler {

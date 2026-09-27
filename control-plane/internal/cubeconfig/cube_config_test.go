@@ -122,6 +122,20 @@ func TestCubeReverseEgressRequiresExplicitCompatibleProfile(t *testing.T) {
 	if err != nil || cfg.ReverseEgress == nil {
 		t.Fatalf("reviewed pilot unavailable: %v", err)
 	}
+	t.Run("offline copies", func(t *testing.T) {
+		id := "01ARZ3NDEKTSV4RRFFQ69G5FAV"
+		t.Setenv("SANDBOXD_CUBE_OFFLINE_APPS", `["`+id+`"]`)
+		got, err := Load()
+		if err != nil || !got.ReverseEgress.OfflineApps[id] {
+			t.Fatalf("offline app unavailable: %v", err)
+		}
+		for _, raw := range []string{`["invalid"]`, `["` + id + `","` + id + `"]`, `{}`, `true`} {
+			t.Setenv("SANDBOXD_CUBE_OFFLINE_APPS", raw)
+			if _, err := Load(); err == nil {
+				t.Fatal("invalid offline app list accepted")
+			}
+		}
+	})
 	for _, tt := range []struct{ k, v string }{{"SANDBOXD_CUBE_ENABLED", "false"}, {"SANDBOXD_CUBE_REVERSE_EGRESS", "1"}, {"SANDBOXD_CUBE_EGRESS_CLIENT_PROFILE", "all-backends"}, {"SANDBOXD_CUBE_EGRESS_PROTECTED_CIDRS", ""}, {"SANDBOXD_CUBE_EGRESS_PROTECTED_CIDRS", "::/0"}, {"SANDBOXD_CUBE_EGRESS_PROTECTED_DOMAINS", ""}, {"SANDBOXD_CUBE_BRIDGE_URL", "http://baarcha.tn/api/bridge"}, {"SANDBOXD_CUBE_AGENT_RELAY_NETWORK_VERIFIED", "false"}, {"SANDBOXD_CUBE_EGRESS_ALLOW_DOMAINS", "registry.npmjs.org"}} {
 		t.Run(tt.k+tt.v, func(t *testing.T) {
 			t.Setenv(tt.k, tt.v)

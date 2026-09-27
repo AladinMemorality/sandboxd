@@ -19,6 +19,10 @@ import (
 )
 
 func reverseFixture(t *testing.T, upstream http.HandlerFunc) (*Server, string, *egress.Guest, string) {
+	return reverseFixtureOffline(t, upstream, false)
+}
+
+func reverseFixtureOffline(t *testing.T, upstream http.HandlerFunc, offline bool) (*Server, string, *egress.Guest, string) {
 	t.Helper()
 	guest, err := egress.NewGuest(egress.GuestOptions{Authenticate: func(r *http.Request) bool {
 		return r.Header.Get("Authorization") == "Bearer "+strings.Repeat("a", 64) && r.Header.Get("cube-traffic-access-token") == "private-token"
@@ -46,6 +50,13 @@ func reverseFixture(t *testing.T, upstream http.HandlerFunc) (*Server, string, *
 	s.CubeAllApps = true
 	ctx, cancel := context.WithCancel(context.Background())
 	cfg := CubeEgressConfig{Policy: egress.Policy{ProtectedPrefixes: []netip.Prefix{netip.MustParsePrefix("65.108.225.153/32")}, ProtectedDomains: []string{"baarcha.tn"}}, BridgeURL: "https://bridge.example/api/bridge"}
+	if offline {
+		row, err := s.Store.Get(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		cfg.OfflineApps = map[string]bool{row.AppID.String: true}
+	}
 	if err = s.ConfigureCubeEgress(ctx, cfg); err != nil {
 		t.Fatal(err)
 	}
@@ -83,6 +94,37 @@ func reverseFixture(t *testing.T, upstream http.HandlerFunc) (*Server, string, *
 		}
 	})
 	return s, id, guest, request.Env["RUNTIMED_CUBE_AGENT_TOKEN"]
+}
+
+func TestCubeOfflineCopyDeniesNamedServicesWithLiveChannel(t *testing.T) {
+	var calls atomic.Int32
+	s, id, guest, _ := reverseFixtureOffline(t, func(w http.ResponseWriter, r *http.Request) { calls.Add(1) }, true)
+	if !guest.Ready() || !s.cubeOfflineApp(context.Background(), id) || !s.cubeOfflineApp(context.Background(), "missing") {
+		t.Fatal("offline copy identity or authenticated channel unavailable")
+	}
+	for _, name := range []string{"model", "bridge", "motion"} {
+		server := httptest.NewServer(guest.ServiceHandler(name))
+		response, err := http.Post(server.URL+"/api/bridge", "application/json", strings.NewReader("{}"))
+		if err != nil {
+			server.Close()
+			t.Fatal(err)
+		}
+		io.Copy(io.Discard, response.Body)
+		response.Body.Close()
+		server.Close()
+		if response.StatusCode < 400 {
+			t.Fatalf("offline copy used %s: %d", name, response.StatusCode)
+		}
+	}
+	if calls.Load() != 0 {
+		t.Fatal("offline copy reached an external service")
+	}
+	request := httptest.NewRequest("GET", "http://1.1.1.1/", nil)
+	response := httptest.NewRecorder()
+	guest.ProxyHandler().ServeHTTP(response, request)
+	if response.Code < 400 {
+		t.Fatal("offline copy retained public HTTP access")
+	}
 }
 
 func TestCubeReverseServicesPreserveModelMeteringAndBridgeScope(t *testing.T) {

@@ -2,12 +2,13 @@
 # Starts only the new isolated operator VM. No customer enrollment or GPU access.
 set -euo pipefail
 [[ ( $# == 2 || $# == 3 ) && $1 =~ ^sha256:[a-f0-9]{64}$ ]] || {
-  echo 'usage: start-canary.sh TOOL_IMAGE PREPARED_WORKER_DIRECTORY [pilot|capacity-50]' >&2
+  echo 'usage: start-canary.sh TOOL_IMAGE PREPARED_WORKER_DIRECTORY [pilot|capacity-50|capacity-100]' >&2
   exit 2
 }
 case ${3:-pilot} in
   pilot) worker_cpus=8; worker_memory_mb=32768; worker_limit=36g ;;
   capacity-50) worker_cpus=112; worker_memory_mb=163840; worker_limit=168g ;;
+  capacity-100) worker_cpus=224; worker_memory_mb=229376; worker_limit=240g ;;
   *) echo 'unknown worker profile' >&2; exit 2 ;;
 esac
 tool_image=$1

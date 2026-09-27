@@ -2,9 +2,12 @@ package cubeconfig
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
+
+	"github.com/oklog/ulid/v2"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/api"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/egress"
@@ -48,5 +51,18 @@ func loadCubeReverseEgressConfig(cfg Config) (*api.CubeEgressConfig, error) {
 			return nil, err
 		}
 	}
-	return &api.CubeEgressConfig{Policy: policy, BridgeURL: bridge, AppHTTPServices: services, MotionStudioAppID: motionApp}, nil
+	offline := map[string]bool{}
+	if raw := os.Getenv("SANDBOXD_CUBE_OFFLINE_APPS"); raw != "" {
+		var ids []string
+		if len(raw) > 16384 || json.Unmarshal([]byte(raw), &ids) != nil || len(ids) > 100 {
+			return nil, fmt.Errorf("SANDBOXD_CUBE_OFFLINE_APPS must list at most 100 app IDs")
+		}
+		for _, id := range ids {
+			if _, err := ulid.ParseStrict(id); err != nil || offline[id] {
+				return nil, fmt.Errorf("SANDBOXD_CUBE_OFFLINE_APPS contains invalid or duplicate app ID")
+			}
+			offline[id] = true
+		}
+	}
+	return &api.CubeEgressConfig{Policy: policy, BridgeURL: bridge, AppHTTPServices: services, MotionStudioAppID: motionApp, OfflineApps: offline}, nil
 }
