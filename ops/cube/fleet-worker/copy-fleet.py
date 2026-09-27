@@ -78,7 +78,9 @@ def export_one(row,include_running=False):
   heartbeat=threading.Thread(target=touch,daemon=True);heartbeat.start()
   # Resume is mandatory even when quiescence only partially succeeded.
   quiesced=True;status,_=guest(sid,'POST','/workspace/quiesce');assert status==200,'source cannot quiesce'
-  origin,headers=client(sid);conn=http.client.HTTPConnection(*origin,timeout=1800)
+  origin,headers=client(sid)
+  assert origin==('127.0.0.1',20080),'export on the source worker; never stream remote workspaces through the controller'
+  conn=http.client.HTTPConnection(*origin,timeout=1800)
   try:
    conn.request('GET','/export/private-workspace-v2',headers=headers);response=conn.getresponse()
    assert response.status==200,'source export HTTP '+str(response.status)

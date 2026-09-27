@@ -1,3 +1,32 @@
+## Transfer and placement rule (2026-09-27 correction)
+
+Existing runtimes stay on their durably assigned worker. Reuse that worker's
+workspace and dependency cache while it remains available. Do not rebalance an
+existing project merely because another worker has more capacity. If the assigned
+worker cannot serve it, the destination must fetch an immutable project revision
+and required data directly from S3, prepare dependencies locally, pass readiness,
+and only then take over routing. Prevent concurrent writers with a durable lease
+and fencing; a timeout alone is not proof that the original writer has stopped.
+
+**Never send workspace archives, dependencies, rootfs images, or restore data over
+the VPS–B200 management link.** Control messages, routing and bounded observations
+can use it. Do not use a controller-side download-and-forward fallback.
+Permanent deployment objects contain source, lockfiles, recipes and separately
+managed project data/secrets; dependency caches stay on the assigned worker.
+
+The current controller already pins existing runtimes to their stored worker.
+Automatic S3 recovery and safe routing takeover are not yet globally enabled.
+The 100-copy test does not constitute acceptance of automatic failover.
+
+`publish-test-copy.mjs`, `import-test-copy.py` and `broker-test-imports.py` implement
+a temporary test-only transfer: source host → encrypted S3 object → destination
+worker, then loopback import and digest verification. The broker transports at
+most 32 KiB of scoped job metadata per import, never archive bytes. Worker-local
+verified archives are reused. Full dependency trees are included only to preserve
+exact test copies; `delete-test-copies.mjs` deletes the recorded S3 objects after
+the owned guests have been removed. These are not permanent deployment objects.
+The original direct-copy test was stopped with customer bindings unchanged.
+
 # B200 worker VM canary
 
 ## Fifty concurrent sandboxes verified — 2026-09-27

@@ -56,43 +56,68 @@ def clone(app):
    status,_=c.api('POST','/v1/apps/'+app['id']+'/config',dict(key=config['key'],value=value['value'],sensitive=bool(config['sensitive']),access_policy='runtime_access'))
    assert status in (201,409),'clone runtime config rejected'
  with create_lock:
-  c.save(out/'intent.json',dict(app_id=app['id'],preset=preset));before=time.monotonic()
-  status,sandbox=c.api('POST','/v1/apps/'+app['id']+'/sandbox',dict(runtime_preset=preset,ports=[source['web_port'] or 3000] if source else [3000]))
-  if status!=201:
-   c.save(out/'create-failure.PRIVATE.json',dict(status=status,response=sandbox));raise RuntimeError('copy creation rejected')
-  row=dict(app_id=app['id'],sandbox_id=sandbox['id'],source_sandbox_id=source['sandbox_id'] if source else None,create_seconds=time.monotonic()-before)
-  c.save(out/'created.json',row)
+  if (out/'created.json').exists():
+   row=json.loads((out/'created.json').read_text())
+   assert c.rows('select app_id from sandbox where id=?',(row['sandbox_id'],))==[dict(app_id=app['id'])]
+   status,_=c.api('POST','/v1/sandboxes/'+row['sandbox_id']+'/start');assert status==200
+  else:
+   c.save(out/'intent.json',dict(app_id=app['id'],preset=preset));before=time.monotonic()
+   status,sandbox=c.api('POST','/v1/apps/'+app['id']+'/sandbox',dict(runtime_preset=preset,ports=[source['web_port'] or 3000] if source else [3000]))
+   if status!=201:
+    c.save(out/'create-failure.PRIVATE.json',dict(status=status,response=sandbox));raise RuntimeError('copy creation rejected')
+   row=dict(app_id=app['id'],sandbox_id=sandbox['id'],source_sandbox_id=source['sandbox_id'] if source else None,create_seconds=time.monotonic()-before)
+   c.save(out/'created.json',row)
   with ready_lock:ready.append(row)
  if source:
-  before=time.monotonic();status,raw=c.guest(row['sandbox_id'],'GET','/status');assert status==200
-  boot=json.loads(raw)['runtimed']['booted_at']
-  status,_=c.guest(row['sandbox_id'],'POST','/workspace/quiesce');assert status==200
-  origin,headers=c.client(row['sandbox_id']);headers.update({'Content-Type':'application/zip','Content-Length':str(archive.stat().st_size)})
-  connection=http.client.HTTPConnection(*origin,timeout=1800)
-  try:
-   with archive.open('rb') as body:connection.request('PUT','/import/private-workspace-v2',body,headers)
-   response=connection.getresponse();raw=response.read(8192);assert response.status==200,'copy import rejected'
-  finally:connection.close()
-  until=time.monotonic()+60
-  while True:
+  origin,headers=c.client(row['sandbox_id'])
+  if origin==('10.254.240.2',28080):
+   # Only bounded job metadata crosses the management link. The worker fetches
+   # S3 directly, then imports and verifies through its own loopback proxy.
+   receipt=json.loads((archive.parent/'s3-receipt.PRIVATE.json').read_text())
+   job=dict(app_id=app['id'],test_owner='operator:fleet-100',headers=headers,receipt=receipt)
+   assert len(json.dumps(job).encode())<=32768
+   c.save(out/'local-import-job.PRIVATE.json',job)
+   until=time.monotonic()+1800
+   while not (out/'local-import-result.json').exists():
+    assert not (out/'local-import-failure.json').exists(),'destination-local import failed'
+    assert time.monotonic()<until,'destination-local import timed out'
+    time.sleep(2)
+   result=json.loads((out/'local-import-result.json').read_text())
+   assert result['app_id']==app['id'] and result['workspace_sha256']==proof['sha256'] and result['workspace_verified']
+   row.update(copy_seconds=result['copy_seconds'],workspace=proof,workspace_verified=True,transfer=result)
+  else:
+   assert origin==('127.0.0.1',20080),'bulk imports must be local to the destination'
+   before=time.monotonic();status,raw=c.guest(row['sandbox_id'],'GET','/status');assert status==200
+   boot=json.loads(raw)['runtimed']['booted_at']
+   status,_=c.guest(row['sandbox_id'],'POST','/workspace/quiesce');assert status==200
+   origin,headers=c.client(row['sandbox_id']);assert origin==('127.0.0.1',20080)
+   headers.update({'Content-Type':'application/zip','Content-Length':str(archive.stat().st_size)})
+   connection=http.client.HTTPConnection(*origin,timeout=1800)
    try:
-    status,raw=c.guest(row['sandbox_id'],'GET','/status')
-    if status==200 and json.loads(raw)['runtimed']['booted_at']!=boot:break
-   except Exception:pass
-   assert time.monotonic()<until,'copy supervisor failed to restart';time.sleep(.5)
-  status,_=c.guest(row['sandbox_id'],'POST','/workspace/quiesce');assert status==200
-  origin,headers=c.client(row['sandbox_id']);connection=http.client.HTTPConnection(*origin,timeout=1800)
-  try:
-   connection.request('GET','/export/private-workspace-v2',headers=headers);response=connection.getresponse();assert response.status==200
-   size=0
-   with (out/'verification.zip').open('wb') as body:
-    while data:=response.read(1024*1024):
-     size+=len(data);assert size<=4*1024**3;body.write(data)
-  finally:connection.close()
-  actual=c.manifest(out/'verification.zip');assert actual['sha256']==proof['sha256'],'copy file content/mode verification failed'
-  (out/'verification.zip').unlink()
-  row.update(copy_seconds=time.monotonic()-before,workspace=proof,workspace_verified=True)
-  status,_=c.guest(row['sandbox_id'],'POST','/workspace/resume');assert status==200
+    with archive.open('rb') as body:connection.request('PUT','/import/private-workspace-v2',body,headers)
+    response=connection.getresponse();raw=response.read(8192);assert response.status==200,'copy import rejected'
+   finally:connection.close()
+   until=time.monotonic()+60
+   while True:
+    try:
+     status,raw=c.guest(row['sandbox_id'],'GET','/status')
+     if status==200 and json.loads(raw)['runtimed']['booted_at']!=boot:break
+    except Exception:pass
+    assert time.monotonic()<until,'copy supervisor failed to restart';time.sleep(.5)
+   status,_=c.guest(row['sandbox_id'],'POST','/workspace/quiesce');assert status==200
+   origin,headers=c.client(row['sandbox_id']);assert origin==('127.0.0.1',20080)
+   connection=http.client.HTTPConnection(*origin,timeout=1800)
+   try:
+    connection.request('GET','/export/private-workspace-v2',headers=headers);response=connection.getresponse();assert response.status==200
+    size=0
+    with (out/'verification.zip').open('wb') as body:
+     while data:=response.read(1024*1024):
+      size+=len(data);assert size<=4*1024**3;body.write(data)
+   finally:connection.close()
+   actual=c.manifest(out/'verification.zip');assert actual['sha256']==proof['sha256'],'copy file content/mode verification failed'
+   (out/'verification.zip').unlink()
+   row.update(copy_seconds=time.monotonic()-before,workspace=proof,workspace_verified=True)
+   status,_=c.guest(row['sandbox_id'],'POST','/workspace/resume');assert status==200
  else:
   status,_=c.request('127.0.0.1',9090,'/v1/sandboxes/'+row['sandbox_id']+'/files?path=index.html','PUT','<html><body>'+PLAN['prefix']+' '+app['id']+'</body></html>',{'Authorization':'Bearer '+c.TOKEN,'Content-Type':'text/plain'});assert status==200
  until=time.monotonic()+90

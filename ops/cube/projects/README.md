@@ -1,9 +1,33 @@
 # Portable Cube project deployments — implementation candidate
 
 This directory contains source storage tools and a disposable rebuild canary.
-It does **not** enable automatic VPS-to-B200 placement. Production still uses
-the existing four-slot VPS admission path. Migration 0037 enrolls no projects,
-and source import/export endpoints are disabled by default.
+Production fleet placement now supports B200 and VPS, with 50 simultaneous
+runtimes accepted and a 100-slot test in progress. These source tools do **not**
+yet enable automatic relocation of existing projects. Migration 0037 enrolls no
+projects, and source import/export endpoints are disabled by default.
+
+## Required placement and storage behavior
+
+- Keep a project on its assigned healthy worker, including across idle/wake.
+  Reuse its local source and dependency caches; no eager rebalancing.
+- Build, install packages and run the project on that worker. Cache dependencies
+  by lockfile, runtime image, architecture and package-manager version.
+- Persist acknowledged source revisions and consistent project data to S3 from
+  the source worker directly. Never evict uncheckpointed edits or mutable data.
+- If the assigned worker is unavailable, the replacement worker fetches directly
+  from S3 and restores the latest committed revision and data checkpoint. Neither
+  worker sends large files to the other, and the controller never relays archives.
+- Only switch routing after writer fencing, destination verification and health
+  checks. Preserve project identity, privacy, secrets and URLs. An unreachable
+  machine may still be running: a durable lease or confirmed fencing must prevent
+  two writers. Report checkpoint freshness instead of claiming unreplicated edits
+  survived an abrupt host loss.
+- A warm cache is an optimization, not the only durable copy. Source and lockfiles
+  belong in permanent S3 storage; installed dependencies remain worker-local.
+
+The temporary 100-copy acceptance test uses encrypted full snapshots to preserve
+exact workloads. Those objects are deleted after testing and do not replace the
+source-only deployment format above. See `../fleet-worker/README.md`.
 
 ## Implemented
 
@@ -19,7 +43,7 @@ and source import/export endpoints are disabled by default.
   does not imply that a project is eligible for cross-host deployment.
 - Cube create requests can express one operator-selected node. The candidate fleet provider
   selects this field from a durable per-worker reservation and verifies actual
-  placement through CubeMaster. Production does not yet use that configuration.
+  placement through CubeMaster. This fleet configuration is now deployed.
 - Opt-in runtime endpoints export a quiesced project or restore verified source
   into a **new disposable target** and rebuild locked dependencies. The target
   stays quiesced. Stateful projects and secret restoration are not enrolled.
