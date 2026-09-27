@@ -34,6 +34,13 @@ def inputs():
 
 
 class ProfileTests(unittest.TestCase):
+    def test_worker_drain_rechecks_transient_connections_and_still_refuses_timeout(self):
+        host = motion.Host.__new__(motion.Host)
+        with mock.patch.object(motion.c.Host, 'writers', side_effect=[motion.b.Refused('connections remain'), {'drained': True}]) as check, mock.patch.object(motion.m.time, 'sleep'):
+            self.assertEqual(host.writers(), {'drained': True})
+            self.assertEqual(check.call_count, 2)
+        with mock.patch.object(motion.c.Host, 'writers', side_effect=motion.b.Refused('connections remain')), mock.patch.object(motion.m.time, 'monotonic', side_effect=[0, 31]):
+            with self.assertRaisesRegex(motion.b.Refused, 'connections remain'): host.writers()
     def test_native_output_is_private_even_with_normal_process_umask(self):
         with tempfile.TemporaryDirectory() as directory:
             host = motion.Host.__new__(motion.Host)

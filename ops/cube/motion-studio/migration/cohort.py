@@ -49,6 +49,11 @@ class Host(c.Host):
         self.original_mounts = None
     def validate_plan(self): validate_plan(self.plan)
     def validate_config(self): c.validate_config(self.c, motion=True)
+    def writers(self):
+        # The read-only worker probe closes its TCP connection asynchronously.
+        # Wait for the existing complete drain proof, without relaxing it or
+        # repeating any migration/controller mutation.
+        return self.wait(lambda: super(Host, self).writers(), 30)
     def controller_inputs(self):
         for name, digest in self.controller['files'].items(): need(b.digest(name) == digest, 'Reviewed Motion controller input changed')
     def acceptance_proof(self):

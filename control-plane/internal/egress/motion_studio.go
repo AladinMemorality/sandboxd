@@ -43,6 +43,7 @@ type MotionStudio struct {
 	authorize MotionStudioAuthorize
 	transport http.RoundTripper
 	slots     chan struct{}
+	waiters   chan struct{}
 }
 
 func NewMotionStudio(appID string, authorize MotionStudioAuthorize) (*MotionStudio, error) {
@@ -62,7 +63,33 @@ func newMotionStudio(appID string, authorize MotionStudioAuthorize, transport ht
 	if len(appID) != 26 || strings.Trim(appID, "0123456789ABCDEFGHJKMNPQRSTVWXYZ") != "" || authorize == nil || transport == nil {
 		return nil, errors.New("Motion Studio requires a fixed app and authoritative authorizer")
 	}
-	return &MotionStudio{appID: appID, authorize: authorize, transport: transport, slots: make(chan struct{}, 4)}, nil
+	return &MotionStudio{appID: appID, authorize: authorize, transport: transport, slots: make(chan struct{}, 4), waiters: make(chan struct{}, 16)}, nil
+}
+
+// A browser requests a film's poster for every card at once. Keep the worker
+// concurrency at four, but let a small burst wait without buffering its body.
+func (s *MotionStudio) acquire(ctx context.Context) bool {
+	select {
+	case s.slots <- struct{}{}:
+		return true
+	default:
+	}
+	select {
+	case s.waiters <- struct{}{}:
+		defer func() { <-s.waiters }()
+	default:
+		return false
+	}
+	timer := time.NewTimer(5 * time.Second)
+	defer timer.Stop()
+	select {
+	case s.slots <- struct{}{}:
+		return true
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return false
+	}
 }
 
 var motionFilename = regexp.MustCompile(`^[a-zA-Z0-9_-]+\.(png|jpg|webp|mp4|wav|json)$`)
@@ -157,12 +184,14 @@ func (s *MotionStudio) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "unexpected body", 400)
 		return
 	}
-	select {
-	case s.slots <- struct{}{}:
-		defer func() { <-s.slots }()
-	default:
+	if !s.acquire(r.Context()) {
 		w.Header().Set("Retry-After", "1")
 		http.Error(w, "worker busy", 503)
+		return
+	}
+	defer func() { <-s.slots }()
+	if r.Context().Err() != nil || !s.authorize(r.Context(), id, s.appID) {
+		http.Error(w, "forbidden", 403)
 		return
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 120*time.Second)
