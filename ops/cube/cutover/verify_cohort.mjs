@@ -75,6 +75,16 @@ try {
         && asset.body.length > 0, 'Application entry module unavailable');
     }
     result.entry_modules_verified = scripts.length;
+    if (app === '01M3CKN983PFRGMD711PCEPDFD') {
+      assert(sb === '01M3CKN99ZF90BEEA4DS66YAQV', 'Motion project identity changed');
+      const status = await preview('/api/status');
+      assert(status.status === 200 && JSON.parse(status.body).mode === 'shared-workspace', 'Motion worker status unavailable through production preview');
+      const response = await preview('/api/projects');
+      assert(response.status === 200, 'Motion worker projects unavailable through production preview');
+      const value = JSON.parse(response.body);
+      assert(Array.isArray(value.projects), 'Invalid Motion worker projects response');
+      result.motion_worker = {shared_workspace: true, projects: value.projects.length};
+    }
     if (app === '01M37PPK7VDKCQMNRYKW8CCD4W') {
       assert(sb === '01M37PPK85JN1K0WEMP4ZYER6C', 'PostgreSQL project identity changed');
       // This application's health handler executes SELECT 1 against its private

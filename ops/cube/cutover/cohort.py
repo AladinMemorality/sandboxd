@@ -61,20 +61,27 @@ def validate_plan(plan):
     m.validate_plan(plan, kind=KIND, files=FILES)
 
 
-def validate_config(c):
+def validate_config(c, *, motion=False):
     need(set(c) == {'version', 'fleet_sha256', 'files', 'cli', 'migrations', 'homes',
                     'presets', 'resources', 'templates', 'archives', 'projects'} | ({'parallelism'} if c.get('version') == 2 else set()), 'Exact cohort configuration required')
     need(c['version'] in (1, 2) and b.SHA.fullmatch(c['fleet_sha256']), 'Reviewed fleet identity required')
     need(isinstance(c['projects'], list) and 1 <= len(c['projects']) <= (12 if c['version'] == 2 else 4), 'Bounded reviewed cohort required')
     if c['version'] == 2:
         need(type(c['parallelism']) is int and 1 <= c['parallelism'] <= 4, 'One to four parallel migrations required')
+    if motion:
+        need(c['version'] == 2 and c['parallelism'] == 1 and len(c['projects']) == 1,
+             'Motion requires its own single-project coordinator')
+        row = c['projects'][0]
+        need(row.get('app_id') == MOTION_APP and row.get('sandbox_id') == '01M3CKN99ZF90BEEA4DS66YAQV'
+             and row.get('preset') == 'react-vite' and row.get('template_id') == 'tpl-c0c9813b42db46898f7ddd9f'
+             and 'retry_from_runtime_id' not in row, 'Exact accepted Motion source and template required')
     ids, apps, containers = set(), set(), set()
     for row in c['projects']:
         need(set(row) == {'app_id', 'sandbox_id', 'preset', 'template_id', 'container_id', 'recorded_container_id', 'image'} | ({'retry_from_runtime_id'} if 'retry_from_runtime_id' in row else set()), 'Exact source identity required')
         if 'retry_from_runtime_id' in row:
             need(c['version'] == 2 and re.fullmatch(r'[a-f0-9]{32}', row['retry_from_runtime_id']), 'Exact aborted target identity required')
         need(all(re.fullmatch(r'[0-9A-HJKMNP-TV-Z]{26}', row[k]) for k in ('app_id', 'sandbox_id')), 'Invalid project identity')
-        need(row['app_id'] != MOTION_APP, 'Motion requires its separate guest and worker acceptance')
+        need(row['app_id'] != MOTION_APP or motion, 'Motion requires its separate guest and worker acceptance')
         need(row['preset'] in ('react-vite', 'react-pro', 'nextjs', 'node-express'), 'Database and special presets require separate closure')
         need(re.fullmatch(r'tpl-[a-f0-9]+', row['template_id']) and b.SHA.fullmatch(row['container_id'])
              and re.fullmatch(r'sha256:[a-f0-9]{64}', row['image']), 'Immutable source and target required')
@@ -149,10 +156,11 @@ class Sequence:
 class Host(p.Host):
     def __init__(self, *args):
         super().__init__(*args)
-        self.c = b.strict(b.trusted(CONFIG)); validate_config(self.c)
+        self.c = b.strict(b.trusted(CONFIG)); self.validate_config()
         self.accepted = []
         self.partial = False
         self.allow_preview_snapshot_changes = self.c['version'] == 2
+    def validate_config(self): validate_config(self.c)
     def validate_plan(self): validate_plan(self.plan)
     def db(self):
         db = sqlite3.connect('file:' + str(DATABASE) + '?mode=ro', uri=True, timeout=2)

@@ -323,6 +323,9 @@ func TestMotionStudioBoundedAdmissionAndUploadCancel(t *testing.T) {
 		}
 	}
 	w := httptest.NewRecorder()
+	for i := 0; i < cap(h.waiters); i++ {
+		h.waiters <- struct{}{}
+	}
 	h.ServeHTTP(w, motionRequest("GET", "/api/status"))
 	if w.Code != 503 || w.Header().Get("Retry-After") != "1" {
 		t.Fatal("unbounded admission")
