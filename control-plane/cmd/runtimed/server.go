@@ -131,6 +131,8 @@ func (a *app) controlHandler() http.Handler {
 	mux.HandleFunc("PUT /import/git-workspace", a.handlePrivateWorkspaceImport)
 	mux.HandleFunc("GET /export/source", a.handleSourceExport)
 	mux.HandleFunc("PUT /import/source", a.handleSourceImport)
+	mux.HandleFunc("PUT /import/project-source", a.handleProjectSourceImport)
+	mux.HandleFunc("POST /export/project-source", a.handleProjectSourceExport)
 	mux.HandleFunc("GET /processes/{name}/logs", a.handleProcessLogs)
 	mux.HandleFunc("GET /tasks/{id}/events", a.handleTaskEvents)
 	mux.HandleFunc("POST /tasks/{id}/cancel", a.handleCancelTask)

@@ -102,6 +102,15 @@ func validateTimeout(seconds int) error {
 }
 
 func prepareCreate(in CreateRequest) (CreateRequest, error) {
+	if len(in.DistributionScope) > 1 {
+		return in, errors.New("Cube fleet placement requires one reserved node")
+	}
+	for _, node := range in.DistributionScope {
+		if validateID(node) != nil {
+			return in, errors.New("invalid Cube placement node")
+		}
+	}
+	in.DistributionScope = append([]string(nil), in.DistributionScope...)
 	if err := validateID(in.TemplateID); err != nil {
 		return in, err
 	}

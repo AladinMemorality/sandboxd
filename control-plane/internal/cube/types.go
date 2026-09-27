@@ -36,6 +36,10 @@ type CreateRequest struct {
 	AllowInternetAccess bool              `json:"allow_internet_access"`
 	Network             *NetworkPolicy    `json:"network"`
 	Backend             string            `json:"backend,omitempty"`
+	// DistributionScope pins template placement to an operator-selected Cube
+	// node. Never populate this from a customer request. The fleet adapter must
+	// verify template-locality filtering and actual provider placement.
+	DistributionScope []string `json:"distributionScope,omitempty"`
 }
 
 type ConnectRequest struct {

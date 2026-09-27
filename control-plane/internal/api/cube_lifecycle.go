@@ -76,7 +76,7 @@ func (s *Server) guardCubeRoute(w http.ResponseWriter, r *http.Request, endpoint
 		// These handlers resolve the authenticated app and never access a host
 		// workspace. Repeated sandbox creation retains its existing binding.
 		return false
-	case "GET /v1/apps/{id}/snapshots", "POST /v1/apps/{id}/fork", "POST /v1/apps/{id}/restore", "DELETE /v1/apps/{id}":
+	case "GET /v1/apps/{id}/deployment", "GET /v1/apps/{id}/snapshots", "POST /v1/apps/{id}/fork", "POST /v1/apps/{id}/restore", "DELETE /v1/apps/{id}":
 		return false
 	case "POST /v1/apps/{id}/config", "GET /v1/apps/{id}/config", "PATCH /v1/apps/{id}/config/{key}", "DELETE /v1/apps/{id}/config/{key}", "POST /v1/apps/{id}/config/{key}/reveal":
 		return false

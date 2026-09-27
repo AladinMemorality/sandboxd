@@ -141,6 +141,9 @@ func admissionToken() (string, error) {
 	return hex.EncodeToString(b[:]), nil
 }
 func (c *Client) admittedCreate(ctx context.Context, in CreateRequest) (*Sandbox, error) {
+	if len(in.DistributionScope) != 0 {
+		return nil, errors.New("single-worker admission cannot authorize fleet placement")
+	}
 	g := c.admission
 	if _, ok := g.config.Templates[in.TemplateID]; !ok {
 		return nil, errors.New("Cube create template has no admission resource contract")

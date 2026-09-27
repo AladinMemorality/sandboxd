@@ -9,6 +9,10 @@ import (
 )
 
 func (c *Client) workspaceFileRequest(ctx context.Context, method, path string, body io.Reader, size int64) (*http.Response, func(), error) {
+	return c.workspaceTypedRequest(ctx, method, path, body, size, "application/zip")
+}
+
+func (c *Client) workspaceTypedRequest(ctx context.Context, method, path string, body io.Reader, size int64, contentType string) (*http.Response, func(), error) {
 	if c.unavailable != nil {
 		return nil, func() {}, c.unavailable
 	}
@@ -36,7 +40,7 @@ func (c *Client) workspaceFileRequest(ctx context.Context, method, path string, 
 		return nil, func() {}, err
 	}
 	req.ContentLength = size
-	req.Header.Set("Content-Type", "application/zip")
+	req.Header.Set("Content-Type", contentType)
 	if c.remote != nil {
 		req.Host = c.remote.Host
 		req.Header.Set("Authorization", "Bearer "+c.remote.Token)

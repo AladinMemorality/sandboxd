@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadAndCreateProjectRevisions",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:PutObject"
+      ],
+      "Resource": [
+        "arn:aws:s3:::REPLACE_WITH_PRIVATE_PROJECT_BUCKET/baarcha/cube/projects/*",
+        "arn:aws:s3:::REPLACE_WITH_PRIVATE_PROJECT_BUCKET/baarcha/cube/private-source-canary/projects/*"
+      ]
+    }
+  ]
+}

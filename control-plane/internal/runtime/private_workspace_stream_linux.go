@@ -89,6 +89,10 @@ func ExportPrivateWorkspaceFile(ctx context.Context, root, ownerHome string, des
 }
 
 func exportPrivateWorkspaceTo(ctx context.Context, root string, dest io.Writer, limits workspaceArchiveLimits, ownerLinks func() (map[privateInode]uint64, error)) error {
+	return exportWorkspaceFilteredTo(ctx, root, dest, limits, ownerLinks, nil)
+}
+
+func exportWorkspaceFilteredTo(ctx context.Context, root string, dest io.Writer, limits workspaceArchiveLimits, ownerLinks func() (map[privateInode]uint64, error), exclude func(string) bool) error {
 	dir, err := privateDirectory(root)
 	if err != nil {
 		return err
@@ -116,6 +120,9 @@ func exportPrivateWorkspaceTo(ctx context.Context, root string, dest io.Writer, 
 					return err
 				}
 				full := path.Join(prefix, name)
+				if exclude != nil && exclude(full) {
+					continue
+				}
 				count++
 				if !ValidArchivePath(full) || len(full) > 4096 || count > limits.entries {
 					return errors.New("workspace path or entry limit")
