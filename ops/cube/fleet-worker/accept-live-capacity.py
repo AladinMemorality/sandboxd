@@ -28,7 +28,8 @@ def main():
         excluded=c.rows("SELECT s.id sandbox_id,s.status FROM sandbox s JOIN app a ON a.id=s.app_id WHERE a.name LIKE 'minecraft-tunnel%'")
         parked=[]
         apps=[];ready={};guard=threading.Lock();stop=threading.Event();errors=[]
-        report=dict(complete=False,profile='migrated customer pages plus private Vite fillers',target=target,customer_projects=len(projects))
+        prior_fixtures=sum(row['sandbox_id']=='01M3D1Q0E1KM1FEM244XVHEC65' for row in projects)
+        report=dict(complete=False,profile='migrated customer pages plus private Vite fillers',target=target,web_projects=len(projects),customer_projects=len(projects)-prior_fixtures,prior_operator_fixtures=prior_fixtures)
         def event(phase,**kw):
             c.save(job/'report.json',report);c.save(job/'phase.json',dict(at=time.time(),phase=phase,**kw))
             print(json.dumps(dict(phase=phase,**kw)),flush=True)
@@ -114,7 +115,7 @@ def main():
                 with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:round_=list(pool.map(lambda row:preview(row,True),allrows))
                 assert all(v['status']==200 and all(code==200 for code in v['asset_statuses']) for v in round_),'peak page/assets failed'
                 report['rounds'].append(round_);assert sum(v['count'] for v in charged())==target
-                event('peak-round',round=iteration+1,count=target);time.sleep(10)
+                event('peak-round',round=iteration+1,count=target);time.sleep(30)
             assert not errors
             marker=prefix+'-overflow'
             status,app=c.api('POST','/v1/apps',dict(name='Cube capacity overflow check',runtime_preset='react-vite',external_user_id=owner,external_project_id=marker,tags=['operator-acceptance',prefix]));assert status==201
