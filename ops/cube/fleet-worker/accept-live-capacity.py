@@ -5,7 +5,7 @@ This is a serving/wake acceptance, not a claim about 100 simultaneous builds.
 Existing customer content is never edited. Only journaled operator apps are
 deleted. Run after relocation has completed, under the shared operator locks.
 """
-import concurrent.futures,hashlib,importlib.util,json,secrets,statistics,sys,threading,time
+import concurrent.futures,hashlib,importlib.util,json,secrets,statistics,sys,threading,time,traceback
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -58,7 +58,9 @@ def main():
             while not stop.wait(20):
                 with guard:rows=list(ready.values())
                 try:
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:
+                    # Each simulated visitor must reach its own project within
+                    # the idle window even when other projects renew leases.
+                    with concurrent.futures.ThreadPoolExecutor(max_workers=target) as pool:
                         observations=list(pool.map(preview,rows))
                     bad=[v for v in observations if v['status']!=200]
                     c.save(job/'traffic.json',dict(at=time.time(),count=len(rows),failures=bad))
@@ -97,13 +99,28 @@ def main():
             rows=c.rows("SELECT b.sandbox_id,b.runtime_id,a.worker_id FROM runtime_binding b JOIN cube_admission a ON a.runtime_id=b.runtime_id WHERE a.charged=1")
             assert len(rows)==target and charged()==[dict(worker_id='b200-01',count=96),dict(worker_id='vps',count=4)]
             def native(row):
-                status,raw=c.request('127.0.0.1',20300,'/sandboxes/'+row['runtime_id'],headers={'X-API-Key':c.ENV['SANDBOXD_CUBE_API_KEY']},timeout=60)
-                v=json.loads(raw);assert status==200 and v['state']=='running' and v['cpuCount']==2 and v['memoryMB']==2048
-                status,raw=c.request('10.254.240.1',18089,'/cube/sandbox/info?sandbox_id='+row['runtime_id']+'&instance_type=cubebox',timeout=60)
-                v=json.loads(raw);assert status==200 and v['ret']['ret_code']==200 and len(v['data'])==1
-                assert v['data'][0]['host_id']=={'vps':'10.0.2.15','b200-01':'10.254.240.2'}[row['worker_id']]
-                return dict(**row,running=True)
-            with concurrent.futures.ThreadPoolExecutor(max_workers=12) as pool:report['native_running']=list(pool.map(native,rows))
+                proof=dict(**row,running=False,started_at=time.time())
+                try:
+                    proof['reads']=[]
+                    for attempt in range(3):
+                        status,raw=c.request('127.0.0.1',20300,'/sandboxes/'+row['runtime_id'],headers={'X-API-Key':c.ENV['SANDBOXD_CUBE_API_KEY']},timeout=60)
+                        proof['reads'].append(dict(http=status,bytes=len(raw),at=time.time()))
+                        proof['native_http']=status
+                        try:v=json.loads(raw)
+                        except ValueError:v={}
+                        if status==200 and isinstance(v,dict) and v.get('state'):break
+                        if attempt<2:time.sleep(1)
+                    proof.update(state=v.get('state'),cpu=v.get('cpuCount'),memory_mb=v.get('memoryMB'))
+                    status,raw=c.request('10.254.240.1',18089,'/cube/sandbox/info?sandbox_id='+row['runtime_id']+'&instance_type=cubebox',timeout=60)
+                    v=json.loads(raw);proof.update(master_http=status,master_code=v.get('ret',{}).get('ret_code'))
+                    if status==200 and proof['master_code']==200 and len(v.get('data',[]))==1:proof['host_id']=v['data'][0].get('host_id')
+                    proof['running']=proof['native_http']==200 and proof['state']=='running' and proof['cpu']==2 and proof['memory_mb']==2048 and proof.get('host_id')=={'vps':'10.0.2.15','b200-01':'10.254.240.2'}[row['worker_id']]
+                except Exception as error:proof['error']=type(error).__name__
+                proof['finished_at']=time.time();return proof
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:proofs=list(pool.map(native,rows))
+            c.save(job/'native-proofs.json',proofs)
+            report['native_running']=[v for v in proofs if v['running']]
+            assert len(report['native_running'])==target,'native running/placement proof failed; see native-proofs.json'
             # Include any genuine visitor sessions already running on VPS in
             # the simultaneous page proof; never count an unobserved slot.
             with guard:
@@ -136,7 +153,11 @@ def main():
             times=sorted(v['seconds'] for round_ in report['rounds'] for v in round_)
             report.update(complete=True,fillers=len(apps)-1,page_requests=len(times),p50_seconds=statistics.median(times),p95_seconds=times[int(.95*(len(times)-1))])
             event('acceptance-passed',count=target,p50=report['p50_seconds'],p95=report['p95_seconds'])
+        except BaseException as error:
+            report['failure']=dict(error=type(error).__name__,line=traceback.extract_tb(error.__traceback__)[-1].lineno)
+            event('acceptance-failed',**report['failure']);raise
         finally:
+            event('cleanup-started')
             stop.set();thread.join(120)
             failures=[]
             for app in reversed(apps):
