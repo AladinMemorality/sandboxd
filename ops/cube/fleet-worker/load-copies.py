@@ -36,6 +36,17 @@ def traffic():
     try:f.result()
     except Exception:failures+=1
   c.save(ROOT/'traffic-current.json',dict(at=time.time(),guests=len(current),request_failures=failures))
+def keep_running():
+ # Traffic rounds can wait on a slow application. Keep test VMs alive through
+ # their lifecycle API independently of page readiness and archive operations.
+ while not stop.wait(30):
+  with ready_lock:current=list(ready)
+  def touch(row):
+   status,_=c.api('POST','/v1/sandboxes/'+row['sandbox_id']+'/start')
+   return status==200
+  with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
+   outcomes=list(pool.map(touch,current))
+  c.save(ROOT/'keepalive-current.json',dict(at=time.time(),guests=len(current),ready=sum(outcomes)))
 def clone(app):
  scoped(app);out=GUESTS/app['id'];out.mkdir(mode=0o700,exist_ok=True)
  if (out/'complete.json').exists():
@@ -151,6 +162,7 @@ def run_b200():
  assert [(w['id'],w['admission']['max_active'],w['draining']) for w in fleet['workers']]==[('b200-01',96,False),('vps',4,False)]
  assert set(json.loads(env['SANDBOXD_CUBE_OFFLINE_APPS']))=={a['id'] for a in PLAN['apps']}
  worker=threading.Thread(target=traffic,daemon=True);worker.start()
+ heartbeat=threading.Thread(target=keep_running,daemon=True);heartbeat.start()
  failed=[]
  try:
   # First 70 customer projects plus 26 fillers; four real projects go on VPS at peak.
@@ -174,7 +186,7 @@ def run_b200():
   peak()
  finally:
   cleanup()
-  stop.set();worker.join(100)
+  stop.set();worker.join(100);heartbeat.join(100)
 
 def native_proof():
  current=list(ready)
