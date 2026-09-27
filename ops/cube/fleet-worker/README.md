@@ -6,7 +6,11 @@ The current target is **4 VPS + 46 B200 active sandboxes**, each retaining
 2 vCPU/2 GiB. This is not yet a measured production capacity. The controller's
 real SQLite/provider protocol tests pass for 50 reservations, rejection of the
 51st, per-worker preview routing, pause/wake/delete, and retained charges after
-uncertain placement. The production controller remains on its four-slot policy.
+uncertain placement. Production now runs controller image
+`sha256:918d1cf4b1156c11a593dc7e2e90d19e21127ac8583b8501630d311d2e9d4063`
+with migration0038 and explicit VPS placement, still on its four-slot policy.
+`controller-pin-release.py` completed the existing guarded controller-only drain
+and restore, preserving all74bindings and restarting no guest or worker.
 
 The empty B200 pilot was cleanly stopped and expanded to 112 vCPU, 160 GiB guest
 RAM, a 168 GiB process ceiling, and a 1 TiB XFS data disk. The stopped pilot
@@ -32,21 +36,56 @@ behind the authenticated WireGuard peer and guest hard-deny policy. The private
 configuration is never a repository artifact. Container restart is disabled
 during acceptance. Compute target startup remains disabled at boot.
 
-Template distribution over the private relay is slow. `publish-artifact.mjs`
-and `fetch-artifact.py` prewarm immutable rootfs artifacts through encrypted S3
+Template distribution over the private relay is slow. `publish-artifact.mjs`,
+`cache-templates.py` and `fetch-artifact.py` prewarm immutable rootfs artifacts through encrypted S3
 objects with ephemeral transfer keys, bounded parallel downloads, GCM validation,
 and the authoritative raw filesystem hash. They copy no Cube metadata, customer
 workspace, AWS credential, or controller master key. Cube still owns template
-registration. The cache lives at `/data/cube-fleet-rootfs`, referenced by the
-normal `cubebox_os_image` path. Full live template and microVM acceptance remains
-in progress; partial downloads are never published.
+registration. All nine encrypted artifacts have been published; worker cache
+verification is in progress. The source cache lives separately at
+`/data/cube-fleet-artifact-cache`; Cube owns its disposable copies under
+`/data/cube-fleet-rootfs`, referenced by the normal `cubebox_os_image` path.
+Retries delete Cube's copy, so merely prewarming that directory is insufficient.
+
+`artifact-cache-server.py` listens only on loopback18089. Every download first
+requires a successful one-byte authenticated range request to the canonical
+CubeMaster; the local file must still match its verified generation. It never
+logs credential-bearing URLs. Cubelet's `cubemaster_http_addr` points to this
+cache, while its other control connections retain their normal private targets.
+Install `cube-fleet-artifact-cache.service` in the compute target, with its script
+under `/usr/local/lib/baarcha-cube-fleet`. The service has read-only filesystem
+access and can connect only to loopback and the private coordinator.
+The React/Vite B200 replica reached READY in job
+`421d7d70-41fa-402a-aed7-e22278dc9601`; this is template acceptance, not proof that
+fifty concurrent workloads work.
+
+The separate native application canary passed at17:08UTC. It created a VM on
+B200 in1.85s, reached its authenticated supervisor in4.52s, imported a small
+Node application and served its nonce-bearing page in11.68s. The real reverse
+channel used a deny-all egress policy; the page verified no NVIDIA device.
+Owned cleanup and empty B200 inventory passed; B200 was re-cordoned. Evidence:
+`/opt/baarcha-bench/cube-fleet-20260927/native-canary-04/result.json` on the VPS.
+`native-canary.py` requires VPS-only pinned production admission, an empty B200,
+fresh storage observations and operator locks. Its small Go channel helper is
+`cmd/cube-fleet-canary-channel`. This test does not validate production fleet
+admission, fifty concurrent workloads, pause/wake, AI tasks or S3 project moves.
 
 `storage-probe.py` supports fixed forced-command SSH keys for read-only inner and
 backing-filesystem measurements. The observer's `--worker b200-01` profile uses
 separate pinned identities, sequence state and output directory, with coordinator
-monotonic time. Physical-host SSH is currently failing after authentication;
-until that read-only probe can be installed and verified, B200 storage admission
-must stay closed. The worker VM itself remains reachable.
+monotonic time. Physical-host SSH currently takes about a minute after
+authentication. A dedicated root-private persistent SSH connection, restricted
+on the host to the read-only probe, lets periodic observations finish normally.
+Install `cube-fleet-observer-transport.service` and the B200 observer service and
+timer. On transport loss observations fail closed; never extend freshness to
+hide a slow or unavailable probe.
+
+Both probes now pass: the B200 backing filesystem UUID is
+`9adc3783-c99f-438d-8826-542c0da5e63e`, with about4.9TiB free at enrollment.
+The guest has about946GiB free. Preserve observer sequence state independently;
+the configured `outer_boot_id` and monotonic clock belong to the VPS coordinator.
+This does not permit admission until controller placement and live acceptance
+also pass.
 
 The sections below record the earlier pilot and initial network work.
 

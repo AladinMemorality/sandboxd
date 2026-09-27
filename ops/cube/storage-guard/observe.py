@@ -42,7 +42,8 @@ def select_worker_profile(worker):
 
 
 def observer_ssh(host, port):
-    return ['/usr/bin/ssh', '-i', '/etc/baarcha-cube/fleet-observer/key',
+    multiplex = ['-oControlPath=/run/cube-fleet-observer/host.sock', '-oControlMaster=no'] if host == 'user4@10.40.14.68' else []
+    return ['/usr/bin/ssh', *multiplex, '-i', '/etc/baarcha-cube/fleet-observer/key',
             '-oBatchMode=yes', '-oConnectTimeout=4', '-oServerAliveInterval=3',
             '-oServerAliveCountMax=1', '-oStrictHostKeyChecking=yes',
             '-oUserKnownHostsFile=/etc/baarcha-cube/fleet-observer/known_hosts',

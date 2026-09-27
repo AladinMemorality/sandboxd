@@ -43,4 +43,26 @@ func TestCubeAdmissionWiringRequiresReviewedProfileOnlyWhenEnabled(t *testing.T)
 	if err = ConfigureAdmission(ctx, cfg, st); err == nil {
 		t.Fatal("preset missing capacity contract accepted")
 	}
+	delete(cfg.Templates, "nextjs")
+	admission.NodeID = "10.0.2.15"
+	admission.HostCPUMillis = 10000
+	admission.HostMemoryMB = 10240
+	raw, _ = json.Marshal(admission)
+	t.Setenv("SANDBOXD_CUBE_ADMISSION", string(raw))
+	t.Setenv("SANDBOXD_CUBE_MASTER_URL", "")
+	if err = ConfigureAdmission(ctx, cfg, st); err == nil {
+		t.Fatal("pinned VPS accepted missing placement observer")
+	}
+	t.Setenv("SANDBOXD_CUBE_MASTER_URL", "http://127.0.0.1:20889")
+	if err = ConfigureAdmission(ctx, cfg, st); err != nil {
+		t.Fatal("VPS pinning before fleet enrollment failed", err)
+	}
+	admission.NodeID = ""
+	admission.HostCPUMillis = 0
+	admission.HostMemoryMB = 0
+	raw, _ = json.Marshal(admission)
+	t.Setenv("SANDBOXD_CUBE_ADMISSION", string(raw))
+	if err = ConfigureAdmission(ctx, cfg, st); err == nil {
+		t.Fatal("durable placement pin was silently removed")
+	}
 }

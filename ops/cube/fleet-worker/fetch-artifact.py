@@ -78,16 +78,14 @@ def main():
             out.write(chunk)
         out.flush(); os.fsync(out.fileno())
     assert count == m['ext4_size_bytes'] and digest.hexdigest() == m['ext4_sha256']
-    # Cube owns registration and runtime companions. Only prewarm the exact
-    # immutable artifact file it would download, never copy mutable metadata.
-    cache = Path('/usr/local/services/cubetoolbox/cubebox_os_image') / m['artifact_id']
-    cache.mkdir(parents=True, exist_ok=True)
-    destination = cache / (m['artifact_id'] + '.ext4')
-    assert not destination.exists()
-    pending = cache / (m['artifact_id'] + '.prewarm')
-    subprocess.run(['cp', '--reflink=auto', '--sparse=always', str(raw), str(pending)], check=True)
-    with pending.open('rb') as f: os.fsync(f.fileno())
-    os.rename(pending, destination)
+    # Cube may delete its own canonical copy when retrying a failed replica.
+    # Keep the verified download source separate; the loopback cache server
+    # authorizes the native Cube download before serving this immutable file.
+    info = raw.stat()
+    ready = target / 'verified.pending'
+    ready.write_text(json.dumps({'sha256':digest.hexdigest(),
+                                'generation':[info.st_ino, info.st_size, info.st_mtime_ns]}))
+    os.replace(ready, target / 'verified.json')
     print(json.dumps({'artifact':m['artifact_id'], 'sha256':digest.hexdigest(), 'bytes':count, 'cache_ready':True}))
 
 

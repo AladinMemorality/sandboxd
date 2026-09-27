@@ -1,0 +1,35 @@
+[Unit]
+Description=Authenticated local Cube runtime artifact cache
+After=network-online.target wg-quick@wg-cube-fleet.service
+Wants=network-online.target
+PartOf=cube-sandbox-compute.target
+Before=cube-sandbox-cubelet.service
+RequiresMountsFor=/data/cube-fleet-artifact-cache
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/local/lib/baarcha-cube-fleet/artifact-cache-server.py
+Restart=on-failure
+RestartSec=3
+User=root
+UMask=0077
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+IPAddressDeny=any
+IPAddressAllow=localhost
+IPAddressAllow=10.254.240.1/32
+CapabilityBoundingSet=
+TasksMax=64
+MemoryMax=512M
+CPUQuota=200%
+
+[Install]
+WantedBy=cube-sandbox-compute.target
