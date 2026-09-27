@@ -144,7 +144,7 @@ def run_b200():
  failed=[]
  try:
   # First 70 customer projects plus 26 fillers; four real projects go on VPS at peak.
-  with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+  with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
    futures={pool.submit(clone,app):app['id'] for app in PLAN['apps'][4:]}
    for future in concurrent.futures.as_completed(futures):
     try:

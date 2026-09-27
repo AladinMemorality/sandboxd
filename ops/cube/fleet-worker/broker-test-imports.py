@@ -19,7 +19,7 @@ for a in p['apps'][4:]:
  if f.exists() and not any((d/n).exists() for n in ['local-import-result.json','local-import-failure.json']):
   raw=f.read_bytes();assert len(raw)<=32768
   j=json.loads(raw);assert j['app_id']==a['id'];jobs.append(j)
-assert len(jobs)<=8
+assert len(jobs)<=16
 print(json.dumps(dict(jobs=jobs,done=(r/'cleanup.json').exists())))
 ''' % ROOT
     def run(job):
@@ -28,7 +28,7 @@ print(json.dumps(dict(jobs=jobs,done=(r/'cleanup.json').exists())))
         assert len(completed.stdout)<=4096
         result=json.loads(completed.stdout)
         if completed.returncode:
-            result=dict(app_id=job['app_id'],error=result.get('error','worker import failed'))
+            result=dict(app_id=job['app_id'],error=result.get('error','worker import failed'),line=result.get('line'))
             filename='local-import-failure.json'
         else:
             assert result['app_id']==job['app_id'] and result['workspace_sha256']==job['receipt']['workspace_sha256']
@@ -45,7 +45,7 @@ tmp.write_text(json.dumps(v['result']));os.replace(tmp,f)
         remote(code,payload)
         print(json.dumps(dict(app_id=job['app_id'],result=result)),flush=True)
     seen=set()
-    with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+    with concurrent.futures.ThreadPoolExecutor(max_workers=8) as pool:
         pending=[]
         while True:
             state=json.loads(remote(poll))
