@@ -143,13 +143,20 @@ def main():
                     status,value=c.api('GET','/v1/apps/'+app['id']);assert status==200 and value['external_user_id']==owner and value['external_project_id']==app['marker']
                     status,_=c.api('DELETE','/v1/apps/'+app['id']);assert status==204
                 except Exception:failures.append(app['id'])
-            for row in projects:
-                if row['status']=='stopped' and not c.rows("SELECT task_id FROM task WHERE sandbox_id=? AND status='running'",(row['sandbox_id'],)):
-                    status,_=c.api('POST','/v1/sandboxes/'+row['sandbox_id']+'/stop')
-                    if status!=200:failures.append(row['sandbox_id'])
+            def restore_idle(row):
+                try:
+                    if row['status']=='stopped' and not c.rows("SELECT task_id FROM task WHERE sandbox_id=? AND status='running'",(row['sandbox_id'],)):
+                        status,_=c.api('POST','/v1/sandboxes/'+row['sandbox_id']+'/stop')
+                        if status!=200:return row['sandbox_id']
+                except Exception:return row['sandbox_id']
+                return None
+            with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:
+                failures.extend(sid for sid in pool.map(restore_idle,projects) if sid)
             for row in parked:
-                status,_=c.api('POST','/v1/sandboxes/'+row['sandbox_id']+'/start')
-                if status!=200:failures.append(row['sandbox_id'])
+                try:
+                    status,_=c.api('POST','/v1/sandboxes/'+row['sandbox_id']+'/start')
+                    if status!=200:failures.append(row['sandbox_id'])
+                except Exception:failures.append(row['sandbox_id'])
             report['cleanup_failures']=failures
             report['bindings_preserved']=c.rows('SELECT sandbox_id,runtime_id FROM runtime_binding ORDER BY sandbox_id')==baseline
             event('finished',complete=report['complete'],cleanup_failures=len(failures),bindings_preserved=report['bindings_preserved'])
