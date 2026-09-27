@@ -1,0 +1,1 @@
+{"phase": {"phase": "all-running", "count": 50}, "snapshot": {"at": 1790532139.255117, "charged": [["b200-01", 46], ["vps", 4]]}, "b200_stats": "baarcha-cube-worker-b200-01 CPU=37.78% RAM=54.79GiB / 168GiB\nglm53-flash CPU=374.32% RAM=79.07GiB / 1.968TiB\nsome avg10=0.00 avg60=0.33 avg300=0.76 total=647452167\nfull avg10=0.00 avg60=0.33 avg300=0.76 total=645738499\n"}

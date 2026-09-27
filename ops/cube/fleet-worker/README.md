@@ -1,16 +1,33 @@
 # B200 worker VM canary
 
-## Capacity expansion in progress — 2026-09-27
+## Fifty concurrent sandboxes verified — 2026-09-27
 
-The current target is **4 VPS + 46 B200 active sandboxes**, each retaining
-2 vCPU/2 GiB. This is not yet a measured production capacity. The controller's
-real SQLite/provider protocol tests pass for 50 reservations, rejection of the
-51st, per-worker preview routing, pause/wake/delete, and retained charges after
-uncertain placement. Production now runs controller image
-`sha256:918d1cf4b1156c11a593dc7e2e90d19e21127ac8583b8501630d311d2e9d4063`
-with migration0038 and explicit VPS placement, still on its four-slot policy.
-`controller-pin-release.py` completed the existing guarded controller-only drain
-and restore, preserving all74bindings and restarting no guest or worker.
+The production fleet is enabled with **4 VPS +46 B200 active sandboxes**, each
+retaining2 vCPU/2 GiB. The real canonical-API test passed at18:12UTC:50 native
+running/placement proofs,150 successful private-page checks in three rounds,
+51st-create refusal, and B200 pause/wake (11.29seconds). Continuous background
+visitors kept fixtures active under the saved120-second idle policy. All51 owned
+apps were removed; all74 original bindings remained intact. Customer routing
+and background services were restored. Public HTTPS on a subsequent B200 canary
+returned200 with signed access and401 without it; owned cleanup passed.
+
+Evidence is in `results/2026-09-27-capacity-50/`. The workloads were lightweight
+Vite pages, not fifty concurrent builds. At fifty running, the B200 hypervisor
+used54.79GiB of its168GiB ceiling and37.78% Docker CPU (about0.38CPU cores).
+The inference container remained running. No GPU is exposed to the worker.
+The native connection-renewal path was slow under concurrent requests: the
+three-round results record the timings. A same-page pair took22.21s for renewal
+and0.282s while cached. A five-minute readiness cache change has passed focused
+race tests but is not yet deployed; the independent idle policy is unchanged.
+
+Production controller image is
+`sha256:918d1cf4b1156c11a593dc7e2e90d19e21127ac8583b8501630d311d2e9d4063`,
+with migration0038, durable worker partitions and explicit node placement.
+The controller container is
+`5912348b37866c34829724da380b44aac2070ac90261e666534fdbead8ebfa03`.
+Automatic relocation of existing paused projects and worker-aware automatic
+reboot recovery remain incomplete. The user has now requested a100-sandbox
+stress test with copies of all existing projects plus fillers; it is not yet run.
 
 The empty B200 pilot was cleanly stopped and expanded to 112 vCPU, 160 GiB guest
 RAM, a 168 GiB process ceiling, and a 1 TiB XFS data disk. The stopped pilot
@@ -22,10 +39,9 @@ No GPU device, host Docker socket, inference data or host root is exposed.
 Cubelet is installed and running with the same production patched binary,
 SHA256 `de3bd4c1a4db12c11d58cf7f558589f04ab4b3d736d4e72a947d45b8343bef9b`.
 Persistent metadata databases are verified on XFS. The worker node
-`10.254.240.2` is registered **healthy and scheduling-disabled**. Quota is
+`10.254.240.2` is registered healthy and enabled for production admission. Quota is
 106000m CPU/112 GiB RAM; active capacity must still be enforced by the controller.
-Keep it disabled until VPS creates are explicitly pinned and live acceptance
-passes. Worker boot pin: `10a17f4e-b974-4837-971a-882b15e7c337`.
+VPS creates are explicitly pinned and live fleet acceptance has passed. Worker boot pin: `10a17f4e-b974-4837-971a-882b15e7c337`.
 
 The private control forwarding unit exposes CubeOps, CubeMaster, TemplateCenter,
 Redis and lifecycle-manager only to the worker WireGuard peer. A worker-local
@@ -42,7 +58,7 @@ objects with ephemeral transfer keys, bounded parallel downloads, GCM validation
 and the authoritative raw filesystem hash. They copy no Cube metadata, customer
 workspace, AWS credential, or controller master key. Cube still owns template
 registration. All nine encrypted artifacts have been published; worker cache
-verification is in progress. The source cache lives separately at
+verification and native registration have completed for all nine templates. The source cache lives separately at
 `/data/cube-fleet-artifact-cache`; Cube owns its disposable copies under
 `/data/cube-fleet-rootfs`, referenced by the normal `cubebox_os_image` path.
 Retries delete Cube's copy, so merely prewarming that directory is insufficient.
@@ -55,9 +71,8 @@ cache, while its other control connections retain their normal private targets.
 Install `cube-fleet-artifact-cache.service` in the compute target, with its script
 under `/usr/local/lib/baarcha-cube-fleet`. The service has read-only filesystem
 access and can connect only to loopback and the private coordinator.
-The React/Vite B200 replica reached READY in job
-`421d7d70-41fa-402a-aed7-e22278dc9601`; this is template acceptance, not proof that
-fifty concurrent workloads work.
+All nine B200 replicas reached READY before live fleet acceptance. The
+React/Vite job was `421d7d70-41fa-402a-aed7-e22278dc9601`.
 
 The separate native application canary passed at17:08UTC. It created a VM on
 B200 in1.85s, reached its authenticated supervisor in4.52s, imported a small
@@ -84,8 +99,25 @@ Both probes now pass: the B200 backing filesystem UUID is
 `9adc3783-c99f-438d-8826-542c0da5e63e`, with about4.9TiB free at enrollment.
 The guest has about946GiB free. Preserve observer sequence state independently;
 the configured `outer_boot_id` and monotonic clock belong to the VPS coordinator.
-This does not permit admission until controller placement and live acceptance
-also pass.
+Its separate guard and read-only observation mount are now enrolled in the
+controller fleet config.
+
+`controller-fleet-release.py` performs the controller-only fleet enrollment
+under the existing deployment and worker locks. `accept-fleet.py` creates owned
+private apps through the canonical API and verifies distinct pages, native
+running state and placement, overflow refusal and pause/wake. The saved admin
+idle timeout is120seconds, so the harness sends continuous visitor requests
+while it creates the remaining fixtures. Initial pages may take up to60seconds
+to become ready; steady-state checks require successful responses.
+
+The `finish-fleet-release*.py` and `reconcile-fleet-test-cleanup.py` files are
+incident-specific continuations pinned to exact process/container generations.
+They are an audit record, not reusable deployment commands. Continuations retain
+the same open-file-description locks without an unlocked gap. The cleanup repair
+is restricted to two owned test fixtures with acknowledged native deletion,
+404 responses and complete native inventories; it retains storage grants
+conservatively and preserves the controller generation and all customer bindings.
+Never generalize a native500 response into proof of deletion.
 
 The sections below record the earlier pilot and initial network work.
 

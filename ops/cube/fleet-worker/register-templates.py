@@ -41,7 +41,7 @@ def main():
             assert current['artifact_id']==m['artifact_id'];continue
         result=call('/cube/template/redo',{'template_id':m['template_id'],'distribution_scope':['10.254.240.2'],
                     'failed_only':True,'wait':False,'requestID':str(uuid.uuid4())})
-        job=result['job_id'];began=time.monotonic()
+        job=result['job']['job_id'];began=time.monotonic()
         print(json.dumps({'template':m['template_id'],'job':job,'started':True}),flush=True)
         while True:
             current=replica()
