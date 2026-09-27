@@ -29,7 +29,9 @@ async function main() {
   const encrypted = file + '.enc';
   await pipeline(fs.createReadStream(file), cipher, fs.createWriteStream(encrypted, {mode:0o600, flags:'wx'}));
   const region = 'eu-central-1', bucket = 'punicas';
-  const objectKey = `baarcha/cube/test-copies/${manifest.sha256}/${crypto.randomUUID()}.zip.enc`;
+  const relocation = manifest.kind === 'project-relocation-v1';
+  if (relocation && !['workspace','home','history'].includes(manifest.role)) throw Error('invalid relocation role');
+  const objectKey = `baarcha/cube/${relocation ? 'project-moves' : 'test-copies'}/${manifest.sha256}/${crypto.randomUUID()}.zip.enc`;
   const client = new S3Client({region, maxAttempts:2});
   try {
     await client.send(new PutObjectCommand({Bucket:bucket, Key:objectKey,
@@ -44,7 +46,7 @@ async function main() {
       path:'/'+objectKey, headers:{host, 'x-amz-content-sha256':'UNSIGNED-PAYLOAD'}, query:{}}, {expiresIn:21600});
     const query = new URLSearchParams();
     for (const [k,v] of Object.entries(signed.query)) for (const value of Array.isArray(v) ? v : [v]) query.append(k,value);
-    const receipt = {...manifest, workspace_sha256:manifest.sha256, bucket, object_key:objectKey, url:`https://${host}/${objectKey}?${query}`,
+    const receipt = {...manifest, workspace_sha256:manifest.sha256, bucket, object_key:objectKey, version_id:head.VersionId, url:`https://${host}/${objectKey}?${query}`,
       key:key.toString('base64'), iv:iv.toString('base64'), tag:cipher.getAuthTag().toString('base64'),
       compressed_bytes:stat.size};
     await fsp.writeFile(receiptPath, JSON.stringify(receipt), {mode:0o600, flag:'wx'});
