@@ -8,6 +8,11 @@ import base64, concurrent.futures, fcntl, hashlib, http.client, json, os, re, so
 from pathlib import Path
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+class LocalGuestError(Exception):
+    def __init__(self, method, path, status):
+        self.operation = method+" "+path
+        self.status = status
+
 def manifest(path):
     h = hashlib.sha256(); size = 0
     with zipfile.ZipFile(path) as z:
@@ -94,15 +99,24 @@ def main(job):
     headers = job['headers']
     assert set(headers) == {'Host', 'Authorization', 'cube-traffic-access-token'}
     assert headers['Host'].startswith('3031-') and not any('\n' in str(v) or '\r' in str(v) for v in headers.values())
-    def request(method, path, body=None):
+    def once(method, path, body=None):
         conn = http.client.HTTPConnection('10.254.240.2', 28080, timeout=600)
         try:
             extra = {} if body is None else {'Content-Length': str(archive.stat().st_size), 'Content-Type': 'application/zip'}
             conn.request(method, path, body, {**headers, **extra}); r = conn.getresponse()
             value = r.read(1024*1024+1); assert len(value) <= 1024*1024
-            assert r.status == 200, 'local guest operation failed'
+            if r.status != 200: raise LocalGuestError(method, path, r.status)
             return json.loads(value) if value else None
         finally: conn.close()
+    def request(method, path, body=None):
+        until = time.monotonic()+60
+        while True:
+            try: return once(method, path, body)
+            except LocalGuestError as error:
+                # A newly-created VM can be running before its local supervisor
+                # is reachable. Retry only idempotent control calls, never PUT.
+                if body is not None or error.status not in (502,503,504) or time.monotonic()>=until: raise
+                time.sleep(1)
     boot = request('GET', '/status')['runtimed']['booted_at']
     request('POST', '/workspace/quiesce')
     with archive.open('rb') as source: request('PUT', '/import/private-workspace-v2', source)
@@ -136,5 +150,5 @@ if __name__ == '__main__':
         print(json.dumps(main(json.loads(raw))), flush=True)
     except Exception as error:
         # HTTP exceptions can contain presigned URLs. Never print them.
-        print(json.dumps(dict(error=type(error).__name__, line=traceback.extract_tb(error.__traceback__)[-1].lineno)), flush=True)
+        print(json.dumps(dict(error=type(error).__name__, line=traceback.extract_tb(error.__traceback__)[-1].lineno, operation=getattr(error,'operation',None), status=getattr(error,'status',None))), flush=True)
         sys.exit(1)
