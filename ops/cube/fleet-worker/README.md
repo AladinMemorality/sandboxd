@@ -27,7 +27,25 @@ exact test copies; `delete-test-copies.mjs` deletes the recorded S3 objects afte
 the owned guests have been removed. These are not permanent deployment objects.
 The original direct-copy test was stopped with customer bindings unchanged.
 
-## Current status — 2026-09-27, 20:33 UTC
+## Customer placement rollout — 2026-09-27, 22:10 UTC
+
+The user requested existing projects to use the available B200 capacity for
+tomorrow. A one-time, same-ID relocation is in progress; subsequent placement
+remains sticky. Twenty-two customer projects have passed content, preview and
+pause/wake checks. Remaining eligible web projects are being processed four at a
+time, with two source export slots and one native creation at a time. See
+`PROJECT_RELOCATION.md` for the protocol and private evidence locations.
+
+B200 Cubelet now runs
+`d4c3f2813cd77979d6a456a31eb7615195b0a01d847d91b50f312faea2a12650`.
+The bounded envd initialization fix passes its delay/deadline regression tests.
+VPS Cubelet and the deployed controller are unchanged. Native transaction tests,
+race tests, an isolated live migration and per-customer checks pass. The full
+100-running capacity test has not yet been rerun; do not infer acceptance from
+the 96+4 configuration. A fresh Avocall browser check passed with no opening
+overlay or JavaScript errors after relocation.
+
+## Previous checkpoint — 2026-09-27, 20:33 UTC
 
 The 100-copy attempt failed acceptance on creation/recovery errors. It did not
 reach the 100-running peak. All 100 temporary apps and their native runtimes have
