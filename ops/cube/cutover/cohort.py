@@ -190,6 +190,10 @@ class Host(p.Host):
         for path, digest in self.c['files'].items(): need(b.digest(path) == digest, 'Reviewed migration input changed')
     def source_fence(self, allow_running=False):
         for row in self.c['projects']: stopped_source(self.inspect(row['container_id']), row, allow_running)
+    def writers(self):
+        # Worker HTTP observations close asynchronously. Allow the unchanged
+        # drain checks to observe connection teardown before declaring failure.
+        return self.wait(lambda: super(Host, self).writers(), 30)
     def preflight(self, defer_busy=False):
         self.inputs()
         result = super().preflight(defer_busy=defer_busy)
