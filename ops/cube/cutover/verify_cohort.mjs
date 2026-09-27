@@ -56,6 +56,7 @@ try {
       const parsed = new URL(path, origin); assert(parsed.origin === origin.origin, 'Foreign preview asset refused');
       const target = new URL(rt); target.pathname = parsed.pathname; target.search = parsed.search;
       return request(target, {headers: {
+        accept: 'text/html,application/xhtml+xml,*/*;q=0.8',
         host: origin.host, cookie: 'sandbox_preview=' + access.json.token, 'x-forwarded-proto': 'https'}});
     };
     const began = performance.now(); let page;
@@ -75,6 +76,16 @@ try {
         && asset.body.length > 0, 'Application entry module unavailable');
     }
     result.entry_modules_verified = scripts.length;
+    if (['01M2P1KJ7G17D9QMFE7QNXG1YX', '01M3EX97H7T5C9588F4HDHXVX7'].includes(app)) {
+      assert(row.preset === 'node-express', 'Minecraft dashboard preset changed');
+      const health = await preview('/health');
+      assert(health.status === 200 && JSON.parse(health.body).status === 'ok', 'Minecraft dashboard health unavailable');
+      const status = await preview('/api/status');
+      assert(status.status === 200 && typeof JSON.parse(status.body).status === 'string', 'Minecraft dashboard status unavailable');
+      // The user explicitly removed public game tunnels from rollout scope.
+      // Native migration still verifies all archived files, including worlds.
+      result.minecraft_dashboard = {health: true, status: true, public_tunnel_verified: false};
+    }
     if (app === '01M3CKN983PFRGMD711PCEPDFD') {
       assert(sb === '01M3CKN99ZF90BEEA4DS66YAQV', 'Motion project identity changed');
       const status = await preview('/api/status');
@@ -105,10 +116,11 @@ try {
       result.postgres = {sql_health: true, application_tables_read: true, public_items: catalog.items.length};
     }
     result.files_verified = [];
-    // The two reviewed Next.js sources render app/page.js and have no static
-    // index.html. The native migration still verifies the entire workspace;
+    // Next.js sources render app/page.js; Express dashboards use server.js.
+    // The native migration still verifies the entire workspace;
     // these files additionally exercise the normal authenticated file API.
-    const sourceFiles = ['package.json', 'sandbox.yaml', row.preset === 'nextjs' ? 'app/page.js' : 'index.html'];
+    const sourceFiles = ['package.json', 'sandbox.yaml', row.preset === 'nextjs' ? 'app/page.js'
+      : row.preset === 'node-express' ? 'server.js' : 'index.html'];
     for (const name of sourceFiles) {
       const before = await fs.readFile(original + '/workspace/app/' + name);
       const current = await runtime('/v1/sandboxes/' + sb + '/files/content?path=' + encodeURIComponent(name));

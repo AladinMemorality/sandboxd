@@ -1,6 +1,11 @@
 # Minecraft / Playit migration
 
-Status: preparation only. The two Minecraft customer projects remain on Docker.
+Status: deferred by the user on September 27, 2026. Public game-tunnel support
+is not a rollout acceptance requirement. Migrate both projects with their files
+and worlds preserved and verify their web dashboards; then finish the Cube-only
+controller and global default. Do not block those steps on this transport.
+
+The two Minecraft customer projects remain on Docker as of this scope change.
 The claim admission primitive is implemented and tested, but no Playit service
 is registered, no template is changed, and no production network access is added.
 
@@ -68,9 +73,9 @@ Reviewed upstream: `playit-cloud/playit-agent` commit
 3. Add actual Minecraft status/ping plus the preserved public Playit tunnel to
    precommit and postmigration acceptance. A healthy dashboard alone is not
    sufficient. Compare retained world data and archives.
-4. Migrate each customer with the current operator locks and generation pins.
-   Only after both succeed, activate the Cube-only controller and global Cube
-   default. Preserve original Docker sources for rollback.
+4. These are future game-tunnel acceptance steps, separate from the authorized
+   customer migrations and controller/default cutover. Preserve original Docker
+   sources for rollback during the current rollout.
 
 ## Offline verification — September 27, 2026
 
