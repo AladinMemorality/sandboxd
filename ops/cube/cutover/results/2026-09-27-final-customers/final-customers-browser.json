@@ -1,0 +1,50 @@
+{
+  "started_at": "2026-09-27T10:25:50.400Z",
+  "projects": [
+    {
+      "owner": "mohamed-cherif",
+      "url": "https://baarcha.tn/apps/mohamed-cherif/minecraft-tunnel-server",
+      "errors": [],
+      "bad_responses": [],
+      "page_status": 200,
+      "body_characters": 2489,
+      "title": "Baarcha MC — server dashboard",
+      "overlay_count": 0,
+      "health": {
+        "status": 200,
+        "value": {
+          "status": "ok"
+        }
+      },
+      "dashboard": {
+        "status": 200,
+        "has_server_status": true
+      },
+      "success": true
+    },
+    {
+      "owner": "mahmoud-chrif",
+      "url": "https://baarcha.tn/apps/mahmoud-chrif/minecraft-tunnel-server",
+      "errors": [],
+      "bad_responses": [],
+      "page_status": 200,
+      "body_characters": 2506,
+      "title": "Baarcha MC — server dashboard",
+      "overlay_count": 0,
+      "health": {
+        "status": 200,
+        "value": {
+          "status": "ok"
+        }
+      },
+      "dashboard": {
+        "status": 200,
+        "has_server_status": true
+      },
+      "success": true
+    }
+  ],
+  "public_game_tunnels_in_scope": false,
+  "success": true,
+  "completed_at": "2026-09-27T10:25:56.405Z"
+}
