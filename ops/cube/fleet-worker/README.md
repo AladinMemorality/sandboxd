@@ -27,11 +27,31 @@ exact test copies; `delete-test-copies.mjs` deletes the recorded S3 objects afte
 the owned guests have been removed. These are not permanent deployment objects.
 The original direct-copy test was stopped with customer bindings unchanged.
 
+## Current status — 2026-09-27, 20:33 UTC
+
+The 100-copy attempt failed acceptance on creation/recovery errors. It did not
+reach the 100-running peak. All 100 temporary apps and their native runtimes have
+been removed, no test admission remains charged, all 74 customer bindings are
+unchanged, and production readiness passes. Worker test caches and source
+snapshot archives are removed. Deletion of all 74 encrypted S3 object versions
+is blocked by `AccessDenied`; private receipts are retained for exact cleanup.
+See `results/2026-09-27-capacity-100/README.md` for evidence and limitations.
+
+Current admission is configured for **96 B200 + 4 VPS**. The B200 worker now has
+224 vCPU, 224 GiB guest RAM, a 240 GiB process ceiling and a 2 TiB XFS disk;
+Cubelet quota is 221000m CPU / 208 GiB RAM. It has no GPU access. Boot pin:
+`aa712ab9-e328-46c7-acdc-1770e34bec95`. The production controller is
+`f24219dcefc79e46b716b2a52cc417496514103669d5cc657a961ad8b9feb43e`, image
+`sha256:9a5a15c19687a6d407a071f54cf51a3f5c17aa86a71597280e547326daa6143e`.
+The five-minute preview readiness cache is deployed. Fifty simultaneous
+sandboxes remain the largest completed acceptance test. The sections below
+record that earlier acceptance and initial worker setup, not current sizing.
+
 # B200 worker VM canary
 
 ## Fifty concurrent sandboxes verified — 2026-09-27
 
-The production fleet is enabled with **4 VPS +46 B200 active sandboxes**, each
+The production fleet was tested with **4 VPS +46 B200 active sandboxes**, each
 retaining2 vCPU/2 GiB. The real canonical-API test passed at18:12UTC:50 native
 running/placement proofs,150 successful private-page checks in three rounds,
 51st-create refusal, and B200 pause/wake (11.29seconds). Continuous background
@@ -46,17 +66,17 @@ used54.79GiB of its168GiB ceiling and37.78% Docker CPU (about0.38CPU cores).
 The inference container remained running. No GPU is exposed to the worker.
 The native connection-renewal path was slow under concurrent requests: the
 three-round results record the timings. A same-page pair took22.21s for renewal
-and0.282s while cached. A five-minute readiness cache change has passed focused
-race tests but is not yet deployed; the independent idle policy is unchanged.
+and0.282s while cached. The subsequent five-minute readiness cache change passed
+focused race tests and is now deployed; the independent idle policy is unchanged.
 
-Production controller image is
+At this earlier acceptance, the production controller image was
 `sha256:918d1cf4b1156c11a593dc7e2e90d19e21127ac8583b8501630d311d2e9d4063`,
 with migration0038, durable worker partitions and explicit node placement.
-The controller container is
+The controller container was
 `5912348b37866c34829724da380b44aac2070ac90261e666534fdbead8ebfa03`.
 Automatic relocation of existing paused projects and worker-aware automatic
-reboot recovery remain incomplete. The user has now requested a100-sandbox
-stress test with copies of all existing projects plus fillers; it is not yet run.
+reboot recovery remain incomplete. The subsequent 100-copy stress test failed
+acceptance, as recorded above.
 
 The empty B200 pilot was cleanly stopped and expanded to 112 vCPU, 160 GiB guest
 RAM, a 168 GiB process ceiling, and a 1 TiB XFS data disk. The stopped pilot
