@@ -37,6 +37,16 @@ An explicit `--keep-vps=<sandbox-id>` leaves a project assigned to VPS while
 `--remaining` selects the idle customer cohort under the shared locks. The live
 capacity acceptance includes customer web projects on both workers. Minecraft
 tunnels are excluded from HTTP acceptance per the user's prioritization.
+The acceptance temporarily pauses an already running tunnel only if it has no
+active task, journals it, and restores its original running state after test
+cleanup. Every slot at the measured peak must serve a verified HTTP page.
+
+`proxy-compression.py` stages and syntax-checks the modern JavaScript gzip MIME
+types on the pinned B200 proxy. Applying it requires the same operator locks;
+it preserves the mounted configuration inode and gracefully reloads Nginx.
+The local measurement compares decoded hashes and reports wire sizes without
+carrying asset contents over the management link. Configuration and credential
+inputs remain private. A staged candidate is not evidence of a live change.
 
 Validation includes transaction/race tests, a disposable same-ID live move, and
 per-customer file/preview/wake evidence. `accept-live-capacity.py` separately

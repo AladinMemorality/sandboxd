@@ -38,6 +38,13 @@ def main():
     config = config.replace('set $timeout_min 500;', 'set $timeout_min 2000;').replace('set $timeout_max 700;', 'set $timeout_max 3000;')
     (DEST / 'global.conf').write_text(config)
     nginx = (ROOT / 'nginx.conf').read_text()
+    # Vite and modern application servers use these current JavaScript types.
+    # Compress at the worker before bytes cross the management network.
+    matches=list(re.finditer(r'(?m)^\s*gzip_types\s+([^;]+);',nginx));assert len(matches)==1
+    match=matches[0];types=match.group(1).split()
+    for content_type in ('application/javascript','text/javascript'):
+        if content_type not in types:types.append(content_type)
+    nginx=nginx[:match.start(1)]+' '.join(types)+nginx[match.end(1):]
     for old, new in [('worker_processes auto;', 'worker_processes 4;'),
                      ('listen 80 reuseport;', 'listen 10.254.240.2:28080 reuseport;'),
                      ('listen 443 ssl reuseport;', 'listen 10.254.240.2:28443 ssl reuseport;'),

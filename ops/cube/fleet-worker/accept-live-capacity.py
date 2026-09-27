@@ -23,6 +23,10 @@ def main():
         assert sum(row['worker_id']=='b200-01' for row in projects)>=50,'relocate customer projects before acceptance'
         assert sum(row['worker_id']=='vps' for row in projects)<=4,'VPS customer cohort exceeds its running budget'
         c.save(job/'baseline.json',baseline);c.save(job/'projects.json',projects)
+        # Temporarily park the explicitly deprioritized TCP-only tunnels so
+        # every slot counted in this HTTP test has a page we can verify.
+        excluded=c.rows("SELECT s.id sandbox_id,s.status FROM sandbox s JOIN app a ON a.id=s.app_id WHERE a.name LIKE 'minecraft-tunnel%'")
+        parked=[]
         apps=[];ready={};guard=threading.Lock();stop=threading.Event();errors=[]
         report=dict(complete=False,profile='migrated customer pages plus private Vite fillers',target=target,customer_projects=len(projects))
         def event(phase,**kw):
@@ -60,6 +64,11 @@ def main():
                 except Exception as e:errors.append(type(e).__name__);return
         thread=threading.Thread(target=traffic,daemon=True);thread.start()
         try:
+            for row in excluded:
+                if row['status']=='running':
+                    assert not c.rows("SELECT task_id FROM task WHERE sandbox_id=? AND status='running'",(row['sandbox_id'],)), 'excluded tunnel has an active task'
+                    parked.append(row);c.save(job/'parked.json',parked)
+                    status,_=c.api('POST','/v1/sandboxes/'+row['sandbox_id']+'/stop');assert status==200
             # Serial wake batches avoid overwhelming the management link while
             # the traffic thread keeps earlier projects warm.
             for offset in range(0,len(projects),4):
@@ -137,6 +146,9 @@ def main():
                 if row['status']=='stopped' and not c.rows("SELECT task_id FROM task WHERE sandbox_id=? AND status='running'",(row['sandbox_id'],)):
                     status,_=c.api('POST','/v1/sandboxes/'+row['sandbox_id']+'/stop')
                     if status!=200:failures.append(row['sandbox_id'])
+            for row in parked:
+                status,_=c.api('POST','/v1/sandboxes/'+row['sandbox_id']+'/start')
+                if status!=200:failures.append(row['sandbox_id'])
             report['cleanup_failures']=failures
             report['bindings_preserved']=c.rows('SELECT sandbox_id,runtime_id FROM runtime_binding ORDER BY sandbox_id')==baseline
             event('finished',complete=report['complete'],cleanup_failures=len(failures),bindings_preserved=report['bindings_preserved'])
