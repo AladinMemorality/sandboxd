@@ -12,6 +12,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"testing"
 	"time"
@@ -56,10 +57,15 @@ func TestControllerProcessWithoutDocker(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "secrets.key"), []byte(key), 0600); err != nil {
 		t.Fatal(err)
 	}
+	var providerCalls atomic.Int32
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "GET" || r.URL.Path != "/sandboxes" {
 			t.Errorf("unexpected provider operation %s %s", r.Method, r.URL.Path)
 			http.Error(w, "unexpected", 500)
+			return
+		}
+		if providerCalls.Add(1) <= 3 {
+			http.Error(w, "relay starting", http.StatusServiceUnavailable)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")

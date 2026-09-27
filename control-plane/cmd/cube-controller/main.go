@@ -215,8 +215,11 @@ func run() (runErr error) {
 	if err != nil {
 		return err
 	}
-	readyCtx, readyCancel := context.WithTimeout(ctx, 10*time.Second)
-	err = server.CubeReadiness(readyCtx)
+	// The management relays join this container's network namespace after it
+	// starts. Retain that namespace while they come up; do not serve requests or
+	// reconcile tenant state until the same storage/provider checks succeed.
+	readyCtx, readyCancel := context.WithTimeout(ctx, 120*time.Second)
+	err = waitForReadiness(readyCtx, server.CubeReadiness)
 	readyCancel()
 	if err != nil {
 		return errors.New("Cube worker/storage readiness failed")
@@ -305,6 +308,22 @@ func run() (runErr error) {
 		}
 	}
 	return err
+}
+
+func waitForReadiness(ctx context.Context, check func(context.Context) error) error {
+	for {
+		attempt, cancel := context.WithTimeout(ctx, 5*time.Second)
+		err := check(attempt)
+		cancel()
+		if err == nil {
+			return ctx.Err()
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(250 * time.Millisecond):
+		}
+	}
 }
 
 func strictAuth(get func(string) string) (*auth.Config, error) {
