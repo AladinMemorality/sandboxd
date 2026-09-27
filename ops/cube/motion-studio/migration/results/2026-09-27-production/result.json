@@ -1,0 +1,124 @@
+{
+  "version": 1,
+  "production": {
+    "observed_at": 1790502545.8829181,
+    "controller_id": "acb3e438285f19c51ea7155ff968ac3c8711471194fab73f95e417411a1edb0a",
+    "image": "sha256:73e4f38a9a4373f861dd2648ce09a0ea79551681d1fbf31da931bd7da8457295",
+    "fleet": {
+      "cube": 71,
+      "docker": 2
+    },
+    "journals": {
+      "complete": 70
+    },
+    "tasks": {
+      "failed": 42,
+      "succeeded": 123
+    },
+    "all_four_locks_reacquired": true,
+    "ready": true,
+    "full_online_routes_verified": true,
+    "films": 7,
+    "active_film_jobs": 0,
+    "cube_default_enabled": false,
+    "cube_only_controller_deployed": false
+  },
+  "migration_restoration": {
+    "version": 1,
+    "observed_at": 1790468284.7058187,
+    "unit": {
+      "MainPID": "0",
+      "Result": "success",
+      "ExecMainStatus": "0",
+      "ActiveState": "inactive",
+      "InvocationID": ""
+    },
+    "all_four_locks_reacquired": true,
+    "full_online_routes_equal": true,
+    "controller_ready": true,
+    "original_sources_retained_stopped": 1,
+    "fleet": {
+      "cube": 71,
+      "docker": 2
+    },
+    "migrations": {
+      "complete": 70
+    },
+    "tasks": {
+      "failed": 42,
+      "succeeded": 123
+    },
+    "maintenance_seconds": 263.08228516578674,
+    "online_at": 1790468244.0004554
+  },
+  "burst_release": {
+    "version": 1,
+    "observed_at": 1790501786.330877,
+    "unit": {
+      "MainPID": "0",
+      "Result": "success",
+      "ExecMainStatus": "0",
+      "ActiveState": "inactive",
+      "InvocationID": ""
+    },
+    "all_four_locks_reacquired": true,
+    "full_online_routes_equal": true,
+    "controller_ready": true,
+    "original_sources_retained_stopped": 1,
+    "fleet": {
+      "cube": 71,
+      "docker": 2
+    },
+    "migrations": {
+      "complete": 70
+    },
+    "tasks": {
+      "failed": 42,
+      "succeeded": 123
+    },
+    "maintenance_seconds": 49.33449172973633,
+    "online_at": 1790501734.0510256
+  },
+  "browser": {
+    "motion": {
+      "started_at": "2026-09-27T09:47:07.038Z",
+      "completed_at": "2026-09-27T09:47:10.335Z",
+      "url": "https://baarcha.tn/apps/aladin/motion-studio",
+      "success": true,
+      "page_status": 200,
+      "body_characters": 1081,
+      "overlay_count": 0,
+      "errors": []
+    },
+    "avocall": {
+      "started_at": "2026-09-27T09:36:04.781Z",
+      "completed_at": "2026-09-27T09:36:09.859Z",
+      "url": "https://baarcha.tn/apps/aladin/avocall-redesign",
+      "success": true,
+      "page_status": 200,
+      "body_characters": 5302,
+      "overlay_count": 0,
+      "errors": []
+    }
+  },
+  "motion_worker": {
+    "status": 200,
+    "mode": "shared-workspace",
+    "projects_status": 200,
+    "projects": 7
+  },
+  "loaded_posters": 7,
+  "queue_source_commit": "b9e74a8",
+  "proxy_before_sha256": "e18a9353d333a582998aee231923072316ef4166eb5688aee7feaf3b45f7cef9",
+  "proxy_after_sha256": "c9a527a4afa06144d970a811e1a6f26c3ceef2ccbcca8fb7db17cb4a4ed98ea0",
+  "manifest_after_sha256": "c11440adc6d65b92acd8aadd1f1e27a65049bc06ccc763630686aebd36bd6a7a",
+  "app_tests": {
+    "passed": 24,
+    "failed": 0,
+    "production_build": true,
+    "original_abort_crash_reproduced": true,
+    "fixed_abort_survives": true
+  },
+  "paid_jobs_submitted": 0,
+  "global_migration_complete": false
+}
