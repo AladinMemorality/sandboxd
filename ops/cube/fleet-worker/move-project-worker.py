@@ -148,6 +148,9 @@ class Worker:
             # while comparing every source entry without dropping any paths.
             home['entries'].append(dict(path='.bash_logout',disposition='preserve'))
             stock['.bash_logout']=[2175008768,220,'26882b79471c25f945c970f8233d8ce29d54e9d5eedcd2884f88affa84a18f56']
+        if not any(e['path']=='.cache' or e['path'].startswith('.cache/') for e in home['entries']):
+            home['entries'].append(dict(path='.cache',disposition='preserve'))
+            stock['.cache/']=[1106051088,0,'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855']
         for role,method,path,body in [('workspace','GET','/export/private-workspace-v2',None),('home','POST','/export/private-home-v2',home),('history','POST','/export/private-task-history',{'task_ids':self.job['source']['task_ids']})]:
             verify=self.root/(role+'.verify.zip');self.http(method,path,body,export=verify)
             assert digest(verify,stock if role=='home' else None)==self.job['receipts'][role]['sha256'],role+' differs after import';verify.unlink()

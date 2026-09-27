@@ -26,4 +26,13 @@ class StateComparison(unittest.TestCase):
             for entries in [[],[('.bash_logout',b'evil',mode)],[('.bash_logout',b'safe',0o100777<<16)]]:
                 self.archive(target,entries)
                 with self.assertRaises(AssertionError):w.digest(target,reviewed)
+    def test_empty_template_cache_does_not_hide_cache_content(self):
+        with tempfile.TemporaryDirectory() as folder:
+            source=Path(folder)/'source.zip';target=Path(folder)/'target.zip'
+            item=('app.txt',b'customer',0o100644<<16);mode=0o40755<<16|16
+            reviewed={'.cache/':[mode,0,hashlib.sha256(b'').hexdigest()]}
+            self.archive(source,[item]);self.archive(target,[item,('.cache/',b'',mode)])
+            self.assertEqual(w.digest(source),w.digest(target,reviewed))
+            self.archive(target,[item,('.cache/',b'',mode),('.cache/new-file',b'unexpected',0o100644<<16)])
+            self.assertNotEqual(w.digest(source),w.digest(target,reviewed))
 if __name__=='__main__':unittest.main()

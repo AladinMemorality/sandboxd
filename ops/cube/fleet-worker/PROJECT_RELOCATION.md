@@ -12,8 +12,9 @@ Only bounded jobs and verification receipts cross the management link.
 
 The worker compares paths, modes and file hashes before starting the restored
 application. Fresh templates may contain the reviewed Debian `.bash_logout`
-file absent from older migrated homes: its exact hash, size and mode are checked
-separately. Every source entry must still match, and unexpected paths fail the
+file or an empty `.cache/` absent from older migrated homes: their exact hashes,
+sizes and modes are checked separately. Cache children are never excluded.
+Every source entry must still match, and unexpected paths fail the
 comparison. Reviewed home manifests reject unknown files; fresh Cube homes use
 the strict template manifest. Source exports are never silently reused.
 
