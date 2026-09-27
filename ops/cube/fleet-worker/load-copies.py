@@ -40,7 +40,10 @@ def clone(app):
  scoped(app);out=GUESTS/app['id'];out.mkdir(mode=0o700,exist_ok=True)
  if (out/'complete.json').exists():
   row=json.loads((out/'complete.json').read_text())
-  status,_=c.api('POST','/v1/sandboxes/'+row['sandbox_id']+'/start');assert status==200
+  current=c.rows('select app_id,status from sandbox where id=?',(row['sandbox_id'],))
+  assert len(current)==1 and current[0]['app_id']==app['id']
+  if current[0]['status']!='running':
+   status,_=c.api('POST','/v1/sandboxes/'+row['sandbox_id']+'/start');assert status==200
   with ready_lock:ready.append(row)
   return row
  source=app['source'];preset=source['runtime_preset'] if source else 'react-vite'
@@ -56,6 +59,13 @@ def clone(app):
    status,_=c.api('POST','/v1/apps/'+app['id']+'/config',dict(key=config['key'],value=value['value'],sensitive=bool(config['sensitive']),access_policy='runtime_access'))
    assert status in (201,409),'clone runtime config rejected'
  with create_lock:
+  if not (out/'created.json').exists():
+   existing=c.rows('select id from sandbox where app_id=?',(app['id'],))
+   assert len(existing)<=1
+   if existing:
+    # An interrupted coordinator may lose the create response. Adopt only the
+    # exact owner-checked test app's canonical runtime, never create a duplicate.
+    c.save(out/'created.json',dict(app_id=app['id'],sandbox_id=existing[0]['id'],source_sandbox_id=source['sandbox_id'] if source else None,create_seconds=None,recovered_create=True))
   if (out/'created.json').exists():
    row=json.loads((out/'created.json').read_text())
    assert c.rows('select app_id from sandbox where id=?',(row['sandbox_id'],))==[dict(app_id=app['id'])]
@@ -151,7 +161,15 @@ def run_b200():
      row=future.result();assert row['worker_id']=='b200-01','copy did not land on B200'
     except Exception as error:
      failed.append(futures[future]);c.save(GUESTS/futures[future]/'failure.json',dict(error=str(error)));event('copy-failed',app_id=futures[future])
-  assert not failed,'some copies require review'
+  # Operator retries publish a fresh exact-hash result. Reconcile those results
+  # before peak; a failed attempt by itself never counts as a verified copy.
+  unresolved=[]
+  for aid in failed:
+   app=next(a for a in PLAN['apps'] if a['id']==aid)
+   if not (GUESTS/aid/'local-import-result.json').exists():unresolved.append(aid);continue
+   with ready_lock:ready[:]=[r for r in ready if r['app_id']!=aid]
+   row=clone(app);assert row['worker_id']=='b200-01'
+  assert not unresolved,'some copies require review'
   event('b200-ready',copies=96)
   peak()
  finally:
