@@ -20,6 +20,12 @@ func TestProjectPlacementScopeIsExplicitAndCopied(t *testing.T) {
 	if !strings.Contains(string(body), `"distributionScope":["node-b200"]`) {
 		t.Fatal("wire placement missing")
 	}
+	for _, node := range []string{"10.254.240.2", "fd00::2"} {
+		in.DistributionScope = []string{node}
+		if _, err = prepareCreate(in); err != nil {
+			t.Fatalf("Cube accepts an explicit node IP: %s: %v", node, err)
+		}
+	}
 	for _, scope := range [][]string{{"one", "two"}, {"../bad"}, {""}} {
 		in.DistributionScope = scope
 		if _, err = prepareCreate(in); err == nil {

@@ -106,7 +106,7 @@ func prepareCreate(in CreateRequest) (CreateRequest, error) {
 		return in, errors.New("Cube fleet placement requires one reserved node")
 	}
 	for _, node := range in.DistributionScope {
-		if validateID(node) != nil {
+		if validateID(node) != nil && net.ParseIP(node) == nil {
 			return in, errors.New("invalid Cube placement node")
 		}
 	}

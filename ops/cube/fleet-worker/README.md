@@ -69,3 +69,58 @@ Automatic restart is deliberately disabled for this canary. Shut down cleanly
 through the guest or QMP `system_powerdown` and verify process exit before changes
 to its disks. A Docker stop or forced QEMU exit is crash recovery, not a clean
 checkpoint. No customer backup or production retention policy changes here.
+
+## Initial boot verified — 2026-09-27
+
+The candidate booted and completed cloud-init in about35seconds. SSH identity
+was matched to the trusted serial console before login. Kernel
+`6.8.0-139-generic`, eight CPUs, nested `/dev/kvm`, the expected64/256GiB disk
+serials, and absence of NVIDIA devices were verified from inside the worker VM.
+Boot ID `c5a2d884-8a99-4b5b-8a5d-9e79654df4b8` identifies this observation.
+Host-key fingerprint `SHA256:4cxrBXHr9xjcRCzOdu+jSm0s2zpP2ytCrBfI/cXAa0A`.
+The separate source rebuild tests pass on the B200 host in a bounded runc guest
+container; that is not yet an end-to-end Cube microVM deployment test.
+
+The new `/dev/vdb` was verified empty before `initialize-data.py` formatted it.
+It is mounted at `/data` as XFS with reflink and project quotas, UUID
+`8b9f945d-a7b6-4b53-bdd3-f001b17300f5`. The script is fenced to this initial boot
+and refuses an existing filesystem. Its first attempt rejected an overlong label
+before formatting; the reviewed shorter label `cube-b200` succeeded.
+
+Docker29.1.3 and worker prerequisites are installed inside the VM. The default
+Docker bridge overlapped the outer host's bridge and interrupted SSH replies.
+`configure-docker-network.py` verified zero containers, then changed only the
+new VM to `10.253.0.1/24` with allocation pool `10.253.128.0/17`. Normal SSH
+recovered. The static Go `ssh-relay` and `stdio-ssh.sh` provide an operator recovery
+path through hypervisor loopback, retaining end-to-end guest SSH authentication.
+Build the relay on Linux with `CGO_ENABLED=0 go build -o ssh-relay ssh-relay.go`,
+place it mode0700 in the private worker directory, and use `stdio-ssh.sh` as the
+remote SSH ProxyCommand. The earlier shell-only relay did not work; use the Go
+binary. No SSH private key was copied to the B200 host.
+
+## Private management link verified
+
+`configure-link.py` prepares an exclusive root0600 WireGuard configuration using
+keys generated separately on each endpoint. The private keys stay on their own
+hosts; only public keys are exchanged. There is no DNS or default-route change.
+
+- VPS coordinator: `wg-cube-fleet`, `10.254.240.1/24`.
+- B200 worker VM: `wg-cube-fleet`, `10.254.240.2/32`.
+- Transport: existing private ZeroTier network, VPS endpoint `10.40.14.69:51827`.
+- VPS firewall permits UDP51827 only on `zt33ooxlbk` from `10.40.14.68` to
+  `10.40.14.69`. A direct public UDP test did not arrive; its temporary firewall
+  allowance was removed after the private route passed.
+- Both `wg-quick@wg-cube-fleet` units are enabled. Their configs and keys are
+  root-private under `/etc/wireguard`. Worker keepalive is25s, interface MTU1380.
+- A five-packet warm check in each direction had no loss: averages281ms and289ms.
+  This is a short network check, not a soak test or app latency measurement.
+- SSH to worker address `10.254.240.2` through the VPS was verified against the
+  console-pinned host key. It confirmed XFS, Docker29.1.3 and no NVIDIA device.
+
+Cube worker services/templates are **not installed or registered yet**. The
+private link does not itself forward the VPS worker's loopback control services,
+validate dynamic preview routing, or enable customer overflow. The production
+controller remained container `154e72f54e3261c8287b50cbdde3a309df945033fbcbba96778ece9099f586e1`.
+
+The link follows the [WireGuard quick start](https://www.wireguard.com/quickstart/)
+with narrowly scoped peer routes and a private network endpoint.

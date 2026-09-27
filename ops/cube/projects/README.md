@@ -89,7 +89,8 @@ disposable target with `RUNTIMED_PROJECT_IMAGE` set to the trusted pinned image.
 - The existing production AWS credentials successfully published and fetched the
   encrypted operator fixture in `punicas`, `eu-central-1`. Decrypted contents
   matched the original hash. The tiny fixture round trip took 442 ms; this is
-  not a customer deployment latency estimate.
+  not a customer deployment latency estimate. Anonymous HEAD on the encrypted
+  canary object returned403; this does not establish every bucket policy setting.
 - In the VPS runtime image, both isolated guest tests pass. A fixture containing
   a local locked npm dependency rebuilt and served its expected HTTP response
   in about 436 ms after the container was available. Registry downloads and Cube
@@ -97,6 +98,15 @@ disposable target with `RUNTIMED_PROJECT_IMAGE` set to the trusted pinned image.
 - B200 preflight opened `/dev/kvm` in a bounded CPU-only runc container with no
   NVIDIA devices. Nested virtualization is enabled. This is not yet a complete
   Cube worker acceptance test.
+- The same isolated guest tests also pass on B200 without network or GPU access.
+  Locked local dependency rebuild plus HTTP readiness took about326ms after the
+  container was available. The full source-restore test passed as well. VPS and
+  B200 image filesystem/config hashes match:
+  `7949e019ffaf2c1af092609410f0f91e01c314e3e00535fabf5e9cff24770adf`.
+  Docker's image-store representation differs: VPS identifier
+  `sha256:38c1e17d0c108a597668048e45f6d662e6d1c225f598dd96b0256ba20f66873a`,
+  B200 imported identifier
+  `sha256:0ed224e62909d434480a8d48c0a1a236829279930622208318c8d15efeacba5f`.
 
 Use `cpu-only-rebuild-canary.sh LOCAL_IMAGE_ID RUNTIMED_TEST_BINARY` for the
 isolated guest tests. It requires the exact image already present, disables
