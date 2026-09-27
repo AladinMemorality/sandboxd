@@ -281,6 +281,27 @@ func main() {
 	if in.Action == "commit" {
 		var t target
 		privateRead(filepath.Join(in.Directory, "target.PRIVATE.json"), &t)
+		// Quiescence and the source fence are separate operations. A task may
+		// be submitted between export and fencing; its history must not be
+		// omitted even if the fenced DB snapshot itself remains unchanged.
+		var source struct {
+			SandboxID string   `json:"sandbox_id"`
+			RuntimeID string   `json:"runtime_id"`
+			TaskIDs   []string `json:"task_ids"`
+		}
+		privateRead(filepath.Join(in.Directory, "export-result.PRIVATE.json"), &source)
+		if source.SandboxID != j.SandboxID || source.RuntimeID != j.SourceRuntimeID || len(source.TaskIDs) != j.TaskCount {
+			panic("source task snapshot differs from fence")
+		}
+		seen := map[string]bool{}
+		for _, id := range source.TaskIDs {
+			task, err := db.GetTask(ctx, id)
+			must(err)
+			if seen[id] || task.SandboxID != j.SandboxID {
+				panic("source task identity differs")
+			}
+			seen[id] = true
+		}
 		var p proof
 		privateRead(filepath.Join(in.Directory, "verified.json"), &p)
 		if t.Relocation.ID != j.ID || t.Runtime == nil || p.RelocationID != j.ID || p.SandboxID != j.SandboxID || p.RuntimeID != t.Runtime.SandboxID || p.WorkerID != j.TargetWorker || !p.WorkspaceVerified || !p.HomeVerified || !p.HistoryVerified || !p.ConfigApplied || !p.ApplicationReady {
