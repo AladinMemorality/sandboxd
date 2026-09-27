@@ -55,7 +55,8 @@ func main() {
 	}
 }
 
-func run() error {
+func run() (runErr error) {
+	log := logging.NewLogger()
 	cfg, err := cubeconfig.Load()
 	if err != nil {
 		return err
@@ -97,7 +98,14 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	defer st.Close()
+	defer func() {
+		if e := st.Close(); e != nil {
+			log.Error("shutdown: store close failed", "err", e.Error())
+			if runErr == nil {
+				runErr = e
+			}
+		}
+	}()
 	if err := st.CheckCubeOnly(ctx); err != nil {
 		return err
 	}
@@ -135,7 +143,6 @@ func run() error {
 			return errors.New("retained encryption key cannot open runtime credentials")
 		}
 	}
-	log := logging.NewLogger()
 	auditLog := audit.New(st, log.With("component", "audit"))
 	authMW := auth.NewMiddleware(authCfg, api.NewStoreResolver(st), auditLog, log.With("component", "auth"))
 	idleSeconds, err := nonnegativeEnv("SANDBOXD_IDLE_THRESHOLD_SECONDS", 2100)
@@ -273,6 +280,7 @@ func run() error {
 				}
 				continue
 			}
+			log.Info("shutdown: signal received", "signal", sig.String())
 		case err = <-errorsCh:
 			if errors.Is(err, http.ErrServerClosed) {
 				err = nil
@@ -284,13 +292,17 @@ func run() error {
 	shutdownCtx, stop := context.WithTimeout(context.Background(), 30*time.Second)
 	defer stop()
 	if e := httpServer.Shutdown(shutdownCtx); e != nil {
+		log.Error("shutdown: http server shutdown failed", "err", e.Error())
 		_ = httpServer.Close()
 		if err == nil {
 			err = e
 		}
 	}
-	if e := proxyServer.Shutdown(shutdownCtx); e != nil && err == nil {
-		err = e
+	if e := proxyServer.Shutdown(shutdownCtx); e != nil {
+		log.Error("shutdown: http server shutdown failed", "server", "auth-proxy", "err", e.Error())
+		if err == nil {
+			err = e
+		}
 	}
 	return err
 }

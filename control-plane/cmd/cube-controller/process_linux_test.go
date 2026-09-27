@@ -169,6 +169,15 @@ func TestControllerProcessWithoutDocker(t *testing.T) {
 	case <-time.After(10 * time.Second):
 		t.Fatal("graceful shutdown timed out")
 	}
+	shutdownLog, err := os.ReadFile(log.Name())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Count(string(shutdownLog), "shutdown: signal received") != 1 ||
+		strings.Contains(string(shutdownLog), "shutdown: http server shutdown failed") ||
+		strings.Contains(string(shutdownLog), "shutdown: store close failed") {
+		t.Fatalf("maintenance cannot verify graceful shutdown: %s", shutdownLog)
+	}
 	if released, e := maintenance.Acquire(dbPath, true); e != nil {
 		t.Fatal("lock retained after exit", e)
 	} else {
