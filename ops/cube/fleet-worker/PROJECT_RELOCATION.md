@@ -33,6 +33,10 @@ it does not reopen an uncertain source or release an uncertain reservation.
 `complete-relocation.py` can repeat verification of an already restored target;
 it never recreates or reimports it. A durable create/import intent prevents blind
 retries. Receipts, URLs, keys, application environment and archives remain private.
+An explicit `--keep-vps=<sandbox-id>` leaves a project assigned to VPS while
+`--remaining` selects the idle customer cohort under the shared locks. The live
+capacity acceptance includes customer web projects on both workers. Minecraft
+tunnels are excluded from HTTP acceptance per the user's prioritization.
 
 Validation includes transaction/race tests, a disposable same-ID live move, and
 per-customer file/preview/wake evidence. `accept-live-capacity.py` separately

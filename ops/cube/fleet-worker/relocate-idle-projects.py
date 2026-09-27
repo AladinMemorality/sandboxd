@@ -53,10 +53,13 @@ if __name__=='__main__':
     with m.r.b.locked():
         args=sys.argv[1:];parallel=1
         if args and args[0] in ['--parallel=2','--parallel=4']:parallel=int(args[0][-1]);args=args[1:]
+        keep=[]
+        if args and args[0].startswith('--keep-vps='):keep=args[0].split('=',1)[1].split(',');args=args[1:]
         if args==['--remaining']:
             assert not m.c.rows("SELECT id FROM cube_relocation WHERE phase='fenced'"),'reconcile the preceding move first'
             args=[v['id'] for v in m.c.rows("SELECT s.id FROM sandbox s JOIN app a ON a.id=s.app_id JOIN runtime_binding b ON b.sandbox_id=s.id JOIN cube_admission p ON p.runtime_id=b.runtime_id WHERE p.worker_id='vps' AND s.status='stopped' AND coalesce(a.external_user_id,'') NOT LIKE 'operator:%' AND a.name NOT LIKE 'minecraft-tunnel%' AND NOT EXISTS(SELECT 1 FROM task t WHERE t.sandbox_id=s.id AND t.status='running') ORDER BY CASE WHEN EXISTS(SELECT 1 FROM runtime_migration m WHERE m.sandbox_id=s.id) THEN 0 ELSE 1 END,a.name")]
-            m.save(ROOT/('cohort-'+str(int(time.time()))+'.json'),dict(ids=args,parallel=parallel))
+            args=[sid for sid in args if sid not in keep]
+            m.save(ROOT/('cohort-'+str(int(time.time()))+'.json'),dict(ids=args,parallel=parallel,kept_on_vps=keep))
             print(json.dumps(dict(phase='cohort-selected',projects=len(args),parallel=parallel)),flush=True)
         queue=collections.deque(args);guard=threading.Lock();halt=threading.Event()
         def consume():

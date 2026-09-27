@@ -19,8 +19,9 @@ def main():
         job=ROOT/('live-capacity-'+secrets.token_hex(8));job.mkdir(mode=0o700)
         prefix=job.name;owner='operator:capacity-ready';target=100
         baseline=c.rows('SELECT sandbox_id,runtime_id FROM runtime_binding ORDER BY sandbox_id')
-        projects=c.rows("SELECT s.id sandbox_id,s.app_id,s.status,s.visibility,a.name,p.worker_id FROM sandbox s JOIN app a ON a.id=s.app_id JOIN runtime_binding b ON b.sandbox_id=s.id JOIN cube_admission p ON p.runtime_id=b.runtime_id WHERE p.worker_id='b200-01' AND coalesce(a.external_user_id,'') NOT LIKE 'operator:%' ORDER BY s.id")
-        assert len(projects)>=50,'relocate customer projects before acceptance'
+        projects=c.rows("SELECT s.id sandbox_id,s.app_id,s.status,s.visibility,a.name,p.worker_id FROM sandbox s JOIN app a ON a.id=s.app_id JOIN runtime_binding b ON b.sandbox_id=s.id JOIN cube_admission p ON p.runtime_id=b.runtime_id WHERE coalesce(a.external_user_id,'') NOT LIKE 'operator:%' AND a.name NOT LIKE 'minecraft-tunnel%' ORDER BY s.id")
+        assert sum(row['worker_id']=='b200-01' for row in projects)>=50,'relocate customer projects before acceptance'
+        assert sum(row['worker_id']=='vps' for row in projects)<=4,'VPS customer cohort exceeds its running budget'
         c.save(job/'baseline.json',baseline);c.save(job/'projects.json',projects)
         apps=[];ready={};guard=threading.Lock();stop=threading.Event();errors=[]
         report=dict(complete=False,profile='migrated customer pages plus private Vite fillers',target=target,customer_projects=len(projects))
