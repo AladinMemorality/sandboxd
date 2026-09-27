@@ -1,0 +1,22 @@
+{
+  "started_at": "2026-09-27T11:09:56.154Z",
+  "source_app": "01M3H8GXRXS10GXA47MJ3D5A4J",
+  "snapshot": "01M3H8H3ASYGS7QTM0VAEZZ74Y",
+  "paid_jobs": 0,
+  "fork_status": 201,
+  "fork_app": "01M3H8XB37KQZKY3GQGX5WP7W6",
+  "fork_sandbox": "01M3H8XB39DH4RTWGRHCGYY8MC",
+  "remix_source_verified": true,
+  "cleanup": [
+    {
+      "app_id": "01M3H8XB37KQZKY3GQGX5WP7W6",
+      "status": 204
+    },
+    {
+      "app_id": "01M3H8GXRXS10GXA47MJ3D5A4J",
+      "status": 204
+    }
+  ],
+  "success": true,
+  "completed_at": "2026-09-27T11:09:57.939Z"
+}

@@ -1,0 +1,19 @@
+{
+  "started_at": "2026-09-27T11:33:41.923Z",
+  "url": "https://baarcha.tn/apps/aladin/avocall-redesign",
+  "requests": [
+    {
+      "url": "https://baarcha.tn/api/apps/01M1CCEP63MES3N5KYAHGCQ6KT/preview",
+      "status": 200,
+      "method": "POST"
+    }
+  ],
+  "errors": [],
+  "page_status": 200,
+  "frame_url": "https://s-01m1ccep66548jx3wgk8b8hs75-3000.preview.65.108.225.153.sslip.io",
+  "body_characters": 5302,
+  "overlay_count": 0,
+  "frame_title": "Avocall | \u0627\u0633\u062a\u0634\u0627\u0631\u0629 \u0642\u0627\u0646\u0648\u0646\u064a\u0629 \u0641\u0648\u0631\u064a\u0629",
+  "success": true,
+  "completed_at": "2026-09-27T11:33:46.211Z"
+}

@@ -1,0 +1,26 @@
+{
+  "started_at": "2026-09-27T11:32:09.109Z",
+  "url": "https://baarcha.tn/apps/aladin/motion-studio",
+  "requests": [
+    {
+      "url": "https://baarcha.tn/api/apps/01M3CKN983PFRGMD711PCEPDFD/preview",
+      "status": 200,
+      "method": "POST"
+    }
+  ],
+  "errors": [],
+  "page_status": 200,
+  "frame_url": "https://s-01m3ckn99zf90beea4ds66yaqv-3000.preview.65.108.225.153.sslip.io",
+  "body_characters": 1081,
+  "loaded_posters": 8,
+  "worker": {
+    "status": 200,
+    "mode": "shared-workspace",
+    "projects_status": 200,
+    "projects": 8
+  },
+  "overlay_count": 0,
+  "frame_title": "Motion Studio \u00b7 Baarcha",
+  "success": true,
+  "completed_at": "2026-09-27T11:32:15.052Z"
+}

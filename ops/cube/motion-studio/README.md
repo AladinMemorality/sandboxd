@@ -40,7 +40,12 @@ non-socket at that final path is rejected. The directory and its parents are
 operator-managed; never mount a tenant-controlled path. The dedicated worker
 creates the socket mode `0660` in its service-owned `0750` RuntimeDirectory. Mount
 **only that directory read-only** into the controller at the identical path,
-with `bind.create_host_path=false`. Current controller root with host user
+with `bind.create_host_path=false`. Set `RuntimeDirectoryPreserve=yes` so a worker
+stop/start keeps the directory inode used by the controller's bind mount. If
+the directory was already recreated, restart the controller under the normal
+traffic/task fence to refresh its mount; verify that both views have the same
+device and inode and that the gallery API succeeds.
+Current controller root with host user
 namespace can connect; any later UID/user-namespace change needs explicit DAC
 verification. No worker data, environment, general `/run`, Docker socket or other
 host directory is mounted.
