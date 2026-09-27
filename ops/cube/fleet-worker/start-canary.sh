@@ -1,10 +1,15 @@
 #!/usr/bin/env bash
 # Starts only the new isolated operator VM. No customer enrollment or GPU access.
 set -euo pipefail
-[[ $# == 2 && $1 =~ ^sha256:[a-f0-9]{64}$ ]] || {
-  echo 'usage: start-canary.sh TOOL_IMAGE PREPARED_WORKER_DIRECTORY' >&2
+[[ ( $# == 2 || $# == 3 ) && $1 =~ ^sha256:[a-f0-9]{64}$ ]] || {
+  echo 'usage: start-canary.sh TOOL_IMAGE PREPARED_WORKER_DIRECTORY [pilot|capacity-50]' >&2
   exit 2
 }
+case ${3:-pilot} in
+  pilot) worker_cpus=8; worker_memory_mb=32768; worker_limit=36g ;;
+  capacity-50) worker_cpus=112; worker_memory_mb=163840; worker_limit=168g ;;
+  *) echo 'unknown worker profile' >&2; exit 2 ;;
+esac
 tool_image=$1
 worker_directory=$(realpath -- "$2")
 [[ $worker_directory == /raid/baarcha-cube-worker-b200-01 ]]
@@ -20,7 +25,7 @@ worker_kvm_group=$(stat -c %g /dev/kvm)
 umask 077
 set -o noclobber
 docker run --detach --name baarcha-cube-worker-b200-01 --restart=no \
-  --runtime=runc --network=bridge --cpus=8 --memory=36g --memory-swap=36g \
+  --runtime=runc --network=bridge --cpus="$worker_cpus" --memory="$worker_limit" --memory-swap="$worker_limit" \
   --pids-limit=512 --read-only --user "$(id -u):$(id -g)" \
   --group-add "$worker_kvm_group" --cap-drop=ALL --security-opt=no-new-privileges \
   --device=/dev/kvm --env NVIDIA_VISIBLE_DEVICES=void --stop-timeout=180 \
@@ -28,7 +33,7 @@ docker run --detach --name baarcha-cube-worker-b200-01 --restart=no \
   --mount "type=bind,src=$worker_directory,dst=/worker" \
   --publish 127.0.0.1:24222:24222/tcp "$tool_image" \
   -nodefaults -no-user-config -enable-kvm -machine q35,accel=kvm -cpu host \
-  -name baarcha-cube-worker-b200-01 -m 32768 -smp 8 -device virtio-rng-pci \
+  -name baarcha-cube-worker-b200-01 -m "$worker_memory_mb" -smp "$worker_cpus" -device virtio-rng-pci \
   -drive file=/worker/root.qcow2,if=none,id=rootdisk,format=qcow2 \
   -device virtio-blk-pci,drive=rootdisk,serial=baarcha-b200-root,bootindex=1 \
   -drive file=/worker/data.qcow2,if=none,id=datadisk,format=qcow2 \

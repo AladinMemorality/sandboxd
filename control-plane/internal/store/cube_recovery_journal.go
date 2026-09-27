@@ -161,7 +161,7 @@ func (s *Store) recoveryWrite(ctx context.Context, fn func(*sql.Tx) error) error
 			return e
 		}
 		defer tx.Rollback()
-		r, e := tx.ExecContext(ctx, `UPDATE cube_admission_policy SET max_active=max_active WHERE singleton=1`)
+		r, e := tx.ExecContext(ctx, `UPDATE cube_admission_policy SET max_active=max_active WHERE singleton=1 AND worker_id='vps'`)
 		if e != nil {
 			return e
 		}
@@ -257,18 +257,18 @@ func (s *Store) BeginCubeRecovery(ctx context.Context, p CubeRecoveryPlan) error
 		if e = recoveryFrozen(ctx, tx, j); e != nil {
 			return e
 		}
-		old, e := scanAdmission(tx.QueryRowContext(ctx, `SELECT admission_key,runtime_id,template_id,operation,token,state,charged FROM cube_admission WHERE admission_key=?`, "app:"+j.AppID))
+		old, e := scanAdmission(tx.QueryRowContext(ctx, `SELECT admission_key,runtime_id,template_id,operation,token,state,charged,worker_id FROM cube_admission WHERE admission_key=?`, "app:"+j.AppID))
 		if e != nil {
 			return e
 		}
-		if old.RuntimeID != j.Old.RuntimeID || old.TemplateID != j.Old.TemplateID || old.State == "pending" || old.State == "deleted" {
+		if old.WorkerID != "vps" || old.RuntimeID != j.Old.RuntimeID || old.TemplateID != j.Old.TemplateID || old.State == "pending" || old.State == "deleted" {
 			return cube.ErrAdmissionPending
 		}
 		// Hold a slot even when a prior authoritative pause had released it. A full
 		// crashed active fleet retains its existing charges, never needs an extra slot.
 		if old.Charged == 0 {
 			var used, max int
-			if e = tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(charged),0),(SELECT max_active FROM cube_admission_policy WHERE singleton=1) FROM cube_admission`).Scan(&used, &max); e != nil {
+			if e = tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(charged),0),(SELECT max_active FROM cube_admission_policy WHERE singleton=1 AND worker_id='vps') FROM cube_admission WHERE worker_id='vps'`).Scan(&used, &max); e != nil {
 				return e
 			}
 			if used >= max {

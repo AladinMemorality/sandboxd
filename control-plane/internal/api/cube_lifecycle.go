@@ -284,7 +284,14 @@ func (s *Server) cubeRuntimeClient(id string) (*runtime.Client, bool) {
 	if json.Unmarshal(token, &credentials) != nil || credentials.SupervisorToken == "" || credentials.TrafficAccessToken == "" {
 		return runtime.NewUnavailableClient(errors.New("invalid Cube runtime credentials")), true
 	}
-	client, err := runtime.NewRemoteClient(runtime.RemoteConfig{BaseURL: s.CubeProxyURL, Token: credentials.SupervisorToken, TrafficAccessToken: credentials.TrafficAccessToken, Host: fmt.Sprintf("3031-%s.%s", b.RuntimeID, b.Domain)})
+	origin := s.CubeProxyURL
+	if s.Cube != nil {
+		origin, err = s.Cube.ProxyOrigin(ctx, b.RuntimeID, origin)
+		if err != nil {
+			return runtime.NewUnavailableClient(err), true
+		}
+	}
+	client, err := runtime.NewRemoteClient(runtime.RemoteConfig{BaseURL: origin, Token: credentials.SupervisorToken, TrafficAccessToken: credentials.TrafficAccessToken, Host: fmt.Sprintf("3031-%s.%s", b.RuntimeID, b.Domain)})
 	if err != nil {
 		return runtime.NewUnavailableClient(err), true
 	}

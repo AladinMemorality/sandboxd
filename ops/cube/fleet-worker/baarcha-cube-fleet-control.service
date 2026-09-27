@@ -1,0 +1,18 @@
+[Unit]
+Description=Private Cube control services for fleet workers
+Requires=wg-quick@wg-cube-fleet.service
+After=wg-quick@wg-cube-fleet.service network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/ssh -NT -o BatchMode=yes -o ControlMaster=no -o ControlPath=none -o ExitOnForwardFailure=yes -o ServerAliveInterval=15 -o ServerAliveCountMax=3 -o StrictHostKeyChecking=yes -o UserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts -i /opt/baarcha-cube/worker-01/operator-key -p 20222 -L 10.254.240.1:13010:127.0.0.1:3010 -L 10.254.240.1:18089:127.0.0.1:8089 -L 10.254.240.1:18090:127.0.0.1:8090 -L 10.254.240.1:18083:127.0.0.1:8083 -L 10.254.240.1:16379:127.0.0.1:6379 root@127.0.0.1
+Restart=on-failure
+RestartSec=5
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

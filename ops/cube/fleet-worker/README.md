@@ -1,5 +1,55 @@
 # B200 worker VM canary
 
+## Capacity expansion in progress — 2026-09-27
+
+The current target is **4 VPS + 46 B200 active sandboxes**, each retaining
+2 vCPU/2 GiB. This is not yet a measured production capacity. The controller's
+real SQLite/provider protocol tests pass for 50 reservations, rejection of the
+51st, per-worker preview routing, pause/wake/delete, and retained charges after
+uncertain placement. The production controller remains on its four-slot policy.
+
+The empty B200 pilot was cleanly stopped and expanded to 112 vCPU, 160 GiB guest
+RAM, a 168 GiB process ceiling, and a 1 TiB XFS data disk. The stopped pilot
+container and pre-change metadata are retained. `start-canary.sh` now accepts
+the explicit `capacity-50` profile; `resize-empty-worker.sh` refuses unrelated
+containers, nonempty/unreviewed disks and insufficient backing capacity.
+No GPU device, host Docker socket, inference data or host root is exposed.
+
+Cubelet is installed and running with the same production patched binary,
+SHA256 `de3bd4c1a4db12c11d58cf7f558589f04ab4b3d736d4e72a947d45b8343bef9b`.
+Persistent metadata databases are verified on XFS. The worker node
+`10.254.240.2` is registered **healthy and scheduling-disabled**. Quota is
+106000m CPU/112 GiB RAM; active capacity must still be enforced by the controller.
+Keep it disabled until VPS creates are explicitly pinned and live acceptance
+passes. Worker boot pin: `10a17f4e-b974-4837-971a-882b15e7c337`.
+
+The private control forwarding unit exposes CubeOps, CubeMaster, TemplateCenter,
+Redis and lifecycle-manager only to the worker WireGuard peer. A worker-local
+proxy uses the exact existing production image digest and binds only to
+`10.254.240.2` (HTTP28080/admin28082). `prepare-proxy.py` renders private inputs;
+the cluster currently has an empty admin token, so the admin listener must remain
+behind the authenticated WireGuard peer and guest hard-deny policy. The private
+configuration is never a repository artifact. Container restart is disabled
+during acceptance. Compute target startup remains disabled at boot.
+
+Template distribution over the private relay is slow. `publish-artifact.mjs`
+and `fetch-artifact.py` prewarm immutable rootfs artifacts through encrypted S3
+objects with ephemeral transfer keys, bounded parallel downloads, GCM validation,
+and the authoritative raw filesystem hash. They copy no Cube metadata, customer
+workspace, AWS credential, or controller master key. Cube still owns template
+registration. The cache lives at `/data/cube-fleet-rootfs`, referenced by the
+normal `cubebox_os_image` path. Full live template and microVM acceptance remains
+in progress; partial downloads are never published.
+
+`storage-probe.py` supports fixed forced-command SSH keys for read-only inner and
+backing-filesystem measurements. The observer's `--worker b200-01` profile uses
+separate pinned identities, sequence state and output directory, with coordinator
+monotonic time. Physical-host SSH is currently failing after authentication;
+until that read-only probe can be installed and verified, B200 storage admission
+must stay closed. The worker VM itself remains reachable.
+
+The sections below record the earlier pilot and initial network work.
+
 This is provisioning for a new isolated worker VM, not production admission.
 Customer workloads and GPU devices must not be attached during this stage.
 The Cube controller remains on its existing four-slot VPS admission path.

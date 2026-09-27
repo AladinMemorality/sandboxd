@@ -17,8 +17,9 @@ and source import/export endpoints are disabled by default.
 - An owner-scoped `GET /v1/apps/{id}/deployment` reports the latest source revision
   separately from the revision being prepared or served. A stored revision alone
   does not imply that a project is eligible for cross-host deployment.
-- Cube create requests can express one operator-selected node. Existing admission
-  rejects this field until the fleet provider integration is implemented.
+- Cube create requests can express one operator-selected node. The candidate fleet provider
+  selects this field from a durable per-worker reservation and verifies actual
+  placement through CubeMaster. Production does not yet use that configuration.
 - Opt-in runtime endpoints export a quiesced project or restore verified source
   into a **new disposable target** and rebuild locked dependencies. The target
   stays quiesced. Stateful projects and secret restoration are not enrolled.

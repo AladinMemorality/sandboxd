@@ -25,6 +25,28 @@ SSH = ['/usr/bin/ssh', '-i', '/opt/baarcha-cube/worker-01/operator-key', '-p', '
 HEX = re.compile(r'[0-9a-f]{32}\Z')
 UUID = re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\Z')
 CONFIG_KEYS = {'observation_path', 'observer_id', 'worker_machine_id', 'expected_boot_id', 'inner_fs_uuid', 'outer_fs_uuid', 'outer_boot_id'}
+WORKER_PROFILE = 'vps'
+
+
+def select_worker_profile(worker):
+    """Fixed operator profiles; never accept a remote command from configuration."""
+    global WORKER_PROFILE, STATE_DIR, OUTPUT_DIR, SSH
+    if worker == 'vps':
+        return
+    if worker != 'b200-01':
+        raise Invalid('unknown worker profile')
+    WORKER_PROFILE = worker
+    STATE_DIR = Path('/var/lib/sandboxd/cube-storage-observer-b200')
+    OUTPUT_DIR = Path('/run/sandboxd-cube-storage-b200')
+    SSH = observer_ssh('root@10.254.240.2', '22')
+
+
+def observer_ssh(host, port):
+    return ['/usr/bin/ssh', '-i', '/etc/baarcha-cube/fleet-observer/key',
+            '-oBatchMode=yes', '-oConnectTimeout=4', '-oServerAliveInterval=3',
+            '-oServerAliveCountMax=1', '-oStrictHostKeyChecking=yes',
+            '-oUserKnownHostsFile=/etc/baarcha-cube/fleet-observer/known_hosts',
+            '-p', port, host]
 # Fixed command, no interpolated paths or config. The clock belongs to the outer
 # host shared with the controller; nested wall-clock offset cannot skew epochs.
 PROBE = r'''
@@ -105,7 +127,8 @@ def atomic_json(path, value):
 
 
 def probe_inner():
-    result = subprocess.run(SSH + ['python3', '-'], input=PROBE, text=True,
+    command, source = (SSH + ['observe'], None) if WORKER_PROFILE == 'b200-01' else (SSH + ['python3', '-'], PROBE)
+    result = subprocess.run(command, input=source, text=True,
                             stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=12, check=True)
     if len(result.stdout) > 4096:
         raise Invalid('oversized worker observation')
@@ -113,6 +136,13 @@ def probe_inner():
 
 
 def probe_outer():
+    if WORKER_PROFILE == 'b200-01':
+        result = subprocess.run(observer_ssh('user4@10.40.14.68', '7722') + ['observe'],
+                                text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                timeout=6, check=True)
+        if len(result.stdout) > 4096:
+            raise Invalid('oversized backing storage observation')
+        return strict_json(result.stdout)
     target = Path('/mnt/nvme/baarcha-cube/worker-01/data.qcow2')
     s = target.lstat()
     if not stat.S_ISREG(s.st_mode) or s.st_uid != 0:
@@ -160,9 +190,11 @@ def make_observation(c, previous, inner_probe=probe_inner, outer_probe=probe_out
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--config', required=True, type=Path)
+    parser.add_argument('--worker', choices=['vps', 'b200-01'], default='vps')
     args = parser.parse_args()
     if os.geteuid() != 0:
         raise Invalid('observer requires root')
+    select_worker_profile(args.worker)
     c = trusted_read(args.config)
     validate_config(c)
     secure_dir(STATE_DIR)

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"strings"
 )
 
@@ -21,6 +22,7 @@ var (
 
 type AdmissionRecord struct {
 	Key, RuntimeID, TemplateID, Operation, Token, State string
+	WorkerID                                            string
 	Charged                                             int
 }
 type AdmissionStore interface {
@@ -40,6 +42,9 @@ type AdmissionResources struct {
 // profiles without changing production entrypoint policy. max_active is an
 // active-reservation bound, not a limit on the number of stored/paused apps.
 type AdmissionConfig struct {
+	NodeID         string                        `json:"node_id,omitempty"`
+	HostCPUMillis  int                           `json:"host_cpu_millis,omitempty"`
+	HostMemoryMB   int                           `json:"host_memory_mb,omitempty"`
 	MaxActive      int                           `json:"max_active"`
 	WritableDiskMB int                           `json:"writable_disk_mb,omitempty"`
 	StorageGuard   *StorageGuardConfig           `json:"storage_guard,omitempty"`
@@ -65,18 +70,34 @@ func ParseAdmissionConfig(raw string) (AdmissionConfig, error) {
 	return cfg, cfg.validate()
 }
 func (cfg AdmissionConfig) validate() error {
+	maximum := 12
+	if cfg.NodeID != "" {
+		if err := cfg.validateNodeBudget(); err != nil {
+			return err
+		}
+		maximum = 64
+	} else if cfg.HostCPUMillis != 0 || cfg.HostMemoryMB != 0 {
+		return errors.New("worker budget requires explicit Cube node")
+	}
 	if cfg.StorageGuard != nil {
 		if err := cfg.validateStorageGuard(); err != nil {
 			return err
 		}
 	}
-	if cfg.MaxActive < 1 || cfg.MaxActive > 12 || !admissionProfileAllowed(cfg.CPUCount, cfg.MemoryMB) || len(cfg.Templates) == 0 {
-		return errors.New("Cube admission requires a compiled reviewed uniform profile with at most 12 active reservations")
+	if cfg.MaxActive < 1 || cfg.MaxActive > maximum || !admissionProfileAllowed(cfg.CPUCount, cfg.MemoryMB) || len(cfg.Templates) == 0 {
+		return errors.New("Cube admission requires a reviewed uniform profile within its worker capacity")
 	}
 	for id, r := range cfg.Templates {
 		if validateID(id) != nil || r.CPUCount != cfg.CPUCount || r.MemoryMB != cfg.MemoryMB {
 			return errors.New("Cube admission template differs from uniform resource profile")
 		}
+	}
+	return nil
+}
+
+func (cfg AdmissionConfig) validateNodeBudget() error {
+	if (validateID(cfg.NodeID) != nil && net.ParseIP(cfg.NodeID) == nil) || cfg.MaxActive < 1 || cfg.MaxActive > 64 || cfg.CPUCount != 2 || cfg.MemoryMB != 2048 || cfg.HostCPUMillis < cfg.MaxActive*2300 || cfg.HostMemoryMB < cfg.MaxActive*2160 {
+		return errors.New("worker requires a pinned node and CPU/memory budget including VM overhead")
 	}
 	return nil
 }
@@ -89,6 +110,18 @@ func (c *Client) ConfigureAdmission(ctx context.Context, db AdmissionStore, cfg 
 	}
 	if err := cfg.validate(); err != nil {
 		return err
+	}
+	if cfg.NodeID != "" && c.placement == nil {
+		return errors.New("pinned admission requires authoritative placement verifier")
+	}
+	if pinned, ok := db.(interface {
+		ConfigureNodeIdentity(context.Context, string) error
+	}); ok {
+		if err := pinned.ConfigureNodeIdentity(ctx, cfg.NodeID); err != nil {
+			return err
+		}
+	} else if cfg.NodeID != "" {
+		return errors.New("admission store cannot pin worker identity")
 	}
 	// Template sets may grow after exact image review; the uniform resource and
 	// capacity contract itself remains immutable in the durable policy row.
@@ -145,6 +178,9 @@ func (c *Client) admittedCreate(ctx context.Context, in CreateRequest) (*Sandbox
 		return nil, errors.New("single-worker admission cannot authorize fleet placement")
 	}
 	g := c.admission
+	if g.config.NodeID != "" {
+		in.DistributionScope = []string{g.config.NodeID}
+	}
 	if _, ok := g.config.Templates[in.TemplateID]; !ok {
 		return nil, errors.New("Cube create template has no admission resource contract")
 	}
@@ -198,6 +234,9 @@ func (c *Client) admittedCreate(ctx context.Context, in CreateRequest) (*Sandbox
 	if err = g.validRemote(actual); err != nil {
 		return nil, fmt.Errorf("%w: resource/state verification failed", ErrAdmissionPending)
 	}
+	if g.config.NodeID != "" && c.placement(ctx, actual.SandboxID, g.config.NodeID) != nil {
+		return nil, fmt.Errorf("%w: worker placement verification failed", ErrAdmissionPending)
+	}
 	if actual.TemplateID != in.TemplateID || actual.Metadata["sandboxd_id"] != key || actual.Metadata["sandboxd_app_id"] != appID || actual.Metadata["sandboxd_admission_operation"] != token {
 		return nil, fmt.Errorf("%w: creation identity verification failed", ErrAdmissionPending)
 	}
@@ -238,6 +277,9 @@ func (c *Client) admittedConnect(ctx context.Context, id string, in ConnectReque
 	actual, err := c.getRaw(ctx, id)
 	if err != nil || g.validRemote(actual) != nil || actual.TemplateID != remote.TemplateID || actual.State != "running" {
 		return nil, fmt.Errorf("%w: connect state verification failed", ErrAdmissionPending)
+	}
+	if g.config.NodeID != "" && c.placement(ctx, id, g.config.NodeID) != nil {
+		return nil, ErrAdmissionPending
 	}
 	if err = g.store.AdmissionFinish(ctx, lease, id, "active"); err != nil {
 		return nil, fmt.Errorf("%w: cannot acknowledge connect", ErrAdmissionPending)
@@ -309,6 +351,21 @@ func (c *Client) admittedRelease(ctx context.Context, id, operation string) erro
 // not issue another POST or clear unknown allocations. Operator migration
 // adoption additionally verifies the retained supervisor credential.
 func (c *Client) AdoptAdmission(ctx context.Context, id string) error {
+	if c.fleet != nil {
+		remote, err := c.getRaw(ctx, id)
+		if err != nil {
+			return err
+		}
+		a, err := c.fleet.store.AdmissionLookupKey(ctx, "app:"+remote.Metadata["sandboxd_app_id"])
+		if err != nil {
+			return ErrAdmissionUnknown
+		}
+		worker := c.fleet.workers[a.WorkerID]
+		if worker == nil {
+			return ErrAdmissionUnknown
+		}
+		return worker.AdoptAdmission(ctx, id)
+	}
 	if c.admission == nil {
 		return nil
 	}
@@ -319,6 +376,9 @@ func (c *Client) AdoptAdmission(ctx context.Context, id string) error {
 	g := c.admission
 	if err = g.validRemote(actual); err != nil {
 		return err
+	}
+	if g.config.NodeID != "" && c.placement(ctx, id, g.config.NodeID) != nil {
+		return ErrAdmissionPending
 	}
 	app := actual.Metadata["sandboxd_app_id"]
 	if validateID(app) != nil {
@@ -348,6 +408,17 @@ func releaseState(operation string) string {
 // offline maintenance AFTER the operator has drained provider requests. A GET
 // alone cannot rule out a timed-out remote Connect completing later.
 func (c *Client) ReconcileAdmission(ctx context.Context, key string, providerRequestsDrained bool) error {
+	if c.fleet != nil {
+		a, err := c.fleet.store.AdmissionLookupKey(ctx, key)
+		if err != nil {
+			return ErrAdmissionUnknown
+		}
+		worker := c.fleet.workers[a.WorkerID]
+		if worker == nil {
+			return ErrAdmissionUnknown
+		}
+		return worker.ReconcileAdmission(ctx, key, providerRequestsDrained)
+	}
 	if c.admission == nil || !providerRequestsDrained {
 		return errors.New("offline provider request-drain fence required")
 	}
@@ -369,6 +440,9 @@ func (c *Client) ReconcileAdmission(ctx context.Context, key string, providerReq
 	} else {
 		if err = c.admission.validRemote(remote); err != nil {
 			return err
+		}
+		if c.admission.config.NodeID != "" && c.placement(ctx, a.RuntimeID, c.admission.config.NodeID) != nil {
+			return ErrAdmissionPending
 		}
 		if remote.TemplateID != a.TemplateID {
 			return ErrAdmissionPending

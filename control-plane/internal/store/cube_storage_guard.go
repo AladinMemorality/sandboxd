@@ -26,11 +26,11 @@ func (s *Store) ConfigureStorageGuard(ctx context.Context, cfg *cube.StorageGuar
 			return e
 		}
 		defer tx.Rollback()
-		if _, e = tx.ExecContext(ctx, `UPDATE cube_admission_policy SET max_active=max_active WHERE singleton=1`); e != nil {
+		if _, e = tx.ExecContext(ctx, `UPDATE cube_admission_policy SET max_active=max_active WHERE singleton=1 AND worker_id=?`, s.admissionWorkerID()); e != nil {
 			return e
 		}
 		var contract string
-		e = tx.QueryRowContext(ctx, `SELECT contract FROM cube_storage_policy WHERE singleton=1`).Scan(&contract)
+		e = tx.QueryRowContext(ctx, `SELECT contract FROM cube_storage_policy WHERE singleton=1 AND worker_id=?`, s.admissionWorkerID()).Scan(&contract)
 		if e != nil && !errors.Is(e, sql.ErrNoRows) {
 			return e
 		}
@@ -42,21 +42,21 @@ func (s *Store) ConfigureStorageGuard(ctx context.Context, cfg *cube.StorageGuar
 			return tx.Commit()
 		}
 		var max int
-		if e2 := tx.QueryRowContext(ctx, `SELECT max_active FROM cube_admission_policy WHERE singleton=1`).Scan(&max); e2 != nil {
+		if e2 := tx.QueryRowContext(ctx, `SELECT max_active FROM cube_admission_policy WHERE singleton=1 AND worker_id=?`, s.admissionWorkerID()).Scan(&max); e2 != nil {
 			return e2
 		}
-		if max < 1 || max > cube.GuardedAdmissionLimit {
+		if max < 1 || max > 64 || (s.admissionWorker == "" && max > cube.GuardedAdmissionLimit) {
 			return cube.ErrStorageUnavailable
 		}
 		if errors.Is(e, sql.ErrNoRows) {
 			var charged int
-			if e = tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(charged),0) FROM cube_admission`).Scan(&charged); e != nil {
+			if e = tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(charged),0) FROM cube_admission WHERE worker_id=?`, s.admissionWorkerID()).Scan(&charged); e != nil {
 				return e
 			}
 			if charged != 0 {
 				return cube.ErrStorageUnavailable
 			}
-			if _, e = tx.ExecContext(ctx, `INSERT INTO cube_storage_policy(singleton,contract) VALUES(1,?)`, cfg.Contract()); e != nil {
+			if _, e = tx.ExecContext(ctx, `INSERT INTO cube_storage_policy(singleton,worker_id,contract) VALUES(1,?,?)`, s.admissionWorkerID(), cfg.Contract()); e != nil {
 				return e
 			}
 		} else if contract != cfg.Contract() {
@@ -76,7 +76,7 @@ func (s *Store) ConfigureStorageGuard(ctx context.Context, cfg *cube.StorageGuar
 func (s *Store) storageAdmit(ctx context.Context, tx *sql.Tx, key, token string, allocate bool) error {
 	var contract, priorJSON, priorBoot string
 	var generation, started, spent, lastClock int64
-	e := tx.QueryRowContext(ctx, `SELECT contract,generation,observation_json,started_ns,spent_bytes,last_clock_ns,clock_boot_id FROM cube_storage_policy WHERE singleton=1`).Scan(&contract, &generation, &priorJSON, &started, &spent, &lastClock, &priorBoot)
+	e := tx.QueryRowContext(ctx, `SELECT contract,generation,observation_json,started_ns,spent_bytes,last_clock_ns,clock_boot_id FROM cube_storage_policy WHERE singleton=1 AND worker_id=?`, s.admissionWorkerID()).Scan(&contract, &generation, &priorJSON, &started, &spent, &lastClock, &priorBoot)
 	if errors.Is(e, sql.ErrNoRows) {
 		if s.storageGuard != nil {
 			return cube.ErrStorageUnavailable
@@ -94,7 +94,7 @@ func (s *Store) storageAdmit(ctx context.Context, tx *sql.Tx, key, token string,
 	// Get releases paused reservations first, so paused-delete/resume allocate.
 	if !allocate {
 		var grants int
-		if e = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM cube_storage_grant WHERE admission_key=? AND released_ns IS NULL`, key).Scan(&grants); e != nil {
+		if e = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM cube_storage_grant WHERE admission_key=? AND worker_id=? AND released_ns IS NULL`, key, s.admissionWorkerID()).Scan(&grants); e != nil {
 			return e
 		}
 		if grants == 0 {
@@ -129,7 +129,7 @@ func (s *Store) storageAdmit(ctx context.Context, tx *sql.Tx, key, token string,
 		if now.BootID == priorBoot && o.StartedNS <= started {
 			return cube.ErrStorageUnavailable
 		}
-		if e = tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(bytes),0) FROM cube_storage_grant WHERE released_ns IS NULL OR (released_boot_id=? AND released_ns>=?)`, now.BootID, o.StartedNS).Scan(&spent); e != nil {
+		if e = tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(bytes),0) FROM cube_storage_grant WHERE worker_id=? AND (released_ns IS NULL OR (released_boot_id=? AND released_ns>=?))`, s.admissionWorkerID(), now.BootID, o.StartedNS).Scan(&spent); e != nil {
 			return e
 		}
 	}
@@ -144,11 +144,11 @@ func (s *Store) storageAdmit(ctx context.Context, tx *sql.Tx, key, token string,
 	if free < cube.StorageBaseline || spent > free-cube.StorageReserve || debit > free-cube.StorageReserve-spent {
 		return cube.ErrStorageUnavailable
 	}
-	if _, e = tx.ExecContext(ctx, `INSERT INTO cube_storage_grant(token,admission_key,granted_ns,grant_boot_id,bytes) VALUES(?,?,?,?,?)`, token, key, now.NS, now.BootID, cube.StorageGrant); e != nil {
+	if _, e = tx.ExecContext(ctx, `INSERT INTO cube_storage_grant(token,admission_key,granted_ns,grant_boot_id,bytes,worker_id) VALUES(?,?,?,?,?,?)`, token, key, now.NS, now.BootID, cube.StorageGrant, s.admissionWorkerID()); e != nil {
 		return e
 	}
 
-	_, e = tx.ExecContext(ctx, `UPDATE cube_storage_policy SET generation=?,observation_json=?,started_ns=?,spent_bytes=?,last_clock_ns=?,clock_boot_id=? WHERE singleton=1`, o.Generation, string(raw), o.StartedNS, spent+debit, now.NS, now.BootID)
+	_, e = tx.ExecContext(ctx, `UPDATE cube_storage_policy SET generation=?,observation_json=?,started_ns=?,spent_bytes=?,last_clock_ns=?,clock_boot_id=? WHERE singleton=1 AND worker_id=?`, o.Generation, string(raw), o.StartedNS, spent+debit, now.NS, now.BootID, s.admissionWorkerID())
 	return e
 }
 
@@ -158,6 +158,6 @@ func (s *Store) storageRelease(ctx context.Context, tx *sql.Tx, key string) erro
 	if e != nil {
 		return nil
 	} // retain grant conservatively
-	_, e = tx.ExecContext(ctx, `UPDATE cube_storage_grant SET released_ns=?,released_boot_id=? WHERE admission_key=? AND released_ns IS NULL AND (grant_boot_id<>? OR granted_ns<=?) AND ((SELECT clock_boot_id FROM cube_storage_policy WHERE singleton=1)<>? OR ?>=(SELECT last_clock_ns FROM cube_storage_policy WHERE singleton=1))`, now.NS, now.BootID, key, now.BootID, now.NS, now.BootID, now.NS)
+	_, e = tx.ExecContext(ctx, `UPDATE cube_storage_grant SET released_ns=?,released_boot_id=? WHERE admission_key=? AND worker_id=? AND released_ns IS NULL AND (grant_boot_id<>? OR granted_ns<=?) AND ((SELECT clock_boot_id FROM cube_storage_policy WHERE singleton=1 AND worker_id=?)<>? OR ?>=(SELECT last_clock_ns FROM cube_storage_policy WHERE singleton=1 AND worker_id=?))`, now.NS, now.BootID, key, s.admissionWorkerID(), now.BootID, now.NS, s.admissionWorkerID(), now.BootID, now.NS, s.admissionWorkerID())
 	return e
 }

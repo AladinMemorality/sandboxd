@@ -3,6 +3,8 @@ set -eu
 case "${1:-}" in
   api) port=20300 ;;
   proxy) port=20080 ;;
+  master) port=20889 ;;
+  b200-proxy) port=28080 ;;
   *) exit 64 ;;
 esac
 # A safe unauthenticated request must traverse both relays and get an HTTP

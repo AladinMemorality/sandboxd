@@ -24,7 +24,14 @@ func WorkerObservationDB(ctx context.Context, db *sql.DB) (WorkerObservation, er
 		return out, e
 	}
 	defer tx.Rollback()
-	if e = tx.QueryRowContext(ctx, `SELECT max_active,profile FROM cube_admission_policy WHERE singleton=1`).Scan(&out.MaxActive, &out.Profile); e != nil {
+	var other int
+	if e = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM cube_admission WHERE worker_id<>'vps' AND state<>'deleted'`).Scan(&other); e != nil {
+		return out, e
+	}
+	if other != 0 {
+		return out, errors.New("multi-worker inventory requires worker-scoped lifecycle tooling")
+	}
+	if e = tx.QueryRowContext(ctx, `SELECT max_active,profile FROM cube_admission_policy WHERE singleton=1 AND worker_id='vps'`).Scan(&out.MaxActive, &out.Profile); e != nil {
 		return out, e
 	}
 	if e = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM cube_recovery WHERE phase<>'complete'`).Scan(&out.PendingRecovery); e != nil {

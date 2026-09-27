@@ -1,0 +1,49 @@
+# Merge explicitly AFTER docker-compose.yml. No ports are published here.
+x-management-relay: &management-relay
+  image: ${CUBE_MANAGEMENT_RELAY_IMAGE:?Set reviewed relay image@sha256 digest}
+  pull_policy: never
+  user: "65532:65532"
+  group_add:
+    - "${CUBE_MANAGEMENT_GID:?Set the dedicated host cube-management group GID}"
+  userns_mode: host
+  network_mode: service:sandboxd
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+  pids_limit: 270
+  mem_limit: 192m
+  cpus: 0.5
+  init: true
+  restart: unless-stopped
+  stop_grace_period: 10s
+  volumes:
+    - type: bind
+      source: /run/cube-management
+      target: /run/cube-management
+      read_only: true
+      bind:
+        create_host_path: false
+  depends_on:
+    sandboxd:
+      condition: service_started
+      restart: true
+
+services:
+  cube-management-master:
+    <<: *management-relay
+    command: [master]
+    healthcheck:
+      test: [CMD, /usr/local/bin/healthcheck.sh, master]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 5s
+  cube-management-b200-proxy:
+    <<: *management-relay
+    command: [b200-proxy]
+    healthcheck:
+      test: [CMD, /usr/local/bin/healthcheck.sh, b200-proxy]
+      interval: 30s
+      timeout: 8s
+      retries: 3
+      start_period: 5s

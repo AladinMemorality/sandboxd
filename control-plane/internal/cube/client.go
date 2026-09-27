@@ -36,6 +36,8 @@ type Client struct {
 	key       string
 	http      *http.Client
 	admission *admissionGuard
+	placement func(context.Context, string, string) error
+	fleet     *fleet
 }
 
 // APIError never includes upstream bodies, URLs, credentials or caller values.
@@ -153,6 +155,9 @@ func prepareCreate(in CreateRequest) (CreateRequest, error) {
 }
 
 func (c *Client) Create(ctx context.Context, in CreateRequest) (*Sandbox, error) {
+	if c.fleet != nil {
+		return c.fleet.create(ctx, in)
+	}
 	in, err := prepareCreate(in)
 	if err != nil {
 		return nil, err
@@ -185,6 +190,13 @@ func (c *Client) CreateFromSnapshot(ctx context.Context, snapshotID string, in C
 }
 
 func (c *Client) Get(ctx context.Context, id string) (*Sandbox, error) {
+	if c.fleet != nil {
+		w, err := c.fleet.runtime(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		return w.Get(ctx, id)
+	}
 	if err := validateID(id); err != nil {
 		return nil, err
 	}
@@ -196,6 +208,9 @@ func (c *Client) Get(ctx context.Context, id string) (*Sandbox, error) {
 		return nil, ErrRuntimeUnavailable
 	}
 	out, err := c.getRaw(ctx, id)
+	if err == nil && c.admission.config.NodeID != "" && c.placement(ctx, id, c.admission.config.NodeID) != nil {
+		return nil, ErrAdmissionPending
+	}
 	var upstream *APIError
 	// Registration can disappear after a worker failure while its disk and VM
 	// still exist. Only an acknowledged delete may turn a known ID's 404 into
@@ -222,6 +237,13 @@ func (c *Client) getRaw(ctx context.Context, id string) (*Sandbox, error) {
 }
 
 func (c *Client) Connect(ctx context.Context, id string, in ConnectRequest) (*Sandbox, error) {
+	if c.fleet != nil {
+		w, err := c.fleet.runtime(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		return w.Connect(ctx, id, in)
+	}
 	if err := validateID(id); err != nil {
 		return nil, err
 	}
@@ -245,6 +267,13 @@ func (c *Client) connectRaw(ctx context.Context, id string, in ConnectRequest) (
 }
 
 func (c *Client) Pause(ctx context.Context, id string) error {
+	if c.fleet != nil {
+		w, err := c.fleet.runtime(ctx, id)
+		if err != nil {
+			return err
+		}
+		return w.Pause(ctx, id)
+	}
 	if err := validateID(id); err != nil {
 		return err
 	}
@@ -258,6 +287,13 @@ func (c *Client) pauseRaw(ctx context.Context, id string) error {
 }
 
 func (c *Client) Delete(ctx context.Context, id string) error {
+	if c.fleet != nil {
+		w, err := c.fleet.runtime(ctx, id)
+		if err != nil {
+			return err
+		}
+		return w.Delete(ctx, id)
+	}
 	if err := validateID(id); err != nil {
 		return err
 	}

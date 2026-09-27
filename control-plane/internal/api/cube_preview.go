@@ -123,13 +123,18 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 		writeErr(w, 503, "preview runtime unavailable")
 		return true
 	}
-	target, err := cubePreviewOrigin(s.CubeProxyURL)
+	b, err := s.Store.GetRuntimeBinding(r.Context(), id)
+	if err != nil || b.Provider != "cube" || b.SandboxID != id {
+		writeErr(w, 503, "preview runtime unavailable")
+		return true
+	}
+	origin, err := s.Cube.ProxyOrigin(r.Context(), b.RuntimeID, s.CubeProxyURL)
 	if err != nil {
 		writeErr(w, 503, "preview runtime unavailable")
 		return true
 	}
-	b, err := s.Store.GetRuntimeBinding(r.Context(), id)
-	if err != nil || b.Provider != "cube" || b.SandboxID != id {
+	target, err := cubePreviewOrigin(origin)
+	if err != nil {
 		writeErr(w, 503, "preview runtime unavailable")
 		return true
 	}

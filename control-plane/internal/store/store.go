@@ -82,13 +82,14 @@ type WorkspaceOwner struct {
 
 // Store wraps an open *sql.DB plus the write-loop goroutine.
 type Store struct {
-	storageGuard *cube.StorageGuardConfig                                                          // read and written only by the store writer
-	storageNow   func() (cube.StorageClock, error)                                                 // test clock; nil means kernel CLOCK_BOOTTIME
-	storageRead  func(cube.StorageGuardConfig, cube.StorageClock) (cube.StorageObservation, error) // test probe; nil means secure file reader
-	db           *sql.DB
-	writes       chan writeOp
-	doneCh       chan struct{}
-	closeCh      chan struct{}
+	admissionWorker string                                                                            // empty identifies the original VPS partition
+	storageGuard    *cube.StorageGuardConfig                                                          // read and written only by the store writer
+	storageNow      func() (cube.StorageClock, error)                                                 // test clock; nil means kernel CLOCK_BOOTTIME
+	storageRead     func(cube.StorageGuardConfig, cube.StorageClock) (cube.StorageObservation, error) // test probe; nil means secure file reader
+	db              *sql.DB
+	writes          chan writeOp
+	doneCh          chan struct{}
+	closeCh         chan struct{}
 }
 
 // Open opens the database at dsn, applies migrations, and starts the
