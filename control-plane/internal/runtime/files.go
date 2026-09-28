@@ -70,7 +70,17 @@ func (c *Client) bounded(ctx context.Context, method, path string, body []byte, 
 		var cancel context.CancelFunc
 		ctx, cancel = context.WithTimeout(ctx, 60*time.Second)
 		defer cancel()
-		hc = c.stream
+		// The remote proxy can buffer an upload before the guest answers.
+		// Its ordinary ten-second header deadline otherwise defeats this
+		// transfer budget (a production 1 MiB upload takes ~36 seconds).
+		copyClient := *c.stream
+		if transport, ok := c.stream.Transport.(*http.Transport); ok {
+			clone := transport.Clone()
+			clone.ResponseHeaderTimeout = 0
+			defer clone.CloseIdleConnections()
+			copyClient.Transport = clone
+		}
+		hc = &copyClient
 	}
 	resp, err := c.do(ctx, hc, method, "http://runtimed"+path, body)
 	if err != nil {
