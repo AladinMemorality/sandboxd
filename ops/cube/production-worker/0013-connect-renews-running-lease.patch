@@ -1,0 +1,37 @@
+--- a/CubeAPI/src/services/sandboxes.rs
++++ b/CubeAPI/src/services/sandboxes.rs
+@@ -382,6 +382,10 @@
+             )?;
+ 
+             d = self.fetch_sandbox_detail(sandbox_id).await?;
++        } else if let Some(seconds) = timeout {
++            // A running sandbox still needs the requested lease extension.
++            // Returning success without updating TTL silently expires active pages.
++            self.set_timeout(sandbox_id, seconds).await?;
+         }
+ 
+         ensure_running_status(&d.status)?;
+@@ -3071,4 +3075,22 @@
+         }
+     }
+ 
+-}
++    #[tokio::test]
++    async fn running_connect_renews_requested_lease_and_propagates_failure() {
++        for success in [true, false] {
++            let fixture = RecoveryFixture {
++                status: Arc::new(Mutex::new(1)), after_update: 1,
++                updates: Arc::new(Mutex::new(0)),
++            };
++            let service = spawn_fake_cubemaster(Router::new()
++                .route("/cube/sandbox/info", axum::routing::get(recovery_info))
++                .route("/cube/sandbox/timeout", post(move |Json(body): Json<Value>| async move {
++                    assert_eq!(body["sandboxID"], "owned");
++                    assert_eq!(body["timeout"], 3600);
++                    ret_envelope(if success {200} else {130500}, "lease result")
++                })).with_state(fixture)).await;
++            assert_eq!(service.connect_sandbox("owned", Some(3600)).await.is_ok(), success);
++        }
++    }
++
++}

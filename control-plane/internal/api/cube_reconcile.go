@@ -145,7 +145,9 @@ func (s *Server) ReconcileCube(ctx context.Context) {
 				// Resuming is safe for an already accepted task; pausing it isn't. This
 				// also recovers tasks that were frozen before a control-plane restart.
 				if retainLease {
-					_ = s.connectCube(bounded, sb.ID, leaseSeconds)
+					mutation, done := context.WithTimeout(ctx, 130*time.Second)
+					defer done()
+					_ = s.connectCube(mutation, sb.ID, leaseSeconds)
 					return
 				}
 				if sb.Status != "stopped" {
@@ -159,10 +161,12 @@ func (s *Server) ReconcileCube(ctx context.Context) {
 					// Cube guests do not enter the Docker reaper. Apply the same
 					// operator idle setting here, including after a long task lease,
 					// while holding the lifecycle lock and preserving remote errors.
-					if err := s.Cube.Pause(bounded, b.RuntimeID); err == nil {
+					mutation, done := context.WithTimeout(ctx, 130*time.Second)
+					defer done()
+					if err := s.Cube.Pause(mutation, b.RuntimeID); err == nil {
 						s.stopCubeEgress(sb.ID)
 						s.cubePreviewLeases.Delete(sb.ID)
-						_ = s.Store.MarkStoppedAt(bounded, sb.ID, time.Now().UTC())
+						_ = s.Store.MarkStoppedAt(mutation, sb.ID, time.Now().UTC())
 					}
 					return
 				}
@@ -174,8 +178,15 @@ func (s *Server) ReconcileCube(ctx context.Context) {
 						return
 					}
 				}
-				if retainLease {
-					_, _ = s.Cube.Connect(bounded, b.RuntimeID, cube.ConnectRequest{TimeoutSeconds: leaseSeconds})
+				// The authoritative lease, not the maintenance tick, determines
+				// renewal. Avoid one cross-worker mutation per open stream on
+				// every scan. Missing TTL keeps the conservative old behavior.
+				if retainLease && (remote.EndAt == nil || time.Until(*remote.EndAt) < 10*time.Minute) {
+					mutation, done := context.WithTimeout(ctx, 130*time.Second)
+					defer done()
+					if _, err := s.Cube.Connect(mutation, b.RuntimeID, cube.ConnectRequest{TimeoutSeconds: leaseSeconds}); err != nil {
+						return
+					}
 				}
 				if sb.Status != "running" {
 					_ = s.Store.MarkRunningWoke(bounded, sb.ID, "", "", time.Now().UTC())

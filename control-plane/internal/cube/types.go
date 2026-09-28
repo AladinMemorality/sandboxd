@@ -2,7 +2,10 @@
 // It deliberately does not construct or contact sandbox preview/control URLs.
 package cube
 
-import "net/http"
+import (
+	"net/http"
+	"time"
+)
 
 // Config must come from operator configuration, never a sandbox request.
 // Plain HTTP is supported for a private control network; use HTTPS otherwise.
@@ -50,6 +53,7 @@ type ConnectRequest struct {
 // counts are only supplied by Get. Domain and access tokens are untrusted
 // response data; do not use Domain as an arbitrary forwarding target.
 type Sandbox struct {
+	EndAt              *time.Time        `json:"endAt,omitempty"`
 	SandboxID          string            `json:"sandboxID"`
 	TemplateID         string            `json:"templateID"`
 	ClientID           string            `json:"clientID"`

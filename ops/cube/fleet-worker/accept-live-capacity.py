@@ -5,7 +5,7 @@ This is a serving/wake acceptance, not a claim about 100 simultaneous builds.
 Existing customer content is never edited. Only journaled operator apps are
 deleted. Run after relocation has completed, under the shared operator locks.
 """
-import concurrent.futures,hashlib,importlib.util,json,secrets,statistics,sys,threading,time,traceback
+import gzip,http.client,concurrent.futures,hashlib,importlib.util,json,secrets,statistics,sys,threading,time,traceback
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -28,7 +28,7 @@ def main():
         # every slot counted in this HTTP test has a page we can verify.
         excluded=c.rows("SELECT s.id sandbox_id,s.status FROM sandbox s JOIN app a ON a.id=s.app_id WHERE a.name LIKE 'minecraft-tunnel%' OR s.id='01M3D1Q0E1KM1FEM244XVHEC65'")
         parked=[]
-        apps=[];ready={};guard=threading.Lock();stop=threading.Event();errors=[]
+        apps=[];ready={};visitors={};tokens={};guard=threading.Lock();stop=threading.Event();errors=[]
         prior_fixtures=sum(row['sandbox_id']=='01M3D1Q0E1KM1FEM244XVHEC65' for row in projects)
         report=dict(complete=False,profile='migrated customer pages plus private Vite fillers',target=target,web_projects=len(projects),customer_projects=len(projects)-prior_fixtures,prior_operator_fixtures=prior_fixtures)
         def event(phase,**kw):
@@ -38,34 +38,58 @@ def main():
         def start(row):
             status,_=c.api('POST','/v1/sandboxes/'+row['sandbox_id']+'/start');assert status==200,'canonical wake failed'
             with guard:ready[row['sandbox_id']]=row
+        def page_request(path,headers):
+            conn=http.client.HTTPConnection('127.0.0.1',9090,timeout=60)
+            try:
+                conn.request('GET',path,headers={**headers,'Accept-Encoding':'gzip'})
+                response=conn.getresponse();raw=response.read(8*1024*1024+1)
+                assert len(raw)<=8*1024*1024,'response exceeds evidence bound'
+                if response.getheader('Content-Encoding')=='gzip':
+                    import io
+                    with gzip.GzipFile(fileobj=io.BytesIO(raw)) as stream:raw=stream.read(8*1024*1024+1)
+                    assert len(raw)<=8*1024*1024,'decoded response exceeds evidence bound'
+                return response.status,raw
+            finally:conn.close()
         def preview(row,assets=False):
-            sid=row['sandbox_id'];status,v=c.api('POST','/v1/sandboxes/'+sid+'/preview-access');assert status==200
-            headers={'Host':urlsplit(v['url']).netloc,'Cookie':'sandbox_preview='+v['token']}
-            before=time.monotonic();status,raw=c.request('127.0.0.1',9090,'/',headers=headers,timeout=60)
-            found=[]
-            if assets and status==200:
-                class Parser(HTMLParser):
-                    def handle_starttag(self,tag,attrs):
-                        a=dict(attrs);url=a.get('src') if tag=='script' else a.get('href') if tag=='link' and a.get('rel')=='stylesheet' else None
-                        if url and url.startswith('/') and not url.startswith('//') and len(found)<4:found.append(url)
-                Parser().feed(raw.decode('utf-8',errors='replace'))
-            codes=[]
-            for path in found:
-                code,_=c.request('127.0.0.1',9090,path,headers=headers,timeout=60);codes.append(code)
-            if row.get('marker'):assert row['marker'].encode() in raw,'fixture identity differs'
-            return dict(sandbox_id=sid,status=status,asset_statuses=codes,seconds=time.monotonic()-before,bytes=len(raw))
-        def traffic():
+            sid=row['sandbox_id'];before=time.monotonic();result=dict(sandbox_id=sid,status=0,asset_statuses=[])
+            try:
+                with guard:cached=tokens.get(sid)
+                if cached is None or cached[0]<time.monotonic():
+                    status,v=c.api('POST','/v1/sandboxes/'+sid+'/preview-access');assert status==200
+                    cached=(time.monotonic()+240,{'Host':urlsplit(v['url']).netloc,'Cookie':'sandbox_preview='+v['token']})
+                    with guard:tokens[sid]=cached
+                headers=cached[1];status,raw=page_request('/',headers)
+                result.update(status=status,bytes=len(raw));found=[]
+                if assets and status==200:
+                    class Parser(HTMLParser):
+                        def handle_starttag(self,tag,attrs):
+                            a=dict(attrs);url=a.get('src') if tag=='script' else a.get('href') if tag=='link' and a.get('rel')=='stylesheet' else None
+                            if url and url.startswith('/') and not url.startswith('//') and len(found)<4:found.append(url)
+                    Parser().feed(raw.decode('utf-8',errors='replace'))
+                for path in found:
+                    code,_=page_request(path,headers);result['asset_statuses'].append(code)
+                if row.get('marker'):assert row['marker'].encode() in raw,'fixture identity differs'
+            except Exception as error:result.update(error=type(error).__name__,status=0)
+            result['seconds']=time.monotonic()-before
+            return result
+        def visit(row):
+            # Independent visitors: a slow project cannot stop activity on all
+            # other projects long enough to trigger their normal idle policy.
             while not stop.wait(20):
-                with guard:rows=list(ready.values())
-                try:
-                    # Each simulated visitor must reach its own project within
-                    # the idle window even when other projects renew leases.
-                    with concurrent.futures.ThreadPoolExecutor(max_workers=target) as pool:
-                        observations=list(pool.map(preview,rows))
-                    bad=[v for v in observations if v['status']!=200]
-                    c.save(job/'traffic.json',dict(at=time.time(),count=len(rows),failures=bad))
-                    if bad:errors.append('background page failure');return
-                except Exception as e:errors.append(type(e).__name__);return
+                result=preview(row)
+                with guard:
+                    observations[row['sandbox_id']]=dict(at=time.time(),**result)
+                    if result['status']!=200:errors.append(result)
+                    c.save(job/'traffic.json',dict(at=time.time(),count=len(observations),failures=[v for v in observations.values() if v['status']!=200]))
+                if result['status']!=200:return
+        observations={}
+        def traffic():
+            while not stop.wait(1):
+                with guard:rows=[row for sid,row in ready.items() if sid not in visitors]
+                for row in rows:
+                    visitor=threading.Thread(target=visit,args=(row,),daemon=True)
+                    visitors[row['sandbox_id']]=visitor;visitor.start()
+            for visitor in visitors.values():visitor.join(200)
         thread=threading.Thread(target=traffic,daemon=True);thread.start()
         try:
             for row in excluded:
@@ -131,6 +155,7 @@ def main():
                 with guard:allrows=list(ready.values())
                 assert len(allrows)==target
                 with concurrent.futures.ThreadPoolExecutor(max_workers=20) as pool:round_=list(pool.map(lambda row:preview(row,True),allrows))
+                c.save(job/('round-'+str(iteration+1)+'.json'),round_)
                 assert all(v['status']==200 and all(code==200 for code in v['asset_statuses']) for v in round_),'peak page/assets failed'
                 report['rounds'].append(round_);assert sum(v['count'] for v in charged())==target
                 event('peak-round',round=iteration+1,count=target);time.sleep(30)
@@ -142,7 +167,7 @@ def main():
             assert status==503 and refusal['error']['code']=='runtime_capacity','overflow did not stop at admission'
             assert not c.rows('SELECT id FROM sandbox WHERE app_id=?',(app['id'],))
             report['overflow_refused']=True
-            stop.set();thread.join(120);assert not thread.is_alive() and not errors
+            stop.set();thread.join(220);assert not thread.is_alive() and not errors
             filler_ids={app['id'] for app in apps}
             selected=next(row for row in rows if row['worker_id']=='b200-01' and ready[row['sandbox_id']].get('app_id') in filler_ids)
             sid=selected['sandbox_id'];status,_=c.api('POST','/v1/sandboxes/'+sid+'/stop');assert status==200
@@ -158,7 +183,7 @@ def main():
             event('acceptance-failed',**report['failure']);raise
         finally:
             event('cleanup-started')
-            stop.set();thread.join(120)
+            stop.set();thread.join(220)
             failures=[]
             for app in reversed(apps):
                 try:

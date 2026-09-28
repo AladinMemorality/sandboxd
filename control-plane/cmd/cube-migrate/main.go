@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/cubeconfig"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/docker"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/maintenance"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/migration"
@@ -230,7 +231,13 @@ func run(args []string) error {
 	if err = admission.RequireStorageGuard(); err != nil {
 		return err
 	}
-	if err = client.ConfigureAdmission(ctx, st, admission); err != nil {
+	// The offline reconciler must use the same per-worker admission and
+	// placement checks as the controller, including after fleet expansion.
+	templates := make(map[string]string, len(admission.Templates))
+	for id := range admission.Templates {
+		templates[id] = id
+	}
+	if err = cubeconfig.ConfigureAdmission(ctx, cubeconfig.Config{Client: client, Templates: templates}, st); err != nil {
 		return err
 	}
 	if action == "admission-reconcile" || action == "admission-adopt" {

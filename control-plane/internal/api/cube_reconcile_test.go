@@ -33,6 +33,8 @@ func TestCubeReconcilePreservesRunningPoliciesAndManualStop(t *testing.T) {
 		{"active-task", "running", "running", "sleep", false, false, 1},
 		{"active-task-paused", "stopped", "paused", "sleep", false, false, 1},
 		{"always-on", "running", "running", "always_on", false, false, 1},
+		{"always-on-fresh-lease", "running", "running", "always_on", false, false, 0},
+		{"always-on-expiring-lease", "running", "running", "always_on", false, false, 1},
 		{"always-on-auto-paused", "running", "paused", "always_on", false, false, 1},
 		{"always-on-manually-stopped", "stopped", "paused", "always_on", false, false, 0},
 		{"keepalive", "running", "running", "sleep", true, false, 1},
@@ -70,11 +72,18 @@ func TestCubeReconcilePreservesRunningPoliciesAndManualStop(t *testing.T) {
 				} else if r.Method != "GET" || r.URL.Path != "/sandboxes/vm-retained" {
 					t.Errorf("unexpected provider mutation %s %s", r.Method, r.URL.Path)
 				}
-				json.NewEncoder(w).Encode(map[string]string{"sandboxID": "vm-retained", "templateID": "tpl-safe", "state": tc.remote})
+				response := map[string]string{"sandboxID": "vm-retained", "templateID": "tpl-safe", "state": tc.remote}
+				if tc.name == "always-on-fresh-lease" {
+					response["endAt"] = time.Now().Add(55 * time.Minute).Format(time.RFC3339)
+				}
+				if tc.name == "always-on-expiring-lease" {
+					response["endAt"] = time.Now().Add(5 * time.Minute).Format(time.RFC3339)
+				}
+				json.NewEncoder(w).Encode(response)
 			}))
 			defer management.Close()
 			var err error
-			s.Cube, err = cube.New(cube.Config{APIURL: management.URL, APIKey: "fixture-management"})
+			s.Cube, err = cube.New(cube.Config{APIURL: management.URL, APIKey: "fixture-management", HTTPClient: &http.Client{Transport: lifecycleBudgetTransport{t: t}}})
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -327,4 +336,18 @@ func TestCubeReconcileRecoveryPreservesDataAndChargedAdmission(t *testing.T) {
 			}
 		})
 	}
+}
+
+// Inspect the outgoing context, which the HTTP server does not receive. This
+// catches lifecycle calls accidentally inheriting the short observation budget.
+type lifecycleBudgetTransport struct{ t *testing.T }
+
+func (p lifecycleBudgetTransport) RoundTrip(r *http.Request) (*http.Response, error) {
+	if r.Method == http.MethodPost {
+		deadline, ok := r.Context().Deadline()
+		if !ok || time.Until(deadline) < 100*time.Second {
+			p.t.Error("maintenance mutation inherited short read deadline")
+		}
+	}
+	return http.DefaultTransport.RoundTrip(r)
 }

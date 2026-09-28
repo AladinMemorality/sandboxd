@@ -1,0 +1,114 @@
+--- a/CubeAPI/src/services/sandboxes.rs
++++ b/CubeAPI/src/services/sandboxes.rs
+@@ -117,19 +117,12 @@
+ 
+     pub async fn get_sandbox(&self, sandbox_id: &str) -> AppResult<SandboxDetail> {
+         let d = self.fetch_sandbox_detail(sandbox_id).await?;
+-        let summary = self.fetch_sandbox_summary(sandbox_id, &d.host_id).await?;
+-        let started_at = summary
+-            .as_ref()
+-            .and_then(|s| s.started_at.as_ref().cloned())
+-            .or(d.started_at)
+-            .unwrap_or_else(chrono::Utc::now);
+-        // Leave end_at as None for never-timeout sandboxes (CubeMaster returns
+-        // no end instant) instead of collapsing it onto started_at, which
+-        // would read as "already expired".
+-        let end_at = summary
+-            .as_ref()
+-            .and_then(|s| s.end_at.as_ref().cloned())
+-            .or(d.end_at);
++        // The single-ID Master response already contains creation time and TTL.
++        // Listing the entire host here serializes every Get behind Cubelet's
++        // inventory lock and makes health checks quadratic in the fleet size.
++        let started_at = d.started_at.unwrap_or_else(chrono::Utc::now);
++        // None is the authoritative never-timeout value, not a missing lookup.
++        let end_at = d.end_at;
+ 
+         let envd_version = envd_version_from_annotations(&d.annotations);
+         Ok(SandboxDetail {
+@@ -581,38 +574,6 @@
+ 
+         resp.into_first_sandbox(&self.instance_type)
+             .ok_or_else(|| AppError::NotFound(format!("sandbox {} not found", sandbox_id)))
+-    }
+-
+-    async fn fetch_sandbox_summary(
+-        &self,
+-        sandbox_id: &str,
+-        host_id: &str,
+-    ) -> AppResult<Option<SandboxInfo>> {
+-        if host_id.trim().is_empty() {
+-            return Ok(None);
+-        }
+-
+-        let req = ListSandboxRequest {
+-            request_id: new_request_id(),
+-            instance_type: self.instance_type.clone(),
+-            start_idx: None,
+-            size: None,
+-            host_id: Some(host_id.to_string()),
+-            filter: None,
+-        };
+-
+-        let resp = self
+-            .cubemaster
+-            .list_sandboxes(&req)
+-            .await
+-            .map_err(internal_error)?;
+-
+-        resp.ret.into_result().map_err(internal_error)?;
+-
+-        Ok(resp
+-            .sandboxes
+-            .into_iter()
+-            .find(|sandbox| sandbox.sandbox_id == sandbox_id))
+     }
+ 
+     fn sandbox_response(
+@@ -3069,4 +3030,45 @@
+             "\"stopped\""
+         );
+     }
+-}
++    #[tokio::test]
++    async fn single_get_never_scans_inventory_and_preserves_detail() {
++        // No list route exists: any inventory fallback makes this fail, even
++        // when the individual sandbox lookup is healthy.
++        for (native_state, expected) in [
++            (1, SandboxState::Running),
++            (5, SandboxState::Paused),
++            (2, SandboxState::Stopped),
++            (3, SandboxState::Unknown),
++        ] {
++            for end_at in [serde_json::Value::Null, serde_json::json!("2026-09-29T00:00:00Z")] {
++                let value = serde_json::json!({
++                    "requestID": "single-get",
++                    "ret": {"ret_code": 200, "ret_msg": "ok"},
++                    "data": [{
++                        "sandbox_id": "sb-single", "host_id": "worker-100",
++                        "template_id": "tpl-1", "status": native_state,
++                        "end_at": end_at,
++                        "containers": [{"container_id":"sb-single", "type":"sandbox",
++                            "create_at": 1790467200000000000_i64,
++                            "cpu_milli": 2000, "memory_mib": 2048}]
++                    }]
++                });
++                let service = spawn_fake_cubemaster(Router::new().route(
++                    "/cube/sandbox/info",
++                    axum::routing::get(move || {let value=value.clone(); async move {Json(value)}}),
++                )).await;
++                let result = service.get_sandbox("sb-single").await.expect("single-ID lookup");
++                assert_eq!(result.state, expected);
++                assert_eq!(result.started_at.timestamp(), 1790467200);
++                assert_eq!(result.end_at.is_none(), end_at.is_null());
++                if let Some(end) = result.end_at {
++                    assert_eq!(end.to_rfc3339(), "2026-09-29T00:00:00+00:00");
++                }
++                assert_eq!(result.cpu_count, 2);
++                assert_eq!(result.memory_mb, 2048);
++                assert_eq!(result.client_id, "worker-100");
++            }
++        }
++    }
++
++}
