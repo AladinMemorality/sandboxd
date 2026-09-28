@@ -30,14 +30,25 @@ func (c *claudeCodeAgent) name() string { return "claude-code" }
 // claudeEvent is one line of `claude … --output-format stream-json`. Only the
 // fields runtimed maps are declared; the rest is treated as opaque.
 type claudeEvent struct {
-	UUID    string  `json:"uuid"`
-	Type    string  `json:"type"`    // system | assistant | user | result
-	Subtype string  `json:"subtype"` // on result: success | error_* …
-	Model   string  `json:"model"`   // on system/init: the RESOLVED model id
-	Result  string  `json:"result"`  // on result: the final assistant text
-	IsError bool    `json:"is_error"`
-	Cost    float64 `json:"total_cost_usd"`
-	Usage   struct {
+	Event struct {
+		Type  string `json:"type"`
+		Delta struct {
+			Type        string `json:"type"`
+			Text        string `json:"text"`
+			PartialJSON string `json:"partial_json"`
+		} `json:"delta"`
+	} `json:"event"`
+	UUID          string `json:"uuid"`
+	Type          string `json:"type"`    // system | assistant | user | result
+	Subtype       string `json:"subtype"` // on result: success | error_* …
+	Model         string `json:"model"`   // on system/init: the RESOLVED model id
+	Result        string `json:"result"`  // on result: the final assistant text
+	IsError       bool   `json:"is_error"`
+	ToolUseResult struct {
+		ExitCode *int `json:"exitCode"`
+	} `json:"tool_use_result"`
+	Cost  float64 `json:"total_cost_usd"`
+	Usage struct {
 		Input       int `json:"input_tokens"`
 		Output      int `json:"output_tokens"`
 		CacheRead   int `json:"cache_read_input_tokens"`
@@ -45,10 +56,13 @@ type claudeEvent struct {
 	} `json:"usage"`
 	Message struct {
 		Content []struct {
-			Type  string          `json:"type"` // text | tool_use | tool_result
-			Text  string          `json:"text"`
-			Name  string          `json:"name"`  // tool name on tool_use
-			Input json.RawMessage `json:"input"` // tool args
+			ID        string          `json:"id"`
+			ToolUseID string          `json:"tool_use_id"`
+			IsError   bool            `json:"is_error"`
+			Type      string          `json:"type"` // text | tool_use | tool_result
+			Text      string          `json:"text"`
+			Name      string          `json:"name"`  // tool name on tool_use
+			Input     json.RawMessage `json:"input"` // tool args
 		} `json:"content"`
 	} `json:"message"`
 	// Error is tolerated as string | object | null: real claude puts a bare
@@ -98,6 +112,19 @@ func parseClaudeStream(r io.Reader, emit eventSink) claudeParseResult {
 func parseClaudeStreamInput(r io.Reader, emit eventSink, input *claudeInput) claudeParseResult {
 	var pr claudeParseResult
 	var acc strings.Builder
+	started := time.Now()
+	type invocation struct {
+		name, path string
+		at         time.Time
+	}
+	pending := map[string]invocation{}
+	seen := map[string]bool{}
+	mark := func(name string) {
+		if !seen[name] {
+			seen[name] = true
+			emit("timing", map[string]any{"stage": name, "elapsed_ms": time.Since(started).Milliseconds(), "origin": "stream_observation"})
+		}
+	}
 
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 64*1024), 4*1024*1024)
@@ -114,7 +141,8 @@ func parseClaudeStreamInput(r io.Reader, emit eventSink, input *claudeInput) cla
 			if input != nil && input.acknowledge(envelope.UUID) {
 				emit("input", map[string]any{"message_id": envelope.UUID, "status": "received"})
 			}
-			continue
+			// User envelopes also carry tool_result blocks. Only string-content
+			// replay messages should fail block decoding below; do not drop results.
 		}
 		var ev claudeEvent
 		if json.Unmarshal(raw, &ev) != nil {
@@ -128,12 +156,43 @@ func parseClaudeStreamInput(r io.Reader, emit eventSink, input *claudeInput) cla
 			continue
 		}
 		switch ev.Type {
+		case "stream_event":
+			// Timestamp the first generated text/tool-argument delta without
+			// emitting duplicate text, partial tools or private reasoning content.
+			if ev.Event.Type == "content_block_delta" && ((ev.Event.Delta.Type == "text_delta" && ev.Event.Delta.Text != "") || (ev.Event.Delta.Type == "input_json_delta" && ev.Event.Delta.PartialJSON != "")) {
+				mark("first_model_delta")
+			}
+		case "user":
+			for _, blk := range ev.Message.Content {
+				if blk.Type != "tool_result" || blk.ToolUseID == "" {
+					continue
+				}
+				call, ok := pending[blk.ToolUseID]
+				if !ok {
+					continue
+				} // Duplicate/replayed/unmatched results are not new work.
+				delete(pending, blk.ToolUseID)
+				status := "completed"
+				if blk.IsError {
+					status = "error"
+				}
+				data := map[string]any{"call_id": blk.ToolUseID, "name": call.name, "path": call.path,
+					"status": status, "is_error": blk.IsError, "duration_ms": time.Since(call.at).Milliseconds(),
+					"duration_basis": "stream_observation"}
+				// Never forward tool stdout: it may contain credentials or tenant data.
+				// An absent exit code remains unknown, rather than inventing zero.
+				if ev.ToolUseResult.ExitCode != nil {
+					data["exit_code"] = *ev.ToolUseResult.ExitCode
+				}
+				emit(runtime.EventTool, data)
+			}
 		case "system":
 			// The init event reports the RESOLVED model (an alias like "sonnet"
 			// becomes e.g. "claude-sonnet-5"). Surface it so the user sees which
 			// model actually ran — the model's own "what model are you" answer is
 			// unreliable (it reports its system-prompt identity).
 			if ev.Subtype == "init" && ev.Model != "" {
+				mark("cli_initialized")
 				emit(runtime.EventStatus, map[string]any{"phase": "model", "model": ev.Model})
 			}
 		case "assistant":
@@ -154,16 +213,32 @@ func parseClaudeStreamInput(r io.Reader, emit eventSink, input *claudeInput) cla
 						continue
 					}
 					pr.SawText = true
+					mark("first_visible_message")
 					acc.WriteString(blk.Text)
 					emit(runtime.EventMessage, map[string]any{"role": "agent", "text": blk.Text})
 				case "tool_use":
-					if blk.Name != "" {
+					if blk.Name != "" && !errTurn {
 						pr.SawTool = true
-						emit(runtime.EventTool, map[string]any{
+						mark("first_tool")
+						if blk.Name == "Edit" || blk.Name == "Write" || blk.Name == "MultiEdit" {
+							mark("first_edit_invocation")
+						}
+						if blk.ID != "" {
+							if seen["tool:"+blk.ID] {
+								continue
+							}
+							seen["tool:"+blk.ID] = true
+							pending[blk.ID] = invocation{blk.Name, toolTarget(blk.Input), time.Now()}
+						}
+						data := map[string]any{
 							"name":   blk.Name,
 							"status": "running",
 							"path":   toolTarget(blk.Input),
-						})
+						}
+						if blk.ID != "" {
+							data["call_id"] = blk.ID
+						}
+						emit(runtime.EventTool, data)
 					}
 				}
 			}
@@ -207,7 +282,7 @@ func parseClaudeStreamInput(r io.Reader, emit eventSink, input *claudeInput) cla
 
 func (c *claudeCodeAgent) run(ctx context.Context, spec agentSpec, emit eventSink) (string, runtime.TokenUsage, error) {
 	var usage runtime.TokenUsage
-	args := []string{"-p", "--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions"}
+	args := []string{"-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--dangerously-skip-permissions"}
 	if spec.input != nil {
 		args = append(args, "--input-format", "stream-json", "--replay-user-messages")
 		defer spec.input.close()
@@ -253,9 +328,11 @@ func (c *claudeCodeAgent) run(ctx context.Context, spec agentSpec, emit eventSin
 	if err != nil {
 		return "", usage, err
 	}
+	spawnStarted := time.Now()
 	if err := cmd.Start(); err != nil {
 		return "", usage, fmt.Errorf("start claude: %w", err)
 	}
+	emit("timing", map[string]any{"stage": "process_started", "elapsed_ms": time.Since(spawnStarted).Milliseconds(), "origin": "process_spawn"})
 	pgid := cmd.Process.Pid
 
 	finished := make(chan struct{})

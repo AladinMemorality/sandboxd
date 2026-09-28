@@ -235,10 +235,16 @@ func run() (runErr error) {
 	defer listener.Close()
 	errorsCh := make(chan error, 2)
 	go func() { errorsCh <- proxyServer.Serve(proxyListener) }()
-	server.ReconcileCube(ctx)
-	server.ReconcileTasks(ctx)
+	// Provider/storage readiness has passed. Per-sandbox reconciliation can
+	// involve slow guest requests; it must not hold the entire API offline.
+	// Keep initial and periodic recovery in one lifecycle-owned goroutine.
 	maintenanceDone := make(chan struct{})
-	go func() { defer close(maintenanceDone); server.RunCubeMaintenance(ctx) }()
+	go func() {
+		defer close(maintenanceDone)
+		server.ReconcileCube(ctx)
+		server.ReconcileTasks(ctx)
+		server.RunCubeMaintenance(ctx)
+	}()
 	defer func() { cancel(); <-maintenanceDone }()
 	authDone := make(chan struct{})
 	go func() {

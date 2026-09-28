@@ -43,28 +43,37 @@ func (s *Server) connectCubeWithConfig(ctx context.Context, id string, timeoutSe
 	if err != nil {
 		return err
 	}
-	if err = s.withCubeCapacityRetry(ctx, id, func() error {
+	leaseDone := taskStage(ctx, "cube_lease")
+	err = s.withCubeCapacityRetry(ctx, id, func() error {
 		_, e := s.Cube.Connect(ctx, b.RuntimeID, cube.ConnectRequest{TimeoutSeconds: timeoutSeconds})
 		return e
-	}); err != nil {
+	})
+	leaseDone()
+	if err != nil {
 		return err
 	}
 	mark("provider_connect")
 	ready, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
+	readyDone := taskStage(ctx, "supervisor_ready")
 	for {
 		if _, err = s.runtimeClientFor(id).Status(ready); err == nil {
 			break
 		}
 		select {
 		case <-ready.Done():
+			readyDone()
 			return errors.New("Cube supervisor readiness failed")
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
 	mark("supervisor_ready")
+	readyDone()
 	if applyConfig {
-		if err := s.syncCubeAppConfig(ctx, id); err != nil && !errors.Is(err, errCubeConfigBusy) {
+		done := taskStage(ctx, "config_sync")
+		err := s.syncCubeAppConfig(ctx, id)
+		done()
+		if err != nil && !errors.Is(err, errCubeConfigBusy) {
 			return err
 		}
 	}
@@ -80,6 +89,8 @@ func (s *Server) connectCubeWithConfig(ctx context.Context, id string, timeoutSe
 	} else if err := s.Store.MarkRunningWoke(ctx, id, "", "", time.Now().UTC()); err != nil {
 		return err
 	}
+	egressDone := taskStage(ctx, "egress_ready")
+	defer egressDone()
 	return s.ensureCubeEgress(ctx, id)
 }
 

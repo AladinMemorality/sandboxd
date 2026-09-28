@@ -63,6 +63,94 @@ func TestParseClaudeStreamSuccess(t *testing.T) {
 	}
 }
 
+func TestClaudeToolResultsCorrelateWithoutLeakingOutput(t *testing.T) {
+	stream := strings.Join([]string{
+		`{"type":"assistant","message":{"content":[{"type":"tool_use","id":"a","name":"Bash","input":{"command":"tsc --noEmit"}},{"type":"tool_use","id":"b","name":"Read","input":{"file_path":"src/App.tsx"}}]}}`,
+		`{"type":"user","message":{"content":"a live follow-up"}}`,
+		`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"b","content":"PRIVATE FILE"}]}}`,
+		`{"type":"user","tool_use_result":{"exitCode":2,"stdout":"SECRET"},"message":{"content":[{"type":"tool_result","tool_use_id":"a","is_error":true,"content":"SECRET"}]}}`,
+		`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"a","is_error":true}]}}`,
+		`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"unknown"}]}}`,
+	}, "\n")
+	sink, evs := collectSink()
+	pr := parseClaudeStream(strings.NewReader(stream), sink)
+	if !pr.SawTool || pr.APIErr != "" {
+		t.Fatalf("unexpected result %+v", pr)
+	}
+	var tools []map[string]any
+	for _, event := range *evs {
+		if event.typ == "tool" {
+			tools = append(tools, event.data.(map[string]any))
+		}
+	}
+	if len(tools) != 4 {
+		t.Fatalf("expected two starts + two finishes: %+v", tools)
+	}
+	if tools[2]["call_id"] != "b" || tools[2]["status"] != "completed" || tools[2]["exit_code"] != nil {
+		t.Fatal(tools[2])
+	}
+	if tools[3]["call_id"] != "a" || tools[3]["status"] != "error" || tools[3]["exit_code"] != 2 {
+		t.Fatal(tools[3])
+	}
+	for _, event := range tools[2:] {
+		if event["duration_ms"].(int64) < 0 || event["duration_basis"] != "stream_observation" {
+			t.Fatal(event)
+		}
+		if event["content"] != nil || event["stdout"] != nil {
+			t.Fatal("raw output leaked")
+		}
+	}
+}
+
+func TestClaudeDuplicateToolStartAndTiming(t *testing.T) {
+	line := `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"a","name":"Edit","input":{"file_path":"src/App.tsx"}}]}}`
+	sink, evs := collectSink()
+	parseClaudeStream(strings.NewReader(line+"\n"+line+"\n"), sink)
+	tools, firstTool, firstEdit := 0, 0, 0
+	for _, ev := range *evs {
+		if ev.typ == "tool" {
+			tools++
+		}
+		if ev.typ == "timing" {
+			switch ev.data.(map[string]any)["stage"] {
+			case "first_tool":
+				firstTool++
+			case "first_edit_invocation":
+				firstEdit++
+			}
+		}
+	}
+	if tools != 1 || firstTool != 1 || firstEdit != 1 {
+		t.Fatalf("counts %d %d %d", tools, firstTool, firstEdit)
+	}
+}
+
+func TestClaudeFirstDeltaDoesNotDuplicateMessages(t *testing.T) {
+	sink, evs := collectSink()
+	parseClaudeStream(strings.NewReader(strings.Join([]string{
+		`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"thinking_delta","thinking":"private"}}}`,
+		`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello"}}}`,
+		`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":" world"}}}`,
+		`{"type":"assistant","message":{"content":[{"type":"text","text":"Hello world"}]}}`,
+	}, "\n")), sink)
+	messages, delta := 0, 0
+	for _, event := range *evs {
+		m := event.data.(map[string]any)
+		if event.typ == "message" {
+			messages++
+			if m["text"] != "Hello world" {
+				t.Fatal(m)
+			}
+		}
+		if event.typ == "timing" && m["stage"] == "first_model_delta" {
+			delta++
+		}
+	}
+	if messages != 1 || delta != 1 {
+		t.Fatalf("messages=%d deltas=%d", messages, delta)
+	}
+}
+
 func TestParseClaudeStreamNotLoggedIn(t *testing.T) {
 	// claude prints this (non-JSON) and exits 0 when unauthenticated.
 	sink, _ := collectSink()
