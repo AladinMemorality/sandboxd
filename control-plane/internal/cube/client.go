@@ -37,6 +37,8 @@ type Client struct {
 	http      *http.Client
 	admission *admissionGuard
 	placement func(context.Context, string, string) error
+ observation func(context.Context, string) (*Sandbox, error)
+ resumeObserved func(context.Context,string,ConnectRequest) error
 	fleet     *fleet
 }
 
@@ -207,10 +209,7 @@ func (c *Client) Get(ctx context.Context, id string) (*Sandbox, error) {
 	if errors.Is(lookup, ErrRuntimeUnavailable) {
 		return nil, ErrRuntimeUnavailable
 	}
-	out, err := c.getRaw(ctx, id)
-	if err == nil && c.admission.config.NodeID != "" && c.placement(ctx, id, c.admission.config.NodeID) != nil {
-		return nil, ErrAdmissionPending
-	}
+	out, err := c.getPlaced(ctx, id)
 	var upstream *APIError
 	// Registration can disappear after a worker failure while its disk and VM
 	// still exist. Only an acknowledged delete may turn a known ID's 404 into
@@ -237,12 +236,18 @@ func (c *Client) getRaw(ctx context.Context, id string) (*Sandbox, error) {
 }
 
 func (c *Client) Connect(ctx context.Context, id string, in ConnectRequest) (*Sandbox, error) {
+ return c.ConnectAndCheck(ctx,id,in,nil)
+}
+
+// ConnectAndCheck overlaps an independent readiness check with post-connect
+// admission verification. A failed check never skips or releases admission.
+func (c *Client) ConnectAndCheck(ctx context.Context,id string,in ConnectRequest,check func(context.Context) error)(*Sandbox,error){
 	if c.fleet != nil {
 		w, err := c.fleet.runtime(ctx, id)
 		if err != nil {
 			return nil, err
 		}
-		return w.Connect(ctx, id, in)
+		return w.ConnectAndCheck(ctx, id, in, check)
 	}
 	if err := validateID(id); err != nil {
 		return nil, err
@@ -251,9 +256,11 @@ func (c *Client) Connect(ctx context.Context, id string, in ConnectRequest) (*Sa
 		return nil, err
 	}
 	if c.admission != nil {
-		return c.admittedConnect(ctx, id, in)
+		return c.admittedConnect(ctx, id, in, check)
 	}
-	return c.connectRaw(ctx, id, in)
+	out,err := c.connectRaw(ctx,id,in)
+ if err==nil && check!=nil {err=check(ctx)}
+ return out,err
 }
 func (c *Client) connectRaw(ctx context.Context, id string, in ConnectRequest) (*Sandbox, error) {
 	var out Sandbox

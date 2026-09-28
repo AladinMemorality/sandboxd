@@ -252,7 +252,7 @@ func (c *Client) admittedCreate(ctx context.Context, in CreateRequest) (*Sandbox
 	}
 	return remote, nil
 }
-func (c *Client) admittedConnect(ctx context.Context, id string, in ConnectRequest) (*Sandbox, error) {
+func (c *Client) admittedConnect(ctx context.Context, id string, in ConnectRequest, check func(context.Context) error) (*Sandbox, error) {
 	step := time.Now()
 	mark := func(phase string) {
 		slog.Info("cube_connect_phase", "runtime_id", id, "phase", phase, "duration_ms", time.Since(step).Milliseconds())
@@ -285,22 +285,31 @@ func (c *Client) admittedConnect(ctx context.Context, id string, in ConnectReque
 	defer cancel()
 	ctx = operationCtx
 	mark("admission")
-	out, err := c.connectRaw(ctx, id, in)
+    var out *Sandbox
+    native:=remote.State=="paused" && c.resumeObserved!=nil
+    if native {err=c.resumeObserved(ctx,id,in)} else {out,err=c.connectRaw(ctx,id,in)}
 	if err != nil {
 		return nil, fmt.Errorf("%w: connect outcome requires review", ErrAdmissionPending)
 	}
-	mark("native_connect")
-	actual, err := c.getRaw(ctx, id)
-	if err != nil || g.validRemote(actual) != nil || actual.TemplateID != remote.TemplateID || actual.State != "running" {
-		return nil, fmt.Errorf("%w: connect state verification failed", ErrAdmissionPending)
-	}
-	mark("verify_running")
-	if g.config.NodeID != "" && c.placement(ctx, id, g.config.NodeID) != nil {
-		return nil, ErrAdmissionPending
-	}
-	if err = g.store.AdmissionFinish(ctx, lease, id, "active"); err != nil {
-		return nil, fmt.Errorf("%w: cannot acknowledge connect", ErrAdmissionPending)
-	}
+    mark("native_connect")
+    // Readiness and authoritative post-mutation verification are independent.
+    // Always join the check, including verification failures and cancellation.
+    checkCtx, stopCheck:=context.WithCancel(ctx)
+    checked:=make(chan error,1)
+    go func(){if check==nil{checked<-nil}else{checked<-check(checkCtx)}}()
+    joined:=false
+    defer func(){stopCheck();if !joined{<-checked}}()
+    actual, err := c.getPlaced(ctx, id)
+    if err != nil || g.validRemote(actual) != nil || actual.TemplateID != remote.TemplateID || actual.State != "running" {
+        return nil, fmt.Errorf("%w: connect state verification failed", ErrAdmissionPending)
+    }
+    mark("verify_running_and_placement")
+    if err = g.store.AdmissionFinish(ctx, lease, id, "active"); err != nil {
+        return nil, fmt.Errorf("%w: cannot acknowledge connect", ErrAdmissionPending)
+    }
+    err=<-checked;joined=true
+    if err!=nil{return nil,err}
+ if native {out=actual}
 	return out, nil
 }
 func (c *Client) admittedRelease(ctx context.Context, id, operation string) error {

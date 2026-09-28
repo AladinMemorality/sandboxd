@@ -2,7 +2,6 @@ package cube
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -36,9 +35,9 @@ func (c *Client) ConfigurePlacement(origin, instanceType string) error {
 	if err != nil || validateID(instanceType) != nil {
 		return errors.New("invalid Cube placement observer configuration")
 	}
-	c.placement = func(ctx context.Context, id, node string) error {
+	c.observation = func(ctx context.Context, id string) (*Sandbox,error) {
 		if validateID(id) != nil {
-			return ErrAdmissionUnknown
+			return nil, ErrAdmissionUnknown
 		}
 		target := *u
 		target.Path = "/cube/sandbox/info"
@@ -47,34 +46,29 @@ func (c *Client) ConfigurePlacement(origin, instanceType string) error {
 		defer cancel()
 		req, err := http.NewRequestWithContext(bounded, http.MethodGet, target.String(), nil)
 		if err != nil {
-			return err
+			return nil,err
 		}
 		response, err := c.http.Do(req)
 		if err != nil {
-			return errors.New("Cube placement observation unavailable")
+			return nil,errors.New("Cube placement observation unavailable")
 		}
 		defer response.Body.Close()
 		if response.StatusCode != 200 {
-			return errors.New("Cube placement observation rejected")
+			return nil,errors.New("Cube placement observation rejected")
 		}
 		raw, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
 		if err != nil || len(raw) > maxResponseBytes {
-			return errors.New("invalid Cube placement observation")
+			return nil,errors.New("invalid Cube placement observation")
 		}
-		var result struct {
-			Ret struct {
-				Code *int `json:"ret_code"`
-			} `json:"ret"`
-			Data []struct {
-				ID   string `json:"sandbox_id"`
-				Host string `json:"host_id"`
-			} `json:"data"`
-		}
-		if json.Unmarshal(raw, &result) != nil || result.Ret.Code == nil || *result.Ret.Code != 200 || len(result.Data) != 1 || result.Data[0].ID != id || result.Data[0].Host != node {
-			return errors.New("Cube runtime is not on the reserved worker")
-		}
-		return nil
-	}
+        return decodeMasterObservation(raw,id)
+    }
+    c.resumeObserved = c.nativeResume(u,instanceType)
+    c.placement = func(ctx context.Context,id,node string)error {
+        value,err:=c.observation(ctx,id)
+        if err!=nil{return err}
+        if value.ClientID!=node{return errors.New("Cube runtime is not on the reserved worker")}
+        return nil
+    }
 	return nil
 }
 

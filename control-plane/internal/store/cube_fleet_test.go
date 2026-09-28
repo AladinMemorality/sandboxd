@@ -46,9 +46,15 @@ func testCubeFleetCapacity(t *testing.T, total int) {
 		defer mu.Unlock()
 		if r.URL.Path == "/cube/sandbox/info" {
 			id := r.URL.Query().Get("sandbox_id")
-			json.NewEncoder(w).Encode(map[string]any{"ret": map[string]int{"ret_code": 200}, "data": []map[string]string{{"sandbox_id": id, "host_id": nodes[id]}}})
+			vm:=vms[id];state:=1;if vm.State=="paused"{state=5}
+            json.NewEncoder(w).Encode(map[string]any{"ret":map[string]int{"ret_code":200},"data":[]any{map[string]any{"sandbox_id":id,"host_id":nodes[id],"template_id":vm.TemplateID,"status":state,"labels":vm.Metadata,"containers":[]any{map[string]any{"container_id":id,"cpu_milli":vm.CPUCount*1000,"memory_mib":vm.MemoryMB}}}}})
 			return
 		}
+        if r.URL.Path=="/cube/sandbox/update" {
+            var in struct{ID string `json:"sandbox_id"`;Action string `json:"action"`};json.NewDecoder(r.Body).Decode(&in)
+            if in.Action!="resume"||vms[in.ID]==nil{w.WriteHeader(400);return}
+            vms[in.ID].State="running";json.NewEncoder(w).Encode(map[string]any{"ret":map[string]int{"ret_code":200}});return
+        }
 		if r.URL.Path == "/sandboxes" && r.Method == "POST" {
 			var in cube.CreateRequest
 			if json.NewDecoder(r.Body).Decode(&in) != nil || len(in.DistributionScope) != 1 {
