@@ -330,6 +330,7 @@ func (s *Server) cubeLifecycle(w http.ResponseWriter, r *http.Request, action st
 		writeV1Err(w, 404, "not_found", "no such sandbox")
 		return true
 	}
+	var readyStatus *runtime.Status
 	switch action {
 	case "pause":
 		// Fail closed when task state cannot be read: pausing an unknown active
@@ -358,7 +359,7 @@ func (s *Server) cubeLifecycle(w http.ResponseWriter, r *http.Request, action st
 			}
 		}
 	case "connect":
-		err = s.connectCube(r.Context(), id, 3600)
+		readyStatus,err = s.connectCubeReady(r.Context(), id, 3600,true)
 	case "delete":
 		err = s.Cube.Delete(r.Context(), b.RuntimeID)
 		var apiErr *cube.APIError
@@ -395,6 +396,6 @@ func (s *Server) cubeLifecycle(w http.ResponseWriter, r *http.Request, action st
 		writeV1Err(w, 503, "runtime_unavailable", "cannot read sandbox state")
 		return true
 	}
-	writeJSON(w, 200, s.v1SandboxFromRow(r, sb))
+	writeJSON(w, 200, s.v1SandboxFromRowReady(r, sb, readyStatus))
 	return true
 }

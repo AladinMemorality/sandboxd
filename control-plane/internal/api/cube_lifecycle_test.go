@@ -157,8 +157,10 @@ func TestCubePauseConnectDeleteUseSeparateLifecycleOperations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	supervisorToken := strings.Repeat("a", 64)
+	var statusReads atomic.Int32
+ supervisorToken := strings.Repeat("a", 64)
 	guest := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		statusReads.Add(1)
 		if r.Host != "3031-vm-lifecycle.cube.test" || r.Header.Get("Authorization") != "Bearer "+supervisorToken || r.Header.Get("cube-traffic-access-token") != "traffic-secret" {
 			t.Error("missing scoped supervisor routing/auth")
 		}
@@ -185,7 +187,9 @@ func TestCubePauseConnectDeleteUseSeparateLifecycleOperations(t *testing.T) {
 		req := httptest.NewRequest(tc.method, "/v1/sandboxes/"+sb.ID+tc.suffix, nil)
 		req = req.WithContext(auth.WithActor(req.Context(), auth.Actor{Name: cfgTenant, Kind: "service"}))
 		rec := httptest.NewRecorder()
-		s.Handler().ServeHTTP(rec, req)
+		before:=statusReads.Load()
+ s.Handler().ServeHTTP(rec, req)
+ if tc.suffix=="/start" && statusReads.Load()-before!=1 {t.Fatalf("start must reuse authenticated readiness: got %d reads",statusReads.Load()-before)}
 		if rec.Code != tc.want {
 			t.Fatalf("%s %s: %d %s", tc.method, tc.suffix, rec.Code, rec.Body.String())
 		}
