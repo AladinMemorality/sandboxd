@@ -359,7 +359,7 @@ func (s *Server) cubeLifecycle(w http.ResponseWriter, r *http.Request, action st
 			}
 		}
 	case "connect":
-		readyStatus,err = s.connectCubeReady(r.Context(), id, 3600,true)
+		readyStatus, err = s.connectCubeReady(r.Context(), id, 3600, true)
 	case "delete":
 		err = s.Cube.Delete(r.Context(), b.RuntimeID)
 		var apiErr *cube.APIError

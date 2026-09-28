@@ -35,7 +35,7 @@ func (c *Client) ConfigurePlacement(origin, instanceType string) error {
 	if err != nil || validateID(instanceType) != nil {
 		return errors.New("invalid Cube placement observer configuration")
 	}
-	c.observation = func(ctx context.Context, id string) (*Sandbox,error) {
+	c.observation = func(ctx context.Context, id string) (*Sandbox, error) {
 		if validateID(id) != nil {
 			return nil, ErrAdmissionUnknown
 		}
@@ -46,29 +46,33 @@ func (c *Client) ConfigurePlacement(origin, instanceType string) error {
 		defer cancel()
 		req, err := http.NewRequestWithContext(bounded, http.MethodGet, target.String(), nil)
 		if err != nil {
-			return nil,err
+			return nil, err
 		}
 		response, err := c.http.Do(req)
 		if err != nil {
-			return nil,errors.New("Cube placement observation unavailable")
+			return nil, errors.New("Cube placement observation unavailable")
 		}
 		defer response.Body.Close()
 		if response.StatusCode != 200 {
-			return nil,errors.New("Cube placement observation rejected")
+			return nil, errors.New("Cube placement observation rejected")
 		}
 		raw, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
 		if err != nil || len(raw) > maxResponseBytes {
-			return nil,errors.New("invalid Cube placement observation")
+			return nil, errors.New("invalid Cube placement observation")
 		}
-        return decodeMasterObservation(raw,id)
-    }
-    c.resumeObserved = c.nativeResume(u,instanceType)
-    c.placement = func(ctx context.Context,id,node string)error {
-        value,err:=c.observation(ctx,id)
-        if err!=nil{return err}
-        if value.ClientID!=node{return errors.New("Cube runtime is not on the reserved worker")}
-        return nil
-    }
+		return decodeMasterObservation(raw, id)
+	}
+	c.resumeObserved = c.nativeResume(u, instanceType)
+	c.placement = func(ctx context.Context, id, node string) error {
+		value, err := c.observation(ctx, id)
+		if err != nil {
+			return err
+		}
+		if value.ClientID != node {
+			return errors.New("Cube runtime is not on the reserved worker")
+		}
+		return nil
+	}
 	return nil
 }
 

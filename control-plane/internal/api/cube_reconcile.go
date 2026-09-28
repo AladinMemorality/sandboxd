@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
- "github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 )
 
 const cubeRecoveryRequiredMessage = "Cube runtime requires operator recovery; binding retained"
@@ -21,12 +21,12 @@ func (s *Server) connectCube(ctx context.Context, id string, timeoutSeconds int)
 // Explicit manifest activation validates the manifest before applying pending
 // config. Normal lifecycle calls retain their existing config synchronization.
 func (s *Server) connectCubeWithConfig(ctx context.Context, id string, timeoutSeconds int, applyConfig bool) error {
- _,err:=s.connectCubeReady(ctx,id,timeoutSeconds,applyConfig)
- return err
+	_, err := s.connectCubeReady(ctx, id, timeoutSeconds, applyConfig)
+	return err
 }
 
 // The returned readiness belongs only to this locked lifecycle operation.
-func(s *Server) connectCubeReady(ctx context.Context,id string,timeoutSeconds int,applyConfig bool)(*runtime.Status,error){
+func (s *Server) connectCubeReady(ctx context.Context, id string, timeoutSeconds int, applyConfig bool) (*runtime.Status, error) {
 	step := time.Now()
 	mark := func(phase string) {
 		if s.Log != nil {
@@ -36,10 +36,10 @@ func(s *Server) connectCubeReady(ctx context.Context,id string,timeoutSeconds in
 	}
 	defer func() { mark("finish") }()
 	if s.Cube == nil {
-		return nil,errors.New("Cube runtime disabled")
+		return nil, errors.New("Cube runtime disabled")
 	}
 	if active, err := s.Store.SandboxHasRunningTask(ctx, id); err != nil {
-		return nil,err
+		return nil, err
 	} else if active && timeoutSeconds < 86400+600 {
 		timeoutSeconds = 86400 + 600
 	}
@@ -48,47 +48,68 @@ func(s *Server) connectCubeReady(ctx context.Context,id string,timeoutSeconds in
 	}
 	b, err := s.Store.GetRuntimeBinding(ctx, id)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
-    var readyStatus *runtime.Status
-    leaseDone:=taskStage(ctx,"cube_connect_and_ready")
-    err=s.withCubeCapacityRetry(ctx,id,func()error{
-        _,e:=s.Cube.ConnectAndCheck(ctx,b.RuntimeID,cube.ConnectRequest{TimeoutSeconds:timeoutSeconds},func(checked context.Context)error{
-            done:=taskStage(checked,"supervisor_ready");defer done()
-            ready,cancel:=context.WithTimeout(checked,15*time.Second);defer cancel()
-            for {
-                status,e:=s.runtimeClientFor(id).Status(ready)
-                if e==nil {readyStatus=status;return nil}
-                select{case <-ready.Done():return errors.New("Cube supervisor readiness failed");case <-time.After(100*time.Millisecond):}
-            }
-        })
-        return e
-    });leaseDone();if err!=nil{return nil,err}
-    mark("provider_and_supervisor_ready")
+	var readyStatus *runtime.Status
+	leaseDone := taskStage(ctx, "cube_connect_and_ready")
+	err = s.withCubeCapacityRetry(ctx, id, func() error {
+		_, e := s.Cube.ConnectAndCheck(ctx, b.RuntimeID, cube.ConnectRequest{TimeoutSeconds: timeoutSeconds}, func(checked context.Context) error {
+			done := taskStage(checked, "supervisor_ready")
+			defer done()
+			ready, cancel := context.WithTimeout(checked, 15*time.Second)
+			defer cancel()
+			for {
+				status, e := s.runtimeClientFor(id).Status(ready)
+				if e == nil {
+					readyStatus = status
+					return nil
+				}
+				select {
+				case <-ready.Done():
+					return errors.New("Cube supervisor readiness failed")
+				case <-time.After(100 * time.Millisecond):
+				}
+			}
+		})
+		return e
+	})
+	leaseDone()
+	if err != nil {
+		return nil, err
+	}
+	mark("provider_and_supervisor_ready")
 
 	if applyConfig {
-		done:=taskStage(ctx,"config_sync")
-        err:=s.syncCubeAppConfig(ctx,id);done()
-        if err != nil && !errors.Is(err, errCubeConfigBusy) {
-			return nil,err
+		done := taskStage(ctx, "config_sync")
+		err := s.syncCubeAppConfig(ctx, id)
+		done()
+		if err != nil && !errors.Is(err, errCubeConfigBusy) {
+			return nil, err
 		}
 	}
-    mark("config_sync")
-    sb,err:=s.Store.Get(ctx,id)
-    if err!=nil{return nil,err}
-    // A config change can restart processes; don't reuse pre-change readiness.
-    motionScoped:=s.cubeEgress!=nil && sb.AppID.Valid && s.cubeEgress.config.MotionStudioAppID==sb.AppID.String
-    if applyConfig && (b.ConfigRevision!=b.ConfigAppliedRevision || motionScoped){readyStatus=nil}
+	mark("config_sync")
+	sb, err := s.Store.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	// A config change can restart processes; don't reuse pre-change readiness.
+	motionScoped := s.cubeEgress != nil && sb.AppID.Valid && s.cubeEgress.config.MotionStudioAppID == sb.AppID.String
+	if applyConfig && (b.ConfigRevision != b.ConfigAppliedRevision || motionScoped) {
+		readyStatus = nil
+	}
 	if sb.Status == "running" {
 		if err := s.Store.BumpLastActive(ctx, id, time.Now().UTC()); err != nil {
-			return nil,err
+			return nil, err
 		}
 	} else if err := s.Store.MarkRunningWoke(ctx, id, "", "", time.Now().UTC()); err != nil {
-		return nil,err
+		return nil, err
 	}
-	egressDone:=taskStage(ctx,"egress_ready");defer egressDone()
-	if err=s.ensureCubeEgress(ctx,id);err!=nil{return nil,err}
- return readyStatus,nil
+	egressDone := taskStage(ctx, "egress_ready")
+	defer egressDone()
+	if err = s.ensureCubeEgress(ctx, id); err != nil {
+		return nil, err
+	}
+	return readyStatus, nil
 }
 
 // ReconcileCube reads authoritative remote state without creating/replacing a

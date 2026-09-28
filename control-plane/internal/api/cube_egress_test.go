@@ -79,6 +79,13 @@ func reverseFixtureOffline(t *testing.T, upstream http.HandlerFunc, offline bool
 	if err = s.ensureCubeEgress(ctx, id); err != nil {
 		t.Fatal(err)
 	}
+	// The controller can finish its handshake before the guest goroutine
+	// publishes readiness. Wait for that authenticated channel explicitly.
+	readyCtx, stopReady := context.WithTimeout(ctx, 3*time.Second)
+	defer stopReady()
+	if err = guest.WaitReady(readyCtx); err != nil {
+		t.Fatal(err)
+	}
 	t.Cleanup(func() {
 		s.cubeEgress.mu.Lock()
 		entry := s.cubeEgress.sessions[id]

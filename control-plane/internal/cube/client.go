@@ -32,14 +32,14 @@ var envName = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_]*$`)
 var ErrRuntimeUnavailable = errors.New("Cube runtime requires recovery")
 
 type Client struct {
-	base      *url.URL
-	key       string
-	http      *http.Client
-	admission *admissionGuard
-	placement func(context.Context, string, string) error
- observation func(context.Context, string) (*Sandbox, error)
- resumeObserved func(context.Context,string,ConnectRequest) error
-	fleet     *fleet
+	base           *url.URL
+	key            string
+	http           *http.Client
+	admission      *admissionGuard
+	placement      func(context.Context, string, string) error
+	observation    func(context.Context, string) (*Sandbox, error)
+	resumeObserved func(context.Context, string, ConnectRequest) error
+	fleet          *fleet
 }
 
 // APIError never includes upstream bodies, URLs, credentials or caller values.
@@ -236,12 +236,12 @@ func (c *Client) getRaw(ctx context.Context, id string) (*Sandbox, error) {
 }
 
 func (c *Client) Connect(ctx context.Context, id string, in ConnectRequest) (*Sandbox, error) {
- return c.ConnectAndCheck(ctx,id,in,nil)
+	return c.ConnectAndCheck(ctx, id, in, nil)
 }
 
 // ConnectAndCheck overlaps an independent readiness check with post-connect
 // admission verification. A failed check never skips or releases admission.
-func (c *Client) ConnectAndCheck(ctx context.Context,id string,in ConnectRequest,check func(context.Context) error)(*Sandbox,error){
+func (c *Client) ConnectAndCheck(ctx context.Context, id string, in ConnectRequest, check func(context.Context) error) (*Sandbox, error) {
 	if c.fleet != nil {
 		w, err := c.fleet.runtime(ctx, id)
 		if err != nil {
@@ -258,9 +258,11 @@ func (c *Client) ConnectAndCheck(ctx context.Context,id string,in ConnectRequest
 	if c.admission != nil {
 		return c.admittedConnect(ctx, id, in, check)
 	}
-	out,err := c.connectRaw(ctx,id,in)
- if err==nil && check!=nil {err=check(ctx)}
- return out,err
+	out, err := c.connectRaw(ctx, id, in)
+	if err == nil && check != nil {
+		err = check(ctx)
+	}
+	return out, err
 }
 func (c *Client) connectRaw(ctx context.Context, id string, in ConnectRequest) (*Sandbox, error) {
 	var out Sandbox

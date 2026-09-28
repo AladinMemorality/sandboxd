@@ -174,10 +174,10 @@ func (s *Server) previewURL(id string, webPort int) string {
 // v1SandboxFromRow reshapes a stored sandbox to the v1 object, folding
 // in the live runtime/preview state from runtimed when reachable.
 func (s *Server) v1SandboxFromRow(r *http.Request, sb *store.Sandbox) v1Sandbox {
- return s.v1SandboxFromRowReady(r,sb,nil)
+	return s.v1SandboxFromRowReady(r, sb, nil)
 }
 
-func(s *Server) v1SandboxFromRowReady(r *http.Request,sb *store.Sandbox,ready *runtime.Status)v1Sandbox{
+func (s *Server) v1SandboxFromRowReady(r *http.Request, sb *store.Sandbox, ready *runtime.Status) v1Sandbox {
 	out := v1Sandbox{
 		RuntimeProvider: runtimeProviderName(sb),
 		ID:              sb.ID,
@@ -206,7 +206,7 @@ func(s *Server) v1SandboxFromRowReady(r *http.Request,sb *store.Sandbox,ready *r
 	}
 	// Paused Cube VMs cannot answer; status polling must not spend the
 	// remote timeout (or wake them) just to rediscover the durable stopped state.
-	if rs==nil && (sb.RuntimeProvider != "cube" || sb.Status != "stopped") {
+	if rs == nil && (sb.RuntimeProvider != "cube" || sb.Status != "stopped") {
 		if got, err := s.runtimeClientFor(sb.ID).Status(ctx); err == nil {
 			rs = got
 		}
