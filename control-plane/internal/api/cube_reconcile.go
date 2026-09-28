@@ -20,6 +20,14 @@ func (s *Server) connectCube(ctx context.Context, id string, timeoutSeconds int)
 // Explicit manifest activation validates the manifest before applying pending
 // config. Normal lifecycle calls retain their existing config synchronization.
 func (s *Server) connectCubeWithConfig(ctx context.Context, id string, timeoutSeconds int, applyConfig bool) error {
+	step := time.Now()
+	mark := func(phase string) {
+		if s.Log != nil {
+			s.Log.Info("cube_start_phase", "sandbox_id", id, "phase", phase, "duration_ms", time.Since(step).Milliseconds())
+		}
+		step = time.Now()
+	}
+	defer func() { mark("finish") }()
 	if s.Cube == nil {
 		return errors.New("Cube runtime disabled")
 	}
@@ -41,6 +49,7 @@ func (s *Server) connectCubeWithConfig(ctx context.Context, id string, timeoutSe
 	}); err != nil {
 		return err
 	}
+	mark("provider_connect")
 	ready, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	for {
@@ -53,11 +62,13 @@ func (s *Server) connectCubeWithConfig(ctx context.Context, id string, timeoutSe
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
+	mark("supervisor_ready")
 	if applyConfig {
 		if err := s.syncCubeAppConfig(ctx, id); err != nil && !errors.Is(err, errCubeConfigBusy) {
 			return err
 		}
 	}
+	mark("config_sync")
 	sb, err := s.Store.Get(ctx, id)
 	if err != nil {
 		return err

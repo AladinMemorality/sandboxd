@@ -48,6 +48,9 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 	}
 	re := cachedRE("cube-preview|"+s.PreviewDomain, `(?i)^s-([0-9a-z]{1,128})-([0-9]{1,5})\.preview\.`+regexp.QuoteMeta(s.PreviewDomain)+`(?::[0-9]{1,5})?$`)
 	m := re.FindStringSubmatch(r.Host)
+	if m == nil && s.PreviewPublicDomain != "" {
+		m = cachedRE("cube-flat|"+s.PreviewPublicDomain, `(?i)^s-([0-9a-z]{1,128})-([0-9]{1,5})\.`+regexp.QuoteMeta(s.PreviewPublicDomain)+`$`).FindStringSubmatch(r.Host)
+	}
 	if m == nil {
 		return false
 	}
@@ -191,6 +194,21 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 			writeErr(w, 503, "preview activity unavailable")
 			return true
 		}
+	}
+	if worker, ok := r.Context().Value(previewGatewayWorkerKey{}).(string); ok {
+		placement, err := s.Store.AdmissionLookup(r.Context(), b.RuntimeID)
+		if err != nil {
+			writeErr(w, 503, "preview placement unavailable")
+			return true
+		}
+		if placement.WorkerID != worker {
+			w.Header().Set("X-Preview-Worker-Target", placement.WorkerID)
+			writeErr(w, 409, "preview placement changed")
+			return true
+		}
+		w.Header().Set("Cache-Control", "private, no-store")
+		writeJSON(w, 200, PreviewGatewayRoute{Host: upstreamHost, Token: credentials.TrafficAccessToken, Private: sb.Visibility != "public", Passive: passive})
+		return true
 	}
 	scheme, _ := s.previewScheme()
 	proxy := &httputil.ReverseProxy{

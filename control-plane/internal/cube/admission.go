@@ -8,8 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"strings"
+	"time"
 )
 
 var (
@@ -251,6 +253,12 @@ func (c *Client) admittedCreate(ctx context.Context, in CreateRequest) (*Sandbox
 	return remote, nil
 }
 func (c *Client) admittedConnect(ctx context.Context, id string, in ConnectRequest) (*Sandbox, error) {
+	step := time.Now()
+	mark := func(phase string) {
+		slog.Info("cube_connect_phase", "runtime_id", id, "phase", phase, "duration_ms", time.Since(step).Milliseconds())
+		step = time.Now()
+	}
+	defer func() { mark("finish") }()
 	// Get observes auto-pauses with generation fencing; no allocation happens.
 	remote, err := c.Get(ctx, id)
 	if err != nil {
@@ -260,6 +268,7 @@ func (c *Client) admittedConnect(ctx context.Context, id string, in ConnectReque
 	if err = g.validRemote(remote); err != nil {
 		return nil, err
 	}
+	mark("get_before_connect")
 	old, err := g.store.AdmissionLookup(ctx, id)
 	if err != nil {
 		return nil, ErrAdmissionUnknown
@@ -275,14 +284,17 @@ func (c *Client) admittedConnect(ctx context.Context, id string, in ConnectReque
 	operationCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), lifecycleTimeout+standardTimeout)
 	defer cancel()
 	ctx = operationCtx
+	mark("admission")
 	out, err := c.connectRaw(ctx, id, in)
 	if err != nil {
 		return nil, fmt.Errorf("%w: connect outcome requires review", ErrAdmissionPending)
 	}
+	mark("native_connect")
 	actual, err := c.getRaw(ctx, id)
 	if err != nil || g.validRemote(actual) != nil || actual.TemplateID != remote.TemplateID || actual.State != "running" {
 		return nil, fmt.Errorf("%w: connect state verification failed", ErrAdmissionPending)
 	}
+	mark("verify_running")
 	if g.config.NodeID != "" && c.placement(ctx, id, g.config.NodeID) != nil {
 		return nil, ErrAdmissionPending
 	}

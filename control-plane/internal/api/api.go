@@ -55,11 +55,13 @@ type Server struct {
 	Docker *docker.Client
 	// Upgrade runs in-place upgrades via a detached upgrader container
 	// (POST /v1/upgrade). nil = feature unavailable (returns 409 with CLI hint).
-	Upgrade       *upgrade.Manager
-	Loopback      *loopback.Manager
-	Log           *slog.Logger
-	PreviewDomain string
-	Image         string
+	Upgrade             *upgrade.Manager
+	Loopback            *loopback.Manager
+	Log                 *slog.Logger
+	PreviewDomain       string
+	PreviewPublicDomain string
+	PreviewGatewayKeys  map[string]string
+	Image               string
 
 	// OSS docker-native knobs (see cmd/sandboxd/main.go for env wiring):
 	//   Network           — shared docker network sandboxes join so Traefik

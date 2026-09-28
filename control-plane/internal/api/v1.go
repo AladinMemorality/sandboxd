@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/audit"
@@ -157,6 +158,9 @@ func (s *Server) previewURL(id string, webPort int) string {
 	// preset / 3000) — the same port the Traefik router serves — so a non-3000
 	// app (e.g. Astro on 4321) gets a reachable URL.
 	host := fmt.Sprintf("s-%s-%d.preview.%s", id, webPort, s.PreviewDomain)
+	if s.PreviewPublicDomain != "" {
+		host = fmt.Sprintf("s-%s-%d.%s", strings.ToLower(id), webPort, s.PreviewPublicDomain)
+	}
 	// Append the host-facing port unless it's the scheme default. On a
 	// shared host published on e.g. :18080, the bare URL would hit whatever
 	// owns :80 (a front proxy), so the port must be in the URL the browser,

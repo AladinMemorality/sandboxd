@@ -34,6 +34,7 @@ func (s *Server) CubeHandler(ctx context.Context) (http.Handler, error) {
 	mux.HandleFunc("GET /sandbox/{id}", s.observe("GET /v1/sandboxes/{id}", s.cubeControllerGet))
 	mux.HandleFunc("GET /preview-auth", s.handlePreviewAuth)
 	mux.HandleFunc("GET /forward-auth", s.handleForwardAuth)
+	mux.HandleFunc("POST /preview-gateway", s.handlePreviewGateway)
 	mux.HandleFunc("POST /v1/cube-model/{sandboxID}/{taskID}/v1/messages", s.cubeModelRelay)
 	mux.HandleFunc("POST /v1/cube-model/{sandboxID}/{taskID}/v1/messages/count_tokens", s.cubeModelRelay)
 	mux.HandleFunc("GET /v1/sandboxes/{id}", s.observe("GET /v1/sandboxes/{id}", s.v1GetSandbox))
@@ -140,7 +141,7 @@ func (s *Server) CubePreviewHandler(apiHandler http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		host := strings.ToLower(r.Host)
 		suffix := ".preview." + strings.ToLower(s.PreviewDomain)
-		if strings.HasSuffix(host, suffix) || strings.Contains(host, suffix+":") {
+		if strings.HasSuffix(host, suffix) || strings.Contains(host, suffix+":") || (s.PreviewPublicDomain != "" && strings.HasSuffix(host, "."+strings.ToLower(s.PreviewPublicDomain))) {
 			if !s.TryServeCubePreview(w, r) {
 				http.NotFound(w, r)
 			}

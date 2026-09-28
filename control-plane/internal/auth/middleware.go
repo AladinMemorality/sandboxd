@@ -71,14 +71,15 @@ func (m *Middleware) Snapshot() *Config { return m.cfg.Load() }
 // token. /preview-auth and /forward-auth validate their
 // own JWTs; /healthz and /readyz carry nothing sensitive.
 var exemptPaths = map[string]bool{
-	"/healthz":        true,
-	"/readyz":         true,
-	"/preview-auth":   true,
-	"/forward-auth":   true,
-	"/llm.txt":        true, // public API contract for integrators (no token)
-	"/v1/auth/status": true, // console asks "is auth on / am I logged in / is a password set" pre-login
-	"/v1/auth/login":  true, // you cannot be authenticated in order to authenticate
-	"/v1/auth/setup":  true, // first-run "create password" (self-guards: 409 once set)
+	"/healthz":         true,
+	"/readyz":          true,
+	"/preview-auth":    true,
+	"/forward-auth":    true,
+	"/preview-gateway": true, // independently gated by a worker-scoped secret
+	"/llm.txt":         true, // public API contract for integrators (no token)
+	"/v1/auth/status":  true, // console asks "is auth on / am I logged in / is a password set" pre-login
+	"/v1/auth/login":   true, // you cannot be authenticated in order to authenticate
+	"/v1/auth/setup":   true, // first-run "create password" (self-guards: 409 once set)
 }
 
 // Relay paths have their own task-scoped capability gate; no prefix exemption.
