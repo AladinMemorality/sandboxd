@@ -1,0 +1,1 @@
+{"running":true,"runtime":"runc","privileged":false,"memory_limit_bytes":257698037760,"nano_cpus":224000000000,"device_requests":null,"devices":[{"CgroupPermissions":"rwm","PathInContainer":"/dev/kvm","PathOnHost":"/dev/kvm"}]}

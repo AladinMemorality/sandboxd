@@ -1,0 +1,34 @@
+{
+  "native_api": {
+    "tests_passed": 149,
+    "tests_failed": 0,
+    "command": "cargo test --locked; cargo build --locked --release",
+    "sha256": "dce2ec6c09dbfaf6fa6ccc83dbf64ec1c7cf176f4b9439be920788a954ea873e"
+  },
+  "controller": {
+    "command": "go test -timeout=15m ./internal/api ./internal/cube ./internal/cubeconfig ./cmd/cube-migrate",
+    "all_passed": true,
+    "api_seconds": 14.58,
+    "fixture_environment": "Linux Docker, temporary SQLite databases on exec tmpfs, complete docs/Traefik fixtures",
+    "image": "sha256:d10d15b77e42cb448d6a178915fed6d8f4e36ef7dc2adf7daca88a0f89c1a9f6",
+    "sqlite_image_smoke": true
+  },
+  "management_reads": {
+    "count": 12,
+    "before_median_seconds": 5.135837878100574,
+    "after_median_seconds": 0.31051746336743236,
+    "after_max_seconds": 0.8448912678286433,
+    "same_runtime_ids": true,
+    "started_at_changes": 0,
+    "resource_changes": 0
+  },
+  "earlier_attempts": [
+    "First live100 run failed native JSON decode; complete scoped cleanup verified.",
+    "Second live100 run proved native100 but failed page round on TimeoutError;21 pendingConnect admissions reconciled only after controller shutdown/provider drain.29ownedapps removed;74 original bindings preserved."
+  ],
+  "limitations": [
+    "Serving/entry-asset load profile; not100 simultaneous builds or active Claude tasks.",
+    "Brief peak test, not a long-duration soak.",
+    "Automatic S3 checkpoint/failover and worker reboot recovery not accepted by this test."
+  ]
+}

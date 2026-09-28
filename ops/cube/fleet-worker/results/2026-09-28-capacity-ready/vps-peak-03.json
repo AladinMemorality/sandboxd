@@ -1,0 +1,1 @@
+{"samples": [{"MemoryCurrent": 42365022208, "CPUUsageNSec": 146889322776000, "at": 1790555895.1153426}, {"MemoryCurrent": 42370527232, "CPUUsageNSec": 146899332367000, "at": 1790555905.1234639}], "worker_cpu_cores": 1.0001468555289297, "worker_cgroup_memory_gib": 39.460628509521484}

@@ -46,13 +46,16 @@ types on the pinned B200 proxy. Applying it requires the same operator locks;
 it preserves the mounted configuration inode and gracefully reloads Nginx.
 The local measurement compares decoded hashes and reports wire sizes without
 carrying asset contents over the management link. Configuration and credential
-inputs remain private. A staged candidate is not evidence of a live change.
+inputs remain private. The B200 change is now live: decoded hashes match and
+one measured module shrank from 1,364,318 to 213,380 bytes on the wire.
 
 Validation includes transaction/race tests, a disposable same-ID live move, and
 per-customer file/preview/wake evidence. `accept-live-capacity.py` separately
 measures simultaneously serving migrated projects plus private filler pages.
 It does not claim capacity for 100 saturated builds or replace the earlier
-failed 100-copy report unless its own live acceptance succeeds.
+failed 100-copy report. Its third live serving run passed at 96 B200 + 4 VPS;
+see `results/2026-09-28-capacity-ready/README.md` for the evidence and separately
+verified cleanup.
 
 This is controlled relocation and sticky local execution. Automatic continuous
 S3 checkpoints, dependency reconstruction, worker-failure takeover and reboot

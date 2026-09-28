@@ -27,36 +27,28 @@ exact test copies; `delete-test-copies.mjs` deletes the recorded S3 objects afte
 the owned guests have been removed. These are not permanent deployment objects.
 The original direct-copy test was stopped with customer bindings unchanged.
 
-## Customer placement and capacity validation — 2026-09-28
+## 100 concurrent sandboxes verified — 2026-09-28
 
-68 customer projects have passed S3 relocation, exact content checks, previews and
-pause/wake acceptance on B200. Three customer web projects remain on Cube/VPS;
-the original inventory also includes two Minecraft tunnels and an old operator
-fixture. IDs, URLs, ownership, visibility and task history are preserved.
+Production now enables **96 B200 + 4 VPS** running sandboxes. The completed test
+included all 71 customer web projects and 29 private filler pages: 100 native and
+worker-local running proofs, 300 successful page/entry-asset checks, 101st-create
+refusal and an 8.815-second restart at full load. Page-check median 1.739s,
+95th percentile 2.652s. Fresh Avocall and Brandish browsers also passed at peak.
+No GPU is exposed to the worker. This measures serving, not 100 concurrent builds.
 
-The second live test proved exactly **96 B200 + 4 VPS running VMs**, both through
-the native API and independently through worker-local containerd tasks. All71
-customer preflight HTML/entry-asset checks passed. A fresh Avocall browser at100
-rendered in11.718s without JavaScript errors or a stuck opening overlay. However,
-the first full-load page round timed out, so this is **not completed100-serving
-acceptance**. The previous50 lightweight-page test remains the completed result.
+68 customer projects have completed S3 relocation with exact content, preview and
+pause/wake checks. Three customer web projects remain on Cube/VPS. IDs, ownership,
+URLs, visibility and task history are preserved. Placement stays sticky. Source
+rollback VMs remain paused/quarantined. Automatic S3 failover remains unfinished.
 
-The bottleneck investigation found a whole-worker inventory scan inside every
-native single-sandbox Get, serialized per worker by CubeMaster. Patches0012 and
-0013 remove this redundant scan and make Connect(running) actually renew its TTL.
-The controller now uses the authoritative TTL to avoid unnecessary renewals and
-gives maintenance mutations their full lifecycle budget. The offline admission
-CLI uses the same fleet placement checks as the controller. Native149 tests and
-focused Linux controller/recovery/admission tests pass. Deployment and subsequent
-load acceptance are recorded in the rollout handoff; do not infer their completion
-from this source description. The second run's pending operations require fenced
-reconciliation before retrying the serving test.
-
-B200 Cubelet SHA:
-`d4c3f2813cd77979d6a456a31eb7615195b0a01d847d91b50f312faea2a12650`.
-JavaScript gzip is live, reducing the measured lucide module from1,364,318 to
-213,380 bytes with identical decoded content. GPU access remains absent. See
-`PROJECT_RELOCATION.md` for the protocol and private evidence locations.
+The native API's redundant whole-worker scan was removed, running Connect now
+renews TTL, and maintenance avoids unnecessary lease mutations. The tested fixes
+are deployed in controller image
+`sha256:d10d15b77e42cb448d6a178915fed6d8f4e36ef7dc2adf7daca88a0f89c1a9f6`.
+All 30 test apps are removed and all 74 original bindings are preserved. Two owned
+delete records required scoped reconciliation; no pending admission remains.
+See [the acceptance report](results/2026-09-28-capacity-ready/README.md) for
+measurements, complete cleanup evidence, deployed hashes and limitations.
 
 ## Previous checkpoint — 2026-09-27, 20:33 UTC
 
@@ -82,12 +74,12 @@ record that earlier acceptance and initial worker setup, not current sizing.
 
 ## Fifty concurrent sandboxes verified — 2026-09-27
 
-The production fleet was tested with **4 VPS +46 B200 active sandboxes**, each
+The production fleet was tested with **4 VPS  + 46 B200 active sandboxes**, each
 retaining2 vCPU/2 GiB. The real canonical-API test passed at18:12UTC:50 native
 running/placement proofs,150 successful private-page checks in three rounds,
 51st-create refusal, and B200 pause/wake (11.29seconds). Continuous background
 visitors kept fixtures active under the saved120-second idle policy. All51 owned
-apps were removed; all74 original bindings remained intact. Customer routing
+apps were removed; all 74 original bindings remained intact. Customer routing
 and background services were restored. Public HTTPS on a subsequent B200 canary
 returned200 with signed access and401 without it; owned cleanup passed.
 
