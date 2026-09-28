@@ -30,6 +30,14 @@ func (c *claudeCodeAgent) name() string { return "claude-code" }
 // claudeEvent is one line of `claude … --output-format stream-json`. Only the
 // fields runtimed maps are declared; the rest is treated as opaque.
 type claudeEvent struct {
+	Event struct {
+		Type  string `json:"type"`
+		Delta struct {
+			Type        string `json:"type"`
+			Text        string `json:"text"`
+			PartialJSON string `json:"partial_json"`
+		} `json:"delta"`
+	} `json:"event"`
 	UUID          string `json:"uuid"`
 	Type          string `json:"type"`    // system | assistant | user | result
 	Subtype       string `json:"subtype"` // on result: success | error_* …
@@ -148,6 +156,12 @@ func parseClaudeStreamInput(r io.Reader, emit eventSink, input *claudeInput) cla
 			continue
 		}
 		switch ev.Type {
+		case "stream_event":
+			// Timestamp the first generated text/tool-argument delta without
+			// emitting duplicate text, partial tools or private reasoning content.
+			if ev.Event.Type == "content_block_delta" && ((ev.Event.Delta.Type == "text_delta" && ev.Event.Delta.Text != "") || (ev.Event.Delta.Type == "input_json_delta" && ev.Event.Delta.PartialJSON != "")) {
+				mark("first_model_delta")
+			}
 		case "user":
 			for _, blk := range ev.Message.Content {
 				if blk.Type != "tool_result" || blk.ToolUseID == "" {
@@ -268,7 +282,7 @@ func parseClaudeStreamInput(r io.Reader, emit eventSink, input *claudeInput) cla
 
 func (c *claudeCodeAgent) run(ctx context.Context, spec agentSpec, emit eventSink) (string, runtime.TokenUsage, error) {
 	var usage runtime.TokenUsage
-	args := []string{"-p", "--output-format", "stream-json", "--verbose", "--dangerously-skip-permissions"}
+	args := []string{"-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--dangerously-skip-permissions"}
 	if spec.input != nil {
 		args = append(args, "--input-format", "stream-json", "--replay-user-messages")
 		defer spec.input.close()

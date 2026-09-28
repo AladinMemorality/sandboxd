@@ -32,6 +32,11 @@ frameworks/APIs must be reported rather than papered over with silent mocks.
   `cli_initialized`, `first_visible_message`, `first_tool` and
   `first_edit_invocation` are relative to stream-observation startup. These are
   neither model time-to-first-token nor proof of a rendered edit.
+  `first_model_delta` timestamps the first nonempty text/tool-argument delta,
+  before the complete assistant block. It includes CLI/model setup before the
+  request, so it is not pure provider TTFT. Partial messages are enabled using
+  the [documented CLI streaming flag](https://code.claude.com/docs/en/headless#stream-responses);
+  partial text/tools are not emitted twice or treated as finished operations.
 - `tool` events pair `running` with `completed`/`error` using `call_id`. Duration
   is observed stream interval, not isolated tool CPU time. Raw output is omitted.
   `is_error` is the CLI tool-result flag; exit_code is included only when explicitly

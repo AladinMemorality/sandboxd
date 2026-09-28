@@ -125,6 +125,32 @@ func TestClaudeDuplicateToolStartAndTiming(t *testing.T) {
 	}
 }
 
+func TestClaudeFirstDeltaDoesNotDuplicateMessages(t *testing.T) {
+	sink, evs := collectSink()
+	parseClaudeStream(strings.NewReader(strings.Join([]string{
+		`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"thinking_delta","thinking":"private"}}}`,
+		`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":"Hello"}}}`,
+		`{"type":"stream_event","event":{"type":"content_block_delta","delta":{"type":"text_delta","text":" world"}}}`,
+		`{"type":"assistant","message":{"content":[{"type":"text","text":"Hello world"}]}}`,
+	}, "\n")), sink)
+	messages, delta := 0, 0
+	for _, event := range *evs {
+		m := event.data.(map[string]any)
+		if event.typ == "message" {
+			messages++
+			if m["text"] != "Hello world" {
+				t.Fatal(m)
+			}
+		}
+		if event.typ == "timing" && m["stage"] == "first_model_delta" {
+			delta++
+		}
+	}
+	if messages != 1 || delta != 1 {
+		t.Fatalf("messages=%d deltas=%d", messages, delta)
+	}
+}
+
 func TestParseClaudeStreamNotLoggedIn(t *testing.T) {
 	// claude prints this (non-JSON) and exits 0 when unauthenticated.
 	sink, _ := collectSink()
