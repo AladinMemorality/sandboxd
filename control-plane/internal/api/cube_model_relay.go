@@ -125,7 +125,16 @@ func (s *Server) cubeModelRelay(w http.ResponseWriter, r *http.Request) {
 	probe, cancelProbe := context.WithTimeout(r.Context(), 3*time.Second)
 	status, err := s.runtimeClientFor(id).Status(probe)
 	cancelProbe()
-	if err != nil || status.ActiveTask == nil || status.ActiveTask.ID != taskID {
+	if err != nil {
+		// The credentials and durable task scope passed. A slow/unreachable
+		// supervisor is availability uncertainty, not proof of invalid auth.
+		// Fail closed, but let the coding client retry instead of exiting as
+		// permanently unauthenticated after a transient three-second probe.
+		w.Header().Set("Retry-After", "1")
+		writeV1Err(w, http.StatusServiceUnavailable, "runtime_unavailable", "model relay could not verify the active task; retry shortly")
+		return
+	}
+	if status.ActiveTask == nil || status.ActiveTask.ID != taskID {
 		deny()
 		return
 	}

@@ -157,6 +157,12 @@ RUN cd /opt/services/postgres \
 COPY image/services/postgres/worker.mjs image/services/postgres/connection.mjs image/services/postgres/paths.mjs /opt/services/postgres/
 COPY docs/project-postgres.md /opt/services/postgres/README.md
 
+# Shared, pinned interaction-check tools. Kept out of tenant app dependencies;
+# no per-task registry download or browser installation is required.
+COPY image/agent-tools/package.json image/agent-tools/package-lock.json /opt/agent-tools/
+RUN cd /opt/agent-tools && npm ci --omit=dev --no-audit --no-fund
+COPY image/agent-tools/ui-test.mjs image/agent-tools/README.md /opt/agent-tools/
+
 # The shared agent skill pack (taste, web design guidelines, self-screenshot
 # et al) — single-sourced here and copied into every FRONTEND template's
 # .claude/skills so agents discover them natively. Backend/worker templates

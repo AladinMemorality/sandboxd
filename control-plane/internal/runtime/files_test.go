@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestGuestFileClientEscapesAndBounds(t *testing.T) {
@@ -63,5 +64,45 @@ func TestTaskResultClientRejectsWrongIdentityAndNonterminalState(t *testing.T) {
 				t.Fatal("invalid task result accepted")
 			}
 		})
+	}
+}
+
+func TestTransferUsesOverallBudgetInsteadOfRPCHeaderDeadline(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.Copy(io.Discard, r.Body)
+		select {
+		case <-time.After(80 * time.Millisecond):
+		case <-r.Context().Done():
+			return
+		}
+		if r.Method == http.MethodPut {
+			io.WriteString(w, `{"path":"image.png","size":4}`)
+		} else {
+			io.WriteString(w, "export")
+		}
+	}))
+	defer server.Close()
+	c, err := NewRemoteClient(RemoteConfig{BaseURL: server.URL, Token: testRemoteToken})
+	if err != nil {
+		t.Fatal(err)
+	}
+	transport := c.stream.Transport.(*http.Transport)
+	transport.ResponseHeaderTimeout = 10 * time.Millisecond
+	if _, err := c.PutFile(context.Background(), "image.png", strings.NewReader("data")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := c.ExportWorkspace(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if transport.ResponseHeaderTimeout != 10*time.Millisecond {
+		t.Fatal("shared RPC deadline changed")
+	}
+	if _, err := c.ReadFile(context.Background(), "file"); err == nil {
+		t.Fatal("ordinary RPC unexpectedly ignored its deadline")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Millisecond)
+	defer cancel()
+	if _, err := c.PutFile(ctx, "image.png", strings.NewReader("data")); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("caller cancellation lost: %v", err)
 	}
 }

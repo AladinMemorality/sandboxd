@@ -51,8 +51,10 @@ func(s *Server) connectCubeReady(ctx context.Context,id string,timeoutSeconds in
 		return nil,err
 	}
     var readyStatus *runtime.Status
-    if err=s.withCubeCapacityRetry(ctx,id,func()error{
+    leaseDone:=taskStage(ctx,"cube_connect_and_ready")
+    err=s.withCubeCapacityRetry(ctx,id,func()error{
         _,e:=s.Cube.ConnectAndCheck(ctx,b.RuntimeID,cube.ConnectRequest{TimeoutSeconds:timeoutSeconds},func(checked context.Context)error{
+            done:=taskStage(checked,"supervisor_ready");defer done()
             ready,cancel:=context.WithTimeout(checked,15*time.Second);defer cancel()
             for {
                 status,e:=s.runtimeClientFor(id).Status(ready)
@@ -61,11 +63,13 @@ func(s *Server) connectCubeReady(ctx context.Context,id string,timeoutSeconds in
             }
         })
         return e
-    });err!=nil{return nil,err}
+    });leaseDone();if err!=nil{return nil,err}
     mark("provider_and_supervisor_ready")
 
 	if applyConfig {
-		if err := s.syncCubeAppConfig(ctx, id); err != nil && !errors.Is(err, errCubeConfigBusy) {
+		done:=taskStage(ctx,"config_sync")
+        err:=s.syncCubeAppConfig(ctx,id);done()
+        if err != nil && !errors.Is(err, errCubeConfigBusy) {
 			return nil,err
 		}
 	}
@@ -82,6 +86,7 @@ func(s *Server) connectCubeReady(ctx context.Context,id string,timeoutSeconds in
 	} else if err := s.Store.MarkRunningWoke(ctx, id, "", "", time.Now().UTC()); err != nil {
 		return nil,err
 	}
+	egressDone:=taskStage(ctx,"egress_ready");defer egressDone()
 	if err=s.ensureCubeEgress(ctx,id);err!=nil{return nil,err}
  return readyStatus,nil
 }

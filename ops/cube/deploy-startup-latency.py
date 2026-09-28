@@ -3,7 +3,7 @@
 import contextlib,fcntl,json,os,pathlib,sqlite3,subprocess,time,urllib.request,hashlib
 P=pathlib.Path;ROOT=P('/opt/baarcha-bench/startup-latency-20260928');os.umask(0o077)
 FILES=[P('/opt/sandboxd/deploy-state/runtime-compose.json'),P('/opt/sandboxd/deploy-state/active-images.json')];STOP=P('/etc/baarcha-cube/worker-stop.json')
-BASE='sha256:69a0d006828f150a85d4ed981a9a0ff36e38449c7eb62f9b85901ca2bc27677d'
+BASE='sha256:3ad4ad615f478966bc8db4daad54cdf188037cbfde6ffc9fead51d9f0422f589'
 LOCKS=['/opt/baarcha/deploy-release.lock','/opt/sandboxd/deploy-state/deploy.lock','/run/lock/cube-operator-acceptance.lock','/opt/baarcha-bench/cube-workload-operator.lock']
 def run(args):return subprocess.check_output(args,stderr=subprocess.STDOUT)
 def inspect():return json.loads(run(['docker','inspect','src-sandboxd-1']))[0]

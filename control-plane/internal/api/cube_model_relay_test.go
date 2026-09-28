@@ -320,3 +320,31 @@ func TestCubeClaudeWithoutScopedRelayFailsClearlyBeforeTaskStart(t *testing.T) {
 		t.Fatalf("disabled relay started task: %v %v", tasks, err)
 	}
 }
+
+func TestCubeModelRelayUnavailableProbeIsRetryableWithoutForwarding(t *testing.T) {
+	var calls atomic.Int32
+	s, target, token, _, _ := relayFixture(t, func(w http.ResponseWriter, r *http.Request) { calls.Add(1); io.WriteString(w, `{"ok":true}`) })
+	original := s.CubeProxyURL
+	unavailable := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusServiceUnavailable) }))
+	defer unavailable.Close()
+	s.CubeProxyURL = unavailable.URL
+	response := relayRequest(t, context.Background(), target, token, relayTestBridge)
+	response.Body.Close()
+	if response.StatusCode != 503 || response.Header.Get("Retry-After") != "1" {
+		t.Fatalf("transient probe presented as permanent auth failure: %d", response.StatusCode)
+	}
+	if calls.Load() != 0 {
+		t.Fatal("unverified task reached upstream")
+	}
+	response = relayRequest(t, context.Background(), target, "wrong", relayTestBridge)
+	response.Body.Close()
+	if response.StatusCode != 403 {
+		t.Fatal("invalid credential became retryable")
+	}
+	s.CubeProxyURL = original
+	response = relayRequest(t, context.Background(), target, token, relayTestBridge)
+	response.Body.Close()
+	if response.StatusCode != 200 || calls.Load() != 1 {
+		t.Fatal("valid task did not recover after probe availability returned")
+	}
+}

@@ -101,17 +101,29 @@ does not justify skipping discovery or guessing unresolved decisions.
   platform puts the files the user attached (see Bridge below): Vite serves
   it at `/media/…`, so reference those by URL and leave them where they are.
 
+The runtime supplies a current workspace inventory and component export map. Use
+`src/components/ui/README.md` for common APIs; inspect only relevant implementations.
+For React interaction checks, use `/opt/agent-tools/README.md` when advertised.
+
 ## Design foundation (use it, do not rebuild it)
 
 `src/index.css` defines the semantic token contract every kit component
 consumes: background/foreground, card, popover, primary, secondary, muted,
 accent, destructive, border/input/ring, radius, fonts — each with a light
-value in `:root` and a dark value in `.dark`. RETHEME by editing those
-variable values (both blocks) to the brief's palette; never restate colors
-inside components. Style with Tailwind utilities referencing the tokens
+value in `:root` and a dark value in `.dark`. Retheme only the relevant semantic
+variables for the requested appearance. Preserve inactive dark defaults unless
+dark mode is requested; do not spend a separate milestone converting every color
+or rebuilding all tokens. CSS color values can use hex, rgb, hsl or oklch directly.
+Style layout, spacing, typography and breakpoints with Tailwind utilities referencing the tokens
 (`bg-background text-foreground border-border bg-primary
 text-muted-foreground` etc.), not hex values. Dark mode = the `.dark`
 class on `<html>`; only build a toggle if the task wants one.
+
+Use existing Radix-based controls for dialogs, menus, selects and tabs to retain
+their keyboard/focus behavior. Compose app-specific sections freely: reuse does
+not require identical card grids or page layouts. Keep custom CSS for design
+tokens, necessary selectors and effects that utilities do not express clearly.
+Verify narrow and wide layouts, visible focus and the requested interaction.
 
 ## Design playbook
 
@@ -159,10 +171,11 @@ sits between you and the user and can act for you. Call it like:
   input and end the task. A later update can resume; do not poll or guess.
 - Real images (much better than CSS-only placeholders):
   `{"kind":"image","prompt":"<art-directed English description: subject, setting, style, lighting, composition>","aspect_ratio":"16:9"}`
-  returns `{"url":"..."}`. Download using that URL EXACTLY as returned
-  (never rewrite its host: localhost points at your own container)
-  (`curl -s --max-time 120 -o src/assets/<name>.png "<url>"`) and import
-  the local file. Generation takes up to ~60s — use --max-time 120 and do
+  returns `workspace_path` and `asset_url` after delivery to `public/media`.
+  Use `asset_url` in the UI directly; do not download or reconstruct the image.
+  On `delivery_error`, retry delivery once with `{"kind":"asset","id":"returned id"}`;
+  never regenerate an existing image to repair delivery. Generation takes up
+  to ~60s — use --max-time 120 and do
   NOT retry on your own: the server caches by prompt, so re-sending the
   identical prompt returns the SAME image (fast), and a changed prompt is
   a new paid generation. Budget AT MOST 8 generated images per task and
