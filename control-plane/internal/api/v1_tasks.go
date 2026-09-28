@@ -84,6 +84,15 @@ var validTaskEnvKey = regexp.MustCompile(`^[A-Z_][A-Z0-9_]{0,63}$`)
 
 func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	started := time.Now()
+	timings := &taskTimings{stages: map[string]int64{}}
+	r = r.WithContext(context.WithValue(r.Context(), taskTimingKey{}, timings))
+	timingTaskID := ""
+	defer func() {
+		timings.mu.Lock()
+		defer timings.mu.Unlock()
+		s.loggerFor(r, id).Info("task_submit_timing", "task", timingTaskID, "total_ms", time.Since(started).Milliseconds(), "stages_ms", timings.stages)
+	}()
 	sb, err := s.Store.Get(r.Context(), id)
 	if errors.Is(err, store.ErrNotFound) {
 		writeV1Err(w, http.StatusNotFound, "not_found", "no such sandbox")
@@ -96,7 +105,9 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 
 	remote := sb.RuntimeProvider == "cube"
 	if s.Locks != nil {
+		lockDone := taskStage(r.Context(), "lifecycle_lock_wait")
 		s.Locks.Lock(id)
+		lockDone()
 		defer s.Locks.Unlock(id)
 		r = r.WithContext(wake.WithLifecycleLockHeld(r.Context(), id))
 		sb, err = s.Store.Get(r.Context(), id)
@@ -239,7 +250,10 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if remote {
-		if err := s.connectCube(r.Context(), id, int(watchWindowFor(req.TimeoutS).Seconds())+600); err != nil {
+		done := taskStage(r.Context(), "cube_prepare_total")
+		err := s.connectCube(r.Context(), id, int(watchWindowFor(req.TimeoutS).Seconds())+600)
+		done()
+		if err != nil {
 			if writeCubeAdmissionError(w, err) {
 				return
 			}
@@ -248,14 +262,21 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	taskID := newULID()
+	timingTaskID = taskID
 	if remote {
-		if err := s.Store.CreateTask(r.Context(), &store.Task{TaskID: taskID, SandboxID: id, Agent: agent, Prompt: req.Prompt, TimeoutS: req.TimeoutS, ExternalUserID: sb.ExternalUserID, ExternalProjectID: sb.ExternalProjectID}); err != nil {
+		done := taskStage(r.Context(), "persist_task")
+		err := s.Store.CreateTask(r.Context(), &store.Task{TaskID: taskID, SandboxID: id, Agent: agent, Prompt: req.Prompt, TimeoutS: req.TimeoutS, ExternalUserID: sb.ExternalUserID, ExternalProjectID: sb.ExternalProjectID})
+		done()
+		if err != nil {
 			writeV1Err(w, 503, "runtime_unavailable", "cannot persist task before submission")
 			return
 		}
 	}
 	if remote {
-		if err := s.prepareCubeModelScope(r.Context(), id, taskID, &req); err != nil {
+		done := taskStage(r.Context(), "model_scope")
+		err := s.prepareCubeModelScope(r.Context(), id, taskID, &req)
+		done()
+		if err != nil {
 			s.finishWatchedTask(id, taskID, failedResult(taskID, "internal", "model relay scope could not be prepared"))
 			writeV1Err(w, 503, "runtime_unavailable", "model relay scope unavailable")
 			return
@@ -272,9 +293,12 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 			req.Continue = &continueSession
 		}
 	}
-	if err := s.runtimeClientFor(id).StartTask(r.Context(), runtime.StartTaskRequest{
+	dispatchDone := taskStage(r.Context(), "runtime_dispatch")
+	dispatchErr := s.runtimeClientFor(id).StartTask(r.Context(), runtime.StartTaskRequest{
 		TaskID: taskID, Prompt: req.Prompt, Agent: agent, Model: req.Model, TimeoutS: req.TimeoutS, Continue: req.Continue, Env: req.Env,
-	}); err != nil {
+	})
+	dispatchDone()
+	if err := dispatchErr; err != nil {
 		if remote {
 			if errors.Is(err, runtime.ErrTaskInProgress) {
 				s.finishWatchedTask(id, taskID, failedResult(taskID, "internal", "another task is already active"))

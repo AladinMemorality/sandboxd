@@ -11,6 +11,15 @@ RUN CGO_ENABLED=0 go build -trimpath -o /runtimed ./cmd/runtimed \
  && CGO_ENABLED=0 go build -trimpath -o /cube-template ./cmd/cube-template
 FROM ${BASE_IMAGE}
 USER root
+# Include the reviewed tools even when BASE_IMAGE predates this tool pack.
+COPY image/agent-tools/package.json image/agent-tools/package-lock.json /opt/agent-tools/
+RUN cd /opt/agent-tools && npm ci --omit=dev --no-audit --no-fund
+COPY image/agent-tools/ui-test.mjs image/agent-tools/README.md /opt/agent-tools/
+# Refresh factual template guidance without replacing reviewed dependencies.
+COPY image/templates/react-pro/AGENTS.md /opt/templates/react-pro/AGENTS.md
+COPY image/templates/react-pro/src/components/ui/README.md /opt/templates/react-pro/src/components/ui/README.md
+COPY image/templates/marketplace-starter/AGENTS.md /opt/templates/marketplace-starter/AGENTS.md
+COPY image/templates/marketplace-starter/src/components/ui/README.md /opt/templates/marketplace-starter/src/components/ui/README.md
 COPY --from=builder /runtimed /usr/local/bin/runtimed
 COPY --from=builder /cube-init /usr/local/bin/cube-init
 COPY --from=builder /cube-template /usr/local/bin/cube-template

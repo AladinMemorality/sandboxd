@@ -282,6 +282,9 @@ func (a *app) runTask(t *task) {
 	sysPrompt := agentprompt.Render(agentprompt.Vars{
 		AppDir: a.appDir, Port: a.previewPort, HealthPath: a.webHealthPath,
 	})
+	briefStarted := time.Now()
+	sysPrompt += workspaceBrief(a.appDir, "/opt/agent-tools")
+	t.emit("timing", map[string]any{"stage": "workspace_brief", "elapsed_ms": time.Since(briefStarted).Milliseconds(), "origin": "local_inventory"})
 	finalMsg, usage, agentErr := ag.run(ctx, agentSpec{
 		input:   t.input,
 		workDir: a.appDir, prompt: t.prompt, model: t.model, env: t.env, rawLog: rl,
