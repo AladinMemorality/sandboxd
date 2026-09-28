@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
 """Install reviewed API/controller fixes, reconcile only drained known mutations.
 
+Historical one-time release. The installed retained-stop lifecycle requires a
+reviewed current-boot component stop plan before the API stop below. Do not rerun
+this script against a later generation; construct fresh pins and that plan.
 Private release inputs pin the existing container, images, config and bindings.
 No project files move and no customer runtime is replaced. Run on VPS as root.
 """
-import contextlib,hashlib,http.client,importlib.util,json,os,sqlite3,subprocess,time
+import gc,contextlib,hashlib,http.client,importlib.util,json,os,sqlite3,subprocess,time
 from pathlib import Path
 ROOT=Path('/opt/baarcha-bench/cube-fleet-20260927/capacity-ready')
 s=importlib.util.spec_from_file_location('m',ROOT/'relocation-canary.py');m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
@@ -59,6 +62,7 @@ def main():
    run(WORKER+['cat > '+stage+'/cube-api.new'],input=candidate.read_bytes())
    command="set -eu; test \"$(sha256sum /usr/local/services/cubetoolbox/CubeAPI/bin/cube-api | cut -d' ' -f1)\" = e3cfe133e96b8a48e2d8b4c3a1723438a16b6020701426bd09aa9592ea283a08; test \"$(sha256sum "+stage+"/cube-api.new | cut -d' ' -f1)\" = "+p['native_sha']+"; cp -p /usr/local/services/cubetoolbox/CubeAPI/bin/cube-api "+stage+"/cube-api.previous; systemctl stop cube-sandbox-cube-api.service; install -m755 "+stage+"/cube-api.new /usr/local/services/cubetoolbox/CubeAPI/bin/cube-api; systemctl start cube-sandbox-cube-api.service; systemctl is-active cube-sandbox-cube-api.service"
    assert run(WORKER+[command]).strip()==b'active';event('native-api-installed',sha256=p['native_sha'])
+   gc.collect()
    env=dict(os.environ,**p['environment']);env['SANDBOXD_CUBE_API_URL']='http://127.0.0.1:20300'
    fleet=json.loads(env['SANDBOXD_CUBE_FLEET']);fleet['master_url']='http://10.254.240.1:18089';env['SANDBOXD_CUBE_FLEET']=json.dumps(fleet)
    # Existing ConfigureFleet/ReconcileAdmission validates native identity,
@@ -75,7 +79,7 @@ def main():
    assert json.loads(bridge.compose('config','--format','json'))==p['after']
    bridge.activate();bridge.compose('up','-d','--no-deps','--no-build','--pull','never','--force-recreate','cube-management-master','cube-management-b200-proxy');installed=True
    new=inspect();assert new['Image']==p['new_image']
-   assert new['Config']['Env']==cp['Config']['Env'] and new['Config']['Entrypoint']==cp['Config']['Entrypoint']
+   assert dict(x.split('=',1) for x in new['Config']['Env'])==dict(x.split('=',1) for x in cp['Config']['Env']) and new['Config']['Entrypoint']==cp['Config']['Entrypoint']
    stop=json.loads(b.STOP.read_text());assert stop['controller_id']==p['old_id'];stop['controller_id']=new['Id'];b.atomic(b.STOP,b.encoded(stop))
    for _ in range(60):
     try:

@@ -27,23 +27,36 @@ exact test copies; `delete-test-copies.mjs` deletes the recorded S3 objects afte
 the owned guests have been removed. These are not permanent deployment objects.
 The original direct-copy test was stopped with customer bindings unchanged.
 
-## Customer placement rollout — 2026-09-27, 22:10 UTC
+## Customer placement and capacity validation — 2026-09-28
 
-The user requested existing projects to use the available B200 capacity for
-tomorrow. A one-time, same-ID relocation is in progress; subsequent placement
-remains sticky. Twenty-two customer projects have passed content, preview and
-pause/wake checks. Remaining eligible web projects are being processed four at a
-time, with two source export slots and one native creation at a time. See
-`PROJECT_RELOCATION.md` for the protocol and private evidence locations.
+68 customer projects have passed S3 relocation, exact content checks, previews and
+pause/wake acceptance on B200. Three customer web projects remain on Cube/VPS;
+the original inventory also includes two Minecraft tunnels and an old operator
+fixture. IDs, URLs, ownership, visibility and task history are preserved.
 
-B200 Cubelet now runs
+The second live test proved exactly **96 B200 + 4 VPS running VMs**, both through
+the native API and independently through worker-local containerd tasks. All71
+customer preflight HTML/entry-asset checks passed. A fresh Avocall browser at100
+rendered in11.718s without JavaScript errors or a stuck opening overlay. However,
+the first full-load page round timed out, so this is **not completed100-serving
+acceptance**. The previous50 lightweight-page test remains the completed result.
+
+The bottleneck investigation found a whole-worker inventory scan inside every
+native single-sandbox Get, serialized per worker by CubeMaster. Patches0012 and
+0013 remove this redundant scan and make Connect(running) actually renew its TTL.
+The controller now uses the authoritative TTL to avoid unnecessary renewals and
+gives maintenance mutations their full lifecycle budget. The offline admission
+CLI uses the same fleet placement checks as the controller. Native149 tests and
+focused Linux controller/recovery/admission tests pass. Deployment and subsequent
+load acceptance are recorded in the rollout handoff; do not infer their completion
+from this source description. The second run's pending operations require fenced
+reconciliation before retrying the serving test.
+
+B200 Cubelet SHA:
 `d4c3f2813cd77979d6a456a31eb7615195b0a01d847d91b50f312faea2a12650`.
-The bounded envd initialization fix passes its delay/deadline regression tests.
-VPS Cubelet and the deployed controller are unchanged. Native transaction tests,
-race tests, an isolated live migration and per-customer checks pass. The full
-100-running capacity test has not yet been rerun; do not infer acceptance from
-the 96+4 configuration. A fresh Avocall browser check passed with no opening
-overlay or JavaScript errors after relocation.
+JavaScript gzip is live, reducing the measured lucide module from1,364,318 to
+213,380 bytes with identical decoded content. GPU access remains absent. See
+`PROJECT_RELOCATION.md` for the protocol and private evidence locations.
 
 ## Previous checkpoint — 2026-09-27, 20:33 UTC
 

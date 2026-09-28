@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Private, temporary customer-workspace copies for the 100-slot fleet test."""
-import base64,concurrent.futures,hashlib,http.client,json,os,secrets,sqlite3,subprocess,sys,threading,time,zipfile
+import contextlib,base64,concurrent.futures,hashlib,http.client,json,os,secrets,sqlite3,subprocess,sys,threading,time,zipfile
 from pathlib import Path
 from urllib.parse import urlsplit
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -8,7 +8,7 @@ ROOT=Path('/opt/baarcha-bench/cube-fleet-20260927/capacity-100')
 DB='file:/var/lib/sandboxd/state/sandboxd.db?mode=ro'
 os.umask(0o077)
 def rows(sql,args=()):
- with sqlite3.connect(DB,uri=True,timeout=5) as d:
+ with contextlib.closing(sqlite3.connect(DB,uri=True,timeout=5)) as d:
   d.row_factory=sqlite3.Row
   return [dict(r) for r in d.execute(sql,args)]
 def save(path,value):
