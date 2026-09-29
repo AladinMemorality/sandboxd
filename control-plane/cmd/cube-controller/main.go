@@ -197,6 +197,7 @@ func run() (runErr error) {
 		OpencodeModel: os.Getenv("SANDBOXD_OPENCODE_MODEL"), OpencodeZenPath: os.Getenv("SANDBOXD_OPENCODE_ZEN_PATH"),
 		PreviewDomain: env("PREVIEW_DOMAIN", "localhost"), PreviewURLScheme: scheme,
 		PreviewPublicDomain: os.Getenv("SANDBOXD_PREVIEW_PUBLIC_DOMAIN"),
+		PublishedRoot:       os.Getenv("SANDBOXD_PUBLISHED_ROOT"),
 		PreviewGatewayKeys:  api.ParsePreviewGatewayKeys(os.Getenv("SANDBOXD_PREVIEW_GATEWAY_KEYS")),
 		PublicHTTPPort:      env("SANDBOXD_PUBLIC_HTTP_PORT", "443"), PreviewTLS: scheme == "https",
 		Inflight: activity.NewInflightExec(), Locks: idlock.New(), Live: live,
@@ -237,6 +238,7 @@ func run() (runErr error) {
 	go func() { errorsCh <- proxyServer.Serve(proxyListener) }()
 	server.ReconcileCube(ctx)
 	server.ReconcileTasks(ctx)
+	go server.RunPublishedBuilds(ctx)
 	maintenanceDone := make(chan struct{})
 	go func() { defer close(maintenanceDone); server.RunCubeMaintenance(ctx) }()
 	defer func() { cancel(); <-maintenanceDone }()

@@ -20,7 +20,7 @@ import (
 	"time"
 )
 
-type config struct{ Listen, Controller, Worker, Key, Origin, Domain, Peer, PeerWorker string }
+type config struct{ Listen, Controller, Worker, Key, Origin, Domain, Peer, PeerWorker, PublishedController string }
 type request struct {
 	Host    string      `json:"host"`
 	Method  string      `json:"method"`
@@ -40,6 +40,7 @@ type gateway struct {
 	origin    *url.URL
 	host      *regexp.Regexp
 	heartbeat time.Duration
+	published *url.URL
 }
 
 func newGateway(c config) (*gateway, error) {
@@ -50,8 +51,15 @@ func newGateway(c config) (*gateway, error) {
 	if c.Domain == "" || c.Worker == "" || len(c.Key) < 32 {
 		return nil, errors.New("missing gateway configuration")
 	}
+	var published *url.URL
+	if c.PublishedController != "" {
+		published, e = url.Parse(c.PublishedController)
+		if e != nil || published.Scheme != "http" || published.Host == "" || published.User != nil || published.Path != "" || published.RawQuery != "" {
+			return nil, errors.New("invalid published controller")
+		}
+	}
 	tr := &http.Transport{Proxy: nil, DialContext: (&net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}).DialContext, MaxIdleConns: 256, MaxIdleConnsPerHost: 128, IdleConnTimeout: 90 * time.Second, ResponseHeaderTimeout: 140 * time.Second, DisableCompression: true}
-	return &gateway{cfg: c, origin: u, host: regexp.MustCompile(`(?i)^s-[0-9a-z]{1,128}-[0-9]{1,5}\.` + regexp.QuoteMeta(c.Domain) + `$`), client: &http.Client{Transport: tr, Timeout: 150 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, transport: tr, heartbeat: 20 * time.Second}, nil
+	return &gateway{cfg: c, origin: u, published: published, host: regexp.MustCompile(`(?i)^[sp]-[0-9a-z]{1,128}-[0-9]{1,5}\.` + regexp.QuoteMeta(c.Domain) + `$`), client: &http.Client{Transport: tr, Timeout: 150 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, transport: tr, heartbeat: 20 * time.Second}, nil
 }
 
 func (g *gateway) authorize(r *http.Request) (*http.Response, *route, error) {
@@ -110,6 +118,21 @@ func (g *gateway) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	if !g.host.MatchString(r.Host) {
 		http.NotFound(w, r)
+		return
+	}
+	if strings.HasPrefix(strings.ToLower(r.Host), "p-") {
+		if g.published == nil {
+			http.NotFound(w, r)
+			return
+		}
+		// The central preview handler authenticates this per-app origin and
+		// serves NVMe artifacts directly; dynamic requests reuse its live proxy.
+		p := &httputil.ReverseProxy{Transport: g.transport, FlushInterval: -1, Rewrite: func(pr *httputil.ProxyRequest) {
+			pr.SetURL(g.published)
+			pr.Out.Host = r.Host
+			strip(pr.Out.Header)
+		}, ErrorLog: log.New(io.Discard, "", 0)}
+		p.ServeHTTP(w, r)
 		return
 	}
 	ctx, cancel := context.WithCancel(r.Context())

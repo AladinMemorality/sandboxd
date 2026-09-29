@@ -123,6 +123,9 @@ func (s *Server) finishWatchedTask(sandboxID, taskID string, result *runtime.Tas
 		s.Log.Warn("task watcher: FinishTask failed", "task", taskID, "err", err.Error())
 	}
 	s.recordTaskEvents(sandboxID, taskID, result)
+	if s.PublishedRoot != "" && result.BuildStatus == runtime.BuildPassed {
+		go s.capturePublishedTask(sandboxID, taskID)
+	}
 }
 
 // recordTaskEvents appends the durable timeline entries for a finished task.

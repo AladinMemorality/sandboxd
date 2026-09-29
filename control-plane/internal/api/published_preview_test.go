@@ -1,0 +1,80 @@
+package api
+
+import (
+	"archive/zip"
+	"context"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
+)
+
+func TestPublishedFrontendUsesSameACLButNeverWakesEditorGuest(t *testing.T) {
+	s, connects, guestCalls := cubePreviewFixture(t, func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("live development")) })
+	s.PublishedRoot = t.TempDir()
+	dir := filepath.Join(s.PublishedRoot, cubePreviewTestID)
+	os.MkdirAll(dir, 0700)
+	revision := "01ARZ3NDEKTSV4RRFFQ69G5FAW"
+	f, err := os.Create(filepath.Join(dir, revision+".zip"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	z := zip.NewWriter(f)
+	entry, _ := z.Create("index.html")
+	entry.Write([]byte("production frontend"))
+	z.Close()
+	f.Close()
+	os.WriteFile(filepath.Join(dir, "current"), []byte(revision), 0600)
+	request := func(cookie bool) *http.Request {
+		r := cubePreviewRequest(t, "GET", "/", "")
+		r.Host = strings.Replace(r.Host, "s-", "p-", 1)
+		if !cookie {
+			r.Header.Del("Cookie")
+		}
+		return r
+	}
+	w := httptest.NewRecorder()
+	s.TryServeCubePreview(w, request(false))
+	if w.Code == 200 {
+		t.Fatal("private build exposed")
+	}
+	w = httptest.NewRecorder()
+	s.TryServeCubePreview(w, request(true))
+	if w.Code != 200 || w.Body.String() != "production frontend" {
+		t.Fatalf("build %d %s", w.Code, w.Body.String())
+	}
+	if connects.Load() != 0 || guestCalls.Load() != 0 {
+		t.Fatal("static frontend woke guest")
+	}
+	r := request(true)
+	r.Header.Set("Origin", "https://p-another-3000.preview.example.test")
+	w = httptest.NewRecorder()
+	s.TryServeCubePreview(w, r)
+	if w.Code != 403 {
+		t.Fatal("cross-app origin accepted")
+	}
+	w = httptest.NewRecorder()
+	s.TryServeCubePreview(w, cubePreviewRequest(t, "GET", "/", ""))
+	if w.Code != 200 || w.Body.String() != "live development" || guestCalls.Load() != 1 {
+		t.Fatalf("editor no longer live: %d %s", w.Code, w.Body.String())
+	}
+	sb, _ := s.Store.Get(context.Background(), cubePreviewTestID)
+	r = httptest.NewRequest("POST", "/published-preview", nil)
+	r.SetPathValue("id", sb.AppID.String)
+	r = r.WithContext(auth.WithActor(r.Context(), auth.Actor{Name: "wrong-tenant", Kind: "service"}))
+	w = httptest.NewRecorder()
+	s.v1PublishedPreview(w, r)
+	if w.Code != 404 {
+		t.Fatal("cross-tenant build access minted")
+	}
+	r = r.WithContext(auth.WithActor(r.Context(), auth.Actor{Name: cfgTenant, Kind: "service"}))
+	w = httptest.NewRecorder()
+	s.v1PublishedPreview(w, r)
+	if w.Code != 200 || !strings.Contains(w.Body.String(), "https://p-") {
+		t.Fatalf("build access %d %s", w.Code, w.Body.String())
+	}
+}
