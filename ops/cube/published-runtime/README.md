@@ -8,8 +8,9 @@ as they wake. It does not wake guests or start AI tasks.
 
 Build the guest supervisor with `CGO_ENABLED=0 GOOS=linux GOARCH=amd64
 go build -trimpath -o runtimed ./cmd/runtimed` from `control-plane`, matching
-`image/cube/Dockerfile`. Verify `file runtimed` reports a statically linked
-executable before hashing or staging it. The controller uses a separate CGO
+`image/cube/Dockerfile`. Both the worker and guest enforce the same ELF guard before any quiescence:
+Linux/amd64, executable type, load segment, and no dynamic interpreter. Also
+verify `file runtimed` reports a statically linked executable before staging it. The controller uses a separate CGO
 build because its SQLite driver requires it.
 
 Install reviewed `guest.py`, `worker.py`, the compiled Linux `runtimed`, and a
@@ -32,7 +33,9 @@ The update preserves application environment values and configuration revision
 and uses the existing guarded configuration restart API. Existing empty
 configuration receives an internal revision marker. Credentials never leave the
 guest. A hard link retains the old binary without copying its data blocks;
-failed verification restores it before releasing the owned fence.
+failed verification attempts to restore it before releasing the owned fence.
+That rollback requires a reachable supervisor: if the VM exits during reexec,
+the retained binary alone cannot revive it. Preserve its disk for operator recovery.
 
 The worker serializes updates with `flock`. Each execution has a 240-second
 outer deadline, bounded output, and bounded internal readiness waits. Watch
@@ -49,3 +52,18 @@ September 29 canary and Ooredoo/LevelUp updates preserved guest configuration
 and runtime bindings. The older Motion Studio supervisor was deliberately
 skipped; its separately verified production artifact can be imported through
 `POST /v1/apps/{id}/published-build` with `Content-Type: application/zip`.
+
+## September 29 incident
+
+Both automatic updater timers are disabled following a VPS rollout failure. A
+CGO-linked candidate was briefly staged; the updater previously checked its hash
+but did not reject a dynamic ELF interpreter. MyHomeTroc reported current at
+14:09 UTC and failed at 14:10 UTC; its native task disappeared. Its recovery disk
+retains the prior static binary and workspace quiescence marker, consistent with
+an attempted rollback that could not finish. The exact guest exit diagnostic
+was not retained, so the rollout is the likely trigger, not a proven crash stack.
+
+`test_supervisor_binary.py` covers static acceptance and rejection of the loader,
+wrong architecture, shared-object type, absent load segments and malformed ELF.
+Do not enable the timer until a bounded canary passes and every failed receipt
+has been investigated. The guard is installed on both worker VMs.

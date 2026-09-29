@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Apply the reviewed supervisor to managed idle guests as they become active."""
 import argparse, fcntl, hashlib, json, os, pathlib, pty, re, select, subprocess, time, uuid
+from guest import require_static_supervisor
 P=pathlib.Path;ROOT=P('/opt/baarcha-published-runtime')
 
 def execute(cid,guest,config,binary):
@@ -38,6 +39,7 @@ def main():
         if not args.probe:
             cfg=json.loads((ROOT/'release.json').read_text());binary=(ROOT/'runtimed').read_bytes()
             assert hashlib.sha256(binary).hexdigest()==cfg['sha256'] and len(binary)==cfg['bytes']
+            require_static_supervisor(binary)
             config=json.dumps(cfg)
         ids=[args.container] if args.container else subprocess.check_output(['ctr','--address','/data/cubelet/cubelet.sock','--namespace','default','tasks','list','-q'],stderr=subprocess.DEVNULL,text=True).split()
         for cid in ids:

@@ -1,10 +1,25 @@
 """Privileged, bounded in-guest supervisor update. Never restart an active task."""
-import hashlib, json, os, pathlib, stat, sys, time, tty, urllib.request, urllib.error
+import hashlib, json, os, pathlib, stat, struct, sys, time, tty, urllib.request, urllib.error
 P=pathlib.Path
 EXE=P('/usr/local/bin/runtimed')
 FENCE=P('/home/sandbox/.runtimed/workspace-quiesced')
 BACKUP=P('/usr/local/lib/baarcha-runtimed')
 http=urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+def require_static_supervisor(data):
+    """Reject loader-dependent binaries before a guest can lose its supervisor."""
+    error = 'guest supervisor must be a static Linux/amd64 ELF executable'
+    if len(data) < 64 or data[:7] != b'\x7fELF\x02\x01\x01' or data[7] not in (0, 3):
+        raise ValueError(error)
+    if struct.unpack_from('<HHI', data, 16) != (2, 62, 1):
+        raise ValueError(error)
+    offset = struct.unpack_from('<Q', data, 32)[0]
+    size, count = struct.unpack_from('<HH', data, 54)
+    if offset < 64 or size != 56 or not 1 <= count <= 128 or offset + size * count > len(data):
+        raise ValueError(error)
+    types = [struct.unpack_from('<I', data, offset + size * i)[0] for i in range(count)]
+    if 1 not in types or 3 in types:  # PT_LOAD required; PT_INTERP forbidden.
+        raise ValueError(error)
 
 def sha(path): return hashlib.sha256(path.read_bytes()).hexdigest()
 def report(**data): print('RUNTIME_RECEIPT='+json.dumps(data),flush=True)
@@ -55,6 +70,7 @@ def main():
     print('RUNTIME_READY',flush=True)
     data=sys.stdin.buffer.read(cfg['bytes'])
     if len(data)!=cfg['bytes'] or hashlib.sha256(data).hexdigest()!=target:raise RuntimeError('binary transfer incomplete')
+    require_static_supervisor(data)
     temp=EXE.with_name('.runtimed-preview-'+str(os.getpid()))
     fd=os.open(temp,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o755)
     with os.fdopen(fd,'wb') as f:f.write(data);f.flush();os.fsync(f.fileno())
@@ -90,7 +106,8 @@ def main():
     finally:
         if temp.exists():temp.unlink()
 
-try:main()
-except BaseException as error:
-    report(status='failed',error_type=type(error).__name__)
-    sys.exit(1)
+if __name__ == '__main__':
+    try:main()
+    except BaseException as error:
+        report(status='failed',error_type=type(error).__name__)
+        sys.exit(1)
