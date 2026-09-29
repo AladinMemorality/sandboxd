@@ -17,7 +17,7 @@ func TestGuestFileClientEscapesAndBounds(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got = r.URL.Query().Get("path")
 		if got == "oversized" {
-			io.CopyN(w, zeroReader{}, MaxFileReadBytes+1)
+			io.CopyN(w, zeroReader{}, MaxFileContentBytes+1)
 			return
 		}
 		if got == "error" {

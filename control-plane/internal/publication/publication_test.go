@@ -41,6 +41,21 @@ func TestImportedBundleUsesSameValidationAndAtomicPublisher(t *testing.T) {
 	}
 }
 
+func TestProductionMediaAboveMetadataLimitSupportsByteRanges(t *testing.T) {
+	src := source()
+	src.files["dist/media/clip.mp4"] = bytes.Repeat([]byte("video"), 600000)
+	root := t.TempDir()
+	if err := Capture(context.Background(), root, appID, firstID, src, nil); err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest("GET", "/media/clip.mp4", nil)
+	r.Header.Set("Range", "bytes=1-4")
+	w := httptest.NewRecorder()
+	if !Serve(w, r, root, appID) || w.Code != 206 || w.Body.String() != "ideo" {
+		t.Fatalf("media range: %d %s", w.Code, w.Body)
+	}
+}
+
 const appID = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 const firstID = "01ARZ3NDEKTSV4RRFFQ69G5FAW"
 const secondID = "01ARZ3NDEKTSV4RRFFQ69G5FAX"

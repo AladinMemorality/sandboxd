@@ -99,7 +99,7 @@ func Capture(ctx context.Context, root, id, revision string, source Source, befo
 		if name == e.Path || !validPath(name) {
 			return ErrUnsupported
 		}
-		if e.Type != "file" || e.Size < 0 || e.Size > runtime.MaxFileReadBytes {
+		if e.Type != "file" || e.Size < 0 || e.Size > runtime.MaxFileContentBytes {
 			return ErrUnsupported
 		}
 		if _, exists := files[name]; exists {
@@ -273,7 +273,7 @@ func Serve(w http.ResponseWriter, r *http.Request, root, id string) bool {
 		}
 		name, file = "index.html", entries["index.html"]
 	}
-	if file == nil || file.UncompressedSize64 > runtime.MaxFileReadBytes {
+	if file == nil || file.UncompressedSize64 > runtime.MaxFileContentBytes {
 		http.NotFound(w, r)
 		return true
 	}
@@ -282,9 +282,9 @@ func Serve(w http.ResponseWriter, r *http.Request, root, id string) bool {
 		http.Error(w, "build unavailable", 503)
 		return true
 	}
-	data, err := io.ReadAll(io.LimitReader(reader, runtime.MaxFileReadBytes+1))
+	data, err := io.ReadAll(io.LimitReader(reader, runtime.MaxFileContentBytes+1))
 	reader.Close()
-	if err != nil || len(data) > runtime.MaxFileReadBytes {
+	if err != nil || len(data) > runtime.MaxFileContentBytes {
 		http.Error(w, "build unavailable", 503)
 		return true
 	}

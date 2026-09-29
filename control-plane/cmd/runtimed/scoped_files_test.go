@@ -221,6 +221,13 @@ func TestGuestFileProtocolAndTaskResult(t *testing.T) {
 	if data, err := c.ReadFile(ctx, list.Entries[0].Path); err != nil || string(data) != "guest bytes" {
 		t.Fatalf("platform listing read: %q %v", data, err)
 	}
+	media := strings.Repeat("video", 600000)
+	if _, err := c.PutFile(ctx, "dist/media/clip.mp4", strings.NewReader(media)); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := c.ReadFile(ctx, "dist/media/clip.mp4"); err != nil || string(data) != media {
+		t.Fatalf("accepted media upload cannot be read back: %v", err)
+	}
 	for _, path := range []string{"./", "./hello.txt", "hello.txt/..", "../"} {
 		if _, err := c.ListFiles(ctx, path, true); err == nil {
 			t.Fatalf("non-root dot/traversal listing accepted: %q", path)

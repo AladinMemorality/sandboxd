@@ -27,7 +27,7 @@ func Bundle(data []byte) (Source, error) {
 		if f.FileInfo().IsDir() {
 			continue
 		}
-		if !f.Mode().IsRegular() || !validPath(f.Name) || (f.Name != "package.json" && !strings.HasPrefix(f.Name, "dist/")) || f.UncompressedSize64 > runtime.MaxFileReadBytes {
+		if !f.Mode().IsRegular() || !validPath(f.Name) || (f.Name != "package.json" && !strings.HasPrefix(f.Name, "dist/")) || f.UncompressedSize64 > runtime.MaxFileContentBytes {
 			return nil, ErrUnsupported
 		}
 		if _, exists := source.files[f.Name]; exists {
@@ -63,5 +63,5 @@ func (b *bundle) ReadFile(_ context.Context, name string) ([]byte, error) {
 		return nil, err
 	}
 	defer r.Close()
-	return io.ReadAll(io.LimitReader(r, runtime.MaxFileReadBytes+1))
+	return io.ReadAll(io.LimitReader(r, runtime.MaxFileContentBytes+1))
 }

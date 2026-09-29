@@ -49,7 +49,7 @@ func (a *app) handleFileList(w http.ResponseWriter, r *http.Request) {
 	w.Write(data)
 }
 func (a *app) handleFileRead(w http.ResponseWriter, r *http.Request) {
-	data, err := scopedRead(a.appDir, r.URL.Query().Get("path"), runtime.MaxFileReadBytes, true)
+	data, err := scopedRead(a.appDir, r.URL.Query().Get("path"), runtime.MaxFileContentBytes, true)
 	if err != nil {
 		scopedError(w, err)
 		return

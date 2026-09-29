@@ -14,8 +14,11 @@ import (
 )
 
 const (
-	MaxFileReadBytes        = 2 << 20
-	MaxFileWriteBytes       = 25 << 20
+	MaxFileReadBytes  = 2 << 20
+	MaxFileWriteBytes = 25 << 20
+	// Content transfers must be able to read files accepted by PutFile.
+	// Metadata, task results and logs retain their smaller response bounds.
+	MaxFileContentBytes     = MaxFileWriteBytes
 	MaxWorkspaceExportBytes = 64 << 20
 	MaxWorkspaceEntries     = 10000
 	MaxProcessLogBytes      = 256 << 10
@@ -116,7 +119,7 @@ func (c *Client) ListFiles(ctx context.Context, path string, recursive bool) (*F
 	return &out, err
 }
 func (c *Client) ReadFile(ctx context.Context, path string) ([]byte, error) {
-	return c.bounded(ctx, http.MethodGet, "/files/content?path="+url.QueryEscape(path), nil, MaxFileReadBytes)
+	return c.bounded(ctx, http.MethodGet, "/files/content?path="+url.QueryEscape(path), nil, MaxFileContentBytes)
 }
 func (c *Client) PutFile(ctx context.Context, path string, body io.Reader) (*FileWrite, error) {
 	data, err := io.ReadAll(io.LimitReader(body, MaxFileWriteBytes+1))
