@@ -1,0 +1,10 @@
+[Unit]
+Description=Finish reviewed guest supervisor rollout as sandboxes wake
+
+[Timer]
+OnBootSec=90s
+OnUnitInactiveSec=60s
+RandomizedDelaySec=10s
+
+[Install]
+WantedBy=timers.target

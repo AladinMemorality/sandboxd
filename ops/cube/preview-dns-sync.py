@@ -22,15 +22,10 @@ def sync():
  changed=0
  for sid,port,worker in rows:
   if not re.fullmatch('[0-9A-HJKMNP-TV-Z]{26}',sid) or not isinstance(port,int) or not 0<port<65536 or port in (3031,49983) or worker not in cfg['tunnels']:continue
-  destinations=[('s-',worker)]
-  # Production frontends stay on the NVMe/controller host independently of
-  # guest placement. Live editor origins retain their compute-worker route.
-  if cfg.get('published_worker') in cfg['tunnels']:destinations.append(('p-',cfg['published_worker']))
-  for prefix,destination in destinations:
-   name=prefix+sid.lower()+'-'+str(port)+'.'+cfg['domain'];target=cfg['tunnels'][destination]+'.cfargotunnel.com';old=byname.get(name)
-   if old and old.get('comment')!=MARK:raise RuntimeError('Unmanaged preview DNS record conflict')
-   if old and old['type']=='CNAME' and old['content']==target and old['proxied']:continue
-   body={'name':name,'type':'CNAME','content':target,'proxied':True,'ttl':1,'comment':MARK}
-   api('/zones/'+zone+'/dns_records'+('/'+old['id'] if old else ''),'PUT' if old else 'POST',body);changed+=1
+  name='s-'+sid.lower()+'-'+str(port)+'.'+cfg['domain'];target=cfg['tunnels'][worker]+'.cfargotunnel.com';old=byname.get(name)
+  if old and old.get('comment')!=MARK:raise RuntimeError('Unmanaged preview DNS record conflict')
+  if old and old['type']=='CNAME' and old['content']==target and old['proxied']:continue
+  body={'name':name,'type':'CNAME','content':target,'proxied':True,'ttl':1,'comment':MARK}
+  api('/zones/'+zone+'/dns_records'+('/'+old['id'] if old else ''),'PUT' if old else 'POST',body);changed+=1
  print(json.dumps({'projects':len(rows),'dns_changes':changed}))
 if __name__=='__main__':sync()

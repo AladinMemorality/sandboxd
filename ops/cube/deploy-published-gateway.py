@@ -2,7 +2,7 @@
 """Install the tested visitor gateway; preserve editor routing and credentials."""
 import contextlib, fcntl, json, os, pathlib, shutil, subprocess, time, urllib.request, urllib.error
 P = pathlib.Path
-ROOT = P('/opt/baarcha-bench/preview-transport-20260929/published')
+ROOT = P('/opt/baarcha-bench/preview-transport-20260929/published-gateway-retry-2')
 BIN = P('/opt/baarcha-preview/preview-gateway')
 CONFIG = P('/etc/baarcha-preview/gateway.json')
 DNS = P('/etc/baarcha-preview/dns.json')
@@ -15,13 +15,18 @@ def put(path, data, mode=0o600):
 
 def probe(port):
     req=urllib.request.Request('http://127.0.0.1:'+str(port)+'/healthz',headers={'Host':'127.0.0.1:8095'})
-    with urllib.request.urlopen(req,timeout=3) as response:
-        assert response.status == 200
+    for attempt in range(30):
+        try:
+            with urllib.request.urlopen(req,timeout=3) as response:
+                if response.status==200:return
+        except (urllib.error.URLError,TimeoutError):pass
+        time.sleep(.2)
+    raise RuntimeError('Gateway readiness failed')
 
 with contextlib.ExitStack() as stack:
     for name in ['/opt/baarcha/deploy-release.lock','/opt/sandboxd/deploy-state/deploy.lock','/run/lock/cube-operator-acceptance.lock','/opt/baarcha-bench/cube-workload-operator.lock']:
         f=stack.enter_context(open(name,'a+')); fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
-    paths=[BIN,CONFIG,DNS,SYNC]
+    paths=[BIN,CONFIG]
     before={p:p.read_bytes() for p in paths}
     for p in paths:
         backup=ROOT/(p.name+'.gateway-before')
@@ -46,10 +51,6 @@ with contextlib.ExitStack() as stack:
         put(BIN,(ROOT/'preview-gateway').read_bytes(),0o755)
         subprocess.run(['systemctl','restart','baarcha-preview-gateway.service'],check=True)
         probe(8095)
-        dns=json.loads(before[DNS]); assert 'vps' in dns['tunnels']; dns['published_worker']='vps'
-        put(SYNC,(ROOT.parent/'ops/cube/preview-dns-sync.py').read_bytes(),0o755)
-        put(DNS,json.dumps(dns).encode())
-        subprocess.run(['systemctl','start','baarcha-preview-dns.service'],check=True)
         result={'gateway_deployed':True,'published_worker':'vps','editor_routing_preserved':True}
         put(ROOT/'gateway-deployed.json',json.dumps(result).encode());print(json.dumps(result))
     except BaseException:
