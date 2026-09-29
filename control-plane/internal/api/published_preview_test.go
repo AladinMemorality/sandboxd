@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -54,6 +55,20 @@ func TestPublishedRoutesPassCubeGuardAndKeepTenantACL(t *testing.T) {
 	}
 	if connects.Load() != 0 || calls.Load() != 0 {
 		t.Fatal("publication woke guest")
+	}
+	if _, err := s.Store.DB().Exec("UPDATE sandbox SET visibility='public' WHERE id=?", sb.ID); err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest("POST", "/v1/apps/"+sb.AppID.String+"/published-preview", nil)
+	r = r.WithContext(auth.WithActor(r.Context(), auth.Actor{Name: cfgTenant, Kind: "service"}))
+	w := httptest.NewRecorder()
+	h.ServeHTTP(w, r)
+	var access map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &access); err != nil {
+		t.Fatal(err)
+	}
+	if w.Code != 200 || access["public"] != true || access["access_url"] != access["url"] || access["token"] != nil {
+		t.Fatal("public visitor received a redundant auth handoff")
 	}
 }
 

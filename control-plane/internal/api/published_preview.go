@@ -81,17 +81,23 @@ func (s *Server) v1PublishedPreview(w http.ResponseWriter, r *http.Request) {
 		writeV1Err(w, 404, "not_found", "no published build")
 		return
 	}
-	owner, err := s.Store.GetWorkspaceOwner(r.Context(), sb.ID)
-	if err != nil || owner.ExternalUserID == "" {
-		writeV1Err(w, 409, "preview_owner_unavailable", "preview owner unavailable")
-		return
-	}
 	target, err := url.Parse(s.previewURL(sb.ID, webPortOf(sb)))
 	if err != nil || !strings.HasPrefix(target.Host, "s-") {
 		writeV1Err(w, 503, "preview_unavailable", "preview origin unavailable")
 		return
 	}
 	target.Host = "p-" + strings.TrimPrefix(target.Host, "s-")
+	if sb.Visibility == "public" {
+		// Public preview requests already require no cookie. Do not make every
+		// visitor pay for a redundant capability handoff and redirect.
+		writeJSON(w, 200, map[string]any{"url": target.String(), "access_url": target.String(), "public": true})
+		return
+	}
+	owner, err := s.Store.GetWorkspaceOwner(r.Context(), sb.ID)
+	if err != nil || owner.ExternalUserID == "" {
+		writeV1Err(w, 409, "preview_owner_unavailable", "preview owner unavailable")
+		return
+	}
 	s.writeCubePreviewAccess(w, sb.ID, owner.ExternalUserID, target.String())
 }
 
