@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Apply only the preview controller image/config, with exact-baseline rollback."""
 import contextlib,fcntl,json,os,pathlib,sqlite3,subprocess,time,urllib.request,hashlib,sys
-P=pathlib.Path;ROOT=P('/opt/baarcha-bench/preview-transport-20260929');os.umask(0o077)
+P=pathlib.Path;ROOT=P('/opt/baarcha-bench/preview-transport-20260929/retry-1');os.umask(0o077)
 FILES=[P('/opt/sandboxd/deploy-state/runtime-compose.json'),P('/opt/sandboxd/deploy-state/active-images.json')];STOP=P('/etc/baarcha-cube/worker-stop.json')
 BASE='sha256:6e94e93e103180fe7e9663e619cfafc32932a7ce0060281cb699e6d3c9ffb8ea'
 LOCKS=['/opt/baarcha/deploy-release.lock','/opt/sandboxd/deploy-state/deploy.lock','/run/lock/cube-operator-acceptance.lock','/opt/baarcha-bench/cube-workload-operator.lock']
@@ -28,6 +28,14 @@ with contextlib.ExitStack() as stack:
  candidate=(ROOT/'image.id').read_text().strip()
  assert candidate.startswith('sha256:') and candidate!=BASE
  assert json.loads(run(['docker','image','inspect',candidate]))[0]['Id']==candidate
+ # Reject a wrong entrypoint before touching the live controller. This runs
+ # without network, writable root, credentials or production data mounts.
+ verifier='cube-preview-verify-'+str(os.getpid())
+ try:
+  result=subprocess.run(['docker','run','--rm','--name',verifier,'--network=none','--read-only','--entrypoint','/usr/local/bin/cube-controller',candidate,'version'],capture_output=True,timeout=10)
+  assert result.returncode==0 and result.stdout.strip()==b'cube-controller dev (e3abbee)','Candidate is not the tested Cube controller build'
+ finally:
+  subprocess.run(['docker','rm','-f',verifier],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
  with contextlib.closing(db()) as c:
   assert c.execute("select count(*) from task where status not in ('succeeded','failed','cancelled','canceled')").fetchone()[0]==0,'Active task: wait for completion'
   assert c.execute("select count(*) from cube_admission where state='pending'").fetchone()[0]==0,'Provider operation in progress'
