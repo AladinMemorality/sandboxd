@@ -6,6 +6,12 @@ built from this source include the fix. Existing microVM snapshots retain their
 old supervisor, so the bounded operator below upgrades recognized idle guests
 as they wake. It does not wake guests or start AI tasks.
 
+Build the guest supervisor with `CGO_ENABLED=0 GOOS=linux GOARCH=amd64
+go build -trimpath -o runtimed ./cmd/runtimed` from `control-plane`, matching
+`image/cube/Dockerfile`. Verify `file runtimed` reports a statically linked
+executable before hashing or staging it. The controller uses a separate CGO
+build because its SQLite driver requires it.
+
 Install reviewed `guest.py`, `worker.py`, the compiled Linux `runtimed`, and a
 root-owned `release.json` in `/opt/baarcha-published-runtime` on each **worker VM**.
 Never run this on the shared outer B200 host. The release manifest pins
