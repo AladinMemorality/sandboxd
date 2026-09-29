@@ -27,6 +27,9 @@ func Bundle(data []byte) (Source, error) {
 		if f.FileInfo().IsDir() {
 			continue
 		}
+		if f.Mode().IsRegular() && strings.HasPrefix(f.Name, "dist/") && ignoredBuildFile(f.Name, int64(f.UncompressedSize64)) {
+			continue
+		}
 		if !f.Mode().IsRegular() || !validPath(f.Name) || (f.Name != "package.json" && !strings.HasPrefix(f.Name, "dist/")) || f.UncompressedSize64 > runtime.MaxFileContentBytes {
 			return nil, ErrUnsupported
 		}

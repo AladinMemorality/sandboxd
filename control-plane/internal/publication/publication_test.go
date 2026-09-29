@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"net/http/httptest"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -178,5 +179,51 @@ func TestSPAFallbackDoesNotSwallowAPIOrMissingAssets(t *testing.T) {
 		if got := Serve(w, r, root, appID); got != tc.handled || w.Code != tc.code {
 			t.Fatalf("%s: handled=%v code=%d", tc.path, got, w.Code)
 		}
+	}
+}
+
+func TestEmptyGitPlaceholderDoesNotBlockBuild(t *testing.T) {
+	for _, imported := range []bool{false, true} {
+		f := source()
+		f.files["dist/media/.gitkeep"] = nil
+		var src Source = f
+		if imported {
+			var data bytes.Buffer
+			z := zip.NewWriter(&data)
+			for name, body := range f.files {
+				entry, _ := z.Create(name)
+				_, _ = entry.Write(body)
+			}
+			if err := z.Close(); err != nil {
+				t.Fatal(err)
+			}
+			var err error
+			src, err = Bundle(data.Bytes())
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+		root := t.TempDir()
+		if err := Capture(context.Background(), root, appID, firstID, src, nil); err != nil {
+			t.Fatal(err)
+		}
+		archive, err := zip.OpenReader(filepath.Join(root, appID, firstID+".zip"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, file := range archive.File {
+			if strings.Contains(file.Name, ".gitkeep") {
+				t.Fatal("placeholder was published")
+			}
+		}
+		archive.Close()
+	}
+	for _, name := range []string{"../.gitkeep", "assets/../.gitkeep", ".private/.gitkeep", "/assets/.gitkeep", "assets\\.gitkeep", "assets/.env"} {
+		if ignoredBuildFile(name, 0) {
+			t.Fatalf("unsafe path ignored: %s", name)
+		}
+	}
+	if ignoredBuildFile("assets/.gitkeep", 1) {
+		t.Fatal("nonempty hidden file ignored")
 	}
 }

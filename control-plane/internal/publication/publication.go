@@ -46,6 +46,14 @@ func validPath(p string) bool {
 	return !strings.HasSuffix(p, ".map")
 }
 
+// Empty Git directory placeholders are build metadata, not frontend assets.
+// Validate the parent too: a placeholder must never hide traversal or dot paths.
+func ignoredBuildFile(name string, size int64) bool {
+	parent := path.Dir(name)
+	return size == 0 && path.Base(name) == ".gitkeep" &&
+		name == path.Clean(name) && (parent == "." || validPath(parent))
+}
+
 func Current(root, id string) (string, error) {
 	if root == "" || !identifier.MatchString(id) {
 		return "", os.ErrNotExist
@@ -96,6 +104,9 @@ func Capture(ctx context.Context, root, id, revision string, source Source, befo
 			continue
 		}
 		name := strings.TrimPrefix(e.Path, "dist/")
+		if name != e.Path && e.Type == "file" && ignoredBuildFile(name, e.Size) {
+			continue
+		}
 		if name == e.Path || !validPath(name) {
 			return ErrUnsupported
 		}
