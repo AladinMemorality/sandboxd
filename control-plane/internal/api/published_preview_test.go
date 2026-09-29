@@ -2,6 +2,7 @@ package api
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"database/sql"
 	"net/http"
@@ -17,6 +18,44 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/publication"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
+
+func TestPublishedRoutesPassCubeGuardAndKeepTenantACL(t *testing.T) {
+	s, connects, calls := cubePreviewFixture(t, func(http.ResponseWriter, *http.Request) { t.Error("publication contacted guest") })
+	s.PublishedRoot = t.TempDir()
+	s.CubeAllApps = true
+	s.CubeReadiness = func(context.Context) error { return nil }
+	h, err := s.CubeHandler(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	sb, _ := s.Store.Get(context.Background(), cubePreviewTestID)
+	var bundle bytes.Buffer
+	z := zip.NewWriter(&bundle)
+	for name, data := range map[string]string{"package.json": `{"devDependencies":{"vite":"1"}}`, "dist/index.html": "production frontend"} {
+		f, _ := z.Create(name)
+		f.Write([]byte(data))
+	}
+	z.Close()
+	for _, tc := range []struct {
+		endpoint, tenant string
+		code             int
+	}{
+		{"published-build", "other", 404}, {"published-build", cfgTenant, 200},
+		{"published-preview", "other", 404}, {"published-preview", cfgTenant, 200},
+	} {
+		r := httptest.NewRequest("POST", "/v1/apps/"+sb.AppID.String+"/"+tc.endpoint, bytes.NewReader(bundle.Bytes()))
+		r.Header.Set("Content-Type", "application/zip")
+		r = r.WithContext(auth.WithActor(r.Context(), auth.Actor{Name: tc.tenant, Kind: "service"}))
+		w := httptest.NewRecorder()
+		h.ServeHTTP(w, r)
+		if w.Code != tc.code {
+			t.Fatalf("%s (%s): %d %s", tc.endpoint, tc.tenant, w.Code, w.Body)
+		}
+	}
+	if connects.Load() != 0 || calls.Load() != 0 {
+		t.Fatal("publication woke guest")
+	}
+}
 
 func TestPublishedCopyLetsNextEditStartAndRejectsStalePromotion(t *testing.T) {
 	copying, release := make(chan struct{}), make(chan struct{})

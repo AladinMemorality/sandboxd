@@ -72,6 +72,10 @@ func (s *Server) guardCubeRoute(w http.ResponseWriter, r *http.Request, endpoint
 		return true
 	}
 	switch endpoint {
+	case "POST /v1/apps/{id}/published-preview", "POST /v1/apps/{id}/published-build":
+		// Authenticated frontend artifacts use the dedicated NVMe store and
+		// remote guest file API, never legacy host workspaces or Docker.
+		return false
 	case "PATCH /v1/apps/{id}", "POST /v1/apps/{id}/sandbox", "GET /v1/apps/{id}/events":
 		// These handlers resolve the authenticated app and never access a host
 		// workspace. Repeated sandbox creation retains its existing binding.
