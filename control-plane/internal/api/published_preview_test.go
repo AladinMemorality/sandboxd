@@ -3,6 +3,7 @@ package api
 import (
 	"archive/zip"
 	"context"
+	"database/sql"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -11,7 +12,36 @@ import (
 	"testing"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
+
+func TestPublishedBackendOriginRetainsConfiguredAppContract(t *testing.T) {
+	s, _, _ := cubePreviewFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("Origin") != "https://configured.preview.test" {
+			t.Error("backend origin contract changed")
+		}
+		w.Write([]byte("saved"))
+	})
+	sb, _ := s.Store.Get(context.Background(), cubePreviewTestID)
+	err := s.Store.CreateAppConfig(context.Background(), &store.AppConfig{ID: "origin-config", AppID: sb.AppID.String, Key: "APP_ORIGIN", ValuePlaintext: sql.NullString{String: "https://configured.preview.test", Valid: true}, AccessPolicy: "runtime_allowed"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := cubePreviewRequest(t, "POST", "/api/save", "payload")
+	r.Host = strings.Replace(r.Host, "s-", "p-", 1)
+	r.Header.Set("Origin", "https://"+r.Host)
+	w := httptest.NewRecorder()
+	s.TryServeCubePreview(w, r)
+	if w.Code != 200 {
+		t.Fatalf("backend %d", w.Code)
+	}
+	r.Header.Set("Origin", "https://another-app.test")
+	w = httptest.NewRecorder()
+	s.TryServeCubePreview(w, r)
+	if w.Code != 403 {
+		t.Fatal("sibling origin translated")
+	}
+}
 
 func TestPublishedFrontendUsesSameACLButNeverWakesEditorGuest(t *testing.T) {
 	s, connects, guestCalls := cubePreviewFixture(t, func(w http.ResponseWriter, r *http.Request) { w.Write([]byte("live development")) })

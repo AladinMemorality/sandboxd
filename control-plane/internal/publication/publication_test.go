@@ -1,6 +1,8 @@
 package publication
 
 import (
+	"archive/zip"
+	"bytes"
 	"context"
 	"errors"
 	"net/http/httptest"
@@ -9,6 +11,35 @@ import (
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 )
+
+func TestImportedBundleUsesSameValidationAndAtomicPublisher(t *testing.T) {
+	for _, unsafe := range []bool{false, true} {
+		var data bytes.Buffer
+		z := zip.NewWriter(&data)
+		for name, body := range source().files {
+			f, _ := z.Create(name)
+			f.Write(body)
+		}
+		if unsafe {
+			f, _ := z.Create("dist/../../secret")
+			f.Write([]byte("bad"))
+		}
+		z.Close()
+		src, err := Bundle(data.Bytes())
+		if unsafe {
+			if err == nil {
+				t.Fatal("traversal upload accepted")
+			}
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err = Capture(context.Background(), t.TempDir(), appID, firstID, src); err != nil {
+			t.Fatal(err)
+		}
+	}
+}
 
 const appID = "01ARZ3NDEKTSV4RRFFQ69G5FAV"
 const firstID = "01ARZ3NDEKTSV4RRFFQ69G5FAW"

@@ -217,6 +217,7 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 		return true
 	}
 	scheme, _ := s.previewScheme()
+	backendOrigin := s.publishedBackendOrigin(r, sb)
 	proxy := &httputil.ReverseProxy{
 		Transport:     cubePreviewTransport,
 		FlushInterval: -1,
@@ -233,6 +234,9 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 			pr.Out.Header.Set("Cube-Traffic-Access-Token", credentials.TrafficAccessToken)
 			pr.Out.Header.Set("X-Forwarded-Host", r.Host)
 			pr.Out.Header.Set("X-Forwarded-Proto", scheme)
+			if backendOrigin != "" {
+				pr.Out.Header.Set("Origin", backendOrigin)
+			}
 		},
 		ModifyResponse: func(resp *http.Response) error {
 			if resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode >= 500 {

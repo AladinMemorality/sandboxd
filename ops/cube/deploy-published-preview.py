@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Apply only the preview controller image/config, with exact-baseline rollback."""
 import contextlib,fcntl,json,os,pathlib,sqlite3,subprocess,time,urllib.request,hashlib,sys
-P=pathlib.Path;ROOT=P('/opt/baarcha-bench/preview-transport-20260929/published');os.umask(0o077)
+P=pathlib.Path;ROOT=P('/opt/baarcha-bench/preview-transport-20260929/published-retry-1');os.umask(0o077)
 FILES=[P('/opt/sandboxd/deploy-state/runtime-compose.json'),P('/opt/sandboxd/deploy-state/active-images.json')];STOP=P('/etc/baarcha-cube/worker-stop.json')
 BASE='sha256:3e5056da776f25ea5887e2ee8839b254e182d6f526660a7146c653f0aecc99dd'
 LOCKS=['/opt/baarcha/deploy-release.lock','/opt/sandboxd/deploy-state/deploy.lock','/run/lock/cube-operator-acceptance.lock','/opt/baarcha-bench/cube-workload-operator.lock']
@@ -32,7 +32,9 @@ with contextlib.ExitStack() as stack:
  # without network, writable root, credentials or production data mounts.
  verifier='cube-preview-verify-'+str(os.getpid())
  try:
-  result=subprocess.run(['docker','run','--rm','--name',verifier,'--network=none','--read-only','--entrypoint','/usr/local/bin/cube-controller',candidate,'version'],capture_output=True,timeout=10)
+  P('/var/lib/sandboxd/published').mkdir(mode=0o700,exist_ok=True)
+  assert not any(P('/var/lib/sandboxd/published').iterdir()),'Unrelated files at publication mount point'
+  result=subprocess.run(['docker','run','--rm','--name',verifier,'--network=none','--read-only','-v','/var/lib/sandboxd:/var/lib/sandboxd:ro','-v','/mnt/nvme/baarcha-published:/var/lib/sandboxd/published','--entrypoint','/usr/local/bin/cube-controller',candidate,'version'],capture_output=True,timeout=10)
   assert result.returncode==0 and result.stdout.strip()==('cube-controller dev ('+(ROOT/'build.commit').read_text().strip()+')').encode(),'Candidate is not the tested Cube controller build'
  finally:
   subprocess.run(['docker','rm','-f',verifier],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"github.com/oklog/ulid/v2"
+	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -15,6 +17,39 @@ import (
 )
 
 var publicationSlots = make(chan struct{}, 2)
+
+// Translate only a verified same-origin visitor request to the backend's
+// existing origin contract. Sibling origins never acquire this authority.
+func (s *Server) publishedBackendOrigin(r *http.Request, sb *store.Sandbox) string {
+	scheme, _ := s.previewScheme()
+	if !strings.HasPrefix(strings.ToLower(r.Host), "p-") || !strings.EqualFold(r.Header.Get("Origin"), scheme+"://"+r.Host) {
+		return ""
+	}
+	origin := scheme + "://s-" + r.Host[2:]
+	if sb.AppID.Valid {
+		cfg, err := s.Store.GetAppConfig(r.Context(), sb.AppID.String, "APP_ORIGIN")
+		if err == nil {
+			origin = cfg.ValuePlaintext.String
+			if cfg.Sensitive {
+				if s.Secrets == nil {
+					return ""
+				}
+				value, e := s.Secrets.Open(cfg.ValueCiphertext, cfg.ValueNonce)
+				if e != nil {
+					return ""
+				}
+				origin = string(value)
+			}
+		} else if !errors.Is(err, store.ErrNotFound) {
+			return ""
+		}
+	}
+	u, err := url.Parse(origin)
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+		return ""
+	}
+	return origin
+}
 
 func (s *Server) publishedSandbox(w http.ResponseWriter, r *http.Request) *store.Sandbox {
 	w.Header().Set("Cache-Control", "private, no-store")
@@ -65,6 +100,43 @@ func (s *Server) v1PublishedPreview(w http.ResponseWriter, r *http.Request) {
 func (s *Server) v1PublishedBuild(w http.ResponseWriter, r *http.Request) {
 	sb := s.publishedSandbox(w, r)
 	if sb == nil {
+		return
+	}
+	if r.Header.Get("Content-Type") == "application/zip" {
+		select {
+		case publicationSlots <- struct{}{}:
+			defer func() { <-publicationSlots }()
+		default:
+			writeV1Err(w, 503, "build_busy", "publisher busy")
+			return
+		}
+		// Trusted project publishers may supply a build made by their CI, for
+		// imported projects that have no AI task history. Same atomic collector.
+		body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 64<<20))
+		if err != nil {
+			writeV1Err(w, 413, "invalid_build", "build exceeds limit")
+			return
+		}
+		source, err := publication.Bundle(body)
+		if err != nil {
+			writeV1Err(w, 400, "invalid_build", "invalid production bundle")
+			return
+		}
+		if s.Locks != nil {
+			s.Locks.Lock(sb.ID)
+			defer s.Locks.Unlock(sb.ID)
+		}
+		active, err := s.Store.SandboxHasRunningTask(r.Context(), sb.ID)
+		if err != nil || active {
+			writeV1Err(w, 409, "build_busy", "project is being edited")
+			return
+		}
+		err = publication.Capture(r.Context(), s.PublishedRoot, sb.ID, ulid.Make().String(), source)
+		if err != nil {
+			writeV1Err(w, 400, "invalid_build", "no complete supported production build")
+			return
+		}
+		writeJSON(w, 200, map[string]string{"status": "published"})
 		return
 	}
 	tasks, err := s.Store.ListTasksForSandbox(r.Context(), sb.ID, 1)
