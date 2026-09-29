@@ -131,7 +131,7 @@ func (s *Server) v1PublishedBuild(w http.ResponseWriter, r *http.Request) {
 			writeV1Err(w, 409, "build_busy", "project is being edited")
 			return
 		}
-		err = publication.Capture(r.Context(), s.PublishedRoot, sb.ID, ulid.Make().String(), source)
+		err = publication.Capture(r.Context(), s.PublishedRoot, sb.ID, ulid.Make().String(), source, nil)
 		if err != nil {
 			writeV1Err(w, 400, "invalid_build", "no complete supported production build")
 			return
@@ -158,13 +158,19 @@ func (s *Server) capturePublishedTask(id, taskID string) error {
 	default:
 		return errors.New("publisher busy")
 	}
-	// All task submission and platform file mutations take this same lock.
-	// A newer edit wins; never publish its partially written build as an old one.
+	// Keep the guest alive for the copy without making the next AI edit wait
+	// for a cross-worker transfer. The final commit re-checks task generation.
 	if s.Locks != nil {
 		s.Locks.Lock(id)
-		defer s.Locks.Unlock(id)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	if s.Inflight != nil {
+		s.Inflight.Enter(id)
+		defer s.Inflight.Exit(id)
+	}
+	if s.Locks != nil {
+		s.Locks.Unlock(id)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	sb, err := s.Store.Get(ctx, id)
 	if err != nil || sb.RuntimeProvider != "cube" || sb.Status != "running" {
@@ -181,7 +187,29 @@ func (s *Server) capturePublishedTask(id, taskID string) error {
 	if json.Unmarshal([]byte(tasks[0].ResultJSON.String), &result) != nil || result.BuildStatus != runtime.BuildPassed {
 		return publication.ErrUnsupported
 	}
-	err = publication.Capture(ctx, s.PublishedRoot, id, taskID, s.runtimeClientFor(id))
+	locked := false
+	defer func() {
+		if locked {
+			s.Locks.Unlock(id)
+		}
+	}()
+	err = publication.Capture(ctx, s.PublishedRoot, id, taskID, s.runtimeClientFor(id), func() error {
+		if s.Locks != nil {
+			s.Locks.Lock(id)
+			locked = true
+		}
+		if _, e := s.Store.Get(ctx, id); e != nil {
+			return e
+		}
+		latest, e := s.Store.ListTasksForSandbox(ctx, id, 1)
+		if e != nil {
+			return e
+		}
+		if len(latest) != 1 || latest[0].TaskID != taskID || latest[0].Status == "running" {
+			return errors.New("project changed during build capture")
+		}
+		return nil
+	})
 	if err != nil && s.Log != nil {
 		s.Log.Info("production frontend capture deferred", "sandbox", id, "task", taskID)
 	}

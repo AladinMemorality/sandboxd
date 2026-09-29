@@ -10,10 +10,79 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/activity"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/publication"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
+
+func TestPublishedCopyLetsNextEditStartAndRejectsStalePromotion(t *testing.T) {
+	copying, release := make(chan struct{}), make(chan struct{})
+	s, id, _ := cubeTaskFixture(t, func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/files" {
+			w.Write([]byte(`{"entries":[{"path":"dist/index.html","type":"file","size":5}]}`))
+		} else if r.URL.Query().Get("path") == "package.json" {
+			close(copying)
+			<-release
+			w.Write([]byte(`{"devDependencies":{"vite":"1"}}`))
+		} else {
+			w.Write([]byte("built"))
+		}
+	})
+	s.PublishedRoot = t.TempDir()
+	s.Inflight = activity.NewInflightExec()
+	ctx := context.Background()
+	if err := s.Store.MarkRunning(ctx, id, "", ""); err != nil {
+		t.Fatal(err)
+	}
+	old, next := "01ARZ3NDEKTSV4RRFFQ69G5FAV", "01ARZ3NDEKTSV4RRFFQ69G5FAW"
+	if err := s.Store.CreateTask(ctx, &store.Task{TaskID: old, SandboxID: id, Agent: "opencode", Prompt: "build"}); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Store.FinishTask(ctx, old, "succeeded", `{"build_status":"passed"}`); err != nil {
+		t.Fatal(err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- s.capturePublishedTask(id, old) }()
+	select {
+	case <-copying:
+	case err := <-done:
+		t.Fatalf("copy did not start: %v", err)
+	}
+	edit := make(chan error, 1)
+	go func() {
+		s.Locks.Lock(id)
+		defer s.Locks.Unlock(id)
+		edit <- s.Store.CreateTask(ctx, &store.Task{TaskID: next, SandboxID: id, Agent: "opencode", Prompt: "next edit"})
+	}()
+	select {
+	case err := <-edit:
+		if err != nil {
+			close(release)
+			<-done
+			t.Fatal(err)
+		}
+	case <-time.After(time.Second):
+		close(release)
+		<-done
+		t.Fatal("remote build transfer blocks next edit")
+	}
+	if !s.Inflight.Active(id) {
+		t.Error("copy can be idled midway")
+	}
+	close(release)
+	if err := <-done; err == nil {
+		t.Fatal("stale build accepted")
+	}
+	if _, err := publication.Current(s.PublishedRoot, id); err == nil {
+		t.Fatal("stale build became visible")
+	}
+	if s.Inflight.Active(id) {
+		t.Fatal("copy left guest pinned")
+	}
+}
 
 func TestPublishedBackendOriginRetainsConfiguredAppContract(t *testing.T) {
 	s, _, _ := cubePreviewFixture(t, func(w http.ResponseWriter, r *http.Request) {

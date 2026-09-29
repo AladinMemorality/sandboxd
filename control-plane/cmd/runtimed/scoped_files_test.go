@@ -55,6 +55,31 @@ func TestScopedWorkspaceRoundTripAndExclusions(t *testing.T) {
 		t.Fatalf("zip data: %q", got)
 	}
 }
+func TestProductionArtifactsAreExplicitlyReadableButNotSourceExports(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "dist"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "dist", "index.html"), []byte("production"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	data, err := scopedRead(root, "dist/index.html", 1024, true)
+	if err != nil || string(data) != "production" {
+		t.Fatalf("explicit read %s %v", data, err)
+	}
+	files, err := scopedList(context.Background(), root, "dist", true)
+	if err != nil || len(files.Entries) != 1 {
+		t.Fatalf("explicit list %v %v", files, err)
+	}
+	files, err = scopedList(context.Background(), root, "", true)
+	if err != nil || len(files.Entries) != 0 {
+		t.Fatal("build leaked into source tree")
+	}
+	if _, err = scopedRead(root, "dist/../.runtimed/token", 1024, true); err == nil {
+		t.Fatal("traversal allowed")
+	}
+}
+
 func TestScopedWorkspaceRejectsTraversalLinksAndSpecialFiles(t *testing.T) {
 	root := t.TempDir()
 	outside := t.TempDir()

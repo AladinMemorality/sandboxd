@@ -81,6 +81,13 @@ func (c *Client) bounded(ctx context.Context, method, path string, body []byte, 
 			copyClient.Transport = clone
 		}
 		hc = &copyClient
+	} else if method == http.MethodGet && strings.HasPrefix(path, "/files/content?") {
+		// File bodies can cross a slow worker link. Keep the normal header
+		// deadline, but give the bounded body its own transfer budget.
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, 2*time.Minute)
+		defer cancel()
+		hc = c.stream
 	}
 	resp, err := c.do(ctx, hc, method, "http://runtimed"+path, body)
 	if err != nil {

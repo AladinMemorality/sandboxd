@@ -35,7 +35,7 @@ func TestImportedBundleUsesSameValidationAndAtomicPublisher(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if err = Capture(context.Background(), t.TempDir(), appID, firstID, src); err != nil {
+		if err = Capture(context.Background(), t.TempDir(), appID, firstID, src, nil); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -77,12 +77,12 @@ func (f *fixture) ReadFile(_ context.Context, name string) ([]byte, error) {
 func TestAtomicPublishAndPinnedAssets(t *testing.T) {
 	root := t.TempDir()
 	ctx := context.Background()
-	if err := Capture(ctx, root, appID, firstID, source()); err != nil {
+	if err := Capture(ctx, root, appID, firstID, source(), nil); err != nil {
 		t.Fatal(err)
 	}
 	next := source()
 	next.broken = "dist/assets/app.js"
-	if err := Capture(ctx, root, appID, secondID, next); err == nil {
+	if err := Capture(ctx, root, appID, secondID, next, nil); err == nil {
 		t.Fatal("partial transfer published")
 	}
 	if got, _ := Current(root, appID); got != firstID {
@@ -90,7 +90,7 @@ func TestAtomicPublishAndPinnedAssets(t *testing.T) {
 	}
 	next = source()
 	next.files["dist/assets/app.js"] = []byte("version two")
-	if err := Capture(ctx, root, appID, secondID, next); err != nil {
+	if err := Capture(ctx, root, appID, secondID, next, nil); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct{ path, want string }{{"/", "/__sandboxd/build/" + secondID + "/assets/app.js"}, {"/__sandboxd/build/" + firstID + "/assets/app.js", "version one"}} {
@@ -99,6 +99,25 @@ func TestAtomicPublishAndPinnedAssets(t *testing.T) {
 		if !Serve(w, r, root, appID) || w.Code != 200 || !strings.Contains(w.Body.String(), tc.want) {
 			t.Fatalf("%s: %d %s", tc.path, w.Code, w.Body.String())
 		}
+	}
+}
+
+func TestNewEditOrNewerPublicationWinsOverAnOlderTransfer(t *testing.T) {
+	ctx := context.Background()
+	root := t.TempDir()
+	if err := Capture(ctx, root, appID, firstID, source(), func() error { return errors.New("new edit started") }); err == nil {
+		t.Fatal("stale build published")
+	}
+	if _, err := Current(root, appID); err == nil {
+		t.Fatal("rejected capture became current")
+	}
+	if err := Capture(ctx, root, appID, firstID, source(), func() error {
+		return Capture(ctx, root, appID, secondID, source(), nil)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if current, _ := Current(root, appID); current != secondID {
+		t.Fatal("older transfer replaced newer build")
 	}
 }
 func TestRejectChangingUnsafeOrDevelopmentOutput(t *testing.T) {
@@ -116,7 +135,7 @@ func TestRejectChangingUnsafeOrDevelopmentOutput(t *testing.T) {
 				f.files["package.json"] = []byte(`{"dependencies":{"next":"1"}}`)
 			}
 			root := t.TempDir()
-			if err := Capture(context.Background(), root, appID, firstID, f); err == nil {
+			if err := Capture(context.Background(), root, appID, firstID, f, nil); err == nil {
 				t.Fatal("unsafe build accepted")
 			}
 			if _, err := Current(root, appID); err == nil {
@@ -127,7 +146,7 @@ func TestRejectChangingUnsafeOrDevelopmentOutput(t *testing.T) {
 }
 func TestSPAFallbackDoesNotSwallowAPIOrMissingAssets(t *testing.T) {
 	root := t.TempDir()
-	if err := Capture(context.Background(), root, appID, firstID, source()); err != nil {
+	if err := Capture(context.Background(), root, appID, firstID, source(), nil); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {

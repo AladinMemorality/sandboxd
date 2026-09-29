@@ -64,7 +64,7 @@ func Current(root, id string) (string, error) {
 
 // Capture accepts the Vite SPA output contract only. SSR/custom builds retain
 // live delivery. No project code is executed on the controller.
-func Capture(ctx context.Context, root, id, revision string, source Source) error {
+func Capture(ctx context.Context, root, id, revision string, source Source, beforeCommit func() error) error {
 	if root == "" || !identifier.MatchString(id) || !identifier.MatchString(revision) {
 		return os.ErrInvalid
 	}
@@ -122,8 +122,8 @@ func Capture(ctx context.Context, root, id, revision string, source Source) erro
 	if len(index) == 0 || bytes.Contains(index, []byte("/@vite/client")) || bytes.Contains(index, []byte(`src="/src/`)) {
 		return ErrUnsupported
 	}
-	// The lifecycle lock excludes platform edits. Verify bytes again to reject
-	// a guest's independent build overwriting dist while it is being copied.
+	// Recheck the bytes to reject an independent build overwriting dist during
+	// the copy. The promotion callback separately fences newer platform edits.
 	for name, data := range files {
 		again, err := source.ReadFile(ctx, "dist/"+name)
 		if err != nil {
@@ -166,6 +166,17 @@ func Capture(ctx context.Context, root, id, revision string, source Source) erro
 	}
 	if err = f.Close(); err != nil {
 		return err
+	}
+	// The caller serializes only this final promotion, never the remote copy.
+	// Re-check generation here so a newer completed build cannot be replaced
+	// by an older transfer that happened to finish later.
+	if beforeCommit != nil {
+		if err = beforeCommit(); err != nil {
+			return err
+		}
+	}
+	if current, e := Current(root, id); e == nil && current >= revision {
+		return nil
 	}
 	if err = os.Rename(f.Name(), filepath.Join(dir, revision+".zip")); err != nil {
 		return err
