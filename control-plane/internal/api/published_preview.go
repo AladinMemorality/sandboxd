@@ -45,10 +45,20 @@ func (s *Server) publishedBackendOrigin(r *http.Request, sb *store.Sandbox) stri
 		}
 	}
 	u, err := url.Parse(origin)
-	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" {
+	if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.User != nil || (u.Path != "" && u.Path != "/") || u.RawQuery != "" || u.Fragment != "" {
 		return ""
 	}
-	return origin
+	// Browser Origin serializes hostnames in lowercase, omits default ports,
+	// and has no trailing slash. App configuration may contain any of those.
+	host := strings.ToLower(u.Hostname())
+	if strings.Contains(host, ":") {
+		host = "[" + host + "]"
+	}
+	port := u.Port()
+	if port != "" && !(u.Scheme == "https" && port == "443") && !(u.Scheme == "http" && port == "80") {
+		host += ":" + port
+	}
+	return u.Scheme + "://" + host
 }
 
 func (s *Server) publishedSandbox(w http.ResponseWriter, r *http.Request) *store.Sandbox {

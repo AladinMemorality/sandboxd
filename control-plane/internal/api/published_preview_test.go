@@ -146,7 +146,7 @@ func TestPublishedBackendOriginRetainsConfiguredAppContract(t *testing.T) {
 		w.Write([]byte("saved"))
 	})
 	sb, _ := s.Store.Get(context.Background(), cubePreviewTestID)
-	err := s.Store.CreateAppConfig(context.Background(), &store.AppConfig{ID: "origin-config", AppID: sb.AppID.String, Key: "APP_ORIGIN", ValuePlaintext: sql.NullString{String: "https://configured.preview.test", Valid: true}, AccessPolicy: "runtime_allowed"})
+	err := s.Store.CreateAppConfig(context.Background(), &store.AppConfig{ID: "origin-config", AppID: sb.AppID.String, Key: "APP_ORIGIN", ValuePlaintext: sql.NullString{String: "https://CONFIGURED.preview.test:443/", Valid: true}, AccessPolicy: "runtime_allowed"})
 	if err != nil {
 		t.Fatal(err)
 	}
