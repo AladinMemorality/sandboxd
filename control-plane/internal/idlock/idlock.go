@@ -1,4 +1,4 @@
-// Package idlock is a keyed mutex: one lock per sandbox id, created
+// Package idlock is a keyed read/write mutex: one lock per sandbox id, created
 // on demand. Phase 7 needs it so a workspace snapshot cannot read a
 // loopback `.img` while a wake is starting the container and the
 // container is writing to that same loopback.
@@ -13,26 +13,26 @@ package idlock
 
 import "sync"
 
-// Registry hands out a *sync.Mutex per id. Locks are created lazily
+// Registry hands out a *sync.RWMutex per id. Locks are created lazily
 // and never reclaimed — the id space is bounded by the sandbox count
 // (target ≤ ~60 active, ≤ ~50 stopped), so the map stays tiny. A
 // reclaim pass would add complexity for no measurable benefit.
 type Registry struct {
 	mu    sync.Mutex
-	locks map[string]*sync.Mutex
+	locks map[string]*sync.RWMutex
 }
 
 // New constructs an empty Registry.
 func New() *Registry {
-	return &Registry{locks: map[string]*sync.Mutex{}}
+	return &Registry{locks: map[string]*sync.RWMutex{}}
 }
 
 // get returns the mutex for id, creating it on first use.
-func (r *Registry) get(id string) *sync.Mutex {
+func (r *Registry) get(id string) *sync.RWMutex {
 	r.mu.Lock()
 	m, ok := r.locks[id]
 	if !ok {
-		m = &sync.Mutex{}
+		m = &sync.RWMutex{}
 		r.locks[id] = m
 	}
 	r.mu.Unlock()
@@ -51,3 +51,9 @@ func (r *Registry) Unlock(id string) { r.get(id).Unlock() }
 // sandbox that is currently busy (waking / being destroyed) rather
 // than queueing behind it.
 func (r *Registry) TryLock(id string) bool { return r.get(id).TryLock() }
+
+// RLock allows independent reads while fencing lifecycle changes and writes.
+func (r *Registry) RLock(id string) { r.get(id).RLock() }
+
+// RUnlock releases a shared per-id lock.
+func (r *Registry) RUnlock(id string) { r.get(id).RUnlock() }

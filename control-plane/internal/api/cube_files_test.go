@@ -4,12 +4,16 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/activity"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/idlock"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
@@ -18,6 +22,7 @@ import (
 
 func TestCubeFilesRouteWithoutHostWorkspaceAndEnforceOwner(t *testing.T) {
 	s, appID := newConfigTestServer(t)
+	s.Locks = idlock.New()
 	token := strings.Repeat("ab", 32)
 	var calls atomic.Int32
 	var operation string
@@ -114,5 +119,103 @@ func TestCubeFilesRouteWithoutHostWorkspaceAndEnforceOwner(t *testing.T) {
 	updated, _ := s.Store.Get(context.Background(), id)
 	if updated.Status != "running" {
 		t.Fatalf("resume state: %s", updated.Status)
+	}
+}
+
+func TestCubeSourceReadsOverlapWithoutBlockingPreviewAndFenceWrites(t *testing.T) {
+	s, _, _ := cubePreviewFixture(t, func(w http.ResponseWriter, r *http.Request) {})
+	s.Inflight = activity.NewInflightExec()
+	if err := s.Store.MarkRunningWoke(context.Background(), cubePreviewTestID, "", "", time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	s.cubePreviewLeases.Store(cubePreviewTestID, time.Now().Add(time.Minute))
+	reads := make(chan struct{}, 2)
+	release := make(chan struct{})
+	writes := make(chan struct{}, 1)
+	var once sync.Once
+	unblock := func() { once.Do(func() { close(release) }) }
+	guest := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.Host, "3000-") {
+			io.WriteString(w, "preview asset")
+			return
+		}
+		switch r.URL.Path {
+		case "/status":
+			io.WriteString(w, `{}`)
+		case "/files/content":
+			reads <- struct{}{}
+			<-release
+			io.WriteString(w, "source")
+		case "/files":
+			writes <- struct{}{}
+			io.WriteString(w, `{"path":"file.txt","size":9}`)
+		default:
+			t.Errorf("unexpected path %s", r.URL.Path)
+			w.WriteHeader(404)
+		}
+	}))
+	defer guest.Close()
+	defer unblock()
+	s.CubeProxyURL = guest.URL
+	call := func(method, path string, handler http.HandlerFunc) <-chan int {
+		done := make(chan int, 1)
+		go func() {
+			r := httptest.NewRequest(method, path, strings.NewReader("new bytes"))
+			r.SetPathValue("id", cubePreviewTestID)
+			r = r.WithContext(auth.WithActor(r.Context(), auth.Actor{Kind: "service", Name: cfgTenant}))
+			out := httptest.NewRecorder()
+			handler(out, r)
+			done <- out.Code
+		}()
+		return done
+	}
+	first := call("GET", "/files/content?path=one.tsx", s.v1FileContent)
+	second := call("GET", "/files/content?path=two.tsx", s.v1FileContent)
+	for i := 0; i < 2; i++ {
+		select {
+		case <-reads:
+		case <-time.After(3 * time.Second):
+			t.Fatal("source reads serialized behind lifecycle lock")
+		}
+	}
+	if s.Locks.TryLock(cubePreviewTestID) {
+		s.Locks.Unlock(cubePreviewTestID)
+		t.Fatal("read lost lifecycle fence")
+	}
+	preview := make(chan int, 1)
+	go func() {
+		w := httptest.NewRecorder()
+		s.TryServeCubePreview(w, cubePreviewRequest(t, "GET", "/asset.js", ""))
+		preview <- w.Code
+	}()
+	select {
+	case code := <-preview:
+		if code != 200 {
+			t.Fatalf("preview status %d", code)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("preview queued behind source reads")
+	}
+	writer := call("PUT", "/files?path=file.txt", s.v1PutFile)
+	select {
+	case <-writes:
+		t.Fatal("write raced in-flight reads")
+	case <-time.After(50 * time.Millisecond):
+	}
+	unblock()
+	for _, done := range []<-chan int{first, second, writer} {
+		select {
+		case code := <-done:
+			if code != 200 {
+				t.Fatalf("operation status %d", code)
+			}
+		case <-time.After(3 * time.Second):
+			t.Fatal("operation did not finish")
+		}
+	}
+	select {
+	case <-writes:
+	default:
+		t.Fatal("write never reached guest")
 	}
 }

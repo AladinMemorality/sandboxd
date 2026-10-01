@@ -172,11 +172,11 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 	// Release before ensureCubePreviewLease, which takes this same lock.
 	if !passive && s.Inflight != nil {
 		if s.Locks != nil {
-			s.Locks.Lock(id)
+			s.Locks.RLock(id)
 		}
 		s.Inflight.Enter(id)
 		if s.Locks != nil {
-			s.Locks.Unlock(id)
+			s.Locks.RUnlock(id)
 		}
 		defer s.Inflight.Exit(id)
 	}

@@ -43,27 +43,61 @@ func (s *Server) serveCubeFiles(w http.ResponseWriter, r *http.Request, operatio
 		writeV1Err(w, 404, "not_found", "no such sandbox")
 		return true
 	}
+	// Independent source/log reads share the lifecycle fence. Serializing each
+	// remote status + file round trip makes page discovery block every preview
+	// asset. Writes and consistent exports retain exclusive ownership.
+	shared := operation == "v1ListFiles" || operation == "v1FileContent" || operation == "v1ProcessLogs"
+	unlock := func() {}
 	if s.Locks != nil {
-		s.Locks.Lock(id)
-		defer s.Locks.Unlock(id)
+		if shared {
+			s.Locks.RLock(id)
+			unlock = func() { s.Locks.RUnlock(id) }
+		} else {
+			s.Locks.Lock(id)
+			unlock = func() { s.Locks.Unlock(id) }
+		}
 	}
-	// Re-read under the lifecycle lock; deletion and pause must not race writes.
+	defer func() { unlock() }()
+	// Re-read under the lifecycle fence; deletion and pause cannot race reads.
 	sb, err = s.Store.Get(r.Context(), id)
 	if err != nil {
 		writeV1Err(w, 404, "not_found", "no such sandbox")
 		return true
 	}
 	c := s.runtimeClientFor(id)
-	probe, cancel := context.WithTimeout(r.Context(), 3*time.Second)
-	_, statusErr := c.Status(probe)
-	cancel()
-	if sb.Status != "running" || statusErr != nil {
-		if err = s.connectCube(r.Context(), id, 0); err != nil {
-			if writeCubeAdmissionError(w, err) {
+	ready := func() bool {
+		if sb.Status != "running" {
+			return false
+		}
+		probe, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+		defer cancel()
+		_, statusErr := c.Status(probe)
+		return statusErr == nil
+	}
+	needsConnect := !ready()
+	if needsConnect {
+		if shared && s.Locks != nil {
+			// Never resume/configure under a shared lock. Recheck after upgrading:
+			// another reader may already have resumed, or a writer deleted it.
+			unlock()
+			s.Locks.Lock(id)
+			unlock = func() { s.Locks.Unlock(id) }
+			sb, err = s.Store.Get(r.Context(), id)
+			if err != nil {
+				writeV1Err(w, 404, "not_found", "no such sandbox")
 				return true
 			}
-			writeV1Err(w, 502, "runtime_unavailable", "cannot resume guest workspace")
-			return true
+			c = s.runtimeClientFor(id)
+			needsConnect = !ready()
+		}
+		if needsConnect {
+			if err = s.connectCube(r.Context(), id, 0); err != nil {
+				if writeCubeAdmissionError(w, err) {
+					return true
+				}
+				writeV1Err(w, 502, "runtime_unavailable", "cannot resume guest workspace")
+				return true
+			}
 		}
 	}
 	switch operation {
