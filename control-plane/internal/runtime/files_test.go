@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -16,7 +17,7 @@ func TestGuestFileClientEscapesAndBounds(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		got = r.URL.Query().Get("path")
 		if got == "oversized" {
-			io.CopyN(w, zeroReader{}, MaxFileReadBytes+1)
+			io.CopyN(w, zeroReader{}, MaxFileContentBytes+1)
 			return
 		}
 		if got == "error" {
@@ -86,7 +87,9 @@ func TestTransferUsesOverallBudgetInsteadOfRPCHeaderDeadline(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	transport := c.stream.Transport.(*http.Transport)
+	transport := c.stream.Transport.(*http.Transport).Clone()
+	defer transport.CloseIdleConnections()
+	c.stream.Transport = transport
 	transport.ResponseHeaderTimeout = 10 * time.Millisecond
 	if _, err := c.PutFile(context.Background(), "image.png", strings.NewReader("data")); err != nil {
 		t.Fatal(err)
@@ -104,5 +107,34 @@ func TestTransferUsesOverallBudgetInsteadOfRPCHeaderDeadline(t *testing.T) {
 	defer cancel()
 	if _, err := c.PutFile(ctx, "image.png", strings.NewReader("data")); !errors.Is(err, context.DeadlineExceeded) {
 		t.Fatalf("caller cancellation lost: %v", err)
+	}
+}
+
+func TestFileReadAllowsSlowBodyButKeepsCallerDeadline(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		select {
+		case <-time.After(80 * time.Millisecond):
+			io.WriteString(w, "build asset")
+		case <-r.Context().Done():
+		}
+	}))
+	defer server.Close()
+	c, err := NewRemoteClient(RemoteConfig{BaseURL: server.URL, Token: testRemoteToken})
+	if err != nil {
+		t.Fatal(err)
+	}
+	c.http.Timeout = 10 * time.Millisecond
+	if data, err := c.ReadFile(context.Background(), "dist/asset.js"); err != nil || string(data) != "build asset" {
+		t.Fatalf("bounded file transfer inherited RPC body deadline: %v", err)
+	}
+	if _, err := c.ListFiles(context.Background(), ".", false); !os.IsTimeout(err) {
+		t.Fatalf("ordinary RPC deadline lost: %v", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
+	defer cancel()
+	if _, err := c.ReadFile(ctx, "dist/asset.js"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("file caller deadline lost: %v", err)
 	}
 }

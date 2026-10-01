@@ -55,6 +55,31 @@ func TestScopedWorkspaceRoundTripAndExclusions(t *testing.T) {
 		t.Fatalf("zip data: %q", got)
 	}
 }
+func TestProductionArtifactsAreExplicitlyReadableButNotSourceExports(t *testing.T) {
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "dist"), 0700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(root, "dist", "index.html"), []byte("production"), 0600); err != nil {
+		t.Fatal(err)
+	}
+	data, err := scopedRead(root, "dist/index.html", 1024, true)
+	if err != nil || string(data) != "production" {
+		t.Fatalf("explicit read %s %v", data, err)
+	}
+	files, err := scopedList(context.Background(), root, "dist", true)
+	if err != nil || len(files.Entries) != 1 {
+		t.Fatalf("explicit list %v %v", files, err)
+	}
+	files, err = scopedList(context.Background(), root, "", true)
+	if err != nil || len(files.Entries) != 0 {
+		t.Fatal("build leaked into source tree")
+	}
+	if _, err = scopedRead(root, "dist/../.runtimed/token", 1024, true); err == nil {
+		t.Fatal("traversal allowed")
+	}
+}
+
 func TestScopedWorkspaceRejectsTraversalLinksAndSpecialFiles(t *testing.T) {
 	root := t.TempDir()
 	outside := t.TempDir()
@@ -195,6 +220,13 @@ func TestGuestFileProtocolAndTaskResult(t *testing.T) {
 	}
 	if data, err := c.ReadFile(ctx, list.Entries[0].Path); err != nil || string(data) != "guest bytes" {
 		t.Fatalf("platform listing read: %q %v", data, err)
+	}
+	media := strings.Repeat("video", 600000)
+	if _, err := c.PutFile(ctx, "dist/media/clip.mp4", strings.NewReader(media)); err != nil {
+		t.Fatal(err)
+	}
+	if data, err := c.ReadFile(ctx, "dist/media/clip.mp4"); err != nil || string(data) != media {
+		t.Fatalf("accepted media upload cannot be read back: %v", err)
 	}
 	for _, path := range []string{"./", "./hello.txt", "hello.txt/..", "../"} {
 		if _, err := c.ListFiles(ctx, path, true); err == nil {

@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/publication"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
 
@@ -46,10 +47,10 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 	if s.Store == nil {
 		return false
 	}
-	re := cachedRE("cube-preview|"+s.PreviewDomain, `(?i)^s-([0-9a-z]{1,128})-([0-9]{1,5})\.preview\.`+regexp.QuoteMeta(s.PreviewDomain)+`(?::[0-9]{1,5})?$`)
+	re := cachedRE("cube-preview|"+s.PreviewDomain, `(?i)^[sp]-([0-9a-z]{1,128})-([0-9]{1,5})\.preview\.`+regexp.QuoteMeta(s.PreviewDomain)+`(?::[0-9]{1,5})?$`)
 	m := re.FindStringSubmatch(r.Host)
 	if m == nil && s.PreviewPublicDomain != "" {
-		m = cachedRE("cube-flat|"+s.PreviewPublicDomain, `(?i)^s-([0-9a-z]{1,128})-([0-9]{1,5})\.`+regexp.QuoteMeta(s.PreviewPublicDomain)+`$`).FindStringSubmatch(r.Host)
+		m = cachedRE("cube-flat|"+s.PreviewPublicDomain, `(?i)^[sp]-([0-9a-z]{1,128})-([0-9]{1,5})\.`+regexp.QuoteMeta(s.PreviewPublicDomain)+`$`).FindStringSubmatch(r.Host)
 	}
 	if m == nil {
 		return false
@@ -126,6 +127,11 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 		} else {
 			w.WriteHeader(http.StatusNoContent)
 		}
+		return true
+	}
+	// The p- origin is exclusively for visitor builds. Editor s- origins always
+	// continue to the live guest. Both pass exactly the same authorization above.
+	if strings.HasPrefix(strings.ToLower(r.Host), "p-") && publication.Serve(w, r, s.PublishedRoot, id) {
 		return true
 	}
 	if s.Cube == nil || s.Secrets == nil {
@@ -211,6 +217,7 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 		return true
 	}
 	scheme, _ := s.previewScheme()
+	backendOrigin := s.publishedBackendOrigin(r, sb)
 	proxy := &httputil.ReverseProxy{
 		Transport:     cubePreviewTransport,
 		FlushInterval: -1,
@@ -227,6 +234,9 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 			pr.Out.Header.Set("Cube-Traffic-Access-Token", credentials.TrafficAccessToken)
 			pr.Out.Header.Set("X-Forwarded-Host", r.Host)
 			pr.Out.Header.Set("X-Forwarded-Proto", scheme)
+			if backendOrigin != "" {
+				pr.Out.Header.Set("Origin", backendOrigin)
+			}
 		},
 		ModifyResponse: func(resp *http.Response) error {
 			if resp.StatusCode == 401 || resp.StatusCode == 403 || resp.StatusCode >= 500 {

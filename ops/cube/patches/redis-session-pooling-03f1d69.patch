@@ -1,0 +1,285 @@
+From 03f1d69176c4b7432ce70f2702b02f37290ab08e Mon Sep 17 00:00:00 2001
+From: Aladin Ben <140115076+AladinMemorality@users.noreply.github.com>
+Date: Tue, 29 Sep 2026 13:20:50 +0100
+Subject: [PATCH] Reuse initialized Redis sessions with credential and database
+ isolation
+
+Autonomously-by: Codex:GPT-6
+---
+ CubeProxy/lua/redis_iresty.lua             | 82 +++++++++++++---------
+ CubeProxy/tests/redis_iresty_live_pool.lua | 19 +++++
+ CubeProxy/tests/redis_iresty_pool_test.lua | 76 ++++++++++++++++++++
+ 3 files changed, 145 insertions(+), 32 deletions(-)
+ create mode 100644 CubeProxy/tests/redis_iresty_live_pool.lua
+ create mode 100644 CubeProxy/tests/redis_iresty_pool_test.lua
+
+diff --git a/CubeProxy/lua/redis_iresty.lua b/CubeProxy/lua/redis_iresty.lua
+index fd88e75..9bf3451 100644
+--- a/CubeProxy/lua/redis_iresty.lua
++++ b/CubeProxy/lua/redis_iresty.lua
+@@ -205,6 +205,23 @@ local function is_redis_null(res)
+     return false
+ end
+ 
++-- Pools are worker-local. Use opaque identities so passwords cannot appear in
++-- cosocket diagnostics, while endpoint, credential and DB changes get a new
++-- pool. Only fully initialized, unchanged sessions are returned to these pools.
++local session_pools, next_pool = {}, 0
++local function connect_pooled(self, redis, host, port)
++    local password = self.redis_pd
++    local identity = #host .. ":" .. host .. ":" .. tostring(port) .. ":" ..
++        #password .. ":" .. password .. ":" .. tostring(self.redis_index)
++    local pool = session_pools[identity]
++    if not pool then
++        next_pool = next_pool + 1
++        pool = "cube-redis-session-" .. next_pool
++        session_pools[identity] = pool
++    end
++    return redis:connect(host, port, { pool = pool })
++end
++
+ function _M.connect_mod(self, redis)
+     redis:set_timeout(self.timeout)
+     if sentinel_mode(self) then
+@@ -213,7 +230,7 @@ function _M.connect_mod(self, redis)
+         -- cache entry and fall through to a fresh Sentinel lookup.
+         local cip, cport = get_cached_master(self)
+         if cip then
+-            local ok = redis:connect(cip, cport)
++            local ok = connect_pooled(self, redis, cip, cport)
+             if ok then
+                 return ok
+             end
+@@ -225,14 +242,14 @@ function _M.connect_mod(self, redis)
+         end
+         -- Cache only after connect succeeds so a transient failure does not
+         -- leave a stale address that forces an extra failed connect cycle.
+-        local ok, cerr = redis:connect(ip, port)
++        local ok, cerr = connect_pooled(self, redis, ip, port)
+         if not ok then
+             return nil, cerr
+         end
+         set_cached_master(self, ip, port)
+         return ok
+     end
+-    return redis:connect(self.redis_ip, self.redis_port)
++    return connect_pooled(self, redis, self.redis_ip, self.redis_port)
+ end
+ 
+ function _M.auth_mod(self, redis)
+@@ -243,11 +260,36 @@ function _M.select_mod(self, redis)
+     return redis:select(self.redis_index)
+ end
+ 
+-function _M.set_keepalive_mod(redis)
++local session_commands = {
++    auth = true, select = true, client = true, multi = true, exec = true,
++    discard = true, watch = true, unwatch = true, monitor = true,
++    sync = true, psubscribe = true, quit = true, shutdown = true,
++}
++
++function _M.set_keepalive_mod(redis, commands)
++    for _, cmd in ipairs(commands) do
++        if session_commands[cmd[1]] then
++            return redis:close()
++        end
++    end
+     -- put it into the connection pool of size 100, with 60 seconds max idle time
+     return redis:set_keepalive(60000, 1000)
+ end
+ 
++local function connect_initialized(self, redis)
++    local ok, err = self:connect_mod(redis)
++    if not ok then return nil, err end
++    local reused = redis:get_reused_times()
++    if type(reused) == "number" and reused > 0 then return true end
++    ok, err = self:auth_mod(redis)
++    if ok and not err then ok, err = self:select_mod(redis) end
++    if not ok or err then
++        pcall(function() redis:close() end)
++        return nil, err
++    end
++    return true
++end
++
+ function _M.init_pipeline(self)
+     self._reqs = {}
+ end
+@@ -258,23 +300,11 @@ local function exec_pipeline(self, reqs)
+         return nil, err
+     end
+ 
+-    local ok, cerr = self:connect_mod(redis)
++    local ok, cerr = connect_initialized(self, redis)
+     if not ok then
+         return {}, cerr
+     end
+ 
+-    ok, err = self:auth_mod(redis)
+-    if not ok or err then
+-        pcall(function() redis:close() end)
+-        return {}, err
+-    end
+-
+-    ok, err = self:select_mod(redis)
+-    if not ok or err then
+-        pcall(function() redis:close() end)
+-        return {}, err
+-    end
+-
+     redis:init_pipeline()
+     for _, vals in ipairs(reqs) do
+         local fun = redis[vals[1]]
+@@ -297,7 +327,7 @@ local function exec_pipeline(self, reqs)
+         ngx.log(ngx.WARN, "is null")
+     end
+ 
+-    self.set_keepalive_mod(redis)
++    self.set_keepalive_mod(redis, reqs)
+ 
+     for i = 1, #results do
+         if is_redis_null(results[i]) then
+@@ -358,23 +388,11 @@ local function exec_command(self, cmd, ...)
+         return nil, err
+     end
+ 
+-    local ok, cerr = self:connect_mod(redis)
++    local ok, cerr = connect_initialized(self, redis)
+     if not ok or cerr then
+         return nil, cerr
+     end
+ 
+-    ok, err = self:auth_mod(redis)
+-    if not ok or err then
+-        pcall(function() redis:close() end)
+-        return nil, err
+-    end
+-
+-    ok, err = self:select_mod(redis)
+-    if not ok or err then
+-        pcall(function() redis:close() end)
+-        return nil, err
+-    end
+-
+     local fun = redis[cmd]
+     local result, rerr = fun(redis, ...)
+     if not result or rerr then
+@@ -386,7 +404,7 @@ local function exec_command(self, cmd, ...)
+         result = nil
+     end
+ 
+-    self.set_keepalive_mod(redis)
++    self.set_keepalive_mod(redis, {{cmd}})
+     return result, rerr
+ end
+ 
+diff --git a/CubeProxy/tests/redis_iresty_live_pool.lua b/CubeProxy/tests/redis_iresty_live_pool.lua
+new file mode 100644
+index 0000000..ce7011d
+--- /dev/null
++++ b/CubeProxy/tests/redis_iresty_live_pool.lua
+@@ -0,0 +1,19 @@
++-- Operator-only, read-only PING checks against the configured Redis endpoint.
++-- Run with resty -I <candidate lua directory> and a private JSON config file.
++local json = require "cjson.safe"
++local f = assert(io.open(assert(arg[1]), "r"))
++local opts = assert(json.decode(f:read("*a"))); f:close()
++local wrapper = require "redis_iresty"
++local timings = {}
++for i = 1, 5 do
++    ngx.update_time(); local start = ngx.now()
++    local result, err = wrapper:new(opts):ping()
++    assert(result == "PONG" and not err, "Redis PING failed")
++    ngx.update_time(); timings[i] = math.floor((ngx.now() - start) * 1000 + 0.5)
++end
++local bad = {}
++for k, v in pairs(opts) do bad[k] = v end
++bad.redis_pd = "invalid-isolation-test-password"
++local result, err = wrapper:new(bad):ping()
++assert(not result and err, "invalid credentials reused an authenticated session")
++print(assert(json.encode({ ping_ms = timings, credential_isolation = true })))
+diff --git a/CubeProxy/tests/redis_iresty_pool_test.lua b/CubeProxy/tests/redis_iresty_pool_test.lua
+new file mode 100644
+index 0000000..728f70f
+--- /dev/null
++++ b/CubeProxy/tests/redis_iresty_pool_test.lua
+@@ -0,0 +1,76 @@
++-- Shared command/pipeline session reuse, identity isolation and failure cleanup.
++package.path = "./lua/?.lua;" .. package.path
++ngx = { null = {}, WARN = "WARN", shared = {}, log = function() end }
++local pools, calls = {}, { auth = 0, select = 0, commands = 0, close = 0 }
++local fail_auth, fail_select = false, false
++package.loaded["resty.redis"] = { new = function()
++    local r = {}
++    function r:set_timeout() end
++    function r:connect(host, port, options)
++        self.pool = options and options.pool or host .. ":" .. port
++        self.session = pools[self.pool] or { reused = 0 }
++        pools[self.pool] = nil
++        return true
++    end
++    function r:get_reused_times() return self.session.reused end
++    function r:auth(password)
++        calls.auth = calls.auth + 1
++        if fail_auth then return nil, "WRONGPASS" end
++        self.session.password = password
++        return "OK"
++    end
++    function r:select(db)
++        calls.select = calls.select + 1
++        if fail_select then return nil, "invalid DB" end
++        self.session.db = db
++        return "OK"
++    end
++    function r:get()
++        calls.commands = calls.commands + 1
++        if self.pipeline then self.pipeline[#self.pipeline + 1] = true; return true end
++        return self.session.password .. ":" .. self.session.db
++    end
++    function r:init_pipeline() self.pipeline = {} end
++    function r:commit_pipeline()
++        local result = {}
++        for i = 1, #self.pipeline do result[i] = self.session.password .. ":" .. self.session.db end
++        self.pipeline = nil
++        return result
++    end
++    function r:set_keepalive()
++        self.session.reused = self.session.reused + 1
++        pools[self.pool] = self.session
++        return true
++    end
++    function r:close() calls.close = calls.close + 1 end
++    return r
++end }
++local wrapper = require "redis_iresty"
++local function client(password, db, host)
++    return wrapper:new({ redis_ip = host or "redis.test", redis_port = 6379, redis_pd = password or "first", redis_index = db or 0 })
++end
++assert(client():get("key") == "first:0")
++assert(client():get("key") == "first:0")
++local piped = client(); piped:init_pipeline(); piped:get("key")
++assert(piped:commit_pipeline()[1] == "first:0")
++assert(calls.auth == 1 and calls.select == 1, "reused command and pipeline sessions must initialize once")
++assert(client("second", 0):get("key") == "second:0", "credential rotation must use its own pool")
++assert(client("first", 1):get("key") == "first:1", "database must partition the pool")
++assert(client("first", 0, "another.test"):get("key") == "first:0", "endpoint must partition the pool")
++for name in pairs(pools) do assert(not name:find("first", 1, true) and not name:find("second", 1, true), "pool names must not reveal passwords") end
++-- Explicit session-changing commands must not contaminate another client.
++assert(client():select(7))
++assert(client():get("key") == "first:0", "SELECT leaked to the next request")
++local prior = calls.commands
++fail_auth = true
++local value, err = client("bad-auth"):get("key")
++assert(not value and err == "WRONGPASS" and calls.commands == prior, "failed AUTH must not execute commands")
++fail_auth = false; fail_select = true
++local bad = client("bad-db"); bad:init_pipeline(); bad:get("key")
++value, err = bad:commit_pipeline()
++assert(err == "invalid DB" and calls.commands == prior, "failed SELECT must not execute a pipeline")
++fail_select = false
++assert(client("bad-auth"):get("key") == "bad-auth:0", "failed initialization must not be pooled")
++assert(client("bad-db"):get("key") == "bad-db:0")
++assert(calls.close >= 3, "session mutation and initialization failures must close their connections")
++print("redis_iresty pooled session tests OK")
+-- 
+2.50.1 (Apple Git-155)
+

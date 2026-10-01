@@ -11,6 +11,34 @@ import (
 	"testing"
 )
 
+func TestPublishedGatewayPreservesBrowserAuthWithoutInjectingWorkerCredentials(t *testing.T) {
+	controller := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Host != "p-abc-3000.baarcha.tn" || r.Header.Get("Cookie") != "sandbox_preview=browser" || r.Header.Get("X-Preview-Worker") != "" || r.Header.Get("Cube-Traffic-Access-Token") != "" {
+			t.Error("incorrect published forwarding")
+		}
+		w.Write([]byte("production"))
+	}))
+	defer controller.Close()
+	g, err := newGateway(config{Controller: controller.URL, PublishedController: controller.URL, Origin: controller.URL, Worker: "vps", Key: strings.Repeat("k", 32), Domain: "baarcha.tn"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	r := httptest.NewRequest("GET", "http://p-abc-3000.baarcha.tn/", nil)
+	r.Header.Set("Cookie", "sandbox_preview=browser")
+	r.Header.Set("Cube-Traffic-Access-Token", "forged")
+	w := httptest.NewRecorder()
+	g.ServeHTTP(w, r)
+	if w.Code != 200 || w.Body.String() != "production" {
+		t.Fatalf("%d %s", w.Code, w.Body.String())
+	}
+	r.Host = "baarcha.tn"
+	w = httptest.NewRecorder()
+	g.ServeHTTP(w, r)
+	if w.Code != 404 {
+		t.Fatal("platform origin accepted")
+	}
+}
+
 func TestGatewayPreservesRequestsAndDoesNotCacheAuthorization(t *testing.T) {
 	var denied atomic.Bool
 	auth := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

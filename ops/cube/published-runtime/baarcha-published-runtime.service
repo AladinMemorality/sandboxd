@@ -1,0 +1,12 @@
+[Unit]
+Description=Upgrade reviewed idle Baarcha guest supervisors
+After=containerd.service
+ConditionPathExists=/data/cubelet/cubelet.sock
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /opt/baarcha-published-runtime/worker.py
+User=root
+UMask=0077
+TimeoutStartSec=15min
+Nice=10

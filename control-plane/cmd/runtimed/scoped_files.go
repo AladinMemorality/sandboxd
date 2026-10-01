@@ -39,7 +39,9 @@ func scopedParts(raw string, allowRoot, exclude bool) ([]string, error) {
 		return nil, errScopedLimit
 	}
 	for _, p := range parts {
-		if p == "" || p == "." || p == ".." || (exclude && fileExclusions[p]) {
+		// dist is generated public output, not supervisor/private state. Keep it
+		// out of default walks/source exports, but permit explicit artifact access.
+		if p == "" || p == "." || p == ".." || (exclude && fileExclusions[p] && p != "dist") {
 			return nil, errScopedPath
 		}
 	}

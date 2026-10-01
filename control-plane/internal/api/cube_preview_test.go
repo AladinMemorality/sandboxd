@@ -47,6 +47,10 @@ func cubePreviewFixture(t *testing.T, app http.HandlerFunc, passiveState ...stri
 	s.Auth = auth.NewMiddleware(&auth.Config{PreviewSecrets: map[string]string{"preview": "preview-secret"}}, nil, nil, s.Log)
 	connects := &atomic.Int32{}
 	management := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "POST" && r.URL.Path == "/sandboxes/vm-preview/pause" && r.Header.Get("X-API-Key") == "management-secret" {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
 		if len(passiveState) > 0 && r.Method == "GET" && r.URL.Path == "/sandboxes/vm-preview" && r.Header.Get("X-API-Key") == "management-secret" {
 			if passiveState[0] == "error" {
 				w.WriteHeader(503)
@@ -120,6 +124,47 @@ func cubePreviewRequest(t *testing.T, method, path, body string) *http.Request {
 	r.Host = cubePreviewTestHost
 	r.AddCookie(&http.Cookie{Name: "sandbox_preview", Value: cubePreviewJWT(t, cubePreviewTestID, "owner-one", time.Now().Add(time.Hour))})
 	return r
+}
+
+func TestCubeLaunchReusesReadinessForFirstPreviewAndInvalidatesOnPause(t *testing.T) {
+	s, connects, calls := cubePreviewFixture(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprint(w, "app asset")
+	}))
+	lifecycle := func(action string) {
+		t.Helper()
+		r := httptest.NewRequest("POST", "/v1/sandboxes/"+cubePreviewTestID+"/"+action, nil)
+		r.SetPathValue("id", cubePreviewTestID)
+		r = r.WithContext(auth.WithActor(r.Context(), auth.Actor{Name: cfgTenant, Kind: "service"}))
+		w := httptest.NewRecorder()
+		if !s.cubeLifecycle(w, r, action) || w.Code != http.StatusOK {
+			t.Fatalf("%s: %d %s", action, w.Code, w.Body.String())
+		}
+	}
+	lifecycle("connect")
+	for _, path := range []string{"/", "/assets/app.js", "/assets/app.css"} {
+		w := httptest.NewRecorder()
+		s.TryServeCubePreview(w, cubePreviewRequest(t, "GET", path, ""))
+		if w.Code != http.StatusOK {
+			t.Fatalf("preview: %d %s", w.Code, w.Body.String())
+		}
+	}
+	if connects.Load() != 1 || calls.Load() != 3 {
+		t.Fatalf("launch plus three assets must connect once, got connects=%d assets=%d", connects.Load(), calls.Load())
+	}
+	// Readiness reuse never bypasses the per-request authorization check.
+	r := cubePreviewRequest(t, "GET", "/private", "")
+	r.Header.Del("Cookie")
+	w := httptest.NewRecorder()
+	s.TryServeCubePreview(w, r)
+	if w.Code == http.StatusOK || calls.Load() != 3 {
+		t.Fatal("cached readiness bypassed authorization")
+	}
+	lifecycle("pause")
+	w = httptest.NewRecorder()
+	s.TryServeCubePreview(w, cubePreviewRequest(t, "GET", "/", ""))
+	if w.Code != http.StatusOK || connects.Load() != 2 {
+		t.Fatalf("paused runtime did not reconnect: %d connects=%d", w.Code, connects.Load())
+	}
 }
 
 func TestCubePreviewResumesPreservesRequestAndScopesHeaders(t *testing.T) {

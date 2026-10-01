@@ -42,6 +42,10 @@ func (s *Server) v1CubePreviewAccess(w http.ResponseWriter, r *http.Request) {
 		writeV1Err(w, 409, "preview_owner_unavailable", "preview owner unavailable")
 		return
 	}
+	s.writeCubePreviewAccess(w, id, owner.ExternalUserID, s.previewURL(id, webPortOf(sb)))
+}
+
+func (s *Server) writeCubePreviewAccess(w http.ResponseWriter, id, ownerID, stable string) {
 	secrets := s.authCfg().PreviewSecrets
 	kids := make([]string, 0, len(secrets))
 	for kid, secret := range secrets {
@@ -57,12 +61,11 @@ func (s *Server) v1CubePreviewAccess(w http.ResponseWriter, r *http.Request) {
 	now := time.Now()
 	expires := now.Add(5 * time.Minute)
 	header, _ := json.Marshal(map[string]string{"alg": "HS256", "typ": "JWT", "kid": kids[0]})
-	payload, _ := json.Marshal(auth.PreviewClaims{Iss: "sandboxd", Iat: now.Unix(), Exp: expires.Unix(), Aud: auth.PreviewAudience, Sub: owner.ExternalUserID, SandboxID: id})
+	payload, _ := json.Marshal(auth.PreviewClaims{Iss: "sandboxd", Iat: now.Unix(), Exp: expires.Unix(), Aud: auth.PreviewAudience, Sub: ownerID, SandboxID: id})
 	signed := base64.RawURLEncoding.EncodeToString(header) + "." + base64.RawURLEncoding.EncodeToString(payload)
 	mac := hmac.New(sha256.New, []byte(secrets[kids[0]]))
 	_, _ = mac.Write([]byte(signed))
 	token := signed + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
-	stable := s.previewURL(id, webPortOf(sb))
 	access := stable + "/__sandboxd/preview-auth?" + url.Values{"token": {token}, "path": {"/"}}.Encode()
 	writeJSON(w, http.StatusOK, map[string]any{"url": stable, "access_url": access, "token": token, "expires_at": expires.UTC().Format(time.RFC3339)})
 }

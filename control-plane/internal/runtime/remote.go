@@ -24,6 +24,19 @@ type RemoteConfig struct {
 	TrafficAccessToken string
 }
 
+// Clients are short-lived, but their connections should not be. The transport
+// contains no sandbox credentials: Host and both tokens remain request-scoped.
+// Bound idle connections across the worker origins and retain the existing
+// redirect, proxy-discovery and timeout policies on each client.
+var remoteTransport = &http.Transport{
+	DialContext:           (&net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
+	TLSHandshakeTimeout:   5 * time.Second,
+	ResponseHeaderTimeout: 10 * time.Second,
+	IdleConnTimeout:       90 * time.Second,
+	MaxIdleConns:          256,
+	MaxIdleConnsPerHost:   32,
+}
+
 // ValidateRemoteToken requires a hex or unpadded base64url representation of at
 // least 32 random bytes. Encoding/length checks cannot prove randomness; the
 // provisioning caller is responsible for cryptographic generation.
@@ -63,16 +76,10 @@ func NewRemoteClient(cfg RemoteConfig) (*Client, error) {
 		}
 	}
 	cfg.BaseURL = strings.TrimRight(cfg.BaseURL, "/")
-	transport := &http.Transport{
-		DialContext:           (&net.Dialer{Timeout: 5 * time.Second, KeepAlive: 30 * time.Second}).DialContext,
-		TLSHandshakeTimeout:   5 * time.Second,
-		ResponseHeaderTimeout: 10 * time.Second,
-		IdleConnTimeout:       90 * time.Second,
-	}
 	noRedirect := func(_ *http.Request, _ []*http.Request) error { return http.ErrUseLastResponse }
 	return &Client{
 		remote: &cfg,
-		http:   &http.Client{Timeout: 5 * time.Second, Transport: transport, CheckRedirect: noRedirect},
-		stream: &http.Client{Transport: transport, CheckRedirect: noRedirect},
+		http:   &http.Client{Timeout: 5 * time.Second, Transport: remoteTransport, CheckRedirect: noRedirect},
+		stream: &http.Client{Transport: remoteTransport, CheckRedirect: noRedirect},
 	}, nil
 }

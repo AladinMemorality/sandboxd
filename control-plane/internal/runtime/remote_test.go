@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,6 +14,39 @@ import (
 )
 
 const testRemoteToken = "01ab23cd45ef678901ab23cd45ef678901ab23cd45ef678901ab23cd45ef6789abcd"
+
+func TestRemoteClientsReuseConnectionsWithoutReusingCredentials(t *testing.T) {
+	var connections atomic.Int32
+	server := httptest.NewUnstartedServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		guest := strings.TrimSuffix(r.Host, ".cube.test")
+		if (guest != "a" && guest != "b" && guest != "c") || r.Header.Get("Authorization") != "Bearer "+strings.Repeat(guest, 64) || r.Header.Get("Cube-Traffic-Access-Token") != "ingress-"+guest {
+			t.Error("connection reuse changed request-scoped routing or credentials")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		json.NewEncoder(w).Encode(Status{Preview: PreviewState{Status: PreviewReady}})
+	}))
+	server.Config.ConnState = func(_ net.Conn, state http.ConnState) {
+		if state == http.StateNew {
+			connections.Add(1)
+		}
+	}
+	server.Start()
+	defer server.Close()
+	for _, guest := range []string{"a", "b", "c", "a"} {
+		wantHost, wantToken, wantIngress := guest+".cube.test", strings.Repeat(guest, 64), "ingress-"+guest
+		client, err := NewRemoteClient(RemoteConfig{BaseURL: server.URL, Host: wantHost, Token: wantToken, TrafficAccessToken: wantIngress})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = client.Status(context.Background()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got := connections.Load(); got != 1 {
+		t.Fatalf("four independent clients opened %d connections; want one shared connection", got)
+	}
+}
 
 func TestRemoteClientRoutesProtocolAndAuthenticates(t *testing.T) {
 	var requests atomic.Int32
