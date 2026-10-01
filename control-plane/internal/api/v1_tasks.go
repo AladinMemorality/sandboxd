@@ -15,6 +15,7 @@ import (
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/agentauth"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/audit"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/designskills"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/events"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
@@ -261,6 +262,20 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	dispatchPrompt := req.Prompt
+	if remote {
+		done := taskStage(r.Context(), "design_skills")
+		ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
+		err := designskills.Ensure(ctx, s.runtimeClientFor(id))
+		cancel()
+		done()
+		if err != nil {
+			s.loggerFor(r, id).Warn("design skill delivery failed", "error", err)
+			writeV1Err(w, 502, "design_skills_unavailable", "The shared design skills could not be prepared. No coding task was started; retry the request.")
+			return
+		}
+		dispatchPrompt = designskills.Prompt() + req.Prompt
+	}
 	taskID := newULID()
 	timingTaskID = taskID
 	if remote {
@@ -295,7 +310,7 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 	}
 	dispatchDone := taskStage(r.Context(), "runtime_dispatch")
 	dispatchErr := s.runtimeClientFor(id).StartTask(r.Context(), runtime.StartTaskRequest{
-		TaskID: taskID, Prompt: req.Prompt, Agent: agent, Model: req.Model, TimeoutS: req.TimeoutS, Continue: req.Continue, Env: req.Env,
+		TaskID: taskID, Prompt: dispatchPrompt, Agent: agent, Model: req.Model, TimeoutS: req.TimeoutS, Continue: req.Continue, Env: req.Env,
 	})
 	dispatchDone()
 	if err := dispatchErr; err != nil {

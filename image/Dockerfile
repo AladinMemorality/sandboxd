@@ -164,11 +164,13 @@ RUN cd /opt/agent-tools && npm ci --omit=dev --no-audit --no-fund
 COPY image/agent-tools/ui-test.mjs image/agent-tools/README.md /opt/agent-tools/
 
 # The shared agent skill pack (taste, web design guidelines, self-screenshot
-# et al) — single-sourced here and copied into every FRONTEND template's
-# .claude/skills so agents discover them natively. Backend/worker templates
-# skip it: the pack is design-work tooling. See image/templates/README.md.
-COPY --chown=1000:1000 image/agent-skills/ /opt/agent-skills/
-RUN for t in react-standard react-pro marketplace-starter nextjs-standard node-postgres-standard; do       mkdir -p /opt/templates/$t/.claude       && rm -rf /opt/templates/$t/.claude/skills       && cp -r /opt/agent-skills /opt/templates/$t/.claude/skills       && chown -R 1000:1000 /opt/templates/$t/.claude;     done
+# et al) — single-sourced with controller delivery and copied into every
+# template's .claude/skills. Apply it only when a task involves visual work.
+COPY --chown=1000:1000 control-plane/internal/designskills/pack/ /opt/agent-skills/
+RUN for t in /opt/templates/*; do [ -d "$t" ] || continue; \
+      mkdir -p "$t/.claude/skills" \
+      && cp -R /opt/agent-skills/. "$t/.claude/skills/" \
+      && chown -R 1000:1000 "$t/.claude"; done
 
 # Pre-installed dependencies for the JS templates. A fresh sandbox's preview
 # must answer within seconds of creation; a cold `pnpm install` on first boot

@@ -1,0 +1,45 @@
+{
+  "directory": ".baarcha/design-skills/6c451b5be83cc892df26248bc162d9b89d87d138bfdcf5f6b44bda692fb86781",
+  "files": [
+    {
+      "path": "GUIDE.md",
+      "sha256": "c6d17366a80f6f8cc338160f2101f4111ac6cad89f3725cd5ad4599db0d3489b",
+      "bytes": 2551
+    },
+    {
+      "path": "design-inspiration/SKILL.md",
+      "sha256": "bdf12d53cca39b0070f3d37f885a141a3f8766b63beb48775911f5f4fca60c3e",
+      "bytes": 16959
+    },
+    {
+      "path": "image-to-code/SKILL.md",
+      "sha256": "4c060a8064a8b13380bc2ef3d6e6a1d0b1e316aa093cd9807d0ce9e4eeb037fa",
+      "bytes": 36442
+    },
+    {
+      "path": "self-screenshot/SKILL.md",
+      "sha256": "73b1bf439b92fbdce4c8005083a568bb5396e0d99107e64d15ebed34e9e7ad55",
+      "bytes": 2880
+    },
+    {
+      "path": "taste-minimalist/SKILL.md",
+      "sha256": "36bc7328f085405f43b476938e62460fa573bf7e984e949e072bcf014831a44c",
+      "bytes": 7901
+    },
+    {
+      "path": "taste-redesign/SKILL.md",
+      "sha256": "98ad3e5b051bfb71b2795f7e8a6aa0d32b51ee095606c098a4b2822ac07926c9",
+      "bytes": 15060
+    },
+    {
+      "path": "web-design-guidelines/SKILL.md",
+      "sha256": "69a99204ab821db30ce4ce0edd967333bd0ae2f7fadef138b5ea1e6272ff9689",
+      "bytes": 1342
+    },
+    {
+      "path": "web-design-guidelines/command.md",
+      "sha256": "5a775e6411f790f518dbc9c1fa7c50a89e6873502d9a3530a6eb223a590bcfe8",
+      "bytes": 7760
+    }
+  ]
+}

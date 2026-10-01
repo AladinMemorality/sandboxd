@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/designskills"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
 )
 
@@ -43,6 +44,19 @@ func prepare(id, templates, destination string) error {
 		// does not dereference these links; tenant input never reaches this command.
 		if err := exec.Command("cp", "-a", source+"/.", destination+"/").Run(); err != nil {
 			return fmt.Errorf("copy starter: %w", err)
+		}
+	}
+	// The binary carries the canonical pack even when a reviewed dependency base
+	// predates it. This function only operates on fresh trusted build directories.
+	for _, root := range []string{".claude/skills", designskills.Directory()} {
+		for _, skill := range designskills.Files() {
+			path := filepath.Join(destination, root, skill.Path)
+			if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+				return err
+			}
+			if err := os.WriteFile(path, skill.Content, 0644); err != nil {
+				return err
+			}
 		}
 	}
 	f, err := os.OpenFile(filepath.Join(destination, "sandbox.yaml"), os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
