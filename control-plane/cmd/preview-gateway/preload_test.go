@@ -15,9 +15,15 @@ func TestDevelopmentModulePreloadsStayInsideAuthorizedApp(t *testing.T) {
 		}
 		switch r.URL.Path {
 		case "/src/main.tsx":
-			io.WriteString(w, `import {x} from './child.ts'; import 'https://other.invalid/private.js';`)
+			io.WriteString(w, `import {
+  x
+} from './child.ts'; import 'https://other.invalid/private.js';`)
 		case "/src/child.ts":
-			io.WriteString(w, `export const x=1`)
+			io.WriteString(w, `export {
+  x
+} from '../node_modules/chunk.js?v=123';`)
+		case "/node_modules/chunk.js":
+			io.WriteString(w, `export const x=1;`)
 		case "/@vite/client":
 			io.WriteString(w, `export const vite=1`)
 		default:
@@ -36,7 +42,7 @@ func TestDevelopmentModulePreloadsStayInsideAuthorizedApp(t *testing.T) {
 		t.Fatal(e)
 	}
 	out, _ := io.ReadAll(response.Body)
-	if !strings.Contains(string(out), `rel="modulepreload" href="/src/child.ts"`) || !strings.Contains(string(out), `<body>unchanged</body>`) || strings.Contains(string(out), "other.invalid") {
+	if !strings.Contains(string(out), `rel="modulepreload" href="/src/child.ts"`) || !strings.Contains(string(out), `rel="modulepreload" href="/node_modules/chunk.js?v=123"`) || !strings.Contains(string(out), `<body>unchanged</body>`) || strings.Contains(string(out), "other.invalid") {
 		t.Fatal("incorrect development preloads")
 	}
 	for _, s := range []string{"//evil.test/src/a.js", "https://evil.test/src/a.js", "/api/delete.js", "/src/../../private.js"} {

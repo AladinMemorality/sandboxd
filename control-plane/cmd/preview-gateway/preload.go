@@ -15,7 +15,10 @@ import (
 )
 
 var entryScript = regexp.MustCompile(`(?i)<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>`)
-var staticImport = regexp.MustCompile(`(?m)(?:\b(?:import|export)\s+[^;\n]*?\sfrom\s*|\bimport\s*)["']([^"']+)["']`)
+
+// Vite's dependency chunks commonly split named imports across lines. Missing
+// those edges makes the browser discover another network round of modules.
+var staticImport = regexp.MustCompile(`(?m)(?:\b(?:import|export)\s+[^;]*?\sfrom\s*|\bimport\s*)["']([^"']+)["']`)
 
 func modulePath(parent, raw string) string {
 	if !strings.HasPrefix(raw, "/") && !strings.HasPrefix(raw, "./") && !strings.HasPrefix(raw, "../") {
