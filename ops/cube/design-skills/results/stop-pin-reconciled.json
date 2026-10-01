@@ -1,0 +1,7 @@
+{
+  "previous_controller_id": "7470f3a8c25f890ca83635c6bed07740c2e0f622f4e5a4be6b821a6434a526f7",
+  "current_controller_id": "2aa579ed2f646ee851b8550b5fc4bfff8f58e4b6b6bb2c9550eddcf7e901bf7b",
+  "image": "sha256:bfa876f6523eb676038dba1bd91f8e00d4c65aee6195940f38119501694c6f1a",
+  "reason": "Recorded controller no longer exists; current Compose service and both persistent image declarations match the reviewed deployed image. Only the controller ID was refreshed.",
+  "previous_record_sha256": "1d1745e719125291a93d4e5c59c9ac3fb0786977a17dba8a2a048f1bd048bbac"
+}

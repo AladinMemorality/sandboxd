@@ -1,0 +1,6 @@
+{
+  "file": "BRAIN.md",
+  "canary_note_removed": true,
+  "sha256": "019fed8afc6831de5768797770237a9773a2362bdecb9c8f797a39c1d8f20335",
+  "note": "Removed the new test observation; original pre-test BRAIN bytes were not captured. Application and explicit instruction files were separately verified unchanged."
+}

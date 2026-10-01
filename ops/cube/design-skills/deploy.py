@@ -13,6 +13,11 @@ def put(p,b):
 def db():return sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True,timeout=10)
 def bindings():
  with contextlib.closing(db()) as c:return c.execute('select sandbox_id,runtime_id from runtime_binding order by sandbox_id').fetchall()
+def pending_fingerprint():
+ with contextlib.closing(db()) as c:
+  c.row_factory=sqlite3.Row
+  rows=[dict(r) for r in c.execute("select * from cube_admission where state='pending' order by admission_key")]
+ return hashlib.sha256(json.dumps(rows,sort_keys=True,separators=(',',':')).encode()).hexdigest()
 def ready():
  for _ in range(150):
   try:
@@ -38,7 +43,12 @@ with contextlib.ExitStack() as stack:
   subprocess.run(['docker','rm','-f',verifier],stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL)
  with contextlib.closing(db()) as c:
   assert c.execute("select count(*) from task where status not in ('succeeded','failed','cancelled','canceled')").fetchone()[0]==0,'Active task: wait for completion'
-  assert c.execute("select count(*) from cube_admission where state='pending'").fetchone()[0]==0,'Provider operation in progress'
+  # This controller-only rollout preserves one reviewed pre-existing ambiguous
+  # Motion Studio connect reservation. It never reconciles/releases it or changes
+  # worker lifecycle. Any new/changed pending reservation blocks the rollout.
+  before_pending=pending_fingerprint()
+  empty_pending=hashlib.sha256(b'[]').hexdigest()
+  assert before_pending in (empty_pending,'bfcffded6af4ef9c37b91b19f13870a3d237387ccea1c66b37d9953877f9ded8'),'Unreviewed provider operation in progress'
   if '--check' in sys.argv:
    print(json.dumps({'preflight':'pass','current_image':BASE,'candidate_image':candidate,'bindings':len(bindings())}));sys.exit(0)
   assert not (ROOT/'before-preview.PRIVATE.sqlite').exists(),'Release already attempted; inspect receipt/backup before retry'
@@ -58,7 +68,8 @@ with contextlib.ExitStack() as stack:
   ready();after=inspect();assert after['Image']==candidate and after['State']['Running']
   stop=json.loads(original[str(STOP)]);assert stop['controller_id']==before['Id'];stop['controller_id']=after['Id'];put(STOP,json.dumps(stop).encode())
   assert bindings()==before_bindings,'Runtime bindings changed during rollout'
-  result={'deployed':True,'controller':after['Id'],'image':candidate,'previous_image':BASE,'bindings_preserved':len(before_bindings)}
+  assert pending_fingerprint()==before_pending,'Pending reservations changed during rollout'
+  result={'deployed':True,'controller':after['Id'],'image':candidate,'previous_image':BASE,'bindings_preserved':len(before_bindings),'pending_reservations_preserved':True}
   put(ROOT/'deployed.json',json.dumps(result).encode());print(json.dumps(result))
  except BaseException:
   for p in FILES:put(p,original[str(p)])

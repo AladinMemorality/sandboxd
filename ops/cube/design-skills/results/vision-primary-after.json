@@ -1,0 +1,24 @@
+[
+  {
+    "variant": "direct",
+    "status": 200,
+    "model": "glm-5.3-flash",
+    "content": [
+      {
+        "type": "text",
+        "text": "**Brand name:** Olive (shown with a dark olive circle logo in the top-left).\n\n**Main heading:** \"Make room for focused work\"\n\n**Dark sidebar:** No — there's no dark sidebar. The layout is a light, cream/green-toned landing page with a horizontal top navigation bar containing Features, Pricing, About, and a \"Get started\" button."
+      }
+    ]
+  },
+  {
+    "variant": "tool_result",
+    "status": 200,
+    "model": "glm-5.3-flash",
+    "content": [
+      {
+        "type": "text",
+        "text": "Here's what's visible in the screenshot:\n\n- **Brand name:** Olive (top-left, next to a dark olive circle logo)\n- **Main heading:** \"Make room for focused work\"\n- **Dark sidebar:** No — the page uses a top navigation bar (Features, Pricing, About) on a light cream background; there is no sidebar at all."
+      }
+    ]
+  }
+]
