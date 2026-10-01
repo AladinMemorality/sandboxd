@@ -1,0 +1,266 @@
+[
+  {
+    "branch": "chore/gofmt-ci",
+    "commit": "2cb1c2f4f4127997ae6defc86393b6d61597f1dc",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/chore/gofmt-ci"
+  },
+  {
+    "branch": "console",
+    "commit": "87e91e3dd9e89e4625192593e1056da10eaa548a",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/console"
+  },
+  {
+    "branch": "dependabot/docker/control-plane/docker-b6d2bdabf1",
+    "commit": "5c5af70c1093088dcb47846d48b52a7943f203ee",
+    "upstream_merged": false,
+    "common_ancestor": "eaad3c5c0dcb5a50e8d131c5d12b58d6d3bbd006",
+    "reason": "Legacy dependency proposal against pre-Cube baseline; archived separately from the reviewed runtime rollout",
+    "archive_tag": "archive/20261001/dependabot/docker/control-plane/docker-b6d2bdabf1"
+  },
+  {
+    "branch": "dependabot/github_actions/actions-6b34d28de3",
+    "commit": "c730037bd2355ed92e073daa3f18a488190f518c",
+    "upstream_merged": false,
+    "common_ancestor": "eaad3c5c0dcb5a50e8d131c5d12b58d6d3bbd006",
+    "reason": "Legacy dependency proposal against pre-Cube baseline; archived separately from the reviewed runtime rollout",
+    "archive_tag": "archive/20261001/dependabot/github_actions/actions-6b34d28de3"
+  },
+  {
+    "branch": "dependabot/go_modules/control-plane/go-09962a9061",
+    "commit": "be835eb550ed60efe290c80d4069085b6c53d5d3",
+    "upstream_merged": false,
+    "common_ancestor": "eaad3c5c0dcb5a50e8d131c5d12b58d6d3bbd006",
+    "reason": "Legacy dependency proposal against pre-Cube baseline; archived separately from the reviewed runtime rollout",
+    "archive_tag": "archive/20261001/dependabot/go_modules/control-plane/go-09962a9061"
+  },
+  {
+    "branch": "dependabot/npm_and_yarn/console/jsdom-29.1.1",
+    "commit": "39c5df627f94aecde1dcef786eb34c470064eb45",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/dependabot/npm_and_yarn/console/jsdom-29.1.1"
+  },
+  {
+    "branch": "dependabot/npm_and_yarn/console/multi-a21c70c14c",
+    "commit": "a88a480d78aa67a8b592c022b7b396649eccafb0",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/dependabot/npm_and_yarn/console/multi-a21c70c14c"
+  },
+  {
+    "branch": "dependabot/npm_and_yarn/console/npm-3d2bb5b908",
+    "commit": "98203d076d0df28f1dab696a3103d055958eb4eb",
+    "upstream_merged": false,
+    "common_ancestor": "eaad3c5c0dcb5a50e8d131c5d12b58d6d3bbd006",
+    "reason": "Legacy dependency proposal against pre-Cube baseline; archived separately from the reviewed runtime rollout",
+    "archive_tag": "archive/20261001/dependabot/npm_and_yarn/console/npm-3d2bb5b908"
+  },
+  {
+    "branch": "dependabot/npm_and_yarn/console/vitejs/plugin-react-5.2.0",
+    "commit": "486a76021991f3d9d7738429762290e83fbb6d3e",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/dependabot/npm_and_yarn/console/vitejs/plugin-react-5.2.0"
+  },
+  {
+    "branch": "docs/readme-compact-screenshots",
+    "commit": "f409e4b1ba43df4fa6ff079db1c1d735f164904b",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/docs/readme-compact-screenshots"
+  },
+  {
+    "branch": "docs/readme-cta",
+    "commit": "87f5aee140052398a93d8f94b60d17c5c4d4075d",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/docs/readme-cta"
+  },
+  {
+    "branch": "feat/app-catalog-console",
+    "commit": "aae9fd3c6c6ad02d7f69549b7c6141897ee52399",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/app-catalog-console"
+  },
+  {
+    "branch": "feat/app-config",
+    "commit": "914d250d0b94ae947c767b00ea7a77ea89cddfad",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/app-config"
+  },
+  {
+    "branch": "feat/console-catalog-agents",
+    "commit": "e926169f64523113ae64215c894a510e413b7253",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/console-catalog-agents"
+  },
+  {
+    "branch": "feat/console-mvp",
+    "commit": "8b90e205e364d0c212a5a95a13d4e4f71a90fd77",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/console-mvp"
+  },
+  {
+    "branch": "feat/observability-events",
+    "commit": "f524274ffae014f3d174cf05bfc49ad5e72afc77",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/observability-events"
+  },
+  {
+    "branch": "feat/phase-10b-agent-auth",
+    "commit": "9b4eb55ae4969182bd753a8d351fb509ffa35523",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/phase-10b-agent-auth"
+  },
+  {
+    "branch": "feat/prebuilt-images-pipeline",
+    "commit": "d2c46d67a5f9738fe19279c5de1f91abccb22364",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/prebuilt-images-pipeline"
+  },
+  {
+    "branch": "feat/provider-readiness",
+    "commit": "8d5e9c984d500190b4407da46a9b5be96f67c742",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/provider-readiness"
+  },
+  {
+    "branch": "feat/runtime-manifest",
+    "commit": "00ed174e4c58af26a7d4f9e75091270f19aa5ed6",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/runtime-manifest"
+  },
+  {
+    "branch": "feat/snapshots-fork",
+    "commit": "3a20332bf83840b3282d92dc33e6474b98c68f79",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/snapshots-fork"
+  },
+  {
+    "branch": "feat/v0.4-snapshots-observability",
+    "commit": "c98457ecb21d8a168049904d4bfa986ec1513d72",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/v0.4-snapshots-observability"
+  },
+  {
+    "branch": "feat/v0.4.2-git-credentials",
+    "commit": "dcfebb924d24822a19aded0d25174e63a5622175",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/v0.4.2-git-credentials"
+  },
+  {
+    "branch": "feat/v0.4.3-git-import",
+    "commit": "24355e00e07b840d511c28a23791c8c508e1d381",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/v0.4.3-git-import"
+  },
+  {
+    "branch": "feat/v0.4.4-preview-port",
+    "commit": "38c18ea17a7a3f5d7dbe84ffa164629a4e0bb791",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/v0.4.4-preview-port"
+  },
+  {
+    "branch": "feat/v0.4.5-runtime-inspect",
+    "commit": "a0fda66d80eff284605180eaa916fe8504c7c091",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/v0.4.5-runtime-inspect"
+  },
+  {
+    "branch": "feat/v0.4.6-git-status-diff",
+    "commit": "a3a8732d280a3969abcf50a5b2f5c065c1255d56",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/v0.4.6-git-status-diff"
+  },
+  {
+    "branch": "feat/v0.4.7-git-commit",
+    "commit": "68d6a52ee004d7e2f73cf0c86fa4a5712685581b",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/v0.4.7-git-commit"
+  },
+  {
+    "branch": "feat/v0.4.8-git-push",
+    "commit": "8f7e057876c4cf11a041c1080e04628afd5a9ac4",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/v0.4.8-git-push"
+  },
+  {
+    "branch": "feat/v0.4.9-runtime-manifest",
+    "commit": "83f094e675ebe887777e6126291001fc5c193f52",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/feat/v0.4.9-runtime-manifest"
+  },
+  {
+    "branch": "readme/demo-restructure",
+    "commit": "d29eb474cb33a03b414c3e4333d3508f4757955d",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/readme/demo-restructure"
+  },
+  {
+    "branch": "release/v0.4-apps-console",
+    "commit": "cecf6a20cbcb613f63338333ce8cb0d3d0e3b83e",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/release/v0.4-apps-console"
+  },
+  {
+    "branch": "security/remove-env-bak",
+    "commit": "2db52ec2f6449e51824dd5f6f2aaa56235cacbe2",
+    "upstream_merged": false,
+    "common_ancestor": null,
+    "reason": "Disconnected legacy sandboxd history",
+    "archive_tag": "archive/20261001/security/remove-env-bak"
+  }
+]
