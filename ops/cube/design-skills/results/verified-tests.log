@@ -1,0 +1,5 @@
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/api	14.566s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/designskills	(cached)
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/agentprompt	(cached)
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-template	(cached)
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-controller	(cached)
