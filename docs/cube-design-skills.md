@@ -56,3 +56,29 @@ design-reference fetches are optional and fall back to the local guidance.
 Deployment evidence and the pinned controller rollout script live in
 `ops/cube/design-skills/`. Rollback restores the prior controller image and
 configuration without rewinding user data or deleting delivered resources.
+
+Production rollout (2026-10-01): controller build `f3a65b6`, image
+`sha256:9448c32f147b50be52efb841b47890d2559057b157e1e35356f31384a65df8ba`.
+All 120 bindings and the reviewed pre-existing pending connect reservation were
+preserved. Package tests, focused race checks, vet and all six skill validators
+passed. An existing operator-owned Cube verified the eight delivered files by
+hash and retained its application and project instruction files.
+
+The initial visual review exposed an independent gateway defect: tool-result
+images were flattened to `[image omitted]`, even though normal images worked.
+The shared gateway was patched to carry those images in a subsequent user turn
+while preserving all tool-result IDs and ordering. `vision-diagnostic.json`
+records the failure and `vision-primary-after.json` records correct identification
+of the same Olive screenshot through both primary image paths. Delivery/read
+events alone do not prove visual understanding; the canary now also checks the
+visible brand and exact headline. The gateway patch and converter regression
+checks are in the platform repository's `fix/cube-tool-images-20261001` branch.
+
+The post-fix live Cube task `01M3W6WBXCHSFNW9HWXT3582F2` succeeded in 158 seconds:
+it read the guide and selected skills, captured/opened the screenshot, correctly
+reported the Olive brand and exact heading, and passed all eight pack hashes.
+The four originally monitored app/instruction files were unchanged. The agent
+also amended the operator fixture's `BRAIN.md` despite the review-only request;
+the new test observation was subsequently removed. The harness now includes
+that memory file in its preservation check. The original pre-test memory bytes
+were not captured, so this cleanup is not claimed as a byte-exact restoration.

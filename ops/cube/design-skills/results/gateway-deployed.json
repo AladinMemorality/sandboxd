@@ -1,0 +1,9 @@
+{
+  "previous_pid": 3968978,
+  "pid": 2728875,
+  "source_sha256": "6e286d87f10f27be7af93e0982e3ac9f1c9d840385f600ef3dc263b679a615ad",
+  "previous_sha256": "191845b755d874f9499e0ecd2dc91b17d3cc8b147d34ce3e2336c05df34426d1",
+  "ready": true,
+  "model_family": "glm",
+  "environment_preserved": true
+}

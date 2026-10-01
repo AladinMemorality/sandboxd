@@ -1,0 +1,24 @@
+[
+  {
+    "variant": "direct",
+    "status": 200,
+    "model": "glm-5.3-flash",
+    "content": [
+      {
+        "type": "text",
+        "text": "- **Brand name:** Olive (top-left logo)\n- **Main heading:** \"Make room for focused work\"\n- **Dark sidebar:** No — there is no dark sidebar. The page has a light cream/green background with a top navigation bar containing links (Features, Pricing, About) and a \"Get started\" button."
+      }
+    ]
+  },
+  {
+    "variant": "tool_result",
+    "status": 200,
+    "model": "glm-5.3-flash",
+    "content": [
+      {
+        "type": "text",
+        "text": "I was unable to visually inspect the screenshot — the image content came back as \"[image omitted]\" with no actual visual data available to me.\n\nBecause of that, I cannot accurately report:\n- The visible brand name\n- The main heading text\n- Whether there is a dark sidebar\n\nRather than guess, please re-supply the image or paste its contents, and I'll gladly provide those details."
+      }
+    ]
+  }
+]
