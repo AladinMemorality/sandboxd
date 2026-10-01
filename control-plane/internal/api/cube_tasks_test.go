@@ -16,6 +16,7 @@ import (
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/designskills"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/idlock"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
@@ -55,7 +56,18 @@ func cubeTaskFixture(t *testing.T, guest http.HandlerFunc) (*Server, string, *at
 	if err != nil {
 		t.Fatal(err)
 	}
-	proxy := httptest.NewServer(guest)
+	// Existing workflow fixtures expose the same shared pack as a prepared guest.
+	proxy := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == "GET" && r.URL.Path == "/files/content" {
+			for _, f := range designskills.Files() {
+				if r.URL.Query().Get("path") == designskills.Directory()+"/"+f.Path {
+					w.Write(f.Content)
+					return
+				}
+			}
+		}
+		guest(w, r)
+	}))
 	t.Cleanup(proxy.Close)
 	s.CubeProxyURL = proxy.URL
 	credentials, _ := json.Marshal(cubeCredentials{SupervisorToken: strings.Repeat("a", 64), TrafficAccessToken: "private-token"})
@@ -103,6 +115,9 @@ func TestCubeTaskWorkflowUsesRemoteGuestAndPersistsResults(t *testing.T) {
 		case r.Method == "POST" && r.URL.Path == "/tasks":
 			var request runtime.StartTaskRequest
 			_ = json.NewDecoder(r.Body).Decode(&request)
+			if request.Prompt != designskills.Prompt()+"build app" {
+				t.Error("shared design guidance missing from dispatched task")
+			}
 			mu.Lock()
 			taskID = request.TaskID
 			mu.Unlock()
@@ -159,6 +174,9 @@ func TestCubeTaskWorkflowUsesRemoteGuestAndPersistsResults(t *testing.T) {
 	task, err := s.Store.GetTask(context.Background(), submitted)
 	if err != nil || task.SandboxID != id {
 		t.Fatalf("accepted task not durable: %v", err)
+	}
+	if task.Prompt != "build app" {
+		t.Error("shared guidance replaced the recorded user request")
 	}
 	if w = cubeRequest(s, "POST", base+"/stop", "", cfgTenant); w.Code != 409 {
 		t.Fatalf("paused an active task: %d %s", w.Code, w.Body.String())

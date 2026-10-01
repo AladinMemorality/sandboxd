@@ -45,3 +45,10 @@ one atomic cycle — all three steps, never just the first:
   after the app is ready.
 - Judge what you SEE against your stated art direction and the
   web-design-guidelines skill, fix what the pixels show, then look again.
+- If capture fails twice with the same infrastructure error, stop retrying.
+  Continue independent checks and report visual verification as unavailable.
+  Do not add sleeps, install a browser, or claim that compilation verified layout.
+- The bridge currently exposes hero/full modes, not a viewport-width argument.
+  Do not claim a mobile screenshot from this desktop capture. Check responsive
+  rules and use an actual narrow browser viewport when that tool is available;
+  otherwise report the mobile visual check as unverified.

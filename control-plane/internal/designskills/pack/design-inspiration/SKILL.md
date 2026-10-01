@@ -10,7 +10,9 @@ websites (raw GitHub links inside). When making design decisions:
 
 1. Pick 1-2 sites whose domain matches the task (a shop → commerce/editorial
    entries; a tool → dashboard entries).
-2. WebFetch their DESIGN.md raw URLs from the catalog.
+2. Fetch their DESIGN.md references if external access is available. If a fetch
+   fails, use the local taste and web-design-guidelines skills; do not retry a
+   blocked host or treat reference fetching as a prerequisite to useful work.
 3. Borrow the SYSTEM (scale, spacing rhythm, color discipline, motion
    restraint), never the literal brand.
 

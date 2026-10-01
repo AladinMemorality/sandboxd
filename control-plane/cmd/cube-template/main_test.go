@@ -1,10 +1,12 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/designskills"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
 )
 
@@ -25,6 +27,14 @@ func TestPrepareRegistryAndPreserveFiles(t *testing.T) {
 			destination := t.TempDir()
 			if err := prepare(p.ID, root, destination); err != nil {
 				t.Fatal(err)
+			}
+			for _, base := range []string{".claude/skills", designskills.Directory()} {
+				for _, f := range designskills.Files() {
+					got, err := os.ReadFile(filepath.Join(destination, base, f.Path))
+					if err != nil || !bytes.Equal(got, f.Content) {
+						t.Fatalf("preset %s missing canonical %s: %v", p.ID, f.Path, err)
+					}
+				}
 			}
 			got, err := os.ReadFile(filepath.Join(destination, "sandbox.yaml"))
 			if err != nil || string(got) != p.Manifest {

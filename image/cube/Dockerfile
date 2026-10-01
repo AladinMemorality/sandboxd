@@ -15,6 +15,13 @@ USER root
 COPY image/agent-tools/package.json image/agent-tools/package-lock.json /opt/agent-tools/
 RUN cd /opt/agent-tools && npm ci --omit=dev --no-audit --no-fund
 COPY image/agent-tools/ui-test.mjs image/agent-tools/README.md /opt/agent-tools/
+# Refresh the same canonical design pack used by the controller, even with an
+# older reviewed dependency base. All presets can later gain a visual frontend.
+COPY --chown=1000:1000 control-plane/internal/designskills/pack/ /opt/agent-skills/
+RUN for t in /opt/templates/*; do [ -d "$t" ] || continue; \
+      mkdir -p "$t/.claude/skills" \
+      && cp -R /opt/agent-skills/. "$t/.claude/skills/" \
+      && chown -R 1000:1000 "$t/.claude"; done
 # Refresh factual template guidance without replacing reviewed dependencies.
 COPY image/templates/react-pro/AGENTS.md /opt/templates/react-pro/AGENTS.md
 COPY image/templates/react-pro/src/components/ui/README.md /opt/templates/react-pro/src/components/ui/README.md
