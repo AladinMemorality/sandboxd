@@ -41,6 +41,20 @@ type credentials struct {
 // operator must separately disable legacy daemon restarts; flock only fences
 // cooperating binaries. Opening this session does not create a recovery journal.
 func Open(ctx context.Context, database, migrations string, key *secrets.Cipher, provider cube.Config, policy cube.AdmissionConfig) (*Session, error) {
+	return open(ctx, database, migrations, key, provider, policy, "")
+}
+
+// OpenPinned retains the same offline maintenance fence while using the
+// authoritative placement verifier required by an existing pinned worker policy.
+// It does not select a worker or weaken the durable admission contract.
+func OpenPinned(ctx context.Context, database, migrations string, key *secrets.Cipher, provider cube.Config, policy cube.AdmissionConfig, masterURL string) (*Session, error) {
+	if policy.NodeID == "" || masterURL == "" {
+		return nil, errors.New("pinned worker and trusted master URL required")
+	}
+	return open(ctx, database, migrations, key, provider, policy, masterURL)
+}
+
+func open(ctx context.Context, database, migrations string, key *secrets.Cipher, provider cube.Config, policy cube.AdmissionConfig, masterURL string) (*Session, error) {
 	if os.Geteuid() != 0 || key == nil {
 		return nil, errors.New("native root and existing controller encryption key required")
 	}
@@ -77,6 +91,11 @@ func Open(ctx context.Context, database, migrations string, key *secrets.Cipher,
 	client, e := cube.New(provider)
 	if e != nil {
 		return nil, e
+	}
+	if masterURL != "" {
+		if e = client.ConfigurePlacement(masterURL, "cubebox"); e != nil {
+			return nil, e
+		}
 	}
 	if e = client.ConfigureAdmission(ctx, db, policy); e != nil {
 		return nil, e
@@ -208,7 +227,34 @@ func (s *Session) Create(ctx context.Context, id string) error {
 	defer stop()
 	return s.recordCredential(durable, j, c, remote)
 }
-func (s *Session) Adopt(ctx context.Context, id, runtime string) error {
+func (s *Session) Adopt(ctx context.Context, id, runtimeID string) error {
+	return s.adopt(ctx, id, runtimeID, "", "")
+}
+
+// AdoptWithIngress uses the private credential from a retained create response
+// when the provider detail API intentionally omits it. Authenticate it against
+// the journal's independently generated supervisor before sealing the binding.
+func (s *Session) AdoptWithIngress(ctx context.Context, id, runtimeID, traffic, proxy string) error {
+	if traffic == "" || proxy == "" {
+		return errors.New("retained private ingress and trusted proxy required")
+	}
+	return s.adopt(ctx, id, runtimeID, traffic, proxy)
+}
+func authenticateIngress(ctx context.Context, remote *cube.Sandbox, supervisor, traffic, proxy string) error {
+	if remote.TrafficAccessToken != "" && remote.TrafficAccessToken != traffic {
+		return errors.New("provider ingress credential differs from retained acknowledgment")
+	}
+	client, e := runtime.NewRemoteClient(runtime.RemoteConfig{BaseURL: proxy, Host: "3031-" + remote.SandboxID + ".cube.app", Token: supervisor, TrafficAccessToken: traffic})
+	if e != nil {
+		return e
+	}
+	if _, e = client.Status(ctx); e != nil {
+		return errors.New("retained ingress could not authenticate the planned supervisor")
+	}
+	remote.TrafficAccessToken = traffic
+	return nil
+}
+func (s *Session) adopt(ctx context.Context, id, runtimeID, traffic, proxy string) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if e := s.check(); e != nil {
@@ -222,9 +268,14 @@ func (s *Session) Adopt(ctx context.Context, id, runtime string) error {
 	if e != nil {
 		return e
 	}
-	remote, e := s.client.AdoptRecovery(ctx, s.db, id, runtime)
+	remote, e := s.client.AdoptRecovery(ctx, s.db, id, runtimeID)
 	if e != nil {
 		return e
+	}
+	if traffic != "" {
+		if e = authenticateIngress(ctx, remote, c.Supervisor, traffic, proxy); e != nil {
+			return e
+		}
 	}
 	return s.recordCredential(ctx, j, c, remote)
 }

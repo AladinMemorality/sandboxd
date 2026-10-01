@@ -32,6 +32,12 @@ func (c *Client) CreateRecovery(ctx context.Context, recovery RecoveryCreationSt
 		return nil, err
 	}
 	g := c.admission
+	if len(in.DistributionScope) != 0 {
+		return nil, errors.New("recovery placement must come from the pinned worker policy")
+	}
+	if g.config.NodeID != "" {
+		in.DistributionScope = []string{g.config.NodeID}
+	}
 	if g.store != recovery {
 		return nil, errors.New("recovery must share the configured admission store")
 	}
@@ -83,7 +89,7 @@ func (c *Client) CreateRecovery(ctx context.Context, recovery RecoveryCreationSt
 	if err != nil {
 		return nil, fmt.Errorf("%w: recovery create verification unavailable", ErrAdmissionPending)
 	}
-	if err = validateRecoveryRemote(g, intent, actual); err != nil {
+	if err = c.validateRecoveryRemote(operation, intent, actual); err != nil {
 		return nil, err
 	}
 	if err = recovery.CubeRecoveryCreateObserved(operation, id, token, actual); err != nil {
@@ -91,9 +97,13 @@ func (c *Client) CreateRecovery(ctx context.Context, recovery RecoveryCreationSt
 	}
 	return remote, nil
 }
-func validateRecoveryRemote(g *admissionGuard, in RecoveryCreateIntent, actual *Sandbox) error {
+func (c *Client) validateRecoveryRemote(ctx context.Context, in RecoveryCreateIntent, actual *Sandbox) error {
+	g := c.admission
 	if err := g.validRemote(actual); err != nil {
 		return fmt.Errorf("%w: recovery resource/state mismatch", ErrAdmissionPending)
+	}
+	if g.config.NodeID != "" && (c.placement == nil || c.placement(ctx, actual.SandboxID, g.config.NodeID) != nil) {
+		return fmt.Errorf("%w: recovery worker placement verification failed", ErrAdmissionPending)
 	}
 	if actual.State != "running" || actual.SandboxID == in.OldRuntimeID || actual.TemplateID != in.TemplateID || actual.Metadata["sandboxd_id"] != in.SandboxID || actual.Metadata["sandboxd_app_id"] != in.AppID || actual.Metadata["sandboxd_admission_operation"] != in.OperationToken || actual.Metadata["sandboxd_recovery_id"] != in.RecoveryID {
 		return fmt.Errorf("%w: recovery identity mismatch", ErrAdmissionPending)
@@ -119,7 +129,7 @@ func (c *Client) AdoptRecovery(ctx context.Context, recovery RecoveryCreationSto
 	if err != nil {
 		return nil, err
 	}
-	if err = validateRecoveryRemote(c.admission, intent, actual); err != nil {
+	if err = c.validateRecoveryRemote(ctx, intent, actual); err != nil {
 		return nil, err
 	}
 	if err = recovery.CubeRecoveryCreateObserved(ctx, id, intent.OperationToken, actual); err != nil {

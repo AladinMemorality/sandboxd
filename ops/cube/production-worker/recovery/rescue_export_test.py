@@ -118,4 +118,19 @@ class RescueTests(unittest.TestCase):
                 sock.bind(str(run/'unexpected'))
                 with self.assertRaises(Invalid):reject_unexportable_metadata(p)
 
+    @patch('os.listxattr',return_value=[],create=True)
+    def test_myhometroc_socket_preserves_regular_files_and_rejects_unknown_sockets(self, _xattrs):
+        import socket
+        with tempfile.TemporaryDirectory(dir='/tmp') as tmp:
+            root=Path(tmp).resolve();run=root/'.myhometroc/socket';run.mkdir(parents=True)
+            endpoint=run/'.s.PGSQL.5432';endpoint.write_bytes(b'not a socket')
+            self.assertEqual(reject_unexportable_metadata(root),[])
+            endpoint.unlink()
+            with socket.socket(socket.AF_UNIX) as sock:
+                sock.bind(str(endpoint))
+                self.assertEqual(reject_unexportable_metadata(root),['.myhometroc/socket/.s.PGSQL.5432'])
+            with socket.socket(socket.AF_UNIX) as sock:
+                sock.bind(str(run/'unexpected'))
+                with self.assertRaises(Invalid):reject_unexportable_metadata(root)
+
 if __name__=='__main__':unittest.main()

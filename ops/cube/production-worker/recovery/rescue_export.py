@@ -104,7 +104,7 @@ def reject_unexportable_metadata(home):
             rel=p.relative_to(home).as_posix()
             # The supervisor recreates its Unix control endpoint at startup.
             # Preserve its files/history; only this exact socket inode is ephemeral.
-            if stat.S_ISSOCK(mode) and (rel == '.runtimed/sock' or re.fullmatch(r'\.baarcha-postgres/run/\.s\.PGSQL\.[0-9]+',rel)):
+            if stat.S_ISSOCK(mode) and (rel == '.runtimed/sock' or re.fullmatch(r'(?:\.baarcha-postgres/run|\.myhometroc/socket)/\.s\.PGSQL\.[0-9]+',rel)):
                 excluded.append(rel)
                 continue
             require(stat.S_ISREG(mode) or stat.S_ISDIR(mode) or stat.S_ISLNK(mode),'special file in exported home')
