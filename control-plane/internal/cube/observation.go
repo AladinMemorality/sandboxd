@@ -11,6 +11,11 @@ import (
 	"time"
 )
 
+// CubeMaster keys its worker gRPC pools by X-Caller. Keep latency-sensitive
+// observations and resume calls off the default connection used by bulk fleet
+// inventory. This fixed label is not authentication and never caches state.
+const masterControlCaller = "baarcha-controller"
+
 // One authoritative CubeMaster read supplies both runtime state/resources and
 // placement. Unlike CubeAPI GET, it does not enumerate the worker for a summary.
 // Never cache this observation across operations or follow guest-provided URLs.
@@ -119,6 +124,7 @@ func (c *Client) nativeResume(origin *url.URL, instance string) func(context.Con
 			return err
 		}
 		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("X-Caller", masterControlCaller)
 		response, err := c.http.Do(req)
 		if err != nil {
 			return errors.New("Cube native resume unavailable")

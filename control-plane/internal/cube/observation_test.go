@@ -50,6 +50,9 @@ func TestPlacedObservationUsesOneRequestAndRejectsDifferentWorker(t *testing.T) 
 	var requests atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		requests.Add(1)
+		if r.Header.Get("X-Caller") != "baarcha-controller" {
+			t.Error("observation shares the bulk inventory worker connection")
+		}
 		if r.URL.Path != "/cube/sandbox/info" {
 			t.Error("unexpected public summary lookup")
 		}
@@ -177,6 +180,9 @@ func TestConnectReadinessOverlapsVerificationWithoutBypassingAdmission(t *testin
 func TestObservedPausedRuntimeUsesSingleNativeResumeWithBothChecks(t *testing.T) {
 	var gets, updates atomic.Int32
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get("X-Caller") != "baarcha-controller" {
+			t.Error("startup shares the bulk inventory worker connection")
+		}
 		switch r.URL.Path {
 		case "/cube/sandbox/info":
 			gets.Add(1)

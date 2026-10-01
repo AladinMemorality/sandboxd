@@ -48,6 +48,7 @@ func (c *Client) ConfigurePlacement(origin, instanceType string) error {
 		if err != nil {
 			return nil, err
 		}
+		req.Header.Set("X-Caller", masterControlCaller)
 		response, err := c.http.Do(req)
 		if err != nil {
 			return nil, errors.New("Cube placement observation unavailable")
