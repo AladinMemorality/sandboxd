@@ -21,9 +21,12 @@ An early useful preview is a milestone. Finish the visual refinement as well.
 - Read `image-to-code/SKILL.md` when implementing a supplied screenshot/design.
 - Use `web-design-guidelines/SKILL.md` and its local `command.md` for the relevant
   accessibility, responsive layout and interaction checks.
-- Use `self-screenshot/SKILL.md` to see the preview, critique it, fix visible
-  issues, and capture again after meaningful fixes. Never claim visual review
-  from compilation or a screenshot you did not open.
+- Hannibal, the chat agent, owns live-preview screenshot review. The coding
+  agent sends concise reports when meaningful screens are ready and applies
+  concrete corrections from Hannibal. Keep implementing independent work;
+  do not wait or poll for a screenshot review. `self-screenshot/SKILL.md`
+  documents this handoff for compatibility with older workspaces. This
+  replaces legacy instructions asking the coding agent to capture its preview.
 
 For new sites, make deliberate choices about type scale, readable text width,
 contrast and section rhythm. Avoid falling back to identical rounded card grids,
@@ -34,6 +37,6 @@ Use available local fonts or properly installed font assets; naming a font in
 CSS does not install it. Use supplied assets first and the image bridge when
 original imagery helps. Keep essential assets local so previews can render them.
 
-Check the main interaction and the rendered layout. Fix accidental overlap,
+Check the main interaction and responsive rules. Apply visual feedback about
 weak hierarchy, illegible contrast, missing imagery and awkward spacing. Report
-which visual checks actually ran and any unavailable viewport or capture path.
+which functional checks ran and what still needs Hannibal’s visual review.

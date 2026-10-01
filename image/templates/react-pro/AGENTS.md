@@ -141,8 +141,8 @@ the requested offer. Do not replace a functioning app with a promotional page.
 - For public pages add relevant titles, descriptions, semantic structure and
   descriptive image text. Do not add unrelated SEO features to private tools.
 - Use proven libraries for established domain logic when appropriate.
-- Verify the main interaction and use self-screenshot for visual work: inspect
-  the pixels, fix relevant problems and report what was actually checked.
+- Verify the main interaction and report ready screens to Hannibal for visual
+  review. Apply its concrete corrections; keep implementing independent work.
 
 ## Bridge to the product chat (only when $BRIDGE_URL is set)
 
@@ -213,13 +213,12 @@ checks at meaningful stages; compilation alone does not prove feature completion
 
 ## Skills (in .claude/skills — use them)
 
-This workspace ships skills you discover natively: **self-screenshot**
-(capture the live preview and LOOK at it with your vision — one atomic
-capture→Read→delete cycle, at milestones and always before finishing design
-work), **taste-redesign** / **taste-minimalist** (art-direction process),
-**web-design-guidelines** (audit rules, vendored in its command.md), and
-**design-inspiration** (real-site DESIGN.md references). For any visual
-work: state a direction, build, self-screenshot, judge the pixels, fix.
+Use **taste-redesign** / **taste-minimalist** for design direction,
+**web-design-guidelines** for relevant accessibility checks, and
+**design-inspiration** when references would help. **self-screenshot** now
+explains the handoff to Hannibal: the chat agent owns live-preview screenshots.
+Build, run functional checks, report ready screens, and apply its concrete
+visual feedback. Continue independent work without waiting for review.
 
 ## Session memory
 

@@ -4,7 +4,7 @@
 again or add them to package.json. Prefer a project's existing tests when present.
 This helper mounts a React component in a **simulated DOM**. It can test state,
 click handlers and form logic; it cannot verify CSS, responsive layout, browser
-APIs or real server integrations. Use the existing self-screenshot capability
+APIs or real server integrations. Use Hannibal’s chat-side screenshot review
 to inspect layout. Missing browser APIs are limitations, not passing tests.
 
 From the workspace, write a focused temporary check (adjust the assertions to

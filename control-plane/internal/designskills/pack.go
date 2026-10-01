@@ -54,7 +54,7 @@ func Directory() string {
 // Prompt is a navigation aid rather than a copy of the skill bodies. The
 // original user request remains intact and stored separately in task history.
 func Prompt() string {
-	return "Baarcha shared design skills are available in this workspace at " + Directory() + "/. For visual work, read GUIDE.md there and the relevant SKILL.md before implementation, then use self-screenshot to inspect and refine the result. This versioned pack is the platform's current design guidance; preserve custom project instructions and the user's design choices. For nonvisual work, no design detour is needed.\n\n"
+	return "Baarcha shared design skills are available in this workspace at " + Directory() + "/. For visual work, read GUIDE.md there and the relevant SKILL.md before implementation, implement the design and send ready-screen reports to Hannibal for visual review. Hannibal owns live-preview screenshots; do not capture them yourself or wait for review. This replaces legacy self-screenshot capture instructions. This versioned pack is the platform's current design guidance; preserve custom project instructions and the user's design choices. For nonvisual work, no design detour is needed.\n\n"
 }
 
 // Ensure verifies actual file contents, not a marker that could outlive deleted
