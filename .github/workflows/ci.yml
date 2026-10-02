@@ -18,6 +18,8 @@ jobs:
         working-directory: .
         run: |
           bash -n ops/deploy-project-x.sh
+          bash -n ops/cube/tunnel-health/install.sh
+          PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s ops/cube/tunnel-health
           PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s ops -p test_deploy_project_x.py -v
 
       - uses: actions/setup-go@v5
