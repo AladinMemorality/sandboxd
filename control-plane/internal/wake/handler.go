@@ -21,6 +21,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/egress"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/idlock"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/metrics"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtimepolicy"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/sandboxspec"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
@@ -280,6 +281,14 @@ func (h *Handler) serve(r *http.Request, w http.ResponseWriter, id, port string,
 			metrics.Wakes.WithLabelValues("auth_denied").Inc()
 			return
 		}
+	}
+
+	// Only the authenticated management API may start a platform-managed
+	// account. A cached preview cookie must not bypass upstream allowances.
+	if isHTML && runtimepolicy.RequiresExplicitStart(sb.ExternalUserID.String) {
+		wf.err = fmt.Errorf("explicit platform start required")
+		http.Error(w, "Open this project in the platform to start its sandbox.", http.StatusConflict)
+		return
 	}
 
 	// 2. Admission check.

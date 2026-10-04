@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -550,5 +551,62 @@ func TestCubePreviewManagementPortsAlwaysForbidden(t *testing.T) {
 	}
 	if connects.Load() != 0 || calls.Load() != 0 {
 		t.Fatal("management request contacted guest")
+	}
+}
+
+func TestManagedPreviewCannotWakeStoppedSandbox(t *testing.T) {
+	t.Setenv("SANDBOXD_EXPLICIT_WAKE_PREFIXES", "owner-")
+	s, connects, guestCalls := cubePreviewFixture(t, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
+	sb, err := s.Store.Get(context.Background(), cubePreviewTestID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Even a stale running row/lease from a request predating a stop must be
+	// rechecked once its lease is no longer valid.
+	if err = s.ensureCubePreviewLease(context.Background(), sb); !errors.Is(err, errExplicitSandboxStart) {
+		t.Fatalf("got %v", err)
+	}
+	if connects.Load() != 0 || guestCalls.Load() != 0 {
+		t.Fatal("preview allocated compute")
+	}
+}
+
+func TestAllowanceInventoryUsesLocalAccountingOnly(t *testing.T) {
+	t.Setenv("SANDBOXD_EXPLICIT_WAKE_PREFIXES", "owner-")
+	s, connects, guestCalls := cubePreviewFixture(t, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
+	req := httptest.NewRequest("GET", "/sandboxes", nil)
+	req = req.WithContext(auth.WithActor(req.Context(), auth.Actor{Name: cfgTenant, Kind: "service"}))
+	rec := httptest.NewRecorder()
+	s.handleList(rec, req)
+	if rec.Code != 200 {
+		t.Fatalf("%d %s", rec.Code, rec.Body.String())
+	}
+	var rows []sandboxResp
+	if err := json.Unmarshal(rec.Body.Bytes(), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 || !rows[0].ImplicitWakeDisabled || rows[0].RuntimeAccounting == nil {
+		t.Fatalf("%s", rec.Body.String())
+	}
+	if connects.Load() != 0 || guestCalls.Load() != 0 {
+		t.Fatal("inventory touched a guest")
+	}
+}
+
+func TestManagedInternalRecoveryCannotRestartStoppedSandbox(t *testing.T) {
+	t.Setenv("SANDBOXD_EXPLICIT_WAKE_PREFIXES", "owner-")
+	s, connects, _ := cubePreviewFixture(t, func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(200) })
+	if err := s.connectCube(context.Background(), cubePreviewTestID, 3600); !errors.Is(err, errExplicitSandboxStart) {
+		t.Fatalf("got %v", err)
+	}
+	if connects.Load() != 0 {
+		t.Fatal("background recovery bypassed admission")
+	}
+	ctx := context.WithValue(context.Background(), explicitRuntimeStartKey{}, true)
+	if err := s.connectCube(ctx, cubePreviewTestID, 3600); err != nil {
+		t.Fatal(err)
+	}
+	if connects.Load() != 1 {
+		t.Fatal("explicit admitted start did not connect")
 	}
 }

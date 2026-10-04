@@ -17,6 +17,7 @@ import (
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/auth"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/publication"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtimepolicy"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
 
@@ -190,6 +191,10 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 		err = s.ensureCubePreviewLease(ctx, sb)
 		cancel()
 		if err != nil {
+			if errors.Is(err, errExplicitSandboxStart) {
+				writeV1Err(w, http.StatusConflict, "sandbox_explicit_start_required", err.Error())
+				return true
+			}
 			if writeCubePreviewAdmission(w, r, err) {
 				return true
 			}
@@ -348,6 +353,8 @@ func validCubePreviewReturnPath(raw string) bool {
 	return path.Clean(u.Path) != "/__sandboxd/preview-auth"
 }
 
+var errExplicitSandboxStart = errors.New("open this project in the platform to start its sandbox")
+
 func (s *Server) ensureCubePreviewLease(ctx context.Context, sb *store.Sandbox) error {
 	valid := func(sb *store.Sandbox) bool {
 		if sb.Status != "running" {
@@ -372,6 +379,10 @@ func (s *Server) ensureCubePreviewLease(ctx context.Context, sb *store.Sandbox) 
 	}
 	if valid(latest) {
 		return nil
+	}
+	if latest.Status != "running" && runtimepolicy.RequiresExplicitStart(latest.ExternalUserID.String) {
+		s.cubePreviewLeases.Delete(sb.ID)
+		return errExplicitSandboxStart
 	}
 	if err := s.connectCube(ctx, sb.ID, 3600); err != nil {
 		s.cubePreviewLeases.Delete(sb.ID)

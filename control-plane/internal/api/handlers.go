@@ -28,6 +28,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/metrics"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/preset"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtimepolicy"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/sandboxspec"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/snapshot"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
@@ -152,19 +153,21 @@ func ensurePort(ports []int, p int) []int {
 }
 
 type sandboxResp struct {
-	RuntimeProvider string `json:"runtime_provider"`
-	ID              string `json:"id"`
-	Status          string `json:"status"`
-	Image           string `json:"image"`
-	WorkspaceImg    string `json:"workspace_img"`
-	WorkspaceMnt    string `json:"workspace_mnt"`
-	ContainerID     string `json:"container_id,omitempty"`
-	CgroupPath      string `json:"cgroup_path,omitempty"`
-	MemoryHigh      string `json:"memory_high"`
-	ErrorMessage    string `json:"error_message,omitempty"`
-	Ports           []int  `json:"ports"`
-	CreatedAt       string `json:"created_at"`
-	UpdatedAt       string `json:"updated_at"`
+	RuntimeAccounting    *store.RuntimeAccounting `json:"runtime_accounting,omitempty"`
+	ImplicitWakeDisabled bool                     `json:"implicit_wake_disabled"`
+	RuntimeProvider      string                   `json:"runtime_provider"`
+	ID                   string                   `json:"id"`
+	Status               string                   `json:"status"`
+	Image                string                   `json:"image"`
+	WorkspaceImg         string                   `json:"workspace_img"`
+	WorkspaceMnt         string                   `json:"workspace_mnt"`
+	ContainerID          string                   `json:"container_id,omitempty"`
+	CgroupPath           string                   `json:"cgroup_path,omitempty"`
+	MemoryHigh           string                   `json:"memory_high"`
+	ErrorMessage         string                   `json:"error_message,omitempty"`
+	Ports                []int                    `json:"ports"`
+	CreatedAt            string                   `json:"created_at"`
+	UpdatedAt            string                   `json:"updated_at"`
 	// Phase 5 — surface the activity columns so the V2/V3 validation
 	// expressions (`jq .row.last_active_at`, `jq .row.status`)
 	// work directly. last_active_at and stopped_at are unix seconds;
@@ -938,6 +941,10 @@ func (s *Server) handleGet(w http.ResponseWriter, r *http.Request) {
 // --- GET /sandboxes -------------------------------------------------
 
 func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("X-Sandboxd-Runtime-Inventory", "1")
+	if runtimepolicy.RequiresExplicitStart("baarcha:1") {
+		w.Header().Set("X-Sandboxd-Explicit-Wake", "baarcha")
+	}
 	// Phase 8 — optional external-identity filters. When neither is
 	// supplied this is the unfiltered Phase 4 listing.
 	euid := r.URL.Query().Get("external_user_id")
@@ -958,7 +965,16 @@ func (s *Server) handleList(w http.ResponseWriter, r *http.Request) {
 		if sb.RuntimeProvider == "cube" && !s.canReadCubeSandbox(r, sb) {
 			continue
 		}
-		out = append(out, toRespRow(sb))
+		row := toRespRow(sb)
+		row.ImplicitWakeDisabled = runtimepolicy.RequiresExplicitStart(sb.ExternalUserID.String)
+		// Controller-local metadata only: never probe, renew or wake a guest to
+		// answer an allowance census.
+		row.RuntimeAccounting, err = s.Store.RuntimeAccounting(r.Context(), sb.ID)
+		if err != nil {
+			writeErr(w, 503, "runtime accounting unavailable")
+			return
+		}
+		out = append(out, row)
 	}
 	writeJSON(w, http.StatusOK, out)
 }

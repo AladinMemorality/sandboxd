@@ -448,6 +448,7 @@ func (s *Server) v1StopSandbox(w http.ResponseWriter, r *http.Request) {
 // of /stop, so a console (API-only) need not reach the internal wake
 // path. Idempotent when already running.
 func (s *Server) v1StartSandbox(w http.ResponseWriter, r *http.Request) {
+	r = r.WithContext(context.WithValue(r.Context(), explicitRuntimeStartKey{}, true))
 	if s.cubeLifecycle(w, r, "connect") {
 		return
 	}

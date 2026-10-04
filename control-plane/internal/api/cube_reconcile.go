@@ -7,7 +7,10 @@ import (
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtimepolicy"
 )
+
+type explicitRuntimeStartKey struct{}
 
 const cubeRecoveryRequiredMessage = "Cube runtime requires operator recovery; binding retained"
 
@@ -27,6 +30,20 @@ func (s *Server) connectCubeWithConfig(ctx context.Context, id string, timeoutSe
 
 // The returned readiness belongs only to this locked lifecycle operation.
 func (s *Server) connectCubeReady(ctx context.Context, id string, timeoutSeconds int, applyConfig bool) (*runtime.Status, error) {
+	// Maintenance, file reads, task recovery and previews cannot allocate
+	// compute for an upstream-managed account. The platform admits the start
+	// through the authenticated explicit lifecycle endpoint first.
+	if s.Store != nil {
+		row, err := s.Store.Get(ctx, id)
+		if err != nil {
+			return nil, err
+		}
+		explicit, _ := ctx.Value(explicitRuntimeStartKey{}).(bool)
+		if row.Status != "running" && runtimepolicy.RequiresExplicitStart(row.ExternalUserID.String) && !explicit {
+			return nil, errExplicitSandboxStart
+		}
+	}
+
 	step := time.Now()
 	mark := func(phase string) {
 		if s.Log != nil {
