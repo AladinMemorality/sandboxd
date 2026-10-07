@@ -31,3 +31,18 @@ Worker SSH runs explicitly in the native host network namespace (`nsenter -t 1 -
 Stopping the controller removes its veth route even while the relay namespace
 survives. The retained loopback relays continue to reach their fixed host Unix
 sockets; only provider calls use that namespace. SSH lease cleanup is bounded.
+
+The first provider request was conclusively rejected before allocation: the
+Master recorded native scheduler code 130597 for the exact operation while the
+VPS data disk exceeded its existing 65% cutoff. `grow-data.py` expands only the
+identified VPS data disk from 448 to 512 GiB using QMP and online XFS growth,
+checking physical headroom, disk inode, filesystem UUID and unchanged worker boot.
+
+`retry-proven-rejection` requires the exact reviewed Master log hash, matching
+request labels and terminal rejection, sufficient current disk capacity, no
+matching provider runtime, unchanged recovery artifacts and the original request
+hash. It fsyncs an exclusive intent before its single POST. Never remove that
+intent to repeat a request. `adopt-retry` can use the privately retained response
+if acknowledgment was interrupted; the normal journal still requires independent
+placement, credentials, content, configuration and frontend verification before
+commit. This exception does not change generic ambiguous-create handling.

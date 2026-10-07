@@ -243,7 +243,7 @@ func run() {
 		save("go-validation.json", map[string]any{"valid": true, "workspace_digest": ad, "home_digest": hd})
 		return
 	}
-	if cmd != "preflight" && cmd != "run" && cmd != "continue" && cmd != "verify-imported" {
+	if cmd != "preflight" && cmd != "run" && cmd != "continue" && cmd != "verify-imported" && cmd != "retry-proven-rejection" && cmd != "adopt-retry" {
 		panic("unknown command")
 	}
 	if cmd == "preflight" {
@@ -255,7 +255,7 @@ func run() {
 	key, e := secrets.Load("", cfg.KeyFile)
 	must(e)
 	// Configuration is read only while all controller writers are fenced below.
-	if cmd == "run" || cmd == "continue" || cmd == "verify-imported" {
+	if cmd != "preflight" {
 		for _, p := range []string{"/opt/baarcha/deploy-release.lock", "/opt/sandboxd/deploy-state/deploy.lock", "/run/lock/cube-operator-acceptance.lock", "/opt/baarcha-bench/cube-workload-operator.lock"} {
 			f := lock(p)
 			defer f.Close()
@@ -288,7 +288,7 @@ func run() {
 	// Opening a second store is deliberately avoided while Session checks /proc.
 	// Load from the controller backup, whose bytes were captured after stop.
 	frozen := cfg
-	if cmd == "run" || cmd == "continue" || cmd == "verify-imported" {
+	if cmd != "preflight" {
 		frozen.Database = stage + "/controller-before.db"
 	}
 	request := loadAppConfig(ctx, frozen, key)
@@ -329,6 +329,10 @@ print("source unchanged and no live handles")'`)
 		panic("filesystem repair source mismatch")
 	}
 	plan := store.CubeRecoveryPlan{ID: journalID, SandboxID: sandbox, ExpectedRuntimeID: oldRuntime, TargetTemplateID: template, TargetDomain: "cube.app", ExpectedConfigRevision: 0, Artifacts: hashes, ArtifactPaths: paths}
+	if cmd == "retry-proven-rejection" || cmd == "adopt-retry" {
+		reconcileRejected(ctx, session, cfg, key, hashes, cmd == "adopt-retry")
+		return
+	}
 
 	var j *store.CubeRecoveryJournal
 	if cmd == "run" {
