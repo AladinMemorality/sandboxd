@@ -11,7 +11,10 @@ synthetic controller/key and task-history fixture, not a production cutover,
 platform router test, or native same-provider-ID recovery pass.
 
 A native-host root process opens `internal/recovery.Open` with the existing
-controller database, encryption key, and reviewed Cube admission profile. Opening
+controller database, encryption key, and reviewed Cube admission profile.
+`OpenPinnedWorker` selects the source worker partition for a fleet recovery;
+its node, capacity, storage grant and journal ownership remain pinned to that
+worker. It refuses another worker’s journal and does not relocate applications. Opening
 requires the daemon's previously created maintenance marker and exclusive flock,
 and checks `/proc` for other database users. The caller must first stop controller
 admission and disable older daemon auto-restarts. A container's limited PID

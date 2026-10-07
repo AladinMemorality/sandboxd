@@ -459,3 +459,49 @@ func TestCubeRecoveryPinsRetainedReviewedDomain(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestCubeRecoveryPreservesFleetPartition(t *testing.T) {
+	s, p := recoveryFixture(t, 1)
+	ctx := context.Background()
+	// A second worker has its own full one-slot policy and existing crashed app.
+	if _, err := s.db.Exec(`INSERT INTO cube_admission_policy SELECT singleton,'b200-01',max_active,profile FROM cube_admission_policy WHERE worker_id='vps'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.db.Exec(`UPDATE cube_admission SET worker_id='b200-01' WHERE admission_key='app:app-0'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.BeginCubeRecovery(ctx, p); err == nil {
+		t.Fatal("VPS recovery accepted another worker's app")
+	}
+	partition, err := s.AdmissionPartition("b200-01")
+	if err != nil {
+		t.Fatal(err)
+	}
+	worker := partition.(*workerAdmission).view
+	if err = worker.BeginCubeRecovery(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = s.GetCubeRecovery(ctx, p.ID); err == nil {
+		t.Fatal("cross-worker journal visible")
+	}
+	if err = s.RecordCubeRecoveryFence(ctx, CubeRecoveryFence{RecoveryID: p.ID, OldRuntimeID: p.ExpectedRuntimeID, ArtifactsSHA256: recoveryJournal(t, worker).ArtifactsSHA256, EvidenceSHA256: recoveryHash("fence"), OldExecutionStopped: true, ProviderRequestsDrained: true}); err == nil {
+		t.Fatal("cross-worker fence accepted")
+	}
+	fenceRecovery(t, worker)
+	observedRecovery(t, worker)
+	receipt := recoveryReceipt(t, worker)
+	if err = worker.VerifyCubeRecovery(ctx, receipt); err != nil {
+		t.Fatal(err)
+	}
+	if err = worker.CommitCubeRecovery(ctx, p.ID, p.ExpectedRuntimeID, 0); err != nil {
+		t.Fatal(err)
+	}
+	actual, err := worker.AdmissionLookup(ctx, "replacement")
+	if err != nil || actual.WorkerID != "b200-01" || actual.Charged != 1 {
+		t.Fatalf("partition/charge changed: %+v %v", actual, err)
+	}
+	if err = s.CommitCubeRecovery(ctx, p.ID, p.ExpectedRuntimeID, 0); err == nil {
+		t.Fatal("cross-worker commit accepted")
+	}
+	assertRecoveryCharge(t, s, 1)
+}

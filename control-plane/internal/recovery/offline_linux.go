@@ -41,7 +41,7 @@ type credentials struct {
 // operator must separately disable legacy daemon restarts; flock only fences
 // cooperating binaries. Opening this session does not create a recovery journal.
 func Open(ctx context.Context, database, migrations string, key *secrets.Cipher, provider cube.Config, policy cube.AdmissionConfig) (*Session, error) {
-	return open(ctx, database, migrations, key, provider, policy, "")
+	return open(ctx, database, migrations, key, provider, policy, "", "vps")
 }
 
 // OpenPinned retains the same offline maintenance fence while using the
@@ -51,10 +51,19 @@ func OpenPinned(ctx context.Context, database, migrations string, key *secrets.C
 	if policy.NodeID == "" || masterURL == "" {
 		return nil, errors.New("pinned worker and trusted master URL required")
 	}
-	return open(ctx, database, migrations, key, provider, policy, masterURL)
+	return open(ctx, database, migrations, key, provider, policy, masterURL, "vps")
 }
 
-func open(ctx context.Context, database, migrations string, key *secrets.Cipher, provider cube.Config, policy cube.AdmissionConfig, masterURL string) (*Session, error) {
+// OpenPinnedWorker recovers onto the source worker's existing durable partition.
+// Cross-worker movement is not authorized by this operation.
+func OpenPinnedWorker(ctx context.Context, database, migrations string, key *secrets.Cipher, provider cube.Config, policy cube.AdmissionConfig, masterURL, worker string) (*Session, error) {
+	if policy.NodeID == "" || masterURL == "" || worker == "" {
+		return nil, errors.New("pinned worker and trusted master URL required")
+	}
+	return open(ctx, database, migrations, key, provider, policy, masterURL, worker)
+}
+
+func open(ctx context.Context, database, migrations string, key *secrets.Cipher, provider cube.Config, policy cube.AdmissionConfig, masterURL, worker string) (*Session, error) {
 	if os.Geteuid() != 0 || key == nil {
 		return nil, errors.New("native root and existing controller encryption key required")
 	}
@@ -79,7 +88,7 @@ func open(ctx context.Context, database, migrations string, key *secrets.Cipher,
 	if e = maintenance.CheckDatabaseUsers(path); e != nil {
 		return nil, e
 	}
-	db, e := store.Open(ctx, "file:"+path+"?_journal=WAL&_busy_timeout=5000&_fk=1", migrations)
+	db, e := store.OpenRecoveryWorker(ctx, "file:"+path+"?_journal=WAL&_busy_timeout=5000&_fk=1", migrations, worker)
 	if e != nil {
 		return nil, e
 	}

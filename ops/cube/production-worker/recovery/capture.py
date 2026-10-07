@@ -84,7 +84,7 @@ def copy_immutable(source,destination):
     finally:os.close(fd)
 
 def capture(plan,fence,output):
-    require(os.geteuid()==0 and socket.gethostname()=='baarcha-cube-worker-01','fresh worker root only')
+    require(os.geteuid()==0 and socket.gethostname() in ('baarcha-cube-worker-01','baarcha-cube-worker-b200-01'),'reviewed worker root only')
     require(plan.get('purpose')=='CUBE_CURRENT_DISK_RESCUE' and plan.get('format')==1,'invalid plan')
     validate_fence(fence,plan,Path('/proc/sys/kernel/random/boot_id').read_text().strip(),Path('/etc/machine-id').read_text().strip(),int(time.time()))
     root=no_symlink('/data')

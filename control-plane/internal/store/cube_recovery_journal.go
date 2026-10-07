@@ -146,8 +146,35 @@ func scanRecovery(row *sql.Row) (*CubeRecoveryJournal, error) {
 	j.Target.ConfigRevision = j.Old.ConfigRevision
 	return j, nil
 }
+
+// OpenRecoveryWorker opens an owned store for the exclusive offline recovery
+// session. The caller must already hold the daemon maintenance lock. Selecting
+// a partition before configuring admission retains its node and storage policy.
+func OpenRecoveryWorker(ctx context.Context, dsn, migrations, worker string) (*Store, error) {
+	if !projectID.MatchString(worker) {
+		return nil, errors.New("invalid recovery worker")
+	}
+	s, err := Open(ctx, dsn, migrations)
+	if err != nil {
+		return nil, err
+	}
+	s.admissionWorker = worker
+	return s, nil
+}
+
+func (s *Store) scanWorkerRecovery(row *sql.Row) (*CubeRecoveryJournal, error) {
+	j, err := scanRecovery(row)
+	if err != nil {
+		return nil, err
+	}
+	if j.OldAdmission.WorkerID != s.admissionWorkerID() {
+		return nil, ErrConflict
+	}
+	return j, nil
+}
+
 func (s *Store) GetCubeRecovery(ctx context.Context, id string) (*CubeRecoveryJournal, error) {
-	return scanRecovery(s.db.QueryRowContext(ctx, `SELECT `+recoveryColumns+` FROM cube_recovery WHERE recovery_id=?`, id))
+	return s.scanWorkerRecovery(s.db.QueryRowContext(ctx, `SELECT `+recoveryColumns+` FROM cube_recovery WHERE recovery_id=?`, id))
 }
 func (s *Store) HasIncompleteCubeRecoveries(ctx context.Context) (bool, error) {
 	var n int
@@ -161,7 +188,7 @@ func (s *Store) recoveryWrite(ctx context.Context, fn func(*sql.Tx) error) error
 			return e
 		}
 		defer tx.Rollback()
-		r, e := tx.ExecContext(ctx, `UPDATE cube_admission_policy SET max_active=max_active WHERE singleton=1 AND worker_id='vps'`)
+		r, e := tx.ExecContext(ctx, `UPDATE cube_admission_policy SET max_active=max_active WHERE singleton=1 AND worker_id=?`, s.admissionWorkerID())
 		if e != nil {
 			return e
 		}
@@ -261,14 +288,14 @@ func (s *Store) BeginCubeRecovery(ctx context.Context, p CubeRecoveryPlan) error
 		if e != nil {
 			return e
 		}
-		if old.WorkerID != "vps" || old.RuntimeID != j.Old.RuntimeID || old.TemplateID != j.Old.TemplateID || old.State == "pending" || old.State == "deleted" {
+		if old.WorkerID != s.admissionWorkerID() || old.RuntimeID != j.Old.RuntimeID || old.TemplateID != j.Old.TemplateID || old.State == "pending" || old.State == "deleted" {
 			return cube.ErrAdmissionPending
 		}
 		// Hold a slot even when a prior authoritative pause had released it. A full
 		// crashed active fleet retains its existing charges, never needs an extra slot.
 		if old.Charged == 0 {
 			var used, max int
-			if e = tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(charged),0),(SELECT max_active FROM cube_admission_policy WHERE singleton=1 AND worker_id='vps') FROM cube_admission WHERE worker_id='vps'`).Scan(&used, &max); e != nil {
+			if e = tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(charged),0),(SELECT max_active FROM cube_admission_policy WHERE singleton=1 AND worker_id=?) FROM cube_admission WHERE worker_id=?`, s.admissionWorkerID(), s.admissionWorkerID()).Scan(&used, &max); e != nil {
 				return e
 			}
 			if used >= max {
@@ -295,7 +322,7 @@ func (s *Store) RecordCubeRecoveryFence(ctx context.Context, f CubeRecoveryFence
 		return errors.New("explicit old-execution and provider-drain evidence required")
 	}
 	return s.recoveryWrite(ctx, func(tx *sql.Tx) error {
-		j, e := scanRecovery(tx.QueryRowContext(ctx, `SELECT `+recoveryColumns+` FROM cube_recovery WHERE recovery_id=?`, f.RecoveryID))
+		j, e := s.scanWorkerRecovery(tx.QueryRowContext(ctx, `SELECT `+recoveryColumns+` FROM cube_recovery WHERE recovery_id=?`, f.RecoveryID))
 		if e != nil {
 			return e
 		}
@@ -331,7 +358,7 @@ func (s *Store) CubeRecoveryCreateIntent(ctx context.Context, id, token, request
 		return out, errors.New("invalid creation intent")
 	}
 	e := s.recoveryWrite(ctx, func(tx *sql.Tx) error {
-		j, e := scanRecovery(tx.QueryRowContext(ctx, `SELECT `+recoveryColumns+` FROM cube_recovery WHERE recovery_id=?`, id))
+		j, e := s.scanWorkerRecovery(tx.QueryRowContext(ctx, `SELECT `+recoveryColumns+` FROM cube_recovery WHERE recovery_id=?`, id))
 		if e != nil {
 			return e
 		}
@@ -375,7 +402,7 @@ func (s *Store) CubeRecoveryCreateObserved(ctx context.Context, id, token string
 		return errors.New("authoritative reviewed recovery allocation required")
 	}
 	return s.recoveryWrite(ctx, func(tx *sql.Tx) error {
-		j, e := scanRecovery(tx.QueryRowContext(ctx, `SELECT `+recoveryColumns+` FROM cube_recovery WHERE recovery_id=?`, id))
+		j, e := s.scanWorkerRecovery(tx.QueryRowContext(ctx, `SELECT `+recoveryColumns+` FROM cube_recovery WHERE recovery_id=?`, id))
 		if e != nil {
 			return e
 		}
@@ -414,7 +441,7 @@ func (s *Store) RecordCubeRecoveryCredential(ctx context.Context, id, runtime st
 		return errors.New("encrypted replacement credentials required")
 	}
 	return s.recoveryWrite(ctx, func(tx *sql.Tx) error {
-		j, e := scanRecovery(tx.QueryRowContext(ctx, `SELECT `+recoveryColumns+` FROM cube_recovery WHERE recovery_id=?`, id))
+		j, e := s.scanWorkerRecovery(tx.QueryRowContext(ctx, `SELECT `+recoveryColumns+` FROM cube_recovery WHERE recovery_id=?`, id))
 		if e != nil {
 			return e
 		}
@@ -448,7 +475,7 @@ func validateRecoveryVerification(j *CubeRecoveryJournal, v CubeRecoveryVerifica
 }
 func (s *Store) VerifyCubeRecovery(ctx context.Context, v CubeRecoveryVerification) error {
 	return s.recoveryWrite(ctx, func(tx *sql.Tx) error {
-		j, e := scanRecovery(tx.QueryRowContext(ctx, `SELECT `+recoveryColumns+` FROM cube_recovery WHERE recovery_id=?`, v.RecoveryID))
+		j, e := s.scanWorkerRecovery(tx.QueryRowContext(ctx, `SELECT `+recoveryColumns+` FROM cube_recovery WHERE recovery_id=?`, v.RecoveryID))
 		if e != nil {
 			return e
 		}
@@ -478,7 +505,7 @@ func (s *Store) VerifyCubeRecovery(ctx context.Context, v CubeRecoveryVerificati
 }
 func (s *Store) CommitCubeRecovery(ctx context.Context, id, expectedRuntime string, expectedRevision int64) error {
 	return s.recoveryWrite(ctx, func(tx *sql.Tx) error {
-		j, e := scanRecovery(tx.QueryRowContext(ctx, `SELECT `+recoveryColumns+` FROM cube_recovery WHERE recovery_id=?`, id))
+		j, e := s.scanWorkerRecovery(tx.QueryRowContext(ctx, `SELECT `+recoveryColumns+` FROM cube_recovery WHERE recovery_id=?`, id))
 		if e != nil {
 			return e
 		}
