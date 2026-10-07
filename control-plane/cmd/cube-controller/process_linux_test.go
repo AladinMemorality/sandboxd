@@ -59,7 +59,7 @@ func TestControllerProcessWithoutDocker(t *testing.T) {
 	}
 	var providerCalls atomic.Int32
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method != "GET" || r.URL.Path != "/sandboxes" {
+		if r.Method != "GET" || r.URL.Path != "/v2/sandboxes" || r.URL.RawQuery != "limit=4096" {
 			t.Errorf("unexpected provider operation %s %s", r.Method, r.URL.Path)
 			http.Error(w, "unexpected", 500)
 			return
