@@ -6,14 +6,18 @@ import (
 	"net/http"
 )
 
-// Inventory reads pinned v0.7.1's unfiltered all-state endpoint. The worker total
-// limit is128; v1 truncates at200. Hitting that bound is not complete inventory.
+// Inventory includes retained/stopped guests across the entire fleet. The v1
+// endpoint's default page is too small even when each worker is below capacity.
+// v2 accepts an explicit bound; refuse a full page rather than reconcile against
+// a potentially truncated identity set. No state or metadata filter is allowed.
+const inventoryLimit = 4096
+
 func (c *Client) Inventory(ctx context.Context) ([]Sandbox, error) {
 	var out []Sandbox
-	if e := c.do(ctx, "inventory", http.MethodGet, "/sandboxes", nil, &out, standardTimeout, http.StatusOK); e != nil {
+	if e := c.doQuery(ctx, "inventory", http.MethodGet, "/v2/sandboxes", "limit=4096", nil, &out, standardTimeout, http.StatusOK); e != nil {
 		return nil, e
 	}
-	if out == nil || len(out) >= 200 {
+	if out == nil || len(out) >= inventoryLimit {
 		return nil, errors.New("Cube inventory is incomplete")
 	}
 	seen := map[string]bool{}

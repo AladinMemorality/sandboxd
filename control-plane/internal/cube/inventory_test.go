@@ -10,10 +10,10 @@ import (
 )
 
 func TestInventoryRequiresCompleteUnfilteredIdentitySet(t *testing.T) {
-	for _, kind := range []string{"empty", "all-states", "null", "duplicate", "truncated"} {
+	for _, kind := range []string{"empty", "all-states", "fleet", "null", "duplicate", "truncated"} {
 		t.Run(kind, func(t *testing.T) {
 			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != "GET" || r.URL.Path != "/sandboxes" || r.URL.RawQuery != "" {
+				if r.Method != "GET" || r.URL.Path != "/v2/sandboxes" || r.URL.RawQuery != "limit=4096" {
 					t.Error("inventory was filtered or mutated provider")
 				}
 				var value any
@@ -26,9 +26,13 @@ func TestInventoryRequiresCompleteUnfilteredIdentitySet(t *testing.T) {
 					value = []Sandbox{{SandboxID: "a", State: "running"}, {SandboxID: "b", State: "paused"}, {SandboxID: "c", State: "stopped"}}
 				case "duplicate":
 					value = []Sandbox{{SandboxID: "a"}, {SandboxID: "a"}}
-				case "truncated":
+				case "fleet", "truncated":
 					rows := []Sandbox{}
-					for i := 0; i < 200; i++ {
+					count := inventoryLimit
+					if kind == "fleet" {
+						count = 202
+					}
+					for i := 0; i < count; i++ {
 						rows = append(rows, Sandbox{SandboxID: fmt.Sprintf("vm-%d", i)})
 					}
 					value = rows
@@ -41,7 +45,7 @@ func TestInventoryRequiresCompleteUnfilteredIdentitySet(t *testing.T) {
 				t.Fatal(e)
 			}
 			out, e := client.Inventory(context.Background())
-			valid := kind == "empty" || kind == "all-states"
+			valid := kind == "empty" || kind == "all-states" || kind == "fleet"
 			if valid && e != nil {
 				t.Fatal(e)
 			}
@@ -50,6 +54,9 @@ func TestInventoryRequiresCompleteUnfilteredIdentitySet(t *testing.T) {
 			}
 			if kind == "all-states" && len(out) != 3 {
 				t.Fatal("stopped identity was omitted")
+			}
+			if kind == "fleet" && len(out) != 202 {
+				t.Fatal("fleet inventory was truncated")
 			}
 		})
 	}

@@ -375,6 +375,10 @@ func validateSandbox(out *Sandbox, expected string) error {
 }
 
 func (c *Client) do(ctx context.Context, operation, method, path string, in, out any, timeout time.Duration, expected int) error {
+	return c.doQuery(ctx, operation, method, path, "", in, out, timeout, expected)
+}
+
+func (c *Client) doQuery(ctx context.Context, operation, method, path, query string, in, out any, timeout time.Duration, expected int) error {
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	var body io.Reader
@@ -390,6 +394,7 @@ func (c *Client) do(ctx context.Context, operation, method, path string, in, out
 	}
 	u := *c.base
 	u.Path += path
+	u.RawQuery = query
 	req, err := http.NewRequestWithContext(ctx, method, u.String(), body)
 	if err != nil {
 		return fmt.Errorf("cube %s: invalid request", operation)
