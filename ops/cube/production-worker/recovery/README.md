@@ -107,6 +107,16 @@ requires the observed machine ID/current boot, a different prior boot and the ex
 sandbox ID. Run only after the crash coordinator releases its worker-local
 operator lock; capture acquires the same lock exclusively.
 
+For an individually lost runtime on an unchanged worker boot, use the distinct
+`CUBE_FENCED_RUNTIME_DISK_CAPTURE` purpose. Do not invent a previous boot ID.
+In addition to the same machine, boot, sandbox, expiry and lifecycle fence, this
+receipt requires `provider_requests_drained`, `no_disk_handles_verified`, and an
+exact `source_identity` containing the source file's integer `device`, `inode`,
+`bytes` and `mtime_ns`. The operator must independently check the exact native task
+is absent and scan worker process file descriptors for that disk inode. Capture
+compares that identity again before cloning. Neither receipt automatically fences
+the provider; management must remain disabled for the capture.
+
 ```sh
 python3 capture.py --plan PRIVATE-PLAN.json --fence PRIVATE-FENCE.json \
   --output /data/cube-recovery/NEW-UNUSED-JOB
@@ -122,6 +132,13 @@ image as opaque bytes, verifies source stat identity and two full source digests
 and verifies the destination digest. No worker-side mounting or filesystem parsing
 is performed. `rescue-input.json` is written last and fsynced.
 Failure leaves a private partial stage; no source deletion or retry rollback.
+
+The B200 worker has one reviewed immutable-cache alias:
+`/usr/local/services/cubetoolbox/cubebox_os_image` → `/data/cube-fleet-rootfs`.
+Only that exact operator-owned alias on `baarcha-cube-worker-b200-01` is accepted;
+nested links, writable image files and changes of mapping are rejected. Current
+writable disk paths still reject every symlink. Immutable images use reflink where
+supported, retaining both source hashes and the independent destination hash.
 
 Copy only this independent bundle to the isolated rescue VM, not live worker
 storage, host directory mounts or management credentials. Preserve its private

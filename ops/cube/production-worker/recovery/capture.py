@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Capture a fenced CURRENT disk without mounting it; intended for worker-local use.
 
-Requires an operator-issued, short-lived fence receipt after a whole-worker boot.
+Requires an operator-issued, short-lived fence receipt after a whole-worker boot
+or an independently fenced individual runtime loss.
 This receipt is an assertion, not an automatic fencing implementation. The operator
 must keep controller Create/Connect/Delete and Cube lifecycle mutations disabled.
 """
 import argparse
+import errno
 import fcntl
 import hashlib
 import json
@@ -19,6 +21,8 @@ import time
 from plan import Invalid, absolute, private_json, require
 
 FICLONE = 0x40049409
+IMAGE_ALIAS = Path('/usr/local/services/cubetoolbox/cubebox_os_image')
+FLEET_IMAGE_CACHE = Path('/data/cube-fleet-rootfs')
 
 def sha256(path):
     h=hashlib.sha256()
@@ -32,11 +36,37 @@ def no_symlink(path):
         require(not stat.S_ISLNK(component.lstat().st_mode),'symlink source path rejected')
     return p
 
+def lower_image_source(path):
+    """Resolve only the reviewed B200 image-cache alias, never guest disks."""
+    source = Path(path)
+    if not IMAGE_ALIAS.is_symlink():
+        return no_symlink(source)
+    require(socket.gethostname() == 'baarcha-cube-worker-b200-01', 'image alias requires reviewed B200 worker')
+    no_symlink(IMAGE_ALIAS.parent)
+    require(IMAGE_ALIAS.lstat().st_uid == os.geteuid() and
+            os.readlink(IMAGE_ALIAS) == str(FLEET_IMAGE_CACHE), 'image cache alias changed')
+    relative = source.relative_to(IMAGE_ALIAS)
+    target = no_symlink(FLEET_IMAGE_CACHE / relative)
+    require(target.stat().st_uid == os.geteuid() and not target.stat().st_mode & 0o022,
+            'immutable image must be operator-owned and not publicly writable')
+    require((source.stat().st_dev, source.stat().st_ino) == (target.stat().st_dev, target.stat().st_ino),
+            'image cache identity changed')
+    return target
+
 def validate_fence(fence, plan, boot_id, machine_id, now):
-    require(fence.get('purpose')=='CUBE_CURRENT_DISK_CAPTURE','wrong fence purpose')
+    purpose=fence.get('purpose')
+    require(purpose in ('CUBE_CURRENT_DISK_CAPTURE','CUBE_FENCED_RUNTIME_DISK_CAPTURE'),'wrong fence purpose')
     require(fence.get('sandbox_id')==plan['sandbox_id'],'fence sandbox mismatch')
     require(re.fullmatch(r'[a-f0-9]{32}',machine_id) is not None and machine_id!='0'*32 and fence.get('worker_machine_id')==machine_id,'worker identity mismatch')
-    require(fence.get('current_boot_id')==boot_id and fence.get('previous_boot_id') not in (None,'',boot_id),'whole-worker loss not independently identified')
+    require(fence.get('current_boot_id')==boot_id,'worker boot changed')
+    if purpose=='CUBE_CURRENT_DISK_CAPTURE':
+        require(fence.get('previous_boot_id') not in (None,'',boot_id),'whole-worker loss not independently identified')
+    else:
+        require(fence.get('provider_requests_drained') is True and fence.get('no_disk_handles_verified') is True,
+                'individual runtime requires drained requests and no disk holders')
+        identity=fence.get('source_identity')
+        require(isinstance(identity,dict) and set(identity)=={'device','inode','bytes','mtime_ns'} and
+                all(type(value) is int and value>0 for value in identity.values()),'exact fenced source identity required')
     expiry=fence.get('expires_at',0)
     require(isinstance(expiry,int) and now < expiry <= now+1800,'stale or excessive fence lifetime')
     require(fence.get('no_task_verified') is True and fence.get('management_fenced') is True,'operator must fence all lifecycle mutation and verify no task')
@@ -63,12 +93,24 @@ def copy_immutable(source,destination):
         before=os.fstat(fd)
         require(stat.S_ISREG(before.st_mode) and 0<before.st_size<=16*1024**3,'invalid trusted lower image')
         out=os.open(destination,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW,0o600)
+        cloned=False
+        try:
+            # Reviewed image caches and capture stages share XFS on B200.
+            # Reflink avoids rewriting gigabytes while management is fenced;
+            # all source/destination identity and digest checks still run.
+            fcntl.ioctl(out,FICLONE,fd)
+            cloned=True
+        except OSError as error:
+            if error.errno not in (errno.EXDEV,errno.EOPNOTSUPP,errno.ENOTTY,errno.EINVAL):
+                os.close(out)
+                raise
         first=hashlib.sha256()
         with os.fdopen(out,'wb') as stream:
             while True:
                 chunk=os.read(fd,4*1024*1024)
                 if not chunk:break
-                first.update(chunk);stream.write(chunk)
+                first.update(chunk)
+                if not cloned:stream.write(chunk)
             stream.flush();os.fsync(stream.fileno())
         os.lseek(fd,0,os.SEEK_SET)
         second=hashlib.sha256()
@@ -93,6 +135,10 @@ def capture(plan,fence,output):
     no_symlink(output.parent)
     output.mkdir(mode=0o700)
     source=no_symlink(absolute(plan['current_disk']['FilePath']))
+    if fence['purpose']=='CUBE_FENCED_RUNTIME_DISK_CAPTURE':
+        current=source.stat()
+        require(fence['source_identity']=={'device':current.st_dev,'inode':current.st_ino,'bytes':current.st_size,'mtime_ns':current.st_mtime_ns},
+                'source changed since individual runtime fence')
     identity=reflink(source,output/'current.ext4')
     artifacts=[{'file':'current.ext4','bytes':(output/'current.ext4').stat().st_size,'sha256':sha256(output/'current.ext4')}]
     for index,path in enumerate(plan['lower_dirs']):
@@ -114,7 +160,13 @@ def capture(plan,fence,output):
         require(ID.fullmatch(image_id) is not None and image['filesystem']=='ext4','invalid trusted lower image identity')
         expected='/usr/local/services/cubetoolbox/cubebox_os_image/'+image_id+'/'+image_id+'.ext4'
         require(image['file']==expected,'trusted lower image path mismatch')
-        lower_identity=copy_immutable(no_symlink(expected),output/'lower-000.ext4')
+        source_image=lower_image_source(expected)
+        lower_identity=copy_immutable(source_image,output/'lower-000.ext4')
+        require(lower_image_source(expected)==source_image,'image cache mapping changed during capture')
+        after_image=source_image.stat()
+        require((after_image.st_dev,after_image.st_ino,after_image.st_size,after_image.st_mtime_ns)==
+                (lower_identity['device'],lower_identity['inode'],lower_identity['bytes'],lower_identity['mtime_ns']),
+                'image source path changed during capture')
         artifacts.append({'file':'lower-000.ext4','bytes':lower_identity['bytes'],'sha256':lower_identity['sha256'],'source_identity':lower_identity,'image_id':image_id})
     current=source.stat()
     require((current.st_dev,current.st_ino,current.st_size,current.st_mtime_ns)==(identity['device'],identity['inode'],identity['bytes'],identity['mtime_ns']),'source identity changed while capturing lower layers')

@@ -3,7 +3,9 @@
 package main
 
 import (
+	"archive/zip"
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
@@ -24,17 +26,18 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"syscall"
 	"time"
 )
 
-const stage = "/opt/baarcha/operations/derja-disk-recovery-20261007"
-const sandbox = "01M46NANDW8YVG3Z2F2EXZCY1F"
-const appID = "01M46NAMRWHWF1R2ZB04RNMP4J"
-const oldRuntime = "c148c2619fb5476bbb7edd9a6564ebec"
-const template = "tpl-54737fedc9074c0f887c6ac5"
-const journalID = "derja-20261007"
+const stage = "/opt/baarcha/operations/vps-sandbox-disk-recovery-20261007"
+const sandbox = "01M3HH7PZJRPKHZ9GE3NRC37F7"
+const appID = "01M3HH7PV53KPQN0CNKS78Z1QG"
+const oldRuntime = "f51584459b354470b04c966ae8429293"
+const template = "tpl-98b45d63cfcc48c5b6ba9104"
+const journalID = "vps-sandbox-20261007"
 
 type config struct {
 	Database, Migrations, KeyFile, MasterURL, ProxyURL string
@@ -90,12 +93,12 @@ func lock(path string) *os.File {
 	return f
 }
 func worker(ctx context.Context, cmd string) []byte {
-	v, e := exec.CommandContext(ctx, "nsenter", "-t", "1", "-n", "ssh", "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=2", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile="+stage+"/worker-known-hosts", "-i", stage+"/worker-key", "root@10.254.240.2", cmd).Output()
+	v, e := exec.CommandContext(ctx, "nsenter", "-t", "1", "-n", "ssh", "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=2", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts", "-i", "/opt/baarcha-cube/worker-01/operator-key", "-p", "20222", "root@127.0.0.1", cmd).Output()
 	must(e)
 	return v
 }
 func workerLease(ctx context.Context) func() {
-	c := exec.CommandContext(ctx, "nsenter", "-t", "1", "-n", "ssh", "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=2", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile="+stage+"/worker-known-hosts", "-i", stage+"/worker-key", "root@10.254.240.2", `flock -n /run/lock/cube-operator-acceptance.lock sh -c 'printf "LOCKED\n"; cat >/dev/null'`)
+	c := exec.CommandContext(ctx, "nsenter", "-t", "1", "-n", "ssh", "-o", "ServerAliveInterval=5", "-o", "ServerAliveCountMax=2", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", "-o", "StrictHostKeyChecking=yes", "-o", "UserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts", "-i", "/opt/baarcha-cube/worker-01/operator-key", "-p", "20222", "root@127.0.0.1", `flock -n /run/lock/cube-operator-acceptance.lock sh -c 'printf "LOCKED\n"; cat >/dev/null'`)
 	in, e := c.StdinPipe()
 	must(e)
 	out, e := c.StdoutPipe()
@@ -188,6 +191,30 @@ func await(ctx context.Context, g *rt.Client, test func(*rt.Status) bool) {
 	}
 	panic("supervisor readiness deadline")
 }
+
+const originalTask = "01M3HH7R48XW80033ZNP625BZ3"
+
+func historyFiles(data []byte) map[string]string {
+	must(rt.ValidatePrivateTaskHistoryArchive(data))
+	ids, e := rt.PrivateTaskHistoryIDs(data)
+	must(e)
+	if len(ids) != 1 || ids[0] != originalTask {
+		panic("owned terminal task identity changed")
+	}
+	z, e := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	must(e)
+	out := map[string]string{}
+	for _, f := range z.File {
+		r, e := f.Open()
+		must(e)
+		h := sha256.New()
+		_, e = io.Copy(h, r)
+		r.Close()
+		must(e)
+		out[f.Name] = fmt.Sprintf("%x", h.Sum(nil))
+	}
+	return out
+}
 func run() {
 	if len(os.Args) != 2 || os.Geteuid() != 0 {
 		panic("native root and validate/preflight/run required")
@@ -201,7 +228,17 @@ func run() {
 	m, a, an, h, hn, ad, hd := artifacts()
 	defer a.Close()
 	defer h.Close()
-	fmt.Println("canonical archives validated")
+	history, e := os.ReadFile(stage + "/converted/history.zip")
+	must(e)
+	historyExpected := historyFiles(history)
+	var report, repair map[string]any
+	readJSON(stage+"/export-report.json", &report)
+	readJSON(stage+"/repair-receipt.json", &repair)
+	if repair["clean_verified"] != true || hash(stage+"/repair-receipt.json") != report["explicit_repair_receipt_sha256"] || repair["source_sha256"] != report["captured_disk_sha256"] || repair["clone_after_sha256"] != report["explicit_repair_clone_sha256"] {
+		panic("verified disposable filesystem repair receipt required")
+	}
+
+	fmt.Println("canonical archives and owned terminal task history validated")
 	if cmd == "validate" {
 		save("go-validation.json", map[string]any{"valid": true, "workspace_digest": ad, "home_digest": hd})
 		return
@@ -245,7 +282,7 @@ func run() {
 		}
 	}
 	// Open verifies exclusive daemon maintenance and the full durable worker policy.
-	session, e := recovery.OpenPinnedWorker(ctx, cfg.Database, cfg.Migrations, key, cfg.Provider, cfg.Policy, cfg.MasterURL, "b200-01")
+	session, e := recovery.OpenPinnedWorker(ctx, cfg.Database, cfg.Migrations, key, cfg.Provider, cfg.Policy, cfg.MasterURL, "vps")
 	must(e)
 	defer session.Close()
 	// Opening a second store is deliberately avoided while Session checks /proc.
@@ -269,7 +306,7 @@ func run() {
 		panic("fresh independently verified source fence required")
 	}
 	worker(ctx, `python3 -c 'import pathlib,json,hashlib
-r=pathlib.Path("/data/cube-recovery/derja-20261007");p=json.loads((r/"metadata/plan.json").read_text());source=pathlib.Path(p["current_disk"]["FilePath"]);st=source.stat();assert not source.is_symlink()
+r=pathlib.Path("/data/cube-recovery/vps-sandbox-20261007");p=json.loads((r/"metadata/plan.json").read_text());source=pathlib.Path(p["current_disk"]["FilePath"]);st=source.stat();assert not source.is_symlink()
 for proc in pathlib.Path("/proc").glob("[0-9]*"):
  for fd in (proc/"fd").glob("*"):
   try:s=fd.stat()
@@ -283,10 +320,13 @@ print("source unchanged and no live handles")'`)
 	if strings.Contains(string(tasks), oldRuntime) {
 		panic("original runtime task reappeared")
 	}
-	paths := map[string]string{"native_backup": stage + "/native/current.ext4", "controller_backup": stage + "/controller-before.db", "workspace": a.Name(), "home": h.Name(), "merged_home": stage + "/home.tar", "home_manifest": stage + "/converted/home-manifest.json", "source_fence": stage + "/fence.json"}
+	paths := map[string]string{"rescue_export_report": stage + "/export-report.json", "filesystem_repair": stage + "/repair-receipt.json", "capture_manifest": stage + "/native/rescue-input.json", "history": stage + "/converted/history.zip", "native_backup": stage + "/native/current.ext4", "controller_backup": stage + "/controller-before.db", "workspace": a.Name(), "home": h.Name(), "merged_home": stage + "/home.tar", "home_manifest": stage + "/converted/home-manifest.json", "source_fence": stage + "/fence.json"}
 	hashes := map[string]string{}
 	for role, p := range paths {
 		hashes[role] = hash(p)
+	}
+	if hashes["native_backup"] != report["captured_disk_sha256"] {
+		panic("filesystem repair source mismatch")
 	}
 	plan := store.CubeRecoveryPlan{ID: journalID, SandboxID: sandbox, ExpectedRuntimeID: oldRuntime, TargetTemplateID: template, TargetDomain: "cube.app", ExpectedConfigRevision: 0, Artifacts: hashes, ArtifactPaths: paths}
 
@@ -296,7 +336,7 @@ print("source unchanged and no live handles")'`)
 		mark("journal-held")
 		j, e = session.Journal(ctx, journalID)
 		must(e)
-		if j.TaskCount != 0 || j.AppID != appID {
+		if j.TaskCount != 1 || j.AppID != appID {
 			panic("unexpected app/task identity")
 		}
 		must(session.Fence(ctx, store.CubeRecoveryFence{RecoveryID: j.ID, OldRuntimeID: oldRuntime, ArtifactsSHA256: j.ArtifactsSHA256, EvidenceSHA256: hashes["source_fence"], OldExecutionStopped: true, ProviderRequestsDrained: true}))
@@ -305,7 +345,7 @@ print("source unchanged and no live handles")'`)
 	} else {
 		j, e = session.Journal(ctx, journalID)
 		must(e)
-		if j.Phase != "created" || j.Target.RuntimeID == "" || len(j.Target.TokenCiphertext) == 0 || j.TaskCount != 0 || j.AppID != appID {
+		if j.Phase != "created" || j.Target.RuntimeID == "" || len(j.Target.TokenCiphertext) == 0 || j.TaskCount != 1 || j.AppID != appID {
 			panic("exact acknowledged replacement required")
 		}
 		for role, h := range hashes {
@@ -337,6 +377,8 @@ print("source unchanged and no live handles")'`)
 		// restart so startup caches cannot change the byte-preservation check.
 		must(g.ImportPrivateHome(ctx, m, h, hn))
 		mark("home-imported")
+		must(g.ImportPrivateTaskHistory(ctx, history))
+		mark("owned-task-history-imported")
 	}
 	ao, e := os.OpenFile(stage+"/verified-app.zip", os.O_CREATE|os.O_EXCL|os.O_RDWR, 0600)
 	must(e)
@@ -360,7 +402,13 @@ print("source unchanged and no live handles")'`)
 	if actual != hd {
 		panic("home canonical digest changed")
 	}
-	mark("workspace-and-home-byte-preservation-verified")
+	historyActual, e := g.ExportPrivateTaskHistory(ctx, []string{originalTask})
+	must(e)
+	if !reflect.DeepEqual(historyFiles(historyActual), historyExpected) {
+		panic("owned task history changed")
+	}
+	must(os.WriteFile(stage+"/verified-history.zip", historyActual, 0600))
+	mark("workspace-home-and-task-history-byte-preservation-verified")
 	must(g.ApplyAppConfig(ctx, request))
 	await(ctx, g, func(s *rt.Status) bool { return s.AppConfigRevision == request.Revision })
 	detach()
@@ -386,15 +434,15 @@ print("source unchanged and no live handles")'`)
 	body, e := io.ReadAll(io.LimitReader(res.Body, 65536))
 	res.Body.Close()
 	must(e)
-	if res.StatusCode != 200 || !strings.Contains(strings.ToLower(string(body)), "review studio") {
-		panic("restored Derja frontend health failed")
+	if res.StatusCode != 200 || !strings.Contains(strings.ToLower(string(body)), "brandish") {
+		panic("restored Brandish frontend health failed")
 	}
 	save("verification.json", map[string]any{"workspace_digest_match": true, "home_digest_match": true, "authenticated_frontend_ok": true, "task_count": j.TaskCount, "config_revision": request.Revision, "original_retained": true})
 	mark("authenticated-frontend-verified")
 
 	token, e := session.AdmissionToken(ctx, j.ID)
 	must(e)
-	must(session.Verify(ctx, store.CubeRecoveryVerification{AdmissionToken: token, RecoveryID: j.ID, SandboxID: sandbox, AppID: appID, OldRuntimeID: oldRuntime, NewRuntimeID: j.Target.RuntimeID, TemplateID: template, ArtifactsSHA256: j.ArtifactsSHA256, ConfigFingerprint: j.ConfigFingerprint, TaskFingerprint: j.TaskFingerprint, CredentialSHA256: store.CubeRecoveryCredentialSHA(j.Target.TokenCiphertext, j.Target.TokenNonce), EvidenceSHA256: hash(stage + "/verification.json"), WorkspaceSHA256: hashes["workspace"], HomeSHA256: hashes["home"], HistorySHA256: j.TaskFingerprint, ConfigRevision: 0, Authenticated: true, WorkspaceVerified: true, HomeVerified: true, HistoryVerified: true, ConfigApplied: true, ApplicationReady: true}))
+	must(session.Verify(ctx, store.CubeRecoveryVerification{AdmissionToken: token, RecoveryID: j.ID, SandboxID: sandbox, AppID: appID, OldRuntimeID: oldRuntime, NewRuntimeID: j.Target.RuntimeID, TemplateID: template, ArtifactsSHA256: j.ArtifactsSHA256, ConfigFingerprint: j.ConfigFingerprint, TaskFingerprint: j.TaskFingerprint, CredentialSHA256: store.CubeRecoveryCredentialSHA(j.Target.TokenCiphertext, j.Target.TokenNonce), EvidenceSHA256: hash(stage + "/verification.json"), WorkspaceSHA256: hashes["workspace"], HomeSHA256: hashes["home"], HistorySHA256: hashes["history"], ConfigRevision: 0, Authenticated: true, WorkspaceVerified: true, HomeVerified: true, HistoryVerified: true, ConfigApplied: true, ApplicationReady: true}))
 	must(session.Commit(ctx, j.ID, oldRuntime, 0))
 	must(session.Close())
 	mark("recovery-committed")

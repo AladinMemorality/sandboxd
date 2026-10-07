@@ -22,3 +22,8 @@ A failed unfinished journal keeps the controller fenced for explicit recovery.
 
 This is an incident-specific operator, not a generic unattended migration tool.
 Production result is recorded separately after actual import and browser checks.
+
+Worker SSH runs explicitly in the native host network namespace (`nsenter -t 1 -n`).
+Stopping the controller removes its veth route even while the relay namespace
+survives. The retained loopback relays continue to reach their fixed host Unix
+sockets; only provider calls use that namespace. SSH lease cleanup is bounded.

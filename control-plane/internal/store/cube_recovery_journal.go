@@ -550,7 +550,12 @@ func (s *Store) CommitCubeRecovery(ctx context.Context, id, expectedRuntime stri
 		if n, e := r.RowsAffected(); e != nil || n != 1 {
 			return ErrConflict
 		}
-		if _, e = tx.ExecContext(ctx, `UPDATE sandbox SET status='running',error_message=NULL,stopped_at=NULL,updated_at=? WHERE id=? AND runtime_provider='cube'`, time.Now().Unix(), j.SandboxID); e != nil {
+		// A recovered runtime has just passed authenticated application readiness.
+		// Give it the same idle grace as an ordinary wake; the source may have been
+		// unavailable for days. Replaying a completed journal returns above without
+		// extending that grace again.
+		now := time.Now().Unix()
+		if _, e = tx.ExecContext(ctx, `UPDATE sandbox SET status='running',error_message=NULL,stopped_at=NULL,last_active_at=MAX(last_active_at,?),updated_at=? WHERE id=? AND runtime_provider='cube'`, now, now, j.SandboxID); e != nil {
 			return e
 		}
 		_, e = tx.ExecContext(ctx, `UPDATE cube_recovery SET phase='complete',updated_at=? WHERE recovery_id=?`, time.Now().Unix(), j.ID)

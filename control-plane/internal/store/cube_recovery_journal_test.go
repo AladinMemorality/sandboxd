@@ -14,6 +14,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 )
@@ -114,6 +115,10 @@ func assertRecoveryCharge(t *testing.T, s *Store, want int) {
 func TestCubeRecoveryJournalFullCapacityCAS(t *testing.T) {
 	s, p := recoveryFixture(t, 4)
 	ctx := context.Background()
+	if e := s.BumpLastActive(ctx, p.SandboxID, time.Now().Add(-4*time.Hour)); e != nil {
+		t.Fatal(e)
+	}
+	recoveryStarted := time.Now().Truncate(time.Second)
 	if e := s.BeginCubeRecovery(ctx, p); e != nil {
 		t.Fatal(e)
 	}
@@ -160,6 +165,18 @@ func TestCubeRecoveryJournalFullCapacityCAS(t *testing.T) {
 	sb, e := s.Get(ctx, p.SandboxID)
 	if e != nil || sb.AppID.String != "app-0" || sb.RuntimeProvider != "cube" {
 		t.Fatal("stable app identity changed")
+	}
+	if sb.LastActiveAt.Before(recoveryStarted) {
+		t.Fatal("recovered app can be immediately reaped using its stale activity timestamp")
+	}
+	idle, e := s.ListIdleCandidates(ctx, time.Now().Add(-35*time.Minute))
+	if e != nil {
+		t.Fatal(e)
+	}
+	for _, candidate := range idle {
+		if candidate.ID == p.SandboxID {
+			t.Fatal("freshly recovered app is an idle candidate")
+		}
 	}
 	j := recoveryJournal(t, s)
 	if string(j.Old.TokenCiphertext) != "old-secret-encrypted" || j.Phase != "complete" {
