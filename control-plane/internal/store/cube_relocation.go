@@ -16,10 +16,20 @@ import (
 type CubeRelocation struct {
 	ID, SandboxID, AppID, OwnerSHA, SourceRuntimeID string
 	TargetWorker, TargetKey, TemplateID, Domain     string
+	TargetTemplateID                                string `json:",omitempty"`
 	ConfigRevision                                  int64
 	CredentialSHA, ConfigSHA, TaskSHA               string
 	TaskCount                                       int
 	SourceAdmission                                 cube.AdmissionRecord
+}
+
+// DestinationTemplate preserves legacy journals while allowing an explicitly
+// reviewed destination profile without changing the source fingerprint.
+func (j CubeRelocation) DestinationTemplate() string {
+	if j.TargetTemplateID != "" {
+		return j.TargetTemplateID
+	}
+	return j.TemplateID
 }
 
 func relocationBinding(ctx context.Context, tx *sql.Tx, sid string) (*RuntimeBinding, string, string, string, error) {
@@ -91,14 +101,24 @@ func relocationUnchanged(ctx context.Context, tx *sql.Tx, j CubeRelocation) erro
 	return nil
 }
 
-func (s *Store) BeginCubeRelocation(ctx context.Context, id, sid, expectedRuntime, targetWorker string) (CubeRelocation, error) {
+func (s *Store) BeginCubeRelocation(ctx context.Context, id, sid, expectedRuntime, targetWorker string, targetTemplate ...string) (CubeRelocation, error) {
 	var out CubeRelocation
+	destination := ""
+	if len(targetTemplate) > 1 {
+		return out, errors.New("one destination template required")
+	}
+	if len(targetTemplate) == 1 {
+		destination = targetTemplate[0]
+		if !projectID.MatchString(destination) {
+			return out, errors.New("invalid destination template")
+		}
+	}
 	if !projectID.MatchString(id) || !projectID.MatchString(sid) || !projectID.MatchString(expectedRuntime) || !projectID.MatchString(targetWorker) {
 		return out, errors.New("invalid relocation identity")
 	}
 	err := s.recoveryWrite(ctx, func(tx *sql.Tx) error {
 		if j, phase, e := loadRelocation(ctx, tx, id); e == nil {
-			if phase != "fenced" || j.SandboxID != sid || j.SourceRuntimeID != expectedRuntime || j.TargetWorker != targetWorker {
+			if phase != "fenced" || j.SandboxID != sid || j.SourceRuntimeID != expectedRuntime || j.TargetWorker != targetWorker || j.TargetTemplateID != destination {
 				return ErrConflict
 			}
 			out = j
@@ -134,6 +154,23 @@ func (s *Store) BeginCubeRelocation(ctx context.Context, id, sid, expectedRuntim
 			return errors.New("target worker not enrolled")
 		}
 		out = CubeRelocation{ID: id, SandboxID: sid, AppID: app, OwnerSHA: recoveryHash(owner), SourceRuntimeID: expectedRuntime, TargetWorker: targetWorker, TargetKey: "relocation:" + id, TemplateID: b.TemplateID, Domain: b.Domain, ConfigRevision: b.ConfigRevision, CredentialSHA: CubeRecoveryCredentialSHA(b.TokenCiphertext, b.TokenNonce), SourceAdmission: old}
+		out.TargetTemplateID = destination
+		if destination != "" {
+			var raw string
+			if e = tx.QueryRowContext(ctx, `SELECT contract FROM cube_resource_budget WHERE worker_id=?`, targetWorker).Scan(&raw); e != nil {
+				return e
+			}
+			var contract resourceContract
+			if e = json.Unmarshal([]byte(raw), &contract); e != nil {
+				return e
+			}
+			if _, ok := contract.Templates[destination]; !ok {
+				return errors.New("destination template has no durable resource contract")
+			}
+			if profile, ok := contract.Budget.Profiles[destination]; !ok || profile.Kind != "runtime" {
+				return errors.New("destination must be a runtime profile")
+			}
+		}
 		out.ConfigSHA, e = recoveryConfigFingerprint(ctx, tx, app)
 		if e != nil {
 			return e
@@ -177,7 +214,7 @@ func (s *Store) CommitCubeRelocation(ctx context.Context, id, targetToken, evide
 		if e = relocationUnchanged(ctx, tx, j); e != nil {
 			return e
 		}
-		if b.SandboxID != j.SandboxID || b.RuntimeID == j.SourceRuntimeID || b.TemplateID != j.TemplateID || b.Domain != j.Domain || b.ConfigRevision != j.ConfigRevision || b.ConfigAppliedRevision != j.ConfigRevision {
+		if b.SandboxID != j.SandboxID || b.RuntimeID == j.SourceRuntimeID || b.TemplateID != j.DestinationTemplate() || b.Domain != j.Domain || b.ConfigRevision != j.ConfigRevision || b.ConfigAppliedRevision != j.ConfigRevision {
 			return ErrConflict
 		}
 		old, e := scanAdmission(tx.QueryRowContext(ctx, `SELECT admission_key,runtime_id,template_id,operation,token,state,charged,worker_id FROM cube_admission WHERE admission_key=?`, "app:"+j.AppID))
@@ -191,7 +228,7 @@ func (s *Store) CommitCubeRelocation(ctx context.Context, id, targetToken, evide
 		if e != nil {
 			return e
 		}
-		if target.RuntimeID != b.RuntimeID || target.TemplateID != j.TemplateID || target.WorkerID != j.TargetWorker || target.State != "active" || target.Charged != 1 || target.Token != targetToken {
+		if target.RuntimeID != b.RuntimeID || target.TemplateID != j.DestinationTemplate() || target.WorkerID != j.TargetWorker || target.State != "active" || target.Charged != 1 || target.Token != targetToken {
 			return cube.ErrAdmissionPending
 		}
 		var n int
@@ -221,7 +258,7 @@ func (s *Store) CommitCubeRelocation(ctx context.Context, id, targetToken, evide
 		if _, e = tx.ExecContext(ctx, `UPDATE cube_storage_grant SET admission_key=? WHERE admission_key=? AND worker_id=?`, appKey, j.TargetKey, j.TargetWorker); e != nil {
 			return e
 		}
-		if _, e = tx.ExecContext(ctx, `UPDATE runtime_binding SET runtime_id=?,token_ciphertext=?,token_nonce=?,config_applied_revision=? WHERE sandbox_id=?`, b.RuntimeID, b.TokenCiphertext, b.TokenNonce, b.ConfigAppliedRevision, j.SandboxID); e != nil {
+		if _, e = tx.ExecContext(ctx, `UPDATE runtime_binding SET runtime_id=?,template_id=?,token_ciphertext=?,token_nonce=?,config_applied_revision=? WHERE sandbox_id=?`, b.RuntimeID, b.TemplateID, b.TokenCiphertext, b.TokenNonce, b.ConfigAppliedRevision, j.SandboxID); e != nil {
 			return e
 		}
 		if _, e = tx.ExecContext(ctx, `UPDATE sandbox SET status='stopped',error_message=NULL WHERE id=?`, j.SandboxID); e != nil {

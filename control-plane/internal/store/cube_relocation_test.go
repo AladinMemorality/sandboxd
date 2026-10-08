@@ -168,3 +168,46 @@ func TestCubeRelocationAbortRestoresUnchangedSource(t *testing.T) {
 		t.Fatal(e)
 	}
 }
+
+func TestCubeRelocationExplicitSmallerDestinationPreservesSourceFence(t *testing.T) {
+	s, w := relocationFixture(t)
+	ctx := context.Background()
+	if _, err := s.BeginCubeRelocation(ctx, "move-small", "stable-0", "old-0", "b200-01", "small"); err == nil {
+		t.Fatal("unenrolled profile accepted")
+	}
+	cfg := resourceTestConfig(12000)
+	if _, err := s.db.Exec(`UPDATE cube_admission_policy SET profile='resource-budget-v1',max_active=? WHERE worker_id='b200-01'`, cfg.MaxActive); err != nil {
+		t.Fatal(err)
+	}
+	if err := w.(*workerAdmission).ConfigureResourceBudget(ctx, cfg); err != nil {
+		t.Fatal(err)
+	}
+	j, err := s.BeginCubeRelocation(ctx, "move-small", "stable-0", "old-0", "b200-01", "small")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if j.TemplateID != "tpl-reviewed" || j.DestinationTemplate() != "small" {
+		t.Fatalf("source/target contract lost: %+v", j)
+	}
+	if _, err = s.BeginCubeRelocation(ctx, "move-small", "stable-0", "old-0", "b200-01", "large"); !errors.Is(err, ErrConflict) {
+		t.Fatal("pending destination changed")
+	}
+	target := j
+	target.TemplateID = j.DestinationTemplate()
+	b := targetRelocation(t, w, target)
+	wrong := b
+	wrong.TemplateID = j.TemplateID
+	if err = s.CommitCubeRelocation(ctx, j.ID, "new-token", recoveryHash("proof"), wrong); !errors.Is(err, ErrConflict) {
+		t.Fatal("old template accepted as new target")
+	}
+	if err = s.CommitCubeRelocation(ctx, j.ID, "new-token", recoveryHash("proof"), b); err != nil {
+		t.Fatal(err)
+	}
+	bound, err := s.GetRuntimeBinding(ctx, "stable-0")
+	if err != nil || bound.TemplateID != "small" || bound.RuntimeID != "new-runtime" {
+		t.Fatalf("destination binding: %+v %v", bound, err)
+	}
+	if _, err = s.AdmissionLookup(ctx, "old-0"); !errors.Is(err, cube.ErrRuntimeUnavailable) {
+		t.Fatal("source became reachable")
+	}
+}

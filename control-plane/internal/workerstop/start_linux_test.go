@@ -299,3 +299,40 @@ func TestExternalCleanRequiresPinnedVerifierAndActualReceiptResult(t *testing.T)
 		t.Fatal("verifier failure accepted")
 	}
 }
+
+func TestWeightedObservationUsesDurableContractAndCountsMemory(t *testing.T) {
+	cfg := cube.AdmissionConfig{NodeID: "10.0.2.15", MaxActive: 50, HostCPUMillis: 60000, HostMemoryMB: 40960,
+		Templates:      map[string]cube.AdmissionResources{"tpl-light": {CPUCount: 1, MemoryMB: 512}},
+		ResourceBudget: &cube.ResourceBudget{CPUMillis: 7000, MemoryMB: 32000, RuntimeSlots: 50, Profiles: map[string]cube.ResourceProfile{"tpl-light": {CPUMillis: 100, WritableDiskMB: 4096, Kind: "runtime"}}}}
+	o := store.WorkerObservation{MaxActive: 50, Profile: "resource-budget-v1", ResourceBudget: cfg.ResourceBudget, ResourceTemplates: cfg.Templates}
+	actual := []cube.Sandbox{}
+	for i := 0; i < 50; i++ {
+		id, app := fmt.Sprintf("running-%d", i), fmt.Sprintf("app-%d", i)
+		o.Bindings = append(o.Bindings, store.WorkerStopBinding{SandboxID: id, RuntimeID: id, AppID: app, TemplateID: "tpl-light"})
+		o.Admissions = append(o.Admissions, cube.AdmissionRecord{Key: "app:" + app, RuntimeID: id, TemplateID: "tpl-light", State: "active", Token: "token", Charged: 1})
+		actual = append(actual, cube.Sandbox{SandboxID: id, TemplateID: "tpl-light", State: "running", CPUCount: 1, MemoryMB: 512, Metadata: map[string]string{"sandboxd_id": id, "sandboxd_app_id": app}})
+	}
+	if err := ValidateObservation(o, actual, cfg, false); err != nil {
+		t.Fatal(err)
+	}
+	changed := *cfg.ResourceBudget
+	changed.MemoryMB--
+	o.ResourceBudget = &changed
+	if ValidateObservation(o, actual, cfg, false) == nil {
+		t.Fatal("durable/config drift accepted")
+	}
+	cfg.ResourceBudget = &changed
+	if ValidateObservation(o, actual, cfg, false) == nil {
+		t.Fatal("VM overhead overflow accepted")
+	}
+	changed.MemoryMB++
+	actual[0].MemoryMB = 1024
+	if ValidateObservation(o, actual, cfg, false) == nil {
+		t.Fatal("provider resource drift accepted")
+	}
+	actual[0].MemoryMB = 512
+	o.Admissions[0].Charged = 0
+	if ValidateObservation(o, actual, cfg, false) == nil {
+		t.Fatal("uncharged running guest accepted")
+	}
+}

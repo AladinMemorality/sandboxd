@@ -157,8 +157,24 @@ func readDB(c Config) (*sql.DB, error) {
 	return sql.Open("sqlite3", u.String())
 }
 func ValidateObservation(o store.WorkerObservation, actual []cube.Sandbox, cfg cube.AdmissionConfig, paused bool) error {
-	if cfg.MaxActive != 4 || cfg.CPUCount != 2 || cfg.MemoryMB != 2048 || o.MaxActive != 4 || o.Profile != "cpu=2;memory_mb=2048" || o.PendingRecovery != 0 {
-		return errors.New("reviewed four-slot policy or complete recovery required")
+	if o.PendingRecovery != 0 {
+		return errors.New("complete recovery required")
+	}
+	if cfg.ResourceBudget == nil {
+		if cfg.MaxActive != 4 || cfg.CPUCount != 2 || cfg.MemoryMB != 2048 || o.MaxActive != 4 || o.Profile != "cpu=2;memory_mb=2048" || o.ResourceBudget != nil {
+			return errors.New("reviewed four-slot policy required")
+		}
+	} else {
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		if _, err = cube.ParseAdmissionConfig(string(raw)); err != nil {
+			return err
+		}
+		if o.MaxActive != cfg.MaxActive || o.Profile != "resource-budget-v1" || !reflect.DeepEqual(o.ResourceBudget, cfg.ResourceBudget) || !reflect.DeepEqual(o.ResourceTemplates, cfg.Templates) {
+			return errors.New("durable resource contract differs from worker policy")
+		}
 	}
 	if e := exactInventory(store.WorkerStopSnapshot{Bindings: o.Bindings}, actual, paused); e != nil {
 		return e
@@ -177,12 +193,12 @@ func ValidateObservation(o store.WorkerObservation, actual []cube.Sandbox, cfg c
 	for _, a := range actual {
 		remotes[a.SandboxID] = a
 	}
-	charged := 0
+	charged, cpu, memory, runtimes, builds := 0, 0, 0, 0, 0
 	for _, b := range o.Bindings {
 		a, ok := admissions[b.RuntimeID]
 		r := remotes[b.RuntimeID]
 		profile, approved := cfg.Templates[b.TemplateID]
-		if !ok || a.Key != "app:"+b.AppID || a.TemplateID != b.TemplateID || a.Token == "" || !approved || profile.CPUCount != 2 || profile.MemoryMB != 2048 || r.CPUCount != 2 || r.MemoryMB != 2048 {
+		if !ok || a.Key != "app:"+b.AppID || a.TemplateID != b.TemplateID || a.Token == "" || !approved || r.CPUCount != profile.CPUCount || r.MemoryMB != profile.MemoryMB {
 			return errors.New("binding, admission or template resource mismatch")
 		}
 		if r.State == "paused" {
@@ -193,8 +209,21 @@ func ValidateObservation(o store.WorkerObservation, actual []cube.Sandbox, cfg c
 			return errors.New("running guest reservation is not active")
 		}
 		charged += a.Charged
+		if cfg.ResourceBudget != nil {
+			p := cfg.ResourceBudget.Profiles[b.TemplateID]
+			cpu += a.Charged * p.CPUMillis
+			memory += a.Charged * (profile.MemoryMB + cube.VMOverheadMB)
+			if p.Kind == "build" {
+				builds += a.Charged
+			} else {
+				runtimes += a.Charged
+			}
+		}
 	}
-	if charged > 4 {
+	if budget := cfg.ResourceBudget; budget != nil && (cpu > budget.CPUMillis || memory > budget.MemoryMB || runtimes > budget.RuntimeSlots || builds > budget.BuildSlots) {
+		return errors.New("active allocations exceed resource budget")
+	}
+	if charged > cfg.MaxActive {
 		return errors.New("active allocations exceed tested limit")
 	}
 	return nil
@@ -361,7 +390,7 @@ func reconcileStart(ctx context.Context, c Config, m StopMarker, db *sql.DB, pro
 			if r == nil {
 				return nil, errors.New("provider detail missing")
 			}
-			if e = ValidateObservation(store.WorkerObservation{Bindings: []store.WorkerStopBinding{b}, Admissions: matchingAdmission(observation, b.RuntimeID), MaxActive: observation.MaxActive, Profile: observation.Profile}, []cube.Sandbox{*r}, c.Admission, true); e != nil {
+			if e = ValidateObservation(store.WorkerObservation{Bindings: []store.WorkerStopBinding{b}, Admissions: matchingAdmission(observation, b.RuntimeID), MaxActive: observation.MaxActive, Profile: observation.Profile, ResourceBudget: observation.ResourceBudget, ResourceTemplates: observation.ResourceTemplates}, []cube.Sandbox{*r}, c.Admission, true); e != nil {
 				return nil, e
 			}
 		}
@@ -507,7 +536,7 @@ func Observe(ctx context.Context, c Config) (map[string]any, error) {
 			active++
 		}
 	}
-	return map[string]any{"version": 1, "consistent": true, "observation_only": true, "bindings": len(actual), "active": active, "max_active": 4, "worker_boot_id": c.WorkerBootID}, nil
+	return map[string]any{"version": 1, "consistent": true, "observation_only": true, "bindings": len(actual), "active": active, "max_active": c.Admission.MaxActive, "worker_boot_id": c.WorkerBootID}, nil
 }
 func publishCurrent(path string, value any) error {
 	raw, e := json.Marshal(value)

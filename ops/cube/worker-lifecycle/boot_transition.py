@@ -40,7 +40,8 @@ SEQUENCE = Path('/var/lib/sandboxd/cube-storage-observer/sequence.json')
 LOCKS = ('/opt/baarcha/deploy-release.lock', '/opt/sandboxd/deploy-state/deploy.lock',
          '/run/lock/cube-operator-acceptance.lock', '/opt/baarcha-bench/cube-workload-operator.lock')
 TIMERS = tuple('baarcha-' + n + '.timer' for n in ('project-env-apply', 'classroom-egress', 'fennec-meet-egress'))
-SERVICES = ('sandboxd', 'cube-management-api', 'cube-management-proxy')
+SERVICES = ('sandboxd', 'cube-management-api', 'cube-management-proxy',
+            'cube-management-master', 'cube-management-b200-proxy')
 PINNED = (START, SOURCE / '.env', SOURCE / 'docker-compose.yml',
           OFFLINE, OBSERVER, LIFECYCLE, COORDINATOR, EXTERNAL, Path('/usr/local/libexec/baarcha-cube-worker-stop'),
           Path('/etc/baarcha-cube/lifecycle.json'))
@@ -170,7 +171,13 @@ def validate_chain(stop, start, marker, pause, clean, drain, generation):
 def new_configs(stop, guard, compose, generation, active=None):
     require(stop['admission']['storage_guard']==guard, 'stop and observer policy differ')
     env = compose['services']['sandboxd']['environment']
-    require(type(env) is dict and strict(env['SANDBOXD_CUBE_ADMISSION'])==stop['admission'], 'controller and native admission policy differ')
+    require(type(env) is dict, 'controller environment must be a mapping')
+    effective=copy.deepcopy(env)
+    if active is not None:
+        overlay=active['services']['sandboxd'].get('environment',{})
+        require(type(overlay) is dict,'active environment must be a mapping')
+        effective.update(overlay)
+    require(strict(effective['SANDBOXD_CUBE_ADMISSION'])==stop['admission'], 'controller and native admission policy differ')
     require(guard['expected_boot_id']==stop['worker_boot_id'] and guard['worker_machine_id']==stop['worker_machine_id'] and guard['inner_fs_uuid']==stop['data_uuid'], 'old worker pins inconsistent')
     outstop, outguard, outcompose = copy.deepcopy(stop), copy.deepcopy(guard), copy.deepcopy(compose)
     outguard['expected_boot_id'] = generation['worker_boot_id']
@@ -450,7 +457,7 @@ def transition(plan,directory,host):
     j.controller_pin(ident)
     host.fence(); host.fresh(v['wanted'][str(GUARD)],v['old_sequence'])
     observation=host.observe()
-    require(observation.get('consistent') is True and observation.get('worker_boot_id')==v['generation']['worker_boot_id'] and type(observation.get('active')) is int and 0<=observation['active']<=4 and observation.get('bindings')==len(v['marker']['bindings']),'binding/admission verification failed after controller restart')
+    require(observation.get('consistent') is True and observation.get('worker_boot_id')==v['generation']['worker_boot_id'] and type(observation.get('active')) is int and 0<=observation['active']<=v['wanted'][str(STOP)]['admission']['max_active'] and observation.get('bindings')==len(v['marker']['bindings']),'binding/admission verification failed after controller restart')
     host.fence(); host.fresh(v['wanted'][str(GUARD)],v['old_sequence'])
     v['phase']='complete'; v['tenant_ready']=True; v['routing_changed']=False; v['active_after_controller_start']=observation['active']; j.save()
     return {'version':1,'tenant_ready':True,'routing_changed':False,'guests_woken_during_offline_reconciliation':0,'active_after_controller_start':observation['active'],'controller_id':ident,'worker_boot_id':v['generation']['worker_boot_id'],'journal_sha256':sha(encoded(v))}

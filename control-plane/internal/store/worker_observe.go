@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
 )
@@ -10,11 +11,13 @@ import (
 // WorkerObservationDB performs only reads in a single transaction. The caller
 // must open SQLite mode=ro/query_only; never use Store.Open for monitoring.
 type WorkerObservation struct {
-	Bindings        []WorkerStopBinding
-	Admissions      []cube.AdmissionRecord
-	MaxActive       int
-	Profile         string
-	PendingRecovery int
+	Bindings          []WorkerStopBinding
+	Admissions        []cube.AdmissionRecord
+	MaxActive         int
+	Profile           string
+	ResourceBudget    *cube.ResourceBudget
+	ResourceTemplates map[string]cube.AdmissionResources
+	PendingRecovery   int
 }
 
 func WorkerObservationDB(ctx context.Context, db *sql.DB, worker ...string) (WorkerObservation, error) {
@@ -50,6 +53,23 @@ func WorkerObservationDB(ctx context.Context, db *sql.DB, worker ...string) (Wor
 		return scope
 	}()).Scan(&out.MaxActive, &out.Profile); e != nil {
 		return out, e
+	}
+	var contract string
+	budgetWorker := scope
+	if budgetWorker == "" {
+		budgetWorker = "vps"
+	}
+	e = tx.QueryRowContext(ctx, `SELECT contract FROM cube_resource_budget WHERE worker_id=?`, budgetWorker).Scan(&contract)
+	if e != nil && !errors.Is(e, sql.ErrNoRows) {
+		return out, e
+	}
+	if e == nil {
+		var c resourceContract
+		if e = json.Unmarshal([]byte(contract), &c); e != nil {
+			return out, e
+		}
+		out.ResourceBudget = &c.Budget
+		out.ResourceTemplates = c.Templates
 	}
 	if e = tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM cube_recovery WHERE phase<>'complete'`).Scan(&out.PendingRecovery); e != nil {
 		return out, e

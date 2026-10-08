@@ -271,6 +271,19 @@ class RealHTTPHelperTests(unittest.TestCase):
 if __name__=='__main__':unittest.main()
 
 class FleetTransitionTests(unittest.TestCase):
+    def test_effective_overlay_admission_is_validated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            f=Fixture(Path(directory))
+            stale=copy.deepcopy(f.s['admission']);stale['max_active']=1
+            f.c['services']['sandboxd']['environment']['SANDBOXD_CUBE_ADMISSION']=json.dumps(stale)
+            with f.patches():wanted=b.new_configs(f.s,f.g,f.c,f.gen,f.a)
+            for path in (f.compose,f.activefile):
+                policy=json.loads(wanted[str(path)]['services']['sandboxd']['environment']['SANDBOXD_CUBE_ADMISSION'])
+                self.assertEqual(policy['max_active'],4)
+                self.assertEqual(policy['storage_guard']['expected_boot_id'],NEW)
+            f.a['services']['sandboxd']['environment']['SANDBOXD_CUBE_ADMISSION']=json.dumps(stale)
+            with f.patches(),self.assertRaises(b.Refused):b.new_configs(f.s,f.g,f.c,f.gen,f.a)
+
     def test_only_vps_boot_pins_change_in_both_overlays(self):
         import copy
         with tempfile.TemporaryDirectory() as directory:

@@ -257,3 +257,22 @@ func TestResourceBudgetMigrationPreservesLegacyGrants(t *testing.T) {
 		t.Fatal("legacy grants changed during migration")
 	}
 }
+
+func TestWorkerObservationReadsDurableResourceContract(t *testing.T) {
+	s := openTestStore(t)
+	cfg := resourceTestConfig(12000)
+	enrollBudget(t, s, cfg)
+	o, err := WorkerObservationDB(context.Background(), s.db, "vps")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if o.ResourceBudget == nil || o.ResourceBudget.MemoryMB != 12000 || o.ResourceTemplates["small"].MemoryMB != 512 {
+		t.Fatalf("missing durable contract: %+v", o)
+	}
+	if _, err = s.db.Exec(`UPDATE cube_resource_budget SET contract='{' WHERE worker_id='vps'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = WorkerObservationDB(context.Background(), s.db, "vps"); err == nil {
+		t.Fatal("corrupt budget accepted")
+	}
+}

@@ -30,7 +30,7 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
 
-type request struct{ Action, ID, AppID, SandboxID, ExpectedRuntime, TargetWorker, Directory, Migrations string }
+type request struct{ Action, ID, AppID, SandboxID, ExpectedRuntime, TargetWorker, TargetTemplate, Directory, Migrations string }
 type target struct {
 	Relocation      store.CubeRelocation
 	SupervisorToken string `json:"supervisor_token"`
@@ -135,7 +135,11 @@ func main() {
 	must(e)
 	defer db.Close()
 	if in.Action == "fence" {
-		j, e := db.BeginCubeRelocation(ctx, in.ID, in.SandboxID, in.ExpectedRuntime, in.TargetWorker)
+		var templates []string
+		if in.TargetTemplate != "" {
+			templates = []string{in.TargetTemplate}
+		}
+		j, e := db.BeginCubeRelocation(ctx, in.ID, in.SandboxID, in.ExpectedRuntime, in.TargetWorker, templates...)
 		must(e)
 		privateWrite(filepath.Join(in.Directory, "fenced.json"), j)
 		fmt.Println(`{"fenced":true}`)
@@ -232,17 +236,17 @@ func main() {
 				t.Env[k] = v
 			}
 		}
-		t.Admission, e = partition.AdmissionBegin(ctx, j.TargetKey, "", j.TemplateID, "create", token())
+		t.Admission, e = partition.AdmissionBegin(ctx, j.TargetKey, "", j.DestinationTemplate(), "create", token())
 		must(e)
 		privateWrite(filepath.Join(in.Directory, "create-intent.PRIVATE.json"), t)
 		network, e := cube.OperatorEgressPolicy("")
 		must(e)
-		t.Runtime, e = provider.Create(ctx, cube.CreateRequest{TemplateID: j.TemplateID, TimeoutSeconds: 3600, DistributionScope: []string{selected.Admission.NodeID}, EnvVars: map[string]string{"RUNTIMED_HTTP_ADDR": ":3031", "RUNTIMED_HTTP_TOKEN": t.SupervisorToken}, Metadata: map[string]string{"sandboxd_id": j.SandboxID, "sandboxd_app_id": j.AppID, "sandboxd_admission_operation": t.Admission.Token, "sandboxd_relocation_id": j.ID}, Lifecycle: &cube.Lifecycle{OnTimeout: "pause", AutoResume: false}, Network: network})
+		t.Runtime, e = provider.Create(ctx, cube.CreateRequest{TemplateID: j.DestinationTemplate(), TimeoutSeconds: 3600, DistributionScope: []string{selected.Admission.NodeID}, EnvVars: map[string]string{"RUNTIMED_HTTP_ADDR": ":3031", "RUNTIMED_HTTP_TOKEN": t.SupervisorToken}, Metadata: map[string]string{"sandboxd_id": j.SandboxID, "sandboxd_app_id": j.AppID, "sandboxd_admission_operation": t.Admission.Token, "sandboxd_relocation_id": j.ID}, Lifecycle: &cube.Lifecycle{OnTimeout: "pause", AutoResume: false}, Network: network})
 		must(e)
 		privateWrite(filepath.Join(in.Directory, "create-response.PRIVATE.json"), t)
 		actual, e := provider.Get(ctx, t.Runtime.SandboxID)
 		must(e)
-		if actual.State != "running" || actual.CPUCount != 2 || actual.MemoryMB != 2048 || actual.TemplateID != j.TemplateID || actual.Metadata["sandboxd_id"] != j.SandboxID || actual.Metadata["sandboxd_app_id"] != j.AppID || actual.Metadata["sandboxd_relocation_id"] != j.ID || actual.Metadata["sandboxd_admission_operation"] != t.Admission.Token || t.Runtime.TrafficAccessToken == "" {
+		if actual.State != "running" || actual.CPUCount != selected.Admission.Templates[j.DestinationTemplate()].CPUCount || actual.MemoryMB != selected.Admission.Templates[j.DestinationTemplate()].MemoryMB || actual.TemplateID != j.DestinationTemplate() || actual.Metadata["sandboxd_id"] != j.SandboxID || actual.Metadata["sandboxd_app_id"] != j.AppID || actual.Metadata["sandboxd_relocation_id"] != j.ID || actual.Metadata["sandboxd_admission_operation"] != t.Admission.Token || t.Runtime.TrafficAccessToken == "" {
 			panic("target identity mismatch")
 		}
 		req, e := http.NewRequestWithContext(ctx, "GET", "http://10.254.240.1:18089/cube/sandbox/info?sandbox_id="+t.Runtime.SandboxID+"&instance_type=cubebox", nil)
@@ -273,7 +277,7 @@ func main() {
 			must(e)
 			app, e := db.GetApp(ctx, j.AppID)
 			must(e)
-			must(db.Create(ctx, &store.Sandbox{ID: j.SandboxID, Status: "stopped", Image: "cube-template:" + j.TemplateID, RuntimeProvider: "cube", RuntimeBinding: &store.RuntimeBinding{SandboxID: j.SandboxID, Provider: "cube", RuntimeID: t.Runtime.SandboxID, TemplateID: j.TemplateID, Domain: j.Domain, TokenCiphertext: sealed, TokenNonce: nonce}, AppID: sql.NullString{String: j.AppID, Valid: true}, ExternalUserID: app.ExternalUserID, ExternalProjectID: app.ExternalProjectID, Visibility: "private", IdlePolicy: "sleep", Ports: []int{3000}, WebPort: sql.NullInt64{Int64: 3000, Valid: true}}))
+			must(db.Create(ctx, &store.Sandbox{ID: j.SandboxID, Status: "stopped", Image: "cube-template:" + j.DestinationTemplate(), RuntimeProvider: "cube", RuntimeBinding: &store.RuntimeBinding{SandboxID: j.SandboxID, Provider: "cube", RuntimeID: t.Runtime.SandboxID, TemplateID: j.DestinationTemplate(), Domain: j.Domain, TokenCiphertext: sealed, TokenNonce: nonce}, AppID: sql.NullString{String: j.AppID, Valid: true}, ExternalUserID: app.ExternalUserID, ExternalProjectID: app.ExternalProjectID, Visibility: "private", IdlePolicy: "sleep", Ports: []int{3000}, WebPort: sql.NullInt64{Int64: 3000, Valid: true}}))
 		}
 		fmt.Println(`{"created":true,"placement_verified":true}`)
 		return
@@ -326,7 +330,7 @@ func main() {
 		proofRaw, e := json.Marshal(p)
 		must(e)
 		sha := sha256.Sum256(proofRaw)
-		must(db.CommitCubeRelocation(ctx, j.ID, t.Admission.Token, hex.EncodeToString(sha[:]), store.RuntimeBinding{SandboxID: j.SandboxID, Provider: "cube", RuntimeID: t.Runtime.SandboxID, TemplateID: j.TemplateID, Domain: j.Domain, ConfigRevision: j.ConfigRevision, ConfigAppliedRevision: j.ConfigRevision, TokenCiphertext: sealed, TokenNonce: nonce}))
+		must(db.CommitCubeRelocation(ctx, j.ID, t.Admission.Token, hex.EncodeToString(sha[:]), store.RuntimeBinding{SandboxID: j.SandboxID, Provider: "cube", RuntimeID: t.Runtime.SandboxID, TemplateID: j.DestinationTemplate(), Domain: j.Domain, ConfigRevision: j.ConfigRevision, ConfigAppliedRevision: j.ConfigRevision, TokenCiphertext: sealed, TokenNonce: nonce}))
 		fmt.Println(`{"committed":true}`)
 		return
 	}
