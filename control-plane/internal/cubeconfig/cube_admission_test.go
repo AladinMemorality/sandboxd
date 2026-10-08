@@ -57,6 +57,29 @@ func TestCubeAdmissionWiringRequiresReviewedProfileOnlyWhenEnabled(t *testing.T)
 	if err = ConfigureAdmission(ctx, cfg, st); err != nil {
 		t.Fatal("VPS pinning before fleet enrollment failed", err)
 	}
+	// A drained worker keeps its old template contract but does not need the
+	// new VPS-only creation preset. Reactivating it without that preset fails.
+	admission.Templates["tpl-new"] = cube.AdmissionResources{CPUCount: 2, MemoryMB: 2048}
+	cfg.Templates["react-pro"] = "tpl-new"
+	raw, _ = json.Marshal(admission)
+	t.Setenv("SANDBOXD_CUBE_ADMISSION", string(raw))
+	other := admission
+	other.NodeID = "10.0.2.16"
+	other.Templates = map[string]cube.AdmissionResources{"tpl-reviewed": {CPUCount: 2, MemoryMB: 2048}}
+	workers := []cube.FleetWorkerConfig{{ID: "vps", ProxyURL: "http://127.0.0.1:20080", Admission: admission}, {ID: "retained", ProxyURL: "http://127.0.0.1:28080", Admission: other, Draining: true}}
+	fleet := map[string]any{"version": 1, "master_url": "http://127.0.0.1:20889", "workers": workers}
+	raw, _ = json.Marshal(fleet)
+	t.Setenv("SANDBOXD_CUBE_FLEET", string(raw))
+	if err = ConfigureAdmission(ctx, cfg, st); err != nil {
+		t.Fatal("drained worker blocked VPS preset", err)
+	}
+	workers[1].Draining = false
+	raw, _ = json.Marshal(fleet)
+	t.Setenv("SANDBOXD_CUBE_FLEET", string(raw))
+	if err = ConfigureAdmission(ctx, cfg, st); err == nil {
+		t.Fatal("active worker accepted missing preset")
+	}
+	t.Setenv("SANDBOXD_CUBE_FLEET", "")
 	admission.NodeID = ""
 	admission.HostCPUMillis = 0
 	admission.HostMemoryMB = 0

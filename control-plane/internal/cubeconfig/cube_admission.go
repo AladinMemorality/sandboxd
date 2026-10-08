@@ -46,7 +46,7 @@ func ConfigureAdmission(ctx context.Context, cfg Config, st *store.Store) error 
 		}
 		for _, w := range fleet.Workers {
 			for _, id := range cfg.Templates {
-				if _, ok := w.Admission.Templates[id]; !ok {
+				if _, ok := w.Admission.Templates[id]; !ok && !w.Draining {
 					return errors.New("fleet worker lacks reviewed preset template")
 				}
 			}
