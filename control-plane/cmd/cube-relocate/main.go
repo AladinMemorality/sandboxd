@@ -262,25 +262,52 @@ func main() {
 		}
 		return
 	}
-	if in.Action == "create" || in.Action == "fixture" {
-		if _, e = os.Lstat(filepath.Join(in.Directory, "create-intent.PRIVATE.json")); !os.IsNotExist(e) {
-			panic("create intent already exists; reconcile before retry")
-		}
-		t := target{Relocation: j, SupervisorToken: token(), Env: map[string]string{}}
-		entries, e := appenv.For(ctx, db, cipher, j.AppID)
-		must(e)
-		for _, entry := range entries {
-			k, v, ok := strings.Cut(entry, "=")
-			if ok {
-				t.Env[k] = v
+	if in.Action == "create" || in.Action == "fixture" || in.Action == "retry-rejected-create" {
+		var t target
+		if in.Action == "retry-rejected-create" {
+			privateRead(filepath.Join(in.Directory, "create-intent.PRIVATE.json"), &t)
+			var rejection rejectedCreate
+			privateRead(filepath.Join(in.Directory, "provider-rejection.json"), &rejection)
+			reservation, err := partition.AdmissionLookupKey(ctx, j.TargetKey)
+			must(err)
+			if !validRejectedCreate(j, t, reservation, rejection) {
+				panic("unambiguous rejected create required")
 			}
+			for _, name := range []string{"create-response.PRIVATE.json", "target.PRIVATE.json", "retry-intent.PRIVATE.json"} {
+				if _, err := os.Lstat(filepath.Join(in.Directory, name)); !os.IsNotExist(err) {
+					panic("create outcome already recorded or retry attempted")
+				}
+			}
+			binding, err := db.GetRuntimeBinding(ctx, j.SandboxID)
+			must(err)
+			if binding.RuntimeID != j.SourceRuntimeID {
+				panic("source binding changed")
+			}
+			must(noRelocationTarget(ctx, env["SANDBOXD_CUBE_API_KEY"], j, t.Admission.Token))
+			privateWrite(filepath.Join(in.Directory, "retry-intent.PRIVATE.json"), t)
+		} else {
+			if _, e = os.Lstat(filepath.Join(in.Directory, "create-intent.PRIVATE.json")); !os.IsNotExist(e) {
+				panic("create intent already exists; reconcile before retry")
+			}
+			t = target{Relocation: j, SupervisorToken: token(), Env: map[string]string{}}
+			entries, err := appenv.For(ctx, db, cipher, j.AppID)
+			must(err)
+			for _, entry := range entries {
+				k, v, ok := strings.Cut(entry, "=")
+				if ok {
+					t.Env[k] = v
+				}
+			}
+			t.Admission, e = partition.AdmissionBegin(ctx, j.TargetKey, "", j.DestinationTemplate(), "create", token())
+			must(e)
+			privateWrite(filepath.Join(in.Directory, "create-intent.PRIVATE.json"), t)
 		}
-		t.Admission, e = partition.AdmissionBegin(ctx, j.TargetKey, "", j.DestinationTemplate(), "create", token())
-		must(e)
-		privateWrite(filepath.Join(in.Directory, "create-intent.PRIVATE.json"), t)
 		network, e := cube.OperatorEgressPolicy("")
 		must(e)
 		t.Runtime, e = provider.Create(ctx, cube.CreateRequest{TemplateID: j.DestinationTemplate(), TimeoutSeconds: 3600, DistributionScope: []string{selected.Admission.NodeID}, EnvVars: map[string]string{"RUNTIMED_HTTP_ADDR": ":3031", "RUNTIMED_HTTP_TOKEN": t.SupervisorToken}, Metadata: map[string]string{"sandboxd_id": j.SandboxID, "sandboxd_app_id": j.AppID, "sandboxd_admission_operation": t.Admission.Token, "sandboxd_relocation_id": j.ID}, Lifecycle: &cube.Lifecycle{OnTimeout: "pause", AutoResume: false}, Network: network})
+		if e != nil {
+			privateWrite(filepath.Join(in.Directory, "create-error.PRIVATE.json"), map[string]string{"error": e.Error()})
+		}
 		must(e)
 		privateWrite(filepath.Join(in.Directory, "create-response.PRIVATE.json"), t)
 		actual, e := provider.Get(ctx, t.Runtime.SandboxID)
