@@ -37,6 +37,16 @@ class MaintenanceTests(unittest.TestCase):
             elif kind=='backup':q['backup']={}
             else:q['routing']['unaffected_hosts']=['foo.preview.example']
             with self.subTest(kind=kind),self.assertRaises(m.b.Refused):m.validate_plan(q)
+    def test_partial_definition_requires_completed_replica_and_job_work(self):
+        value=plan()
+        value['provider_terminal_counts']['t_cube_template_definition']={'PARTIALLY_READY':1}
+        value['provider_terminal_counts']['t_cube_template_replica']={'READY':1,'FAILED':1}
+        m.validate_plan(value)
+        for table in ('t_cube_template_replica','t_cube_template_image_job'):
+            for state in ('PENDING','RUNNING','PARTIALLY_READY'):
+                changed=copy.deepcopy(value);changed['provider_terminal_counts'][table]={state:1}
+                with self.subTest(table=table,state=state),self.assertRaises(m.b.Refused):m.validate_plan(changed)
+
     def test_prepend_fence_before_exact_motion_alias_preserves_other_servers(self):
         online={'apps':{'http':{'servers':{'srv0':{'routes':[{'@id':'motion-exact','match':[{'host':['S-MOTION-3000.legacy.example']}],'handle':[{'handler':'reverse_proxy','upstreams':[{'dial':'motion'}]}]},{'match':[{'host':['bp.tn','hh1.dovisual.com']}],'handle':[{'handler':'reverse_proxy'}]}]},'srv1':{'routes':[{'http_only':'unchanged'}]}}}}}
         scope=plan()['routing'];scope['online_sha256']=m.b.sha(m.json.dumps(online,sort_keys=True,separators=(',',':')).encode());variants=m.routing_variants(online,scope)

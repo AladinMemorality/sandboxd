@@ -134,7 +134,7 @@ class LifecycleTests(unittest.TestCase):
             self.assertNotIn(forbidden,unit)
     def test_qemu_arguments_stay_equal_to_reviewed_disk_and_resource_scope(self):
         argv=life.fixed_qemu();self.assertEqual(argv[0],'/usr/bin/qemu-system-x86_64')
-        self.assertEqual(argv[argv.index('-m')+1],'40960');self.assertEqual(argv[argv.index('-smp')+1],'12')
+        self.assertEqual(argv[argv.index('-m')+1],'49152');self.assertEqual(argv[argv.index('-smp')+1],'12')
         self.assertEqual(argv.count('-drive'),3);self.assertNotIn('-daemonize',argv)
     def test_nested_identity_and_hash_checks_fail_closed(self):
         value={'version':1,'reviewed':True,'machine_id':'fixture-machine','data_filesystem_uuid':'fixture-uuid','binaries':{name:{'path':'/usr/local/services/'+name,'sha256':'fixed'} for name in ('cubelet','cubemaster','cube-api')},'artifacts':{'/etc/systemd/system/cube-sandbox-cube-api.service':'fixed'}}

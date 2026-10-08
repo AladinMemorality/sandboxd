@@ -92,9 +92,9 @@ def digest(path):
 
 def fixed_qemu():
     return ['/usr/bin/qemu-system-x86_64','-enable-kvm','-machine','q35,accel=kvm',
-        '-cpu','host','-name','baarcha-cube-worker-01','-m','40960','-smp','12',
-        '-device','virtio-rng-pci','-drive',f'file={ROOT}/root.qcow2,if=virtio,format=qcow2',
-        '-drive',f'file={DATA}/data.qcow2,if=virtio,format=qcow2',
+        '-cpu','host','-name','baarcha-cube-worker-01','-m','49152','-smp','12',
+        '-device','virtio-rng-pci','-drive',f'file={ROOT}/root.qcow2,if=virtio,format=qcow2,discard=unmap',
+        '-drive',f'file={DATA}/data.qcow2,if=virtio,format=qcow2,discard=unmap',
         '-drive',f'file={ROOT}/seed.img,if=virtio,format=raw,readonly=on',
         '-nic','user,model=virtio-net-pci,hostfwd=tcp:127.0.0.1:20222-:22,hostfwd=tcp:127.0.0.1:20300-:3000,hostfwd=tcp:127.0.0.1:20080-:80',
         '-display','none','-serial',f'file:{ROOT}/serial.log',

@@ -269,3 +269,22 @@ class RealHTTPHelperTests(unittest.TestCase):
         self.assertFalse(thread.is_alive())
 
 if __name__=='__main__':unittest.main()
+
+class FleetTransitionTests(unittest.TestCase):
+    def test_only_vps_boot_pins_change_in_both_overlays(self):
+        import copy
+        with tempfile.TemporaryDirectory() as directory:
+            f=Fixture(Path(directory))
+            stop=json.loads(f.stop.read_bytes());stop['worker_id']='vps'
+            other={'id':'b200','admission':{'storage_guard':{'expected_boot_id':'unchanged'},'max_active':100}}
+            fleet={'version':1,'master_url':'http://private','workers':[{'id':'vps','admission':copy.deepcopy(stop['admission'])},other]}
+            compose=copy.deepcopy(f.c);active=copy.deepcopy(f.a)
+            for config in (compose,active):config['services']['sandboxd']['environment']['SANDBOXD_CUBE_FLEET']=json.dumps(fleet)
+            guard=json.loads(f.guard.read_bytes())
+            with f.patches():wanted=b.new_configs(stop,guard,compose,f.gen,active)
+            for path in (f.compose,f.activefile):
+                result=json.loads(wanted[str(path)]['services']['sandboxd']['environment']['SANDBOXD_CUBE_FLEET'])
+                self.assertEqual(result['workers'][1],other)
+                self.assertEqual(result['workers'][0]['admission']['storage_guard']['expected_boot_id'],NEW)
+            stop.pop('worker_id')
+            with f.patches(),self.assertRaises(b.Refused):b.new_configs(stop,guard,compose,f.gen,active)

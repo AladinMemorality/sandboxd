@@ -38,6 +38,7 @@ type Client struct {
 	admission      *admissionGuard
 	placement      func(context.Context, string, string) error
 	observation    func(context.Context, string) (*Sandbox, error)
+	inventoryNode  func(context.Context, string) ([]Sandbox, error)
 	resumeObserved func(context.Context, string, ConnectRequest) error
 	fleet          *fleet
 }

@@ -178,6 +178,16 @@ def new_configs(stop, guard, compose, generation, active=None):
     outstop.update(worker_boot_id=generation['worker_boot_id'], qemu_pid=generation['qemu_pid'], qemu_start_time=generation['qemu_start_time'])
     outstop['admission']['storage_guard'] = copy.deepcopy(outguard)
     outcompose['services']['sandboxd']['environment']['SANDBOXD_CUBE_ADMISSION'] = encoded(outstop['admission']).decode().strip()
+    def refresh_fleet(environment):
+        if 'SANDBOXD_CUBE_FLEET' not in environment:return
+        require(stop.get('worker_id')=='vps','fleet reboot requires scoped VPS lifecycle')
+        fleet=strict(environment['SANDBOXD_CUBE_FLEET'])
+        require(fleet.get('version')==1 and isinstance(fleet.get('workers'),list),'invalid fleet contract')
+        workers=[w for w in fleet['workers'] if w.get('id')=='vps']
+        require(len(workers)==1 and workers[0].get('admission')==stop['admission'],'fleet VPS policy differs from stop contract')
+        workers[0]['admission']['storage_guard']=copy.deepcopy(outguard)
+        environment['SANDBOXD_CUBE_FLEET']=encoded(fleet).decode().strip()
+    refresh_fleet(outcompose['services']['sandboxd']['environment'])
     wanted={str(STOP):outstop,str(GUARD):outguard,str(COMPOSE):outcompose}
     if active is not None:
         outactive=copy.deepcopy(active)
@@ -185,6 +195,7 @@ def new_configs(stop, guard, compose, generation, active=None):
         if 'SANDBOXD_CUBE_ADMISSION' in environment:
             require(strict(environment['SANDBOXD_CUBE_ADMISSION'])==stop['admission'],'active image overlay admission differs from reviewed policy')
             environment['SANDBOXD_CUBE_ADMISSION']=encoded(outstop['admission']).decode().strip()
+        refresh_fleet(environment)
         wanted[str(ACTIVE)]=outactive
     return wanted
 
@@ -421,7 +432,10 @@ def transition(plan,directory,host):
         require(proof.get('tenant_ready') is True and proof.get('guests_woken')==0 and proof.get('routing_changed') is False and proof.get('inventory_sha256')==v['inventory_sha256'] and proof.get('worker_boot_id')==v['generation']['worker_boot_id'] and proof.get('qemu_pid')==v['generation']['qemu_pid'] and proof.get('qemu_start_time')==v['generation']['qemu_start_time'],'native startup reconciliation incomplete')
         v['reconciled']=proof; v['phase']='reconciled'; j.save()
     expected=copy.deepcopy(v['old_environment'])
-    expected['SANDBOXD_CUBE_ADMISSION']=v['wanted'][str(COMPOSE)]['services']['sandboxd']['environment']['SANDBOXD_CUBE_ADMISSION']
+    for config_path in (COMPOSE,ACTIVE):
+        environment=v['wanted'].get(str(config_path),{}).get('services',{}).get('sandboxd',{}).get('environment',{})
+        for key in ('SANDBOXD_CUBE_ADMISSION','SANDBOXD_CUBE_FLEET'):
+            if key in environment:expected[key]=environment[key]
     if not v['controller_attempted']:
         host.fence(); v['controller_attempted']=True; v['phase']='recreating'; j.save(); host.activate()
     # A failed/ambiguous compose call is NOT automatically replayed. On resume,

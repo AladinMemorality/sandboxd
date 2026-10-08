@@ -63,6 +63,7 @@ func (c *Client) ConfigurePlacement(origin, instanceType string) error {
 		}
 		return decodeMasterObservation(raw, id)
 	}
+	c.inventoryNode = func(ctx context.Context, node string) ([]Sandbox, error) { return c.masterNodeInventory(ctx, u, node) }
 	c.resumeObserved = c.nativeResume(u, instanceType)
 	c.placement = func(ctx context.Context, id, node string) error {
 		value, err := c.observation(ctx, id)

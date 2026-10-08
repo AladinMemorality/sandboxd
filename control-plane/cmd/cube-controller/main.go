@@ -188,8 +188,7 @@ func run() (runErr error) {
 			if _, err := cube.ReadStorageObservation(*admission.StorageGuard, now); err != nil {
 				return err
 			}
-			_, err = cfg.Client.Inventory(ctx)
-			return err
+			return cfg.Client.CheckReadiness(ctx)
 		},
 		AgentAuth: agentAuth, AgentOAuth: agentauth.NewOAuth(agentAuth),
 		AgentProxyURL: "http://" + proxyListener.Addr().String(),

@@ -313,7 +313,11 @@ func ReconcileStart(ctx context.Context, c Config, sc StartConfig) (*StartEviden
 	if e != nil {
 		return nil, e
 	}
-	return reconcileStart(ctx, c, m, db, client, func() error { return workerReady(ctx, c) }, func() error {
+	provider, e := scopeProvider(client, c)
+	if e != nil {
+		return nil, e
+	}
+	return reconcileStart(ctx, c, m, db, provider, func() error { return workerReady(ctx, c) }, func() error {
 		if e := verifyQEMU(c); e != nil {
 			return e
 		}
@@ -331,14 +335,14 @@ func reconcileStart(ctx context.Context, c Config, m StopMarker, db *sql.DB, pro
 		if e := databaseUsers(c.Database); e != nil {
 			return nil, e
 		}
-		snapshot, e := store.WorkerStopInventoryDB(ctx, db)
+		snapshot, e := store.WorkerStopInventoryDB(ctx, db, c.WorkerID)
 		if e != nil {
 			return nil, e
 		}
 		if snapshot.SHA256 != m.InventorySHA256 {
 			return nil, errors.New("bindings/config changed since stop")
 		}
-		observation, e := store.WorkerObservationDB(ctx, db)
+		observation, e := store.WorkerObservationDB(ctx, db, c.WorkerID)
 		if e != nil {
 			return nil, e
 		}
@@ -372,11 +376,11 @@ func reconcileStart(ctx context.Context, c Config, m StopMarker, db *sql.DB, pro
 	if e := databaseUsers(c.Database); e != nil {
 		return nil, e
 	}
-	final, e := store.WorkerStopInventoryDB(ctx, db)
+	final, e := store.WorkerStopInventoryDB(ctx, db, c.WorkerID)
 	if e != nil || final.SHA256 != m.InventorySHA256 {
 		return nil, errors.New("controller changed before marker clearance")
 	}
-	observed, e := store.WorkerObservationDB(ctx, db)
+	observed, e := store.WorkerObservationDB(ctx, db, c.WorkerID)
 	if e != nil {
 		return nil, e
 	}
@@ -465,7 +469,7 @@ func Observe(ctx context.Context, c Config) (map[string]any, error) {
 		return nil, e
 	}
 	defer db.Close()
-	before, e := store.WorkerObservationDB(ctx, db)
+	before, e := store.WorkerObservationDB(ctx, db, c.WorkerID)
 	if e != nil {
 		return nil, e
 	}
@@ -476,14 +480,18 @@ func Observe(ctx context.Context, c Config) (map[string]any, error) {
 	if e = workerCheck(ctx, c, "observe-worker"); e != nil {
 		return nil, e
 	}
-	actual, e := client.Inventory(ctx)
+	provider, e := scopeProvider(client, c)
+	if e != nil {
+		return nil, e
+	}
+	actual, e := provider.Inventory(ctx)
 	if e != nil {
 		return nil, e
 	}
 	if e = ValidateObservation(before, actual, c.Admission, false); e != nil {
 		return nil, e
 	}
-	after, e := store.WorkerObservationDB(ctx, db)
+	after, e := store.WorkerObservationDB(ctx, db, c.WorkerID)
 	if e != nil || hash(before) != hash(after) {
 		return nil, errors.New("controller changed during observation; retry next scheduled check")
 	}

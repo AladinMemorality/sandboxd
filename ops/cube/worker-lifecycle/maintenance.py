@@ -148,8 +148,12 @@ def validate_plan(p,*,kind='current-generation-external-recovery',files=FILES):
     m=p['motion'];object_keys(m,{'proxy_id','proxy_image','worker_pid','worker_start_time'},'fixed Motion writer identity required')
     need(b.SHA.fullmatch(m['proxy_id']) and re.fullmatch(r'sha256:[a-f0-9]{64}',m['proxy_image']) and type(m['worker_pid']) is int and m['worker_pid']>1 and re.fullmatch(r'[1-9][0-9]*',m['worker_start_time']),'invalid Motion writer identity')
     object_keys(p['provider_terminal_counts'],TABLES,'complete provider table baseline required')
-    for counts in p['provider_terminal_counts'].values():
-        need(isinstance(counts,dict) and set(counts)<=TERMINAL and all(type(n)is int and n>0 for n in counts.values()),'nonterminal/unrecognized provider state cannot be approved')
+    for table,counts in p['provider_terminal_counts'].items():
+        # A definition may retain a usable subset of replicas after completed
+        # distribution failures. This is a retryable summary, not an active
+        # job. Every image job and replica must still be READY/FAILED/etc.
+        stable=TERMINAL|({'PARTIALLY_READY'} if table=='t_cube_template_definition' else set())
+        need(isinstance(counts,dict) and set(counts)<=stable and all(type(n)is int and n>0 for n in counts.values()),'nonterminal/unrecognized provider state cannot be approved')
 
 
 def host_matches(pattern,host):
@@ -294,9 +298,11 @@ print(json.dumps(out))
         counts=self.observer.sqlite_observation();pg=self.pg_counts();quiet=counts['active_tasks']==0 and pg['thumbnail']==0 and pg['env_pending']==0
         need(quiet or permit_busy,'task/thumbnail/environment work remains');return {'runtime':counts,'platform':pg,'quiet':quiet}
     def bindings_readonly(self):
+        scope=b.strict(b.trusted(b.STOP)).get('worker_id','')
+        need(scope in ('','vps'),'unsupported worker lifecycle scope')
         with contextlib.closing(sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True,timeout=2)) as db:
             db.execute('PRAGMA query_only=ON');db.execute('BEGIN')
-            rows=db.execute("SELECT b.sandbox_id,s.app_id,b.runtime_id,b.template_id,b.config_revision FROM runtime_binding b JOIN sandbox s ON s.id=b.sandbox_id WHERE b.provider='cube' AND s.runtime_provider='cube' ORDER BY b.sandbox_id").fetchall()
+            rows=db.execute("SELECT b.sandbox_id,s.app_id,b.runtime_id,b.template_id,b.config_revision FROM runtime_binding b JOIN sandbox s ON s.id=b.sandbox_id WHERE b.provider='cube' AND s.runtime_provider='cube' AND (?='' OR b.runtime_id IN (SELECT runtime_id FROM cube_admission WHERE worker_id=?)) ORDER BY b.sandbox_id",(scope,scope)).fetchall()
             value=[dict(zip(('sandbox_id','app_id','runtime_id','template_id','config_revision'),row)) for row in rows]
         need(value==sorted(self.plan['bindings'],key=lambda v:v['sandbox_id']),'current canonical bindings differ from reviewed set')
         return value
@@ -347,7 +353,7 @@ print(json.dumps(out))
         # wildcard names are never DNS/probe targets.
         for host in r['preview_probe_hosts']:checks.append((host,'/',503))
         for host,path,expected in checks:
-            result=self.command(['/usr/bin/curl','--silent','--show-error','--noproxy','*','--max-time','5','--resolve',host+':443:127.0.0.1','--output','/dev/null','--write-out','%{http_code}','https://'+host+path],7)
+            result=self.wait(lambda:self.command(['/usr/bin/curl','--silent','--show-error','--noproxy','*','--max-time','5','--resolve',host+':443:127.0.0.1','--output','/dev/null','--write-out','%{http_code}','https://'+host+path],7),30)
             need(result==str(expected).encode(),'actual scoped route probe failed')
         return [{'host':h,'path':p,'status':s} for h,p,s in checks]+self.platform_homes()
     def motion_jobs(self):
@@ -357,7 +363,7 @@ print(json.dumps(out))
         m=self.plan['motion'];need(x.ticks(m['worker_pid'])==m['worker_start_time'],'Motion backend process changed')
         # Only compare selected values privately; never log/store process env.
         env=dict(line.split(b'=',1) for line in Path('/proc/'+str(m['worker_pid'])+'/environ').read_bytes().split(b'\0') if b'=' in line)
-        need(not env.get(b'STUDIO_WORKER_URL') and not env.get(b'STUDIO_WORKER_SOCKET') and env.get(b'STUDIO_WORKER_KEY')==key,'Motion worker is a forwarding proxy or credential generation differs')
+        need(not env.get(b'STUDIO_WORKER_URL') and env.get(b'STUDIO_WORKER_SOCKET',b'') in (b'',b'/run/baarcha-motion-studio/worker.sock') and env.get(b'STUDIO_WORKER_KEY')==key,'Motion worker is a forwarding proxy or credential generation differs')
         conn=http.client.HTTPConnection('172.19.0.1',8332,timeout=5)
         try:
             conn.request('GET','/api/projects',headers={'Authorization':'Bearer '+key.decode(),'Connection':'close'})

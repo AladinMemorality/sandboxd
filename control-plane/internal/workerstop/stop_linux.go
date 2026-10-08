@@ -35,6 +35,9 @@ var shaPattern = regexp.MustCompile(`^[a-f0-9]{64}$`)
 
 type Config struct {
 	Version           int                  `json:"version"`
+	WorkerID          string               `json:"worker_id,omitempty"`
+	MasterURL         string               `json:"master_url,omitempty"`
+	RetainedInactive  []string             `json:"retained_inactive,omitempty"`
 	Database          string               `json:"database"`
 	Migrations        string               `json:"migrations"`
 	Receipt           string               `json:"receipt"`
@@ -138,6 +141,16 @@ func LoadConfig(path string) (Config, error) {
 	}
 	if n, e := strconv.ParseUint(c.QEMUStartTime, 10, 64); e != nil || n == 0 {
 		return c, errors.New("invalid QEMU process generation")
+	}
+	if c.WorkerID != "" && (c.WorkerID != "vps" || c.Admission.NodeID != "10.0.2.15" || c.MasterURL != "http://10.254.240.1:18089") {
+		return c, errors.New("reviewed VPS-only lifecycle placement required")
+	}
+	seenRetained := map[string]bool{}
+	for _, id := range c.RetainedInactive {
+		if c.WorkerID == "" || !idPattern.MatchString(id) || seenRetained[id] || len(c.RetainedInactive) > 4096 {
+			return c, errors.New("invalid retained inactive inventory")
+		}
+		seenRetained[id] = true
 	}
 	if c.APIURL != "http://127.0.0.1:20300" {
 		return c, errors.New("fixed private worker API origin required")
@@ -299,7 +312,7 @@ func (h *Held) snapshot(ctx context.Context) (store.WorkerStopSnapshot, error) {
 	if pending, e := h.db.HasIncompleteRuntimeMigrations(ctx); e != nil || pending {
 		return store.WorkerStopSnapshot{}, errors.New("unfinished Docker migration prevents stop")
 	}
-	return h.db.WorkerStopInventory(ctx)
+	return h.db.WorkerStopInventory(ctx, h.config.WorkerID)
 }
 func (h *Held) Prepare(ctx context.Context) (*Proof, error) {
 	if h.db == nil {
@@ -312,10 +325,14 @@ func (h *Held) Prepare(ctx context.Context) (*Proof, error) {
 	if e != nil {
 		return nil, e
 	}
+	provider, e := scopeProvider(client, h.config)
+	if e != nil {
+		return nil, e
+	}
 	if e = client.ConfigureAdmission(ctx, h.db, h.config.Admission); e != nil {
 		return nil, e
 	}
-	return h.prepare(ctx, client, verifyController, workerSync, maintenance.CheckDatabaseUsers)
+	return h.prepare(ctx, provider, verifyController, workerSync, maintenance.CheckDatabaseUsers)
 }
 func (h *Held) prepare(ctx context.Context, provider Provider, controller func(context.Context, Config) error, syncData func(context.Context, Config) error, databaseUsers func(string) error) (*Proof, error) {
 	if databaseUsers == nil {
@@ -400,7 +417,7 @@ func (h *Held) prepare(ctx context.Context, provider Provider, controller func(c
 	if e = exactInventory(before, inventory, true); e != nil {
 		return nil, e
 	}
-	if e = h.db.WorkerStopAllReleased(ctx); e != nil {
+	if e = h.db.WorkerStopAllReleased(ctx, h.config.WorkerID); e != nil {
 		return nil, e
 	}
 	if e = databaseUsers(h.config.Database); e != nil {
@@ -494,8 +511,13 @@ func verifyQEMU(c Config) error {
 	}
 	required := map[string]bool{"baarcha-cube-worker-01": false, "file=/opt/baarcha-cube/worker-01/root.qcow2,if=virtio,format=qcow2": false, "file=/mnt/nvme/baarcha-cube/worker-01/data.qcow2,if=virtio,format=qcow2": false}
 	for _, a := range args {
-		if _, ok := required[a]; ok {
-			required[a] = true
+		// Discard changes allocation reclamation, never disk identity.
+		key := a
+		if strings.HasPrefix(a, "file=") {
+			key = strings.TrimSuffix(a, ",discard=unmap")
+		}
+		if _, ok := required[key]; ok {
+			required[key] = true
 		}
 	}
 	for _, present := range required {
@@ -527,5 +549,5 @@ func ReadInventory(ctx context.Context, c Config) (store.WorkerStopSnapshot, err
 		return empty, e
 	}
 	defer db.Close()
-	return store.WorkerStopInventoryDB(ctx, db)
+	return store.WorkerStopInventoryDB(ctx, db, c.WorkerID)
 }
