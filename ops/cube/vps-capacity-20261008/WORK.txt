@@ -1,0 +1,281 @@
+Authorized objective: VPS-only capacity for 50 awake apps, two concurrent builds,
+all 133 projects recoverable on VPS; production serving, smaller profiles,
+weighted durable CPU/RAM/storage admission, database/log/cache optimization,
+real-project restore tests, staged 10/20/35/50 load and recovery checks.
+Do not change B200. Commit and deploy tested code to main. Preserve canonical
+IDs, private data, task history, secrets and running customer work. No unproven
+capacity claim. Existing older benchmark files already removed separately.
+
+Worktrees:
+controller /tmp/baarcha-vps-profiles-20261008 (fork/main 0e525ee base)
+platform /tmp/baarcha-public-app-return-20261008 (main a61218d records;
+production platform dafa8ec).
+VPS uses ssh ControlPath /tmp/baarcha-vps-runtime.sock project-x.
+Inner worker SSH /opt/baarcha-cube/worker-01/operator-key, port20222,
+known_hosts in same folder, root@127.0.0.1.
+
+Stages pending:
+1. Validate pinned VPS-only 512MiB/4GiB template from current trusted OCI image.
+2. Add immutable per-template resource contracts and weighted transactional
+admission, retaining legacy 2CPU/2GiB policy for B200 and legacy runtimes.
+3. Backup/verify MySQL, archive closed binlogs to HDD, minimal row logging,
+bounded retention; reduce redundant status writes in exact deployed CubeOps.
+4. Prepare safe worker disk growth/reclamation and memory resize if required;
+complete lifecycle checkpoint/pin updates and no data loss.
+5. Global build concurrency and lightweight production-serving path; no
+reinstallation at normal wake; cold restores preserve patched dependencies.
+6. Fresh isolated representative restores including private data and config;
+validate all133 backup coverage; external coding-provider route independent B200.
+7. 10->20->35->50 serving plus two builds; recovery tests; load/latency/memory/
+disk evidence. Raise production limits only after proof; cleanup owned fixtures.
+8. Commit all code to appropriate main branches, deploy reviewed builds, final
+production browser checks and retention/monitoring automation.
+
+Progress 18:38Z:
+- 512MiB/4GiB React template tpl-78e4edb3d629465e9d8372c1 READY.
+- Pilot02 passed one guest serving+Vite build; boot5.94s build5.527s, peak
+  guest host RSS481095680 bytes. Deleted fixture, customer binding/quota unchanged.
+- Weighted controller implemented/tested but not committed/deployed/enrolled.
+  Migration0040 now preserves old grants and allows bounded per-template sizes.
+- MySQL all-database dump restored36tables, closedlogs archived HDD~1.03GiB.
+  Backup /var/backups/baarcha-cube-mysql/20261008T182446Z verified.
+  SET PERSIST MINIMAL +604800sec and PURGE archived logs reclaimed54.70GiB
+  inside worker. Old sessions need reconnect to pick up MINIMAL.
+- Data disk grew online512->672GiB; same inode3932163, boot, filesystem UUID;
+  guest free434357956608 bytes. Outer qcow2 physical reclamation pending.
+- CubeOps heartbeat patch built in /tmp/baarcha-cube-heartbeat-20261008,
+  based31d911e (actualbinaryversionidentified). Node-management tests pass;
+  disposable MySQL integration100heartbeats/100KB inventory emitted38300B.
+  Candidate not yet deployed. Source patch+tests copied here underheartbeat/.
+- Controller full suite first missed outside-module fixtures and sufferedHDD
+  fsync delay. Fixed fixture v2inventory path in workerstop tests (existing
+  mismatch), use executable tmpfs and root source mount including image/docs/
+  traefik. All packages passed separately; final full suite running.
+- Density01 harness prepared/built for35 lightweight guests, stages10/20/35,
+  two concurrent Vite builds inside guests, native quota temporary45CPU/32GiB,
+  canonicalproductionquota4unchanged. NOT STARTED YET.
+- Current40GiB worker cannot fully reserve50+4legacyguests+control-plane
+  overhead. Need48GiB restart OR coherent production resource contract before
+  proving50. Legacy wholeworker stop tooling explicitly refuses multi-worker
+  fleet; must implement worker-scoped lifecycle before any restart. No forced
+  QEMU stop and no B200 guest mutations.
+
+Progress 18:56Z:
+- Controller resource-budget feature committed and pushed fork/main32ba277.
+  Full Go suite passed with source-root mount + /tmp tmpfs rw,exec +GOMAXPROCS2.
+  Log controller-tests-final.log. Production controller still0e525ee legacy4.
+- 35-fixture density01 PASSED10/20/35 cohorts +onebuild then2concurrentbuilds.
+  Build2cohort6.06s. Cleanup35verified; quotasreturned10kCPU/10240MiB;customer
+  ea13b5592e6c4ab4a5a6f14bbd41e081 andallcanonicalbindings unchanged.
+  Monitor0failures; minimum workeravailable29.21GiB, outeravailable21.89GiB!
+  Snapshot sharing means physical increments far below summed RSS; muststill
+  fundmaxmemorybefore50 (40G worker+4prodslots worstcaseinsufficient).
+- CubeOps first deploymentattempt hit retained ExecStop guard: binaryswapbefore
+  restart invalidatesnativepath/hash. Restoredold4a0637..., thenmanualgraceful
+  SIGTERM onlyoldCubeOpsPID10636 andblockedhelper781124, noQEMU/guestsignals.
+  Recoveredserviceoldbinary PID788439. Exact recovery script onVPSstage.
+- Secondattempt scoped runtime /run systemd override clearsExecStop onlyfor
+  CubeOps, graceful stop, binaryswap, updatesinnerlifecycle.json artifacts hash,
+  restoresoriginalhook, startsAPI. Deployedv1hash9ab4272... readiness3.26s.
+  Logsremained28KB/s because inventorylistsrandomorder eachheartbeat!
+- CubeOpsv2 normalizes unordered inventorymultisets only(images/localtemplates),
+  keepsconditiontimestamps andallvaluechanges+duplicates. Go tests+MySQLtest
+  withshuffling100KB localtemplateinventorypassed (38300B/100heartbeats).
+  v2binary25d2df5bfff274f87fb74af4efc7ccf9b05e84bd45e4642e959a2c902844248e.
+  Deploymentservicebaarcha-heartbeat-deploy-20261008-03 running/checkreceipt
+  /opt/baarcha/operations/vps-50-profiles-20261008/heartbeat-deployed-v2.json.
+  Localdeploy-heartbeat.py isnowv2deployment, sourcepatch/testsunderheartbeat/
+  arev2. CubeOpsworktree /tmp/baarcha-cube-heartbeat-20261008 hasv2uncommitted.
+- mysql-backup.py nowhaslatestreceipt,14dayHDDretention(atleast2complete),
+  cleansonlycurrentruninnerprivatecopy. Dailyservice/timerwrittenNOTINSTALLED.
+  Needmanualnewscriptvalidationbeforeenabletimer.
+- Uncommitted NEXT changes: worker-scoped native lifecycle. Config.WorkerID/
+  MasterURLoptional; VPSscopeexplicitnode10.0.2.15/master10.254.240.1:18089.
+  Cube.InventoryOnNode checksMasterplacement forallrecords(noB200contact);
+  storescope filtersownedbindings/admissions, refusesunaccountedbindings and
+  legacyglobalstop onmixedfleet. Newtests passstore/cube/workerstop inVPS;
+  lastloglifecycle-scope-tests-03.log. Somegofmt versionsstillneedpullfromVPS.
+  ScopeProviderconfiguredBEFOREConfigureAdmission (pinnedplacementrequired).
+  Resource-budget WorkerObserve stilllegacy4 only! Mustextendbeforeenroll50.
+- Pythonboot_transition.py updatesonlyVPSbootpinsinsideFLEET andbothcompose/
+  activeoverlays, preservesB200fields;newtestpasses. maintenance.py
+  bindings_readonly filtersbyworker_idfromstopconfig. Tests118pass8skiponMac;
+  nativeLinux/rootfullsuitepending.
+- lifecycle.py fixed_qemu locallychanged48GiB +discard=unmap root/data;
+  unitMemoryHigh50G/Max52G, testupdated. NOTINSTALLED. IMPORTANT: maintenance
+  preflightcomparesoldQEMUargv toinstalledlife.fixed_qemu. Cannotinstallnew
+ 48Gscriptbeforeoldworkerstop. Needscopedplannedresize subclassinstallnew
+ lifecycleonlyAFTERcleanpause/QEMUexit, BEFOREparentauthorize_startcomputes
+ transitionpins. Keepold40Gscriptthroughpreflight/drain. Go verifyQEMUcurrently
+ acceptsroot/dataexactwithoutdiscard; addexactoptionaldiscard=unmap support.
+- OldplannedcycleexpectsMotionwriter/containeridentity; checkactualstatusand
+ currentpreflightbeforemutation. DoNOTforceworkerstop. Needfreshplanexplicit
+ VPS7bindings (notall133), scopednativeCLIs, matchingstopconfigfleetadmission.
+
+Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
+- All new work/tests must function without contacting B200. No B200 mutations.
+- Daily MySQL backup validated (20261008T185609Z), timer enabled03:00UTC+random.
+- Source-only recovery audit hashed all133 archives,15.01GiB expanded,6.11GiB
+  compressed.101haveGit,6localenv,4data-bearing candidates. Four isolated Docker
+  full-home restores passed (oneSQLite14tables integrity_ok,oneotherDB-format,
+  two upload projects). No application build/start claim for these checks yet.
+  Reports stage recovery-audit-summary.json,restore-data-results.json.
+- VPS-only readiness/lifecycle code committed/pushed fork/main6cd111d; fullGo
+  suitepassed stage/source/vps-only-tests.log. Controller imagefaf4ff62f0cc...
+  DEPLOYED via controller-release; currentIDa017a798... beforeworkerresize.
+  Nativefleet B200draining=true,VPSdraining=false ->newallocationsVPSonly.
+  Existing133bindingsunchanged(126stillB200,7VPS). Readinessnowchecks only
+  allocationworkers via fail-closed /cube/sandbox/inventory?host_id=...
+  Olderfullinventory/eachMasterinfo DID contactB200, replacedentirely.
+- Scopedlifecycle supports71reviewedretainedinactiveVPSorphanVMrecords plus7
+  canonicalbindings.69unboundreleasedadmissionsignoredonlyifuncharged;unknown/
+  activeorphansfail. Configretained_inactive list cannotintersectcurrentbindings.
+  ObserveOnNodeenrichesonly7canonicalVPSrecords (pause-onlybriefs lackresources).
+- Installednativeworkerstart/stopupdated;stopconfigworker_idvps,Masterdirect
+  http://10.254.240.1:18089,admissionmatchescurrentlegacy4,migrationsstage/operator-
+  migrations,retained71. Oldconfigsavedstage/maintenance-before. Codeonmain6cd.
+- Nativepreflightfound.one-click.env hashstale fromSept29Redisproxyimagepatch.
+  Verifiedoldpinnedbytes against releaseboot-config.before.PRIVATE, onlyexact
+  previouslydeployedimagechanged; updatedinnerlifecyclepin. Scriptlocal
+  reconcile-redis-boot-pin.py,innerreceiptpreserved.NothingB200changed.
+- Pythonmaintenance allowsPARTIALLY_READY onlytemplate_definition summary while
+  jobs/replicasstillmustterminal. AllowsreviewedMotionUDSenvpointer forTCPread.
+  ActualMotionproxyNOTgone:02503dfa... /s-01M3CKN99ZF90BEEA4DS66YAQV exited.
+- Workerrestart attempt01fencedthenroutecurltransientfailureBEFOREcontrollerstop.
+  Restoredexactrouting+timers+OFFLINE; endedonlyidlecoordinatorSIGUSR1 after
+  review; noguestpoweroperation. boundedread-onlyrouteprobe retriesadded.
+  Attempt02preflightfailedoldreadiness(globalfleet) ->fixedcontrollerabove.
+  Attempt03preflightfailedterminalpausecountdrift201->200;freshplan04generated.
+- Attempt04 normaldraincompleted, nativepauseproof7guests andcleanQEMUshutdown
+  succeeded. Stage /opt/baarcha-cube/worker-01/maintenance/vps-capacity-resize-
+  20261008-04. cleanreceipt/supervisorstatus/pre-draininventoryallpreserved.
+  Initialresizereader usedprivate-onlyhelperforexecutable755 ->stoppedbefore
+  install. resume-resize.py handedoffidlecoordinatoraftersavedproofchecks; next
+  attemptcaughtb.atomic'sprivate-onlyexistingfilecheck. Fixedexact-hashatomic
+  executableinstall (notweakenJSONhelper); resume-resize-02.py continuesfrom
+  sameverifiedcleanstop,noextraPoweroperations.
+- CURRENT activeunit baarcha-vps-resize-continue-20261008-02. Workerhasbooted
+  new48GiB+discardcontract, MainPID4174243,QEMUPID4174251, statusrunning-
+  unreconciled, jobcurrent start-intent. Waitingnestedmanagement readiness then
+  normalboottransitionreconcile/controllerrecreation/routingreopen. NEEDMONITOR
+  untilfullyready. Noapptrafficreopenyet. Newresumeerrorsfilesprefixresume2-.
+- AddedMaster/B200proxyrelaysto boot_transition.SERVICES soall5compose services
+  arerecreatedinnewcontrollernamespace. Python119native tests pass. Thislast
+  one-linechange NOTCOMMITTEDyet (restcode6cdcommitted).
+- Density50preparedNOTSTARTED: localdensity50.go/.py, stage/opt/baarcha/operations/
+  vps-density-20261008-02. Builtoperator,app.cjs,migrationscopied. Requires48G,
+  private50*640MiBbudget32000MB,nativequota60kCPU40GiBtemporary,cohorts10/20/35/50
+  +2builds. Canonicallegacy4unchanged;51totalwithcustomerifrunning. Allcleanup/
+  quotaCASguardssameas35proof. Rootrun.pygeneratedfromdensity50.py.
+- Remaining: finishworkerboot,reopen,physicalfstrim,run50; resourcebudgetprod
+  enrollment(profiles512/1G/3Gstillonly512exists),buildtaskqueue,production
+  serving; all133VPSbackuprestore/routingmigration(B200still126bindings),external
+  model routeverification/fallbackmode. DoNOTclaimVPSonlyexistingappsreadyyet.
+
+2026-10-08 19:56Z progress:
+- Clean worker resize/restart complete, traffic reopened19:39Z. 48GiB/12vCPU,
+  discard=unmap. Newboot2c6402ae-b2fc-4c6f-bee3-cbc9550e974b, QEMU4174251.
+  Seven canonical VPS bindings reconciled;71inactive historicalVMs preserved.
+- Fixed boot-transition validation to compare effective Compose overlay policy,
+  and recreate all four management relays alongside the controller.120 native
+  lifecycle tests passed. Generated proxy Redis image pin corrected with exact
+  previous-byte reconstruction and running-image proof; no arbitrary adoption.
+- 50 fixture test PASSED:51totalVMs incl1customer;1920checks,0failures.
+  Pagep95 1.265s,max3.729s. Minimumouteravailable45.31GiB,worker37.81GiB.
+  TotalVM PSS6.424GiB at51;mean128.99MiB. One then2concurrentVitebuilds passed.
+  All50fixtures deleted;canonicalbindings unchanged;nativequota restored.
+  This is a starter-app load test, not50distinctheavycustomerapps.
+- OpenRouter nativeAnthropictool-call check passed6.356s, noB200contact.
+  All126B200project task histories matchVPSbackup; no newer task lost.
+- 1GiB/8GiB template tpl-86350411460a47db8ffe6ff5 READY.
+  3GiB/2vCPU/8GiB builder tpl-fc19740e38044be0a9bf7abe READY.
+- FullGo suite passed weighted lifecycle/durablecontract+profile-relocation code.
+  Main1b7948c followedbyc9811a8 (drainedworker neednotnewcreationpresets).
+  Final targetedcubeconfigtests passed. Imagec9811a8 buildingweighted-release-02.
+- fstrim initial150sboundedattempt timedout cleanly; partialphysicalreclamation,
+  no runningfstrim remains. after-densityunitfailedaccurately. Profilepreparation
+  completedseparately. Need finishtrimafterresourceenrollment.
+- Productionweighted-enrollment prepared, NOT RUN yet. Budget40GiB/9reservedCPU,
+  50runtime+2builderprofile slots;newReact512MiB. Existingtemplates retained.
+  Builderprofile slots DO NOT yet limit codingtasks globally. Queue pending.
+- Stillpending: productionenrollment+canary, complete126sourcebackuprelocations
+  withoutB200, durablecoding/buildqueue, lightweightproductionserving, fulltrim,
+  dailyprojectsourcebackup automation andrealcodingflow validation.
+
+2026-10-08 20:17Z progress (supersedes the 19:56Z pending statuses):
+- Weighted production enrollment completed on c9811a8, image d0429067;
+  readyz and public NOS/Derja browser navigation passed. Native quota72vCPU/
+  44GiB, physical worker48GiB/12vCPU, weighted40GiB/9CPU,50runtime+2builder VMs.
+- Trim completed without changing data inode or guest boot:103.34GiB physical
+  reclaimed. Native MySQL daily backup timer installed and restore-verified.
+- Derja restored from VPS backup to VPS512MiB guest; ownership/workspace/home/
+  history/config verified, pause/wake and browser away/back passed. No B200
+  source contacted.125B200 bindings remain; their archives are all VPS-local.
+- Offline recovery preparation finished125:111prepared,14need review
+  (9external symlinks,3home-scope reviews,1missing task event,1assertion).
+  Do not blindly rerun exclusive preparation/restore directories.
+- User explicitly rejected an assumed two-agent limit and requested maximum-
+  first measurement. Running vps-build-concurrency-20261008-01:50starterVMs,
+  first50 simultaneous builds, then35/20/12/6/2 and repeat50. Production quota
+  stays unchanged, fixture admission DB separate, canonical bindings preserved.
+  Host/worker memory, OOM, pressure, platform HTTP and actual public NOS browser
+  checks monitored.50synthetic cloud tool calls trigger with first build burst;
+  these are not50full coding-agent sessions. No B200 used.
+- Coding queue code remains UNCOMMITTED/UNDEPLOYED. Decoupled configurable
+  SANDBOXD_CUBE_TASK_CONCURRENCY from dedicated builder-VM slots; default0
+  leaves existing submission path.50concurrent store claims test passed with
+  only2builder-VM slots. Full Go suite passed after fixture correction.
+  Before deployment: add API queue tests, retain terminal replay for cancelled/
+  failed pre-dispatch tasks without waking guest, review SSE resume handling,
+  atomic terminal payload deletion, and full agent-flow verification. Do not
+  infer production agent concurrency from simple npm/tool-call results alone.
+
+2026-10-08 20:24Z USER REQUESTED BREAK — ALL WORK PAUSED:
+- User explicitly deferred 50 agent/model calls until later. Do not restart
+  cloud-concurrency.py or start real agent sessions without renewed instruction.
+  No real coding-agent sessions were started. Synthetic50cloud probe triggered
+  at20:21:18Z and was stopped20:21:30Z; some/all outbound requests may have
+  started. No completed cloud result. Service inactive; no timer installed.
+- Local50build test aborted by outer host memory PSI guard (full avg10=5.18),
+  not an OOM or lack of available RAM. Last available host27.31GiB, guest37.06GiB;
+  nativeworker guestPSI0, outerworker cgroup limits/oom events all0.
+  Outerworker cgroup PSI later showed pressure, so do not attribute it to the
+  cloud helper without evidence. Need investigate memory reclaim/page faults
+  and repeat LOCAL-ONLY load comparisons later; no hardware maximum established.
+- All50temporary VMs deleted, fixture charges0, canonical runtime bindings and
+  native quota unchanged. Same customer runtime before/after. Productionreadyz
+  ready.1970HTTPchecks0failures, p95~1.265s,max7.544s. Build cohorts incomplete.
+  Report: build-concurrency-summary.json; full remote evidence root
+  /opt/baarcha/operations/vps-build-concurrency-20261008-01.
+- Build unit failed deliberately on monitor stop, cleanup_verified=true.
+  Cloud and recovery-preparation units inactive. Local browser monitor PID89058
+  terminated after verifying its exact command. No further load test running.
+- Do not claim 50 full agents tested, do not deploy unfinished queue. Shared
+  user checkout untouched; main/production remain c9811a8. Isolated worktree
+  /tmp/baarcha-vps-profiles-20261008 retains all uncommitted work and tests.
+- Next: honor user pause; resume only when asked. Original VPS-only recovery/
+  capacity task remains unfinished (125bindings stillB200,111archives prepared,
+  14need review; queue/API terminal replay and production rollout pending).
+
+2026-10-08 22:00Z resumed progress (supersedes paused status):
+- User said continue; VPS-only work resumed. Model/agent load remains deferred.
+- Durable queue API/store tests and full Go suite passed. Committed main d463b2d,
+  deployed image74de608ad8675895f4f9e44a5456a5bb6a96845898221973f629f75318c63300.
+  Queue DISABLED. All134bindings preserved by rollout; readyz healthy.
+- Three private-data scope exceptions and eight reviewed-link archives prepared
+  and import-contract validated without contacting B200. Original backups kept.
+- React canary01M16MV7KZSF3YNAJ1VKWKYED5 completed VPS restoration. ZIP DOS flag
+  mismatch corrected in separate archives after proving byte/Unix-mode equality.
+  Partial failed PNPM install added only dependency directories/project link;
+  original source/home proved unchanged. npm-registry-only recovery channel
+  reinstalled202packages. Content/history/config verified, wake1.063s, stopped.
+- New registry-only policy tests and full Go suite passed. CLI helper on VPS is
+  cube-relocate-package-recovery; production controller does not use this option.
+- Derja post-release browser away/back passed, zero page errors,7.501s total.
+- Sequential batch01 of10 standard Vite projects running. Stop on first failure.
+  Source/target receipts and progress remain on VPS; do not rerun existing jobs.
+- NOS's earlier completed recovery changed runtime3457dc... to3dc02a... onB200.
+  Its original verified recovery artifacts are still onVPS; preparing a chained
+  snapshot with exact raw hashes and unchanged three-task history. NoB200access.
+- Do not claim all sandboxes migrated,50agents tested, or routine project-source
+  backup scheduling complete. Maximum build test still stopped on hostPSIguard.

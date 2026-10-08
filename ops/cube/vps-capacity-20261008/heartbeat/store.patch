@@ -1,0 +1,137 @@
+diff --git a/CubeOps/internal/nodemanagement/store/store.go b/CubeOps/internal/nodemanagement/store/store.go
+index be9b17b..025a596 100644
+--- a/CubeOps/internal/nodemanagement/store/store.go
++++ b/CubeOps/internal/nodemanagement/store/store.go
+@@ -8,6 +8,9 @@ import (
+ 	"encoding/json"
+ 	"errors"
+ 	"fmt"
++	"reflect"
++	"sort"
++	"strings"
+ 	"time"
+ 
+ 	"gorm.io/gorm"
+@@ -92,26 +95,106 @@ func (s *gormNodeStore) UpdateLabels(ctx context.Context, nodeID string, labels
+ 	return res.Error
+ }
+ 
++// equalJSON tolerates MySQL's normalization of JSON whitespace and key order.
++// UseNumber avoids treating distinct large integer values as the same float.
++func equalJSON(a, b string) bool {
++	if a == b {
++		return true
++	}
++	var av, bv any
++	ad, bd := json.NewDecoder(strings.NewReader(a)), json.NewDecoder(strings.NewReader(b))
++	ad.UseNumber()
++	bd.UseNumber()
++	return ad.Decode(&av) == nil && bd.Decode(&bv) == nil && reflect.DeepEqual(av, bv)
++}
++
++// Inventory is an unordered multiset. Cubelet reports it from maps, so a
++// harmless change in enumeration order must not rewrite the whole inventory.
++// Sort canonical entries while preserving duplicates and all field values.
++func equalInventoryJSON(a, b string) bool {
++	if equalJSON(a, b) {
++		return true
++	}
++	normalize := func(raw string) ([]string, bool) {
++		var entries []json.RawMessage
++		if json.Unmarshal([]byte(raw), &entries) != nil || entries == nil {
++			return nil, false
++		}
++		out := make([]string, 0, len(entries))
++		for _, entry := range entries {
++			var v any
++			d := json.NewDecoder(strings.NewReader(string(entry)))
++			d.UseNumber()
++			if d.Decode(&v) != nil {
++				return nil, false
++			}
++			encoded, e := json.Marshal(v)
++			if e != nil {
++				return nil, false
++			}
++			out = append(out, string(encoded))
++		}
++		sort.Strings(out)
++		return out, true
++	}
++	av, aok := normalize(a)
++	bv, bok := normalize(b)
++	return aok && bok && reflect.DeepEqual(av, bv)
++}
++
+ func (s *gormNodeStore) UpdateHostFacts(ctx context.Context, nodeID string, factsJSON, cpuidHash, kernelRelease string) error {
+-	res := s.db.WithContext(ctx).Table(model.NodeMetaRegistrationTable).
+-		Where("node_id = ?", nodeID).
+-		Updates(map[string]any{
+-			"host_facts_json":     factsJSON,
+-			"cpuid_hash":          cpuidHash,
+-			"host_kernel_release": kernelRelease,
+-			"updated_at":          time.Now(),
+-		})
+-	return res.Error
++	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
++		var old NodeRegistration
++		err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("node_id = ?", nodeID).Take(&old).Error
++		if errors.Is(err, gorm.ErrRecordNotFound) {
++			return nil
++		}
++		if err != nil {
++			return err
++		}
++		updates := map[string]any{}
++		if !equalJSON(old.HostFactsJSON, factsJSON) {
++			updates["host_facts_json"] = factsJSON
++		}
++		if old.CPUIDHash != cpuidHash {
++			updates["cpuid_hash"] = cpuidHash
++		}
++		if old.HostKernelRelease != kernelRelease {
++			updates["host_kernel_release"] = kernelRelease
++		}
++		if len(updates) == 0 {
++			return nil
++		}
++		updates["updated_at"] = time.Now()
++		return tx.Model(&old).Updates(updates).Error
++	})
+ }
+ 
+ func (s *gormNodeStore) UpsertStatus(ctx context.Context, status *NodeStatus) error {
+-	return s.db.WithContext(ctx).Clauses(clause.OnConflict{
+-		Columns: []clause.Column{{Name: "node_id"}},
+-		DoUpdates: clause.AssignmentColumns([]string{
+-			"conditions_json", "images_json", "local_templates_json",
+-			"heartbeat_unix", "healthy", "updated_at",
+-		}),
+-	}).Create(status).Error
++	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
++		// The unique node key serializes first registration as well as existing
++		// heartbeats. A duplicate is a no-op, never a replacement of newer fields.
++		if err := tx.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "node_id"}}, DoNothing: true}).Create(status).Error; err != nil {
++			return err
++		}
++		var old NodeStatus
++		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("node_id = ?", status.NodeID).Take(&old).Error; err != nil {
++			return err
++		}
++		updates := map[string]any{"heartbeat_unix": status.HeartbeatUnix, "healthy": status.Healthy, "updated_at": time.Now()}
++		if !equalJSON(old.ConditionsJSON, status.ConditionsJSON) {
++			updates["conditions_json"] = status.ConditionsJSON
++		}
++		if !equalInventoryJSON(old.ImagesJSON, status.ImagesJSON) {
++			updates["images_json"] = status.ImagesJSON
++		}
++		if !equalInventoryJSON(old.LocalTemplatesJSON, status.LocalTemplatesJSON) {
++			updates["local_templates_json"] = status.LocalTemplatesJSON
++		}
++		// MINIMAL row images then contain liveness plus changed inventory only.
++		// This still persists every heartbeat and doesn't rely on process caches.
++		return tx.Model(&old).Updates(updates).Error
++	})
+ }
+ 
+ func (s *gormNodeStore) GetStatus(ctx context.Context, nodeID string) (*NodeStatus, error) {

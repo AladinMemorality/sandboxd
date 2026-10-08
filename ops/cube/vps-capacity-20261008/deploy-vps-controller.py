@@ -1,0 +1,58 @@
+#!/usr/bin/env python3
+"""Apply only the preview controller image/config, with exact-baseline rollback."""
+import contextlib,fcntl,json,os,pathlib,sqlite3,subprocess,time,urllib.request,hashlib
+P=pathlib.Path;ROOT=P('/opt/baarcha/operations/vps-50-profiles-20261008/controller-release');os.umask(0o077)
+FILES=[P('/opt/sandboxd/deploy-state/runtime-compose.json'),P('/opt/sandboxd/deploy-state/active-images.json')];STOP=P('/etc/baarcha-cube/worker-stop.json')
+BASE='sha256:47ae7621a38cfe72b497c6a3930f015d2d535255fd64f96d55a1adae796f3676'
+LOCKS=['/opt/baarcha/deploy-release.lock','/opt/sandboxd/deploy-state/deploy.lock','/run/lock/cube-operator-acceptance.lock','/opt/baarcha-bench/cube-workload-operator.lock']
+def run(args):return subprocess.check_output(args,stderr=subprocess.STDOUT)
+def inspect():return json.loads(run(['docker','inspect','src-sandboxd-1']))[0]
+def compose(*args):return run(['docker','compose','--project-directory','/opt/sandboxd/src','-f','/opt/sandboxd/src/docker-compose.yml','-f',str(FILES[0]),'-f',str(FILES[1]),*args])
+def put(p,b):
+ tmp=p.with_name(p.name+'.preview-new');tmp.write_bytes(b);tmp.chmod(0o600);os.replace(tmp,p)
+def db():return sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True,timeout=10)
+def bindings():
+ with contextlib.closing(db()) as c:return c.execute('select sandbox_id,runtime_id from runtime_binding order by sandbox_id').fetchall()
+def ready():
+ for _ in range(150):
+  try:
+   with urllib.request.urlopen('http://127.0.0.1:9090/readyz',timeout=5) as r:
+    if r.status==200:return
+  except Exception:time.sleep(1)
+ raise RuntimeError('controller readiness failed')
+with contextlib.ExitStack() as stack:
+ for path in LOCKS:
+  f=stack.enter_context(open(path,'a+'));fcntl.flock(f,fcntl.LOCK_EX|fcntl.LOCK_NB)
+ before=inspect();assert before['Image']==BASE,'Controller baseline changed'
+ with contextlib.closing(db()) as c:
+  assert c.execute("select count(*) from task where status in ('running','queued')").fetchone()[0]==0,'Active task: wait for completion'
+  assert c.execute("select count(*) from cube_admission where state='pending'").fetchone()[0]==0,'Provider operation in progress'
+  with sqlite3.connect(ROOT/'before-preview.PRIVATE.sqlite') as backup:c.backup(backup)
+ before_bindings=bindings();original={str(p):p.read_bytes() for p in [*FILES,STOP]}
+ for p in [*FILES,STOP]:put(ROOT/(p.name+'.before'),original[str(p)])
+ oldrender=json.loads(compose('config','--format','json'));candidate=(ROOT/'image.id').read_text().strip()
+ assert candidate.startswith('sha256:')
+ oldenv=dict(v.split('=',1) for v in before['Config']['Env']);fleet=json.loads(oldenv['SANDBOXD_CUBE_FLEET'])
+ assert {w['id'] for w in fleet['workers']}=={'vps','b200-01'}
+ for worker in fleet['workers']:worker['draining']=worker['id']!='vps'
+ fleet_raw=json.dumps(fleet,separators=(',',':'))
+ try:
+  for p in FILES:
+   value=json.loads(original[str(p)]);svc=value['services']['sandboxd'];svc['image']=candidate;svc.setdefault('environment',{})['SANDBOXD_CUBE_FLEET']=fleet_raw
+   put(p,json.dumps(value).encode())
+  newrender=json.loads(compose('config','--format','json'));expected=json.loads(json.dumps(oldrender));expected['services']['sandboxd']['image']=candidate;expected['services']['sandboxd']['environment']['SANDBOXD_CUBE_FLEET']=fleet_raw
+  assert newrender==expected,'Unexpected Compose changes'
+  compose('up','-d','--no-deps','--no-build','--pull','never','sandboxd')
+  compose('up','-d','--no-deps','--no-build','--pull','never','--force-recreate','cube-management-api','cube-management-proxy','cube-management-master','cube-management-b200-proxy')
+  ready();after=inspect();assert after['Image']==candidate and after['State']['Running']
+  stop=json.loads(original[str(STOP)]);assert stop['controller_id']==before['Id'];stop['controller_id']=after['Id'];put(STOP,json.dumps(stop).encode())
+  assert bindings()==before_bindings,'Runtime bindings changed during rollout'
+  result={'deployed':True,'controller':after['Id'],'image':candidate,'previous_image':BASE,'bindings_preserved':len(before_bindings),'new_allocations':'vps-only','b200_bindings_retained_for_recovery':True}
+  put(ROOT/'deployed.json',json.dumps(result).encode());print(json.dumps(result))
+ except BaseException:
+  for p in FILES:put(p,original[str(p)])
+  compose('up','-d','--no-deps','--no-build','--pull','never','sandboxd')
+  compose('up','-d','--no-deps','--no-build','--pull','never','--force-recreate','cube-management-api','cube-management-proxy','cube-management-master','cube-management-b200-proxy');ready()
+  stop=json.loads(original[str(STOP)]);stop['controller_id']=inspect()['Id'];put(STOP,json.dumps(stop).encode())
+  print('Controller rolled back to previous image/config')
+  raise

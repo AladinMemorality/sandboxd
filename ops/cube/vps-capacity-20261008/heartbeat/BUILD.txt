@@ -1,0 +1,17 @@
+Base CubeSandbox revision: 31d911e430fdf8a8879bd062b8e78066c1a8e89d.
+The inspected production binary reports that revision, Go1.25.7 and v0.7.1.
+Build from CubeOps + pkgs at that revision with store.patch applied; copy the
+heartbeat*_test.go files into CubeOps/internal/nodemanagement/store/.
+
+Toolchain image: golang:1.25.7-bookworm
+Pinned image digest: sha256:564e366a28ad1d70f460a2b97d1d299a562f08707eb0ecb24b659e5bd6c108e1
+GOMAXPROCS=2 go test ./internal/nodemanagement/... -count=1
+CGO_ENABLED=0 go test -c -o heartbeat.test ./internal/nodemanagement/store
+CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o cubeops-candidate ./cmd/cubeops
+
+The binary uses upstream default version fields. Its exact installed SHA256 and
+this patch, test output and source revision provide the release identity.
+Integration test requires only a disposable cube_heartbeat_test schema with
+MINIMAL binary logging; never set its DSN to a production database.
+This patch changes no schema and preserves heartbeat and inventory semantics.
+MySQL MINIMAL is necessary to avoid the old full-row before image being logged.

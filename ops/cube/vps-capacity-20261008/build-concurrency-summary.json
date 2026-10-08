@@ -1,0 +1,31 @@
+{
+  "completed": false,
+  "cleanup_verified": true,
+  "created_fixtures": 50,
+  "profile": "50 copies of the React/Vite starter, 512MiB each; npm run build",
+  "b200_contacted": false,
+  "build_cohorts": [],
+  "http_checks": 1970,
+  "http_failures": 0,
+  "http_p95_seconds": 1.265463721,
+  "http_max_seconds": 7.5442952089999995,
+  "host_min_available_gib": 27.306346893310547,
+  "worker_min_available_gib": 37.05740737915039,
+  "oom_delta": {
+    "outer": 0,
+    "worker": 0
+  },
+  "verification": {
+    "bindings_unchanged": true,
+    "quota_unchanged": true,
+    "monitor_failures": [
+      "outer memory pressure"
+    ],
+    "customer_runtime_ids_before": [
+      "ea13b5592e6c4ab4a5a6f14bbd41e081"
+    ],
+    "runtime_ids_after": [
+      "ea13b5592e6c4ab4a5a6f14bbd41e081"
+    ]
+  }
+}

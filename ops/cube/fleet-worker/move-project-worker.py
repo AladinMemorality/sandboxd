@@ -44,8 +44,8 @@ class Worker:
         assert self.headers['Host'].startswith('3031-'+job['runtime_id']+'.')
         assert not any('\r' in v or '\n' in v for v in self.headers.values())
 
-    def http(self,method,path,body=None,size=None,headers=None,export=None):
-        c=http.client.HTTPConnection(*self.origin,timeout=600)
+    def http(self,method,path,body=None,size=None,headers=None,export=None,timeout=600):
+        c=http.client.HTTPConnection(*self.origin,timeout=timeout)
         try:
             h=dict(self.headers if headers is None else headers)
             if isinstance(body,(dict,list)):
@@ -165,7 +165,7 @@ class Worker:
         headers={**self.headers,'Host':self.headers['Host'].replace('3031-',str(self.job['web_port'])+'-',1)}
         deadline=time.monotonic()+120
         while True:
-            try:self.http('GET','/',headers=headers);break
+            try:self.http('GET','/',headers=headers,timeout=5);break
             except (OSError,RuntimeError):
                 assert time.monotonic()<deadline,'application did not become ready';time.sleep(1)
         proof={'RelocationID':self.job['id'],'SandboxID':self.job['sandbox_id'],'RuntimeID':self.job['runtime_id'],'WorkerID':self.job['worker'],'ConfigApplied':True,'ApplicationReady':True}

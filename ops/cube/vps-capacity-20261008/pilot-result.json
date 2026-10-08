@@ -1,0 +1,103 @@
+{
+  "build_rounds": [
+    {
+      "concurrent": 1,
+      "guests": [
+        {
+          "exit_code": 0,
+          "log_bytes": 932,
+          "pid": 22,
+          "rss": 56913920,
+          "run": 1,
+          "seconds": 5.527,
+          "signal": null,
+          "started": 1791483590945,
+          "state": "passed"
+        }
+      ],
+      "seconds": 6.037228412
+    }
+  ],
+  "charged_remaining": 0,
+  "cleanup_failures": [],
+  "cleanup_verified": true,
+  "completed": true,
+  "created_fixtures": 1,
+  "max_test_fixtures": 1,
+  "profile": "1vCPU / 512MiB React/Vite template, pages then concurrent template builds",
+  "ready_fixtures": 1,
+  "rounds": [
+    [
+      {
+        "html_bytes": 557,
+        "http": 200,
+        "id": "1e38671318034344a23cba97674bf6a5",
+        "ok": true,
+        "preview_status": "ready",
+        "seconds": 0.052500328
+      }
+    ],
+    [
+      {
+        "html_bytes": 557,
+        "http": 200,
+        "id": "1e38671318034344a23cba97674bf6a5",
+        "ok": true,
+        "preview_status": "ready",
+        "seconds": 0.006002132
+      }
+    ],
+    [
+      {
+        "html_bytes": 557,
+        "http": 200,
+        "id": "1e38671318034344a23cba97674bf6a5",
+        "ok": true,
+        "preview_status": "ready",
+        "seconds": 0.005436834
+      }
+    ],
+    [
+      {
+        "html_bytes": 557,
+        "http": 200,
+        "id": "1e38671318034344a23cba97674bf6a5",
+        "ok": true,
+        "preview_status": "ready",
+        "seconds": 0.006065154
+      }
+    ],
+    [
+      {
+        "html_bytes": 557,
+        "http": 200,
+        "id": "1e38671318034344a23cba97674bf6a5",
+        "ok": true,
+        "preview_status": "ready",
+        "seconds": 0.013219804
+      }
+    ],
+    [
+      {
+        "html_bytes": 557,
+        "http": 200,
+        "id": "1e38671318034344a23cba97674bf6a5",
+        "ok": true,
+        "preview_status": "ready",
+        "seconds": 0.004572141
+      }
+    ],
+    [
+      {
+        "html_bytes": 557,
+        "http": 200,
+        "id": "1e38671318034344a23cba97674bf6a5",
+        "ok": true,
+        "preview_status": "ready",
+        "seconds": 0.004656972
+      }
+    ]
+  ],
+  "target_requested": 50,
+  "worker": "vps"
+}

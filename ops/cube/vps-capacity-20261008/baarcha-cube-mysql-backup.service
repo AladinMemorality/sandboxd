@@ -1,0 +1,17 @@
+[Unit]
+Description=Verify Cube MySQL restore and archive binary logs onto VPS HDD
+After=network-online.target baarcha-cube-worker-01.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=root
+UMask=0077
+ExecStart=/usr/bin/python3 /usr/local/libexec/baarcha-cube-mysql-backup.py
+CPUQuota=100%
+MemoryMax=1G
+MemorySwapMax=0
+Nice=10
+IOSchedulingClass=best-effort
+IOSchedulingPriority=7
+TimeoutStartSec=90min

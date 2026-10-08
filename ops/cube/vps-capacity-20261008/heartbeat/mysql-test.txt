@@ -1,0 +1,5 @@
+=== RUN   TestHeartbeatMySQLInventoryAndLogVolume
+    heartbeat_mysql_test.go:113: 100 heartbeats with a 100KB inventory wrote 38300 binary-log bytes
+--- PASS: TestHeartbeatMySQLInventoryAndLogVolume (1.18s)
+PASS
+

@@ -1,0 +1,8 @@
+import json,pathlib,statistics,math
+root=pathlib.Path('/opt/baarcha/operations/vps-density-20261008-02');r=json.loads((root/'result.json').read_text());v=json.loads((root/'final-verification.json').read_text());metrics=[json.loads(x) for x in (root/'metrics.jsonl').read_text().splitlines()]
+checks=[c for batch in r['rounds'] for c in batch];latency=sorted(c['seconds'] for c in checks);samples=[m for m in metrics if len(m['worker']['tasks'])>=51]
+summary={'ready_fixtures':r['ready_fixtures'],'customer_guests_during_test':1,'checks':len(checks),'failed_checks':sum(not c['ok'] for c in checks),'page_p95_seconds':latency[math.ceil(len(latency)*.95)-1],'page_max_seconds':max(latency),'min_outer_available_gib':min(m['outer']['available'] for m in metrics)/2**30,'min_worker_available_gib':min(m['worker']['available'] for m in metrics)/2**30,'monitor_failures':v['monitor_failures'],'build_rounds':r['build_rounds'],'cleanup_verified':r['cleanup_verified'],'bindings_unchanged':v['bindings_unchanged'],'native_quota_restored':v['quota_unchanged'],'worker':'vps','profile':'1 vCPU, 512 MiB guest, 4 GiB writable disk','workload':'copies of the React/Vite starter; 50 serving concurrently with 1 then 2 simultaneous Vite builds','production_capacity_enrolled':False}
+if samples:
+ s=samples[-1];summary['total_vm_pss_gib_at_51']=sum(x['pss_bytes'] for x in s['worker']['tasks'])/2**30
+ summary['mean_vm_pss_mib_at_51']=statistics.mean(x['pss_bytes']/2**20 for x in s['worker']['tasks'])
+out=pathlib.Path('/opt/baarcha/operations/vps-50-profiles-20261008/density50-summary.json');out.write_text(json.dumps(summary,indent=2));print(json.dumps(summary))

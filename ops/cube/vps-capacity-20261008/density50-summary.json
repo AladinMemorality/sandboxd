@@ -1,0 +1,67 @@
+{
+  "ready_fixtures": 50,
+  "customer_guests_during_test": 1,
+  "checks": 1920,
+  "failed_checks": 0,
+  "page_p95_seconds": 1.265347676,
+  "page_max_seconds": 3.729425837,
+  "min_outer_available_gib": 45.309242248535156,
+  "min_worker_available_gib": 37.80692672729492,
+  "monitor_failures": [],
+  "build_rounds": [
+    {
+      "concurrent": 1,
+      "guests": [
+        {
+          "exit_code": 0,
+          "log_bytes": 932,
+          "pid": 23,
+          "rss": 53047296,
+          "run": 1,
+          "seconds": 5.428,
+          "signal": null,
+          "started": 1791488916234,
+          "state": "passed"
+        }
+      ],
+      "seconds": 6.037588058
+    },
+    {
+      "concurrent": 2,
+      "guests": [
+        {
+          "exit_code": 0,
+          "log_bytes": 932,
+          "pid": 23,
+          "rss": 53047296,
+          "run": 2,
+          "seconds": 3.172,
+          "signal": null,
+          "started": 1791488922278,
+          "state": "passed"
+        },
+        {
+          "exit_code": 0,
+          "log_bytes": 932,
+          "pid": 21,
+          "rss": 57495552,
+          "run": 1,
+          "seconds": 5.431,
+          "signal": null,
+          "started": 1791488922323,
+          "state": "passed"
+        }
+      ],
+      "seconds": 6.049337746
+    }
+  ],
+  "cleanup_verified": true,
+  "bindings_unchanged": true,
+  "native_quota_restored": true,
+  "worker": "vps",
+  "profile": "1 vCPU, 512 MiB guest, 4 GiB writable disk",
+  "workload": "copies of the React/Vite starter; 50 serving concurrently with 1 then 2 simultaneous Vite builds",
+  "production_capacity_enrolled": false,
+  "total_vm_pss_gib_at_51": 6.4243316650390625,
+  "mean_vm_pss_mib_at_51": 128.9905024509804
+}

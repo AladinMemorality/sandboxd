@@ -1,0 +1,9 @@
+{
+  "deployed": true,
+  "cubeops_readiness_seconds": 2.9518790245056152,
+  "old_bytes_per_second": 29026.787711731497,
+  "new_bytes_per_second": 676.0535774729615,
+  "new_sha256": "25d2df5bfff274f87fb74af4efc7ccf9b05e84bd45e4642e959a2c902844248e",
+  "vps_quota_unchanged": true,
+  "guest_services_restarted": false
+}

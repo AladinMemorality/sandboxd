@@ -24,6 +24,7 @@ type Resolver interface {
 type Policy struct {
 	ProtectedPrefixes []netip.Prefix
 	ProtectedDomains  []string // exact names and their subdomains
+	AllowedHosts      []string // optional exact DNS names; empty retains public egress
 	Ports             []uint16 // empty means TCP 80 and 443
 	Resolver          Resolver
 }
@@ -69,7 +70,7 @@ func canonicalHost(raw string) (string, error) {
 // Validate checks that an explicit bounded management-address inventory exists.
 // IPv4 is the only supported dial family; IPv6 protected entries are rejected.
 func (p Policy) Validate() error {
-	if len(p.ProtectedPrefixes) == 0 || len(p.ProtectedPrefixes) > 128 || len(p.ProtectedDomains) > 128 || len(p.Ports) > 32 {
+	if len(p.ProtectedPrefixes) == 0 || len(p.ProtectedPrefixes) > 128 || len(p.ProtectedDomains) > 128 || len(p.AllowedHosts) > 128 || len(p.Ports) > 32 {
 		return errors.New("explicit bounded management-address inventory required")
 	}
 	for _, prefix := range p.ProtectedPrefixes {
@@ -85,6 +86,13 @@ func (p Policy) Validate() error {
 	for _, port := range p.Ports {
 		if port == 0 {
 			return errors.New("invalid allowed port")
+		}
+	}
+	for _, host := range p.AllowedHosts {
+		canonical, err := canonicalHost(host)
+		_, ipErr := netip.ParseAddr(host)
+		if err != nil || canonical != host || ipErr == nil {
+			return errors.New("allowed hosts must be canonical DNS names")
 		}
 	}
 	return nil
@@ -117,6 +125,15 @@ func (p Policy) Destination(ctx context.Context, raw string, port uint16) (strin
 	host, err := canonicalHost(raw)
 	if err != nil {
 		return "", err
+	}
+	if len(p.AllowedHosts) > 0 {
+		allowed := false
+		for _, candidate := range p.AllowedHosts {
+			allowed = allowed || host == candidate
+		}
+		if !allowed {
+			return "", ErrDenied
+		}
 	}
 	for _, domain := range p.ProtectedDomains {
 		domain, _ = canonicalHost(domain)

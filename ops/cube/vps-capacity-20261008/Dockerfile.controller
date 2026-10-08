@@ -1,0 +1,6 @@
+# Preserve the deployed runtime libraries; replace only the tested controller.
+# Build cube-controller from sandboxd 6cd111d with Go 1.22/bookworm and CGO=1.
+FROM sha256:47ae7621a38cfe72b497c6a3930f015d2d535255fd64f96d55a1adae796f3676
+COPY cube-controller /usr/local/bin/cube-controller
+COPY migrations/ /usr/local/share/cube-controller/migrations/
+LABEL org.opencontainers.image.revision="6cd111d"

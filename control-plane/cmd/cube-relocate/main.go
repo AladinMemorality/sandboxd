@@ -30,7 +30,10 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
 
-type request struct{ Action, ID, AppID, SandboxID, ExpectedRuntime, TargetWorker, TargetTemplate, Directory, Migrations string }
+type request struct {
+	Action, ID, AppID, SandboxID, ExpectedRuntime, TargetWorker, TargetTemplate, Directory, Migrations string
+	PackageDownloads                                                                                   bool
+}
 type target struct {
 	Relocation      store.CubeRelocation
 	SupervisorToken string `json:"supervisor_token"`
@@ -202,6 +205,19 @@ func main() {
 		if t.Relocation.ID != j.ID || t.Runtime == nil || t.SupervisorToken == "" || t.TrafficToken == "" {
 			panic("target channel scope differs")
 		}
+		policy := egress.Policy{ProtectedPrefixes: []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0")}}
+		outbound := "deny-all"
+		if in.PackageDownloads {
+			if j.TargetWorker != "vps" {
+				panic("package recovery is limited to the VPS")
+			}
+			policy, e = egress.OperatorPolicy(env["SANDBOXD_CUBE_EGRESS_PROTECTED_CIDRS"], env["SANDBOXD_CUBE_EGRESS_PROTECTED_DOMAINS"])
+			must(e)
+			policy.AllowedHosts = []string{"registry.npmjs.org"}
+			policy.Ports = []uint16{443}
+			must(policy.Validate())
+			outbound = "npm-registry-only"
+		}
 		origin := "http://10.254.240.2:28080"
 		if j.TargetWorker == "vps" {
 			origin = "http://127.0.0.1:20080"
@@ -212,8 +228,8 @@ func main() {
 		for ctx.Err() == nil {
 			conn, e := client.OpenEgressChannel(ctx)
 			if e == nil {
-				fmt.Println(`{"channel_ready":true,"outbound":"deny-all"}`)
-				_ = egress.RunHost(ctx, conn, egress.HostOptions{Identity: egress.Identity{SandboxID: j.SandboxID, Generation: t.Runtime.SandboxID}, Policy: egress.Policy{ProtectedPrefixes: []netip.Prefix{netip.MustParsePrefix("0.0.0.0/0"), netip.MustParsePrefix("::/0")}}})
+				fmt.Printf("{\"channel_ready\":true,\"outbound\":%q}\n", outbound)
+				_ = egress.RunHost(ctx, conn, egress.HostOptions{Identity: egress.Identity{SandboxID: j.SandboxID, Generation: t.Runtime.SandboxID}, Policy: policy})
 			}
 			select {
 			case <-ctx.Done():
