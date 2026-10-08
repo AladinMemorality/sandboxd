@@ -80,16 +80,40 @@ def wait_for_operator():
    stack.close();time.sleep(2)
  with stack:yield
 with wait_for_operator():
- job.mkdir(mode=0o700,parents=True,exist_ok=False)
  try:
-  row=rows("select s.status,s.web_port,b.runtime_id,b.config_revision,a.worker_id,p.charged,p.state from sandbox s join runtime_binding b on b.sandbox_id=s.id join cube_admission p on p.runtime_id=b.runtime_id join cube_admission a on a.admission_key=p.admission_key where s.id=? and p.state<>'deleted'",(sid,))[0]
-  assert row['status']=='stopped' and row['runtime_id']==source['runtime_id'] and row['worker_id']=='b200-01' and row['charged']==0 and row['state']=='released'
-  tasks=[r['task_id'] for r in rows('select task_id from task where sandbox_id=? order by task_id',(sid,))];assert tasks==source['task_ids']
-  assert not rows("select id from cube_relocation where phase='fenced'")
-  save('export-result.PRIVATE.json',source)
-  save('scope.json',{'sandbox_id':sid,'source_worker':'b200-01','target_worker':'vps','source_archive_sha256':source['source_archive_sha256'],'source_contacted':False,'at':time.time()})
-  cli('fence',SandboxID=sid,ExpectedRuntime=source['runtime_id'],TargetWorker='vps',TargetTemplate=templates[profile])
-  cli('create')
+  assert sid=='01M2FS3WRK6FVDSG7VWC8QWSZN' and profile=='small'
+  assert json.loads((job/'failed.json').read_text())['reason']=='relocation create refused'
+  intent=json.loads((job/'create-intent.PRIVATE.json').read_text());fence=intent['Relocation']
+  assert rows('select phase from cube_relocation where id=?',(job.name,))==[{'phase':'fenced'}]
+  assert rows('select runtime_id from runtime_binding where sandbox_id=?',(sid,))==[{'runtime_id':source['runtime_id']}]
+  assert not (job/'retry-intent.PRIVATE.json').exists()
+  # Native scheduler logs prove rejection before allocation, matching operation.
+  native_code="""import json,sys,pathlib
+wanted=json.load(sys.stdin);requests=[];rejected=[]
+for line in pathlib.Path('/data/log/CubeMaster/cubemaster-req.log').open():
+ try:v=json.loads(line)
+ except ValueError:continue
+ if not v.get('@timestamp','').startswith('2026-10-08T23:19:08'):continue
+ text=v.get('LogContent','')
+ if text.startswith('CreateSandbox:'):
+  data=json.loads(text.split(':',1)[1]);labels=data.get('labels',{})
+  if labels.get('sandboxd_relocation_id')==wanted['RelocationID'] and labels.get('sandboxd_admission_operation')==wanted['OperationToken']:requests.append(data['requestID'])
+ if text.startswith('CreateSandbox_rsp fail:'):
+  data=json.loads(text.split(':',1)[1])
+  if data['ret']['ret_code']==130597:rejected.append(data['RequestID'])
+assert len(requests)==1 and requests[0] in rejected
+wanted.update(RequestID=requests[0],HTTPStatus=500,FailureCode=130597)
+print(json.dumps(wanted))
+"""
+  import shlex
+  ssh=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','root@127.0.0.1']
+  proof=json.loads(subprocess.check_output(ssh+['python3 -c '+shlex.quote(native_code)],input=json.dumps({'RelocationID':job.name,'OperationToken':intent['Admission']['Token']}).encode(),timeout=30))
+  save('provider-rejection.json',proof)
+  # Preserve the previous operator binary; only the tested offline tool changes.
+  candidate=root/'relocation-retry-bd965af/cube-relocate';assert candidate.is_file()
+  shutil.copy2(BIN,job/'operator-before');shutil.copy2(candidate,BIN.with_suffix('.new'));BIN.with_suffix('.new').chmod(0o755);os.replace(BIN.with_suffix('.new'),BIN)
+  row={'config_revision':fence['ConfigRevision'],'web_port':rows('select web_port from sandbox where id=?',(sid,))[0]['web_port']}
+  cli('retry-rejected-create')
   target=json.loads((job/'target.PRIVATE.json').read_text());runtime=target['Runtime']['sandboxID'] if 'sandboxID' in target['Runtime'] else target['Runtime'].get('sandbox_id')
   assert runtime,'target provider identity missing'
   request={'worker':'vps','id':job.name,'sandbox_id':sid,'runtime_id':runtime,'headers':{'Host':'3031-'+runtime+'.'+target['Relocation']['Domain'],'Authorization':'Bearer '+target['supervisor_token'],'cube-traffic-access-token':target['traffic_access_token']},'source':source,'receipts':source['artifacts'],'env':target['Env'],'config_revision':row['config_revision'],'web_port':row['web_port'] or 3000}
@@ -100,9 +124,9 @@ with wait_for_operator():
    try:
     assert select.select([channel.stdout],[],[],60)[0]
     channel_ready=json.loads(channel.stdout.readline());assert channel_ready.get('channel_ready') and channel_ready['outbound']=='npm-registry-only'
-    canary=json.loads((root/'supervisor-canary-a583d45/passed.json').read_text());assert canary['passed'] and canary['revision']=='a583d45'
+    canary=json.loads((root/'supervisor-canary-6acbaeb/passed.json').read_text());assert canary['passed'] and canary['revision']=='6acbaeb'
     ssh=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','root@127.0.0.1']
-    update=subprocess.run(ssh+['python3','/opt/baarcha-vps-process-recovery-a583d45/worker.py','--container',runtime],capture_output=True,timeout=260)
+    update=subprocess.run(ssh+['python3','/opt/baarcha-vps-process-recovery-6acbaeb/worker.py','--container',runtime],capture_output=True,timeout=260)
     assert update.returncode==0,'Supervisor update did not complete'
     receipts=[json.loads(line) for line in update.stdout.splitlines()]
     assert len(receipts)==1 and receipts[0]['status'] in ('updated','current'),'Supervisor update requires reconciliation'

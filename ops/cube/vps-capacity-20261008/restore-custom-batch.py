@@ -1,9 +1,9 @@
-"""Run the reviewed custom recipes after the standard Vite batch completes."""
+"""Review the custom recipes while the standard batch waits at its barrier."""
 import json,os,pathlib,subprocess,time
 os.umask(0o077);root=pathlib.Path('/opt/baarcha/operations/vps-50-profiles-20261008')
-previous=json.loads((root/'vite-batch-03/complete.json').read_text())
-assert previous['results'] and all(item['restored'] for item in previous['results'])
 plan=json.loads((root/'custom-restore-plan.json').read_text());assert plan['source_contacted'] is False and plan['model_calls'] is False
+barrier=root/'restore-barrier.json';gate=json.loads(barrier.read_text())
+assert gate['purpose']=='reviewed-restore-barrier' and set(gate['allowed_sandboxes'])==set(plan['profiles'])
 batch=root/'custom-restore-batch';batch.mkdir(mode=0o700,exist_ok=False)
 results=[]
 for sid,profile in plan['profiles'].items():
@@ -14,3 +14,5 @@ for sid,profile in plan['profiles'].items():
     (batch/'progress.json').write_text(json.dumps(value));print(json.dumps(item),flush=True)
     assert process.returncode==0,'Custom restore stopped for reconciliation; source retained'
 (batch/'complete.json').write_text(json.dumps(value))
+assert json.loads(barrier.read_text())==gate
+barrier.unlink()

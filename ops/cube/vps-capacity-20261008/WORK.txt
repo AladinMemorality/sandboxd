@@ -327,3 +327,42 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   and stable supervisedprocess beforecommit andafterwake. Next uses2GiB trial.
 - New operations remain in isolatedworktree; no changes to shared landing tree.
   Keep model/agentload deferred. All original source backups retained.
+
+2026-10-08 22:51Z checkpoint:
+- Batch03:21/101passed,44VPSbindings total. No active tasks at lastquery.
+- NOS afterbackup browser away/backpassed6.001s,0pageerrors.
+- Memory investigation: outerworkerRSS~48GiB while guestMemFree~10.65GiB,
+  MemAvailable~43.34GiB (includes~32.9GiBcache). Balloon driver present but
+  QEMU startup has no balloondevice. Isolated128MiBpaused/no-disk/no-network
+  QEMU probe refusedhotplug onpcie.0. Probequitandcleaned; productionunchanged.
+  Do not hotplug/restart worker casually; a durablechange needs reviewedstartup
+  and coordinatedcleanstop/boot. No THP tuning or ballooninflation attempted.
+
+2026-10-08 resumed recovery checkpoint (23:33Z):
+- All 10 custom apps restored to the VPS with identity, home and history
+  verification plus stop/wake checks. PostgreSQL needed npm ci --ignore-scripts
+  after restoring without dependencies. Authored files and non-DB home data were
+  unchanged; database recovery and /api/health passed. Wake took 1.284 seconds.
+- Gateway's 351 MiB home archive hit the native proxy's 256 MiB limit. Added
+  bounded streaming routes for private imports only (4 GiB plus manifest),
+  syntax checked and gracefully reloaded. Full import and gateway /api/rules
+  passed; wake took 1.004 seconds. No B200 contacts.
+- Fixed exhausted process supervision: remain blocked until explicit resume or
+  restart; reset the budget for task and health restarts too. Full runtimed race
+  tests passed. Static Linux/amd64 a583d45 build passed its VPS canary and wake
+  check. Restore pipeline now installs it before importing each new target.
+- Native create hit the 128 stored-VM limit, which includes paused VMs. Raised
+  only VPS dynamic mvm_limit to 256 without restarting services. Native CPU
+  72000 and memory 45056 MiB, and controller 50 runtime + 2 builder slots, remain
+  unchanged. Verified scheduler registration. This is not a concurrency result.
+- Batch 03 app 26 was rejected before allocation: native code 130597. Matched
+  request ID and admission operation; complete provider inventory had no target.
+  Root-only bd965af operator tool permits one explicit retry of that proven
+  rejection with the same charged reservation. Ambiguous outcomes remain held.
+  App 26 is now restored, content verified, wake 1.083 seconds; source retained.
+- NOS production navigate-away/return after proxy change: 6.391 seconds, no page
+  errors. Current bindings before batch 04: 59 VPS, 75 B200. Batch 04 restores
+  12 more standard apps before the 50 real-preview density test (not yet run).
+- Model/coding-agent load tests remain deferred. Original backups are retained;
+  daily VPS source backups are enabled. A fresh full generation should follow
+  the migrations to capture the new bindings.
