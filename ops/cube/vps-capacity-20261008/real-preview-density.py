@@ -7,6 +7,7 @@ import concurrent.futures,contextlib,importlib.util,json,os,pathlib,signal,sqlit
 P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008')
 spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
 sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as transport
+spec=importlib.util.spec_from_file_location('assets',root/'preview-assets.py');assets=importlib.util.module_from_spec(spec);spec.loader.exec_module(assets)
 SSH=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','-oConnectTimeout=5','root@127.0.0.1']
 G=1024**3;run_dir=root/'real-preview-density-50';barrier=root/'restore-barrier.json'
 def rows(query,args=()):
@@ -45,7 +46,7 @@ def save(name,value):b.atomic(run_dir/name,b.encoded(value))
 if sys.argv[1:]==['--plan']:
     print(json.dumps(plan()[3]));sys.exit(0)
 assert sys.argv[1:]==['--run']
-started=[];selected=[];gate=None;cleanup=[];own_activity={}
+started=[];selected=[];gate=None;cleanup=[];own_activity={};warmed=[]
 with b.locked():
     assert not barrier.exists(),'Another reviewed restore batch is active'
     assert not rows("select id from cube_relocation where phase='fenced'")
@@ -70,12 +71,30 @@ with b.locked():
         worker=transport.Worker(row['job']);headers={**worker.headers,'Host':worker.headers['Host'].replace('3031-',str(row['job']['web_port'])+'-',1)}
         began=time.monotonic();worker.http('GET','/',headers=headers,timeout=5)
         return {'sandbox_id':row['sandbox_id'],'seconds':time.monotonic()-began}
+    def warm(row):
+        worker=transport.Worker(row['job']);headers={**worker.headers,'Host':worker.headers['Host'].replace('3031-',str(row['job']['web_port'])+'-',1)}
+        before_status=worker.control('GET','/status');assert not before_status['active_task']
+        restarts={p['name']:p['restarts'] for p in before_status['processes']}
+        html=worker.http('GET','/',headers=headers,timeout=10);queue=assets.entries(html);assert queue,'No reviewed Vite entry modules found'
+        seen=set();total=0;began=time.monotonic()
+        while queue:
+            path=queue.pop(0)
+            if path in seen:continue
+            seen.add(path);assert len(seen)<=512,'Module graph exceeds reviewed test bound'
+            if len(seen)%8==1:guard()
+            data=worker.http('GET',path,headers=headers,timeout=30);total+=len(data);assert total<=64*1024**2,'Module graph byte limit'
+            queue.extend(p for p in assets.imports(path,data) if p not in seen)
+        state=worker.control('GET','/status')
+        assert not state['active_task'] and all(p['running'] and p['restarts']==restarts[p['name']] for p in state['processes']),'Process restarted during module compilation'
+        warmed.append({'sandbox_id':row['sandbox_id'],'modules':len(seen),'bytes':total,'seconds':time.monotonic()-began})
+        save('module-warmup.json',warmed)
     def interrupted(*args):raise KeyboardInterrupt('operator interrupted preview test')
     signal.signal(signal.SIGTERM,interrupted)
     try:
         for row in selected:
             guard();started.append(row['sandbox_id']);save('start-intents.json',started)
             api(row['sandbox_id'],'start')
+            own_activity[row['sandbox_id']]=rows('select last_active_at from sandbox where id=?',(row['sandbox_id'],))[0]['last_active_at']
             update=subprocess.run(SSH+['python3','/opt/baarcha-vps-process-recovery-a583d45/worker.py','--container',row['runtime_id']],capture_output=True,timeout=260)
             receipts=[json.loads(line) for line in update.stdout.splitlines()]
             assert update.returncode==0 and len(receipts)==1 and receipts[0]['status'] in ('updated','current'),'Supervisor update requires reconciliation'
@@ -84,7 +103,7 @@ with b.locked():
             while True:
                 try:probe(row);break
                 except (OSError,RuntimeError):assert time.monotonic()<deadline;time.sleep(1)
-            own_activity[row['sandbox_id']]=rows('select last_active_at from sandbox where id=?',(row['sandbox_id'],))[0]['last_active_at']
+            warm(row)
             save('progress.json',{'started':len(started),'total_requested':len(selected),'at':time.time()})
         live=[r for r in inventory() if r['charged']];assert len(live)==50 and all(r['status']=='running' for r in live)
         save('fifty-running.json',{'count':len(live),'runtime_ids':[r['runtime_id'] for r in live],'at':time.time()})
@@ -107,7 +126,7 @@ print(json.dumps({'runtimes':items,'guest_available_bytes':m['MemAvailable'],'gu
 """.replace('WANTED',repr(wanted))
         native=json.loads(subprocess.check_output(SSH+['python3 -'],input=code.encode(),timeout=30));assert len(native['runtimes'])==50
         save('runtime-memory.json',native);times=sorted(r['seconds'] for r in measurements);pss=sorted(r['pss_bytes'] for r in native['runtimes'])
-        result={'passed':True,'concurrent_running':50,'http_checks':len(times),'http_p95_seconds':times[int(.95*(len(times)-1))],'http_max_seconds':max(times),'total_pss_bytes':sum(pss),'median_pss_bytes':statistics.median(pss),'max_pss_bytes':max(pss),'model_calls':False,'application_scope':'HTTP preview serving; no browser JS, model requests or coding tasks','after':pressure()}
+        result={'passed':True,'concurrent_running':50,'http_checks':len(times),'http_p95_seconds':times[int(.95*(len(times)-1))],'http_max_seconds':max(times),'total_pss_bytes':sum(pss),'median_pss_bytes':statistics.median(pss),'max_pss_bytes':max(pss),'model_calls':False,'module_http_checks':sum(r['modules'] for r in warmed),'module_bytes':sum(r['bytes'] for r in warmed),'application_scope':'HTML and local Vite module graph serving; no browser JS execution, model requests or coding tasks','after':pressure()}
         save('result.json',result);print(json.dumps(result),flush=True)
     except BaseException as error:
         save('failed.json',{'type':type(error).__name__,'reason':str(error)[:300],'started':len(started),'at':time.time()});raise
