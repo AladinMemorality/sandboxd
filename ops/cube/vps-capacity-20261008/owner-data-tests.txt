@@ -1,0 +1,65 @@
+?   	github.com/tastyeffectco/sandboxd/control-plane/cmd/capacity-archive-validator	[no test files]
+?   	github.com/tastyeffectco/sandboxd/control-plane/cmd/capacity-build-bench	[no test files]
+?   	github.com/tastyeffectco/sandboxd/control-plane/cmd/capacity-density50	[no test files]
+?   	github.com/tastyeffectco/sandboxd/control-plane/cmd/capacity-observe	[no test files]
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/capture-init	0.088s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-controller	0.823s
+?   	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-fleet-canary-channel	[no test files]
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-init	0.003s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-migrate	0.012s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-pair-verify	0.040s
+?   	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-project-source	[no test files]
+?   	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-relocate	[no test files]
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-template	0.031s
+?   	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-worker-start	[no test files]
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-worker-stop	0.008s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/preview-gateway	0.007s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/runtimed	0.670s
+?   	github.com/tastyeffectco/sandboxd/control-plane/cmd/sandboxd	[no test files]
+?   	github.com/tastyeffectco/sandboxd/control-plane/cmd/vps-density	[no test files]
+?   	github.com/tastyeffectco/sandboxd/control-plane/cmd/vps-profile-pilot	[no test files]
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/activity	0.005s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/agentauth	0.005s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/agentprompt	0.003s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/api	18.223s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/appenv	0.005s
+?   	github.com/tastyeffectco/sandboxd/control-plane/internal/audit	[no test files]
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/auth	0.003s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/authproxy	0.008s
+?   	github.com/tastyeffectco/sandboxd/control-plane/internal/cgroup	[no test files]
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/console	0.640s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/cube	0.128s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/cubeconfig	0.035s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/designskills	0.023s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/detect	0.006s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/docker	0.001s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/egress	9.105s
+?   	github.com/tastyeffectco/sandboxd/control-plane/internal/events	[no test files]
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/gitimport	0.058s
+?   	github.com/tastyeffectco/sandboxd/control-plane/internal/idlock	[no test files]
+?   	github.com/tastyeffectco/sandboxd/control-plane/internal/instancecfg	[no test files]
+?   	github.com/tastyeffectco/sandboxd/control-plane/internal/logging	[no test files]
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/loopback	0.004s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/maintenance	0.006s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/manifest	0.004s
+?   	github.com/tastyeffectco/sandboxd/control-plane/internal/metrics	[no test files]
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/migration	1.700s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/nginx	0.185s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/preset	0.002s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/projectsource	0.007s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/publication	0.028s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/reaper	0.023s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/recipes	0.008s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/reconcile	0.004s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/recovery	0.063s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/runtime	0.522s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/runtimepolicy	0.002s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/sandboxspec	0.005s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/secrets	0.002s
+?   	github.com/tastyeffectco/sandboxd/control-plane/internal/snapshot	[no test files]
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/store	3.516s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/telemetry	0.014s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/traefik	0.001s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/upgrade	0.003s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/wake	0.033s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/workerstop	1.354s

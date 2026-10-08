@@ -48,6 +48,10 @@ type proof struct {
 	WorkspaceVerified, HomeVerified, HistoryVerified, ConfigApplied, ApplicationReady bool
 }
 
+func validDiscardTarget(j store.CubeRelocation, t target, actual *cube.Sandbox, binding *store.RuntimeBinding) bool {
+	return j.TargetWorker == "vps" && t.Relocation.ID == j.ID && t.Runtime != nil && actual != nil && binding != nil && binding.RuntimeID == j.SourceRuntimeID && t.Runtime.SandboxID != j.SourceRuntimeID && actual.SandboxID == t.Runtime.SandboxID && actual.TemplateID == j.DestinationTemplate() && t.Admission.Key == j.TargetKey && actual.Metadata["sandboxd_id"] == j.SandboxID && actual.Metadata["sandboxd_app_id"] == j.AppID && actual.Metadata["sandboxd_relocation_id"] == j.ID && actual.Metadata["sandboxd_admission_operation"] == t.Admission.Token
+}
+
 func must(err error) {
 	if err != nil {
 		panic(err)
@@ -196,6 +200,25 @@ func main() {
 	if env["SANDBOXD_SECRETS_KEY"] == "" {
 		_, e = os.Stat("/var/lib/sandboxd/secrets.key")
 		must(e)
+	}
+	if in.Action == "discard-target" {
+		var t target
+		privateRead(filepath.Join(in.Directory, "target.PRIVATE.json"), &t)
+		if j.TargetWorker != "vps" || t.Relocation.ID != j.ID || t.Runtime == nil || t.Runtime.SandboxID == j.SourceRuntimeID || t.Admission.Token == "" {
+			panic("uncommitted VPS target required")
+		}
+		actual, err := provider.Get(ctx, t.Runtime.SandboxID)
+		must(err)
+		binding, err := db.GetRuntimeBinding(ctx, j.SandboxID)
+		must(err)
+		if !validDiscardTarget(j, t, actual, binding) {
+			panic("refusing to discard a source or changed target")
+		}
+		privateWrite(filepath.Join(in.Directory, "discard-intent.json"), map[string]string{"runtime_id": actual.SandboxID, "source_retained": j.SourceRuntimeID})
+		must(guard.Delete(ctx, actual.SandboxID))
+		must(db.AbortCubeRelocation(ctx, j.ID))
+		fmt.Println(`{"discarded_target":true,"source_retained":true,"relocation_aborted":true}`)
+		return
 	}
 	cipher, e := secrets.Load(env["SANDBOXD_SECRETS_KEY"], "/var/lib/sandboxd/secrets.key")
 	must(e)

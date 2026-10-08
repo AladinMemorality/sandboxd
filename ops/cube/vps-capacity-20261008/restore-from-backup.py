@@ -4,9 +4,14 @@ P=pathlib.Path;root=P('/opt/baarcha/operations/vps-50-profiles-20261008');os.uma
 sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as transport
 spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
 sid=sys.argv[1];assert len(sid)==26 and sid.isalnum()
+profile=sys.argv[2] if len(sys.argv)>2 else 'small'
+templates={'small':'tpl-78e4edb3d629465e9d8372c1','standard':'tpl-86350411460a47db8ffe6ff5'}
+assert profile in templates
+attempt=sys.argv[3] if len(sys.argv)>3 else ''
+assert not attempt or (attempt.isalnum() and len(attempt)<=16)
 prepared=root/'recovery-prepared-canonical'/sid;source=json.loads((prepared/'export-result.PRIVATE.json').read_text())
 subprocess.run([str(root/'artifact-validator'),str(prepared)],check=True,capture_output=True,timeout=180)
-job=root/'recovery-moves'/('vps-restore-'+sid.lower());job.mkdir(mode=0o700,parents=True,exist_ok=False)
+job=root/'recovery-moves'/('vps-restore-'+sid.lower()+('-'+attempt if attempt else ''));job.mkdir(mode=0o700,parents=True,exist_ok=False)
 BIN=root/'cube-relocate-package-recovery';migrations=root/'queue-release-d463b2d/source/control-plane/migrations'
 def save(name,value):b.atomic(job/name,b.encoded(value))
 def rows(query,args=()):
@@ -29,7 +34,7 @@ with b.locked():
   assert not rows("select id from cube_relocation where phase='fenced'")
   save('export-result.PRIVATE.json',source)
   save('scope.json',{'sandbox_id':sid,'source_worker':'b200-01','target_worker':'vps','source_archive_sha256':source['source_archive_sha256'],'source_contacted':False,'at':time.time()})
-  cli('fence',SandboxID=sid,ExpectedRuntime=source['runtime_id'],TargetWorker='vps',TargetTemplate='tpl-78e4edb3d629465e9d8372c1')
+  cli('fence',SandboxID=sid,ExpectedRuntime=source['runtime_id'],TargetWorker='vps',TargetTemplate=templates[profile])
   cli('create')
   target=json.loads((job/'target.PRIVATE.json').read_text());runtime=target['Runtime']['sandboxID'] if 'sandboxID' in target['Runtime'] else target['Runtime'].get('sandbox_id')
   assert runtime,'target provider identity missing'
@@ -54,6 +59,6 @@ with b.locked():
   worker.http('GET','/',headers={**request['headers'],'Host':request['headers']['Host'].replace('3031-',str(request['web_port'])+'-',1)},timeout=10)
   api('stop')
   assert rows("select worker_id,state,charged from cube_admission where runtime_id=?",(runtime,))==[{'worker_id':'vps','state':'released','charged':0}]
-  result={'restored':True,'sandbox_id':sid,'worker':'vps','source_contacted':False,'same_project_identity':True,'wake_seconds':wake,'all_content_verified':True,'source_retained':True,'at':time.time()};save('complete.json',result);print(json.dumps(result),flush=True)
+  result={'restored':True,'sandbox_id':sid,'worker':'vps','profile':profile,'source_contacted':False,'same_project_identity':True,'wake_seconds':wake,'all_content_verified':True,'source_retained':True,'at':time.time()};save('complete.json',result);print(json.dumps(result),flush=True)
  except BaseException as error:
   save('failed.json',{'error':type(error).__name__,'reason':str(error)[:512],'line':traceback.extract_tb(error.__traceback__)[-1].lineno,'at':time.time(),'source_retained':True});raise

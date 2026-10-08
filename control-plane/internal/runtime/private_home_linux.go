@@ -30,10 +30,11 @@ const MaxHomeManifestBytes = 4096
 const MaxHomeManifestV2Bytes = 32 << 10
 
 type HomeManifest struct {
-	Version      int                 `json:"version"`
-	Entries      []HomeManifestEntry `json:"entries"`
-	Links        []HomeLinkContract  `json:"links,omitempty"`
-	LiteralPaths []string            `json:"literal_paths,omitempty"`
+	Version        int                 `json:"version"`
+	Entries        []HomeManifestEntry `json:"entries"`
+	Links          []HomeLinkContract  `json:"links,omitempty"`
+	LiteralPaths   []string            `json:"literal_paths,omitempty"`
+	OwnerDataFiles []HomeOwnerDataFile `json:"owner_data_files,omitempty"`
 }
 type HomeManifestEntry struct {
 	Path        string `json:"path"`
@@ -72,7 +73,7 @@ func stockHomeHash(name string) string {
 	return ""
 }
 func beneath(name, root string) bool { return name == root || strings.HasPrefix(name, root+"/") }
-func sensitiveHomePath(name string) bool {
+func protectedHomeIdentity(name string) bool {
 	if strings.HasPrefix(name, ".claude.json.") {
 		return true
 	}
@@ -80,6 +81,12 @@ func sensitiveHomePath(name string) bool {
 		if beneath(name, root) {
 			return true
 		}
+	}
+	return false
+}
+func sensitiveHomePath(name string) bool {
+	if protectedHomeIdentity(name) {
+		return true
 	}
 	for _, leaf := range []string{"auth.json", ".credentials.json", "credentials.json", ".git-credentials", ".netrc", ".npmrc"} {
 		if path.Base(name) == leaf {
@@ -108,7 +115,7 @@ func CanonicalHomeManifest(manifest HomeManifest) ([]byte, error) {
 		}
 		switch entry.Disposition {
 		case "preserve":
-			if entry.Path == "workspace" || beneath(entry.Path, "workspace/app") || (sensitiveHomePath(entry.Path) && !reviewedProviderDocument(entry.Path)) {
+			if entry.Path == "workspace" || beneath(entry.Path, "workspace/app") || (sensitiveHomePath(entry.Path) && !reviewedProviderDocument(entry.Path) && ownerDataFile(manifest, entry.Path) == nil) {
 				return nil, errors.New("home preserve scope includes protected runtime or provider identity")
 			}
 		case "stock":
@@ -137,6 +144,9 @@ func CanonicalHomeManifest(manifest HomeManifest) ([]byte, error) {
 		return nil, errors.New("home manifest must identify separate runtime scope")
 	}
 	if e := canonicalHomeLinks(&manifest); e != nil {
+		return nil, e
+	}
+	if e := canonicalOwnerDataFiles(&manifest); e != nil {
 		return nil, e
 	}
 	raw, e := json.Marshal(manifest)
@@ -261,6 +271,9 @@ func ValidateHomeManifest(ctx context.Context, home string, manifest HomeManifes
 		if name == entry.Path {
 			found[name] = true
 		}
+		if ownerDataFile(manifest, name) != nil {
+			found[name] = true
+		}
 		kind := st.Mode & unix.S_IFMT
 		if strings.Contains(name, "\\") && kind != unix.S_IFREG {
 			return errors.New("literal home package path is not regular")
@@ -305,13 +318,24 @@ func ValidateHomeManifest(ctx context.Context, home string, manifest HomeManifes
 			}
 			report.StockEntries++
 		case "preserve":
-			if sensitiveHomePath(name) && !(name == entry.Path && reviewedProviderDocument(name) && kind == unix.S_IFREG) {
+			if sensitiveHomePath(name) && !allowedSensitiveHomeFile(manifest, entry.Path, name, kind == unix.S_IFREG) {
 				return fmt.Errorf("preserve scope contains provider/auth state: %s", name)
 			}
 			if kind != unix.S_IFREG && kind != unix.S_IFDIR && kind != unix.S_IFLNK {
 				return errors.New("preserved home contains special file")
 			}
 			if kind == unix.S_IFREG {
+				if contract := ownerDataFile(manifest, name); contract != nil {
+					f, err := privateChild(parent, leaf, false)
+					if err != nil {
+						return err
+					}
+					err = verifyOwnerDataFile(*contract, f, st.Size)
+					f.Close()
+					if err != nil {
+						return err
+					}
+				}
 				if st.Nlink != 1 {
 					report.needsLinks = true
 				}
@@ -348,6 +372,14 @@ func ValidateHomeManifest(ctx context.Context, home string, manifest HomeManifes
 	}
 	if e == nil && report.PreservedBytes > MaxPrivateHomeExpandedBytes {
 		e = errors.New("expanded home limit")
+	}
+	if e == nil {
+		for _, file := range manifest.OwnerDataFiles {
+			if !found[file.Path] {
+				e = errors.New("reviewed owner data file missing")
+				break
+			}
+		}
 	}
 	report.Eligible = e == nil
 	if e != nil {
@@ -476,12 +508,20 @@ func ExportPrivateHome(ctx context.Context, home string, manifest HomeManifest, 
 		if e != nil {
 			return e
 		}
-		n, e := io.Copy(w, io.LimitReader(homeContextReader{ctx: ctx, reader: f}, actual.Size+1))
+		contentHash := sha256.New()
+		var output io.Writer = w
+		if ownerDataFile(manifest, name) != nil {
+			output = io.MultiWriter(w, contentHash)
+		}
+		n, e := io.Copy(output, io.LimitReader(homeContextReader{ctx: ctx, reader: f}, actual.Size+1))
 		if e != nil {
 			return e
 		}
 		if n != actual.Size {
 			return errors.New("home file changed or exceeded limit")
+		}
+		if contract := ownerDataFile(manifest, name); contract != nil && (n != contract.Bytes || hex.EncodeToString(contentHash.Sum(nil)) != contract.SHA256) {
+			return errors.New("reviewed owner data changed during export")
 		}
 		return nil
 	})
@@ -522,7 +562,7 @@ func homeArchive(manifest HomeManifest, reader io.ReaderAt, size int64) ([]*zip.
 		if strings.Contains(name, "\\") && !mode.IsRegular() {
 			return nil, errors.New("literal home package archive path is not regular")
 		}
-		if (!mode.IsRegular() && !mode.IsDir() && mode&os.ModeSymlink == 0) || sensitiveHomePath(name) && !(name == entry.Path && reviewedProviderDocument(name) && mode.IsRegular()) {
+		if (!mode.IsRegular() && !mode.IsDir() && mode&os.ModeSymlink == 0) || sensitiveHomePath(name) && !allowedSensitiveHomeFile(manifest, entry.Path, name, mode.IsRegular()) {
 			return nil, errors.New("unsafe home archive entry")
 		}
 		if _, ok := seen[name]; ok {
@@ -535,6 +575,22 @@ func homeArchive(manifest HomeManifest, reader io.ReaderAt, size int64) ([]*zip.
 		expanded += f.UncompressedSize64
 		if mode.IsDir() && f.UncompressedSize64 != 0 {
 			return nil, errors.New("nonempty directory entry")
+		}
+		if contract := ownerDataFile(manifest, name); contract != nil {
+			r, err := f.Open()
+			if err != nil {
+				return nil, err
+			}
+			err = verifyOwnerDataFile(*contract, r, int64(f.UncompressedSize64))
+			r.Close()
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	for _, file := range manifest.OwnerDataFiles {
+		if _, ok := seen[file.Path]; !ok {
+			return nil, errors.New("reviewed owner data absent from archive")
 		}
 	}
 	for _, entry := range manifest.Entries {

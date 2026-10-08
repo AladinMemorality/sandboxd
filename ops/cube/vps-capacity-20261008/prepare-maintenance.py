@@ -30,7 +30,7 @@ if "--plan-only" not in sys.argv:
         if target.exists(): shutil.copy2(target, BEFORE / target.name)
         pending = target.with_name(target.name + '.capacity-pending')
         shutil.copyfile(source, pending); pending.chmod(mode); os.replace(pending, target)
-    
+
     assert (SRC / 'lifecycle-tests-final.log').read_text().find('FAIL') == -1
     for binary in ('stop', 'start'):
         install(SRC / ('worker-' + binary + '-candidate'),
@@ -39,7 +39,7 @@ if "--plan-only" not in sys.argv:
         install(SRC / 'ops/cube/worker-lifecycle' / (name + '.py'),
                 '/usr/local/libexec/baarcha-cube-' + name.replace('_', '-') + '.py', 0o755)
     shutil.copytree(SRC / 'control-plane/migrations', ROOT / 'operator-migrations')
-    
+
 
 cp = json.loads(subprocess.check_output(['docker', 'inspect', 'src-sandboxd-1']))[0]
 assert cp['State']['Running']
@@ -54,7 +54,7 @@ if "--plan-only" not in sys.argv:
                 migrations=str(ROOT / 'operator-migrations'))
     temp = ROOT / 'stop-wanted.PRIVATE.json'; temp.write_text(json.dumps(stop)); temp.chmod(0o600)
     install(temp, stop_path, 0o600)
-    
+
 
 spec = importlib.util.spec_from_file_location('planned', '/usr/local/libexec/baarcha-cube-planned.py')
 p = importlib.util.module_from_spec(spec); spec.loader.exec_module(p)

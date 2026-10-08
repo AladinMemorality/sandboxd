@@ -155,3 +155,23 @@ all owner traversal opens directories relative to pinned descriptors with
 public artifact. Candidates require the real Go inventory validator plus image,
 quiescence, hardlink, disk-space and roundtrip acceptance. A live scan is
 provisional and must be repeated under the final admission/write fence.
+
+## Reviewed application authentication data
+
+Version two may include `owner_data_files`, an explicit list of private app
+files with `path`, `sha256` and `bytes`. This handles app login/session state
+whose filename is `auth.json`, `credentials.json` or `.credentials.json`.
+It does not change the default rejection of credential-shaped filenames.
+
+Each reviewed file must be below an app-specific `.local/share/<app>/` directory
+covered by a `preserve` selector, be a regular file, and match its exact size
+and SHA-256 during inventory, export and import. The list is limited to 32
+files of at most 1 MiB each. Missing files, changed bytes, symlinks and duplicate
+contracts fail. Protected provider and supervisor roots remain forbidden,
+including `.local/share/opencode`; a review cannot override them.
+
+The operator must establish that the file is the application's own data before
+creating the contract. The declaration is part of the private recovery evidence,
+not a public export or remix input. Existing templates reject the new field;
+use a template containing the updated supervisor and perform a private
+roundtrip and application-readiness check before switching the binding.
