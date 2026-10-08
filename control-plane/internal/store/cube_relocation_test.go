@@ -211,3 +211,94 @@ func TestCubeRelocationExplicitSmallerDestinationPreservesSourceFence(t *testing
 		t.Fatal("source became reachable")
 	}
 }
+
+func TestCubeRelocationSameWorkerRequiresExplicitChangedRuntimeProfile(t *testing.T) {
+	for _, destination := range []string{"", "tpl-reviewed", "unknown", "builder"} {
+		t.Run(destination, func(t *testing.T) {
+			s, _ := relocationFixture(t)
+			if err := s.ConfigureNodeIdentity(context.Background(), "10.0.2.15"); err != nil {
+				t.Fatal(err)
+			}
+			cfg := resourceTestConfig(12000)
+			cfg.Templates["tpl-reviewed"] = cube.AdmissionResources{CPUCount: 2, MemoryMB: 2048}
+			cfg.ResourceBudget.Profiles["tpl-reviewed"] = cube.ResourceProfile{CPUMillis: 500, WritableDiskMB: 8192, Kind: "runtime"}
+			if _, err := s.db.Exec(`UPDATE cube_admission_policy SET profile='resource-budget-v1',max_active=? WHERE worker_id='vps'`, cfg.MaxActive); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.ConfigureResourceBudget(context.Background(), cfg); err != nil {
+				t.Fatal(err)
+			}
+			var err error
+			if destination == "" {
+				_, err = s.BeginCubeRelocation(context.Background(), "reprofile", "stable-0", "old-0", "vps")
+			} else {
+				_, err = s.BeginCubeRelocation(context.Background(), "reprofile", "stable-0", "old-0", "vps", destination)
+			}
+			if err == nil {
+				t.Fatal("unreviewed same-worker replacement accepted")
+			}
+			if _, err = s.AdmissionLookup(context.Background(), "old-0"); err != nil {
+				t.Fatalf("rejected reprofile fenced source: %v", err)
+			}
+		})
+	}
+}
+
+func TestCubeRelocationSameWorkerReprofileCommitAndAbort(t *testing.T) {
+	for _, commit := range []bool{false, true} {
+		t.Run(map[bool]string{false: "abort", true: "commit"}[commit], func(t *testing.T) {
+			s, _ := relocationFixture(t)
+			ctx := context.Background()
+			if err := s.ConfigureNodeIdentity(context.Background(), "10.0.2.15"); err != nil {
+				t.Fatal(err)
+			}
+			cfg := resourceTestConfig(12000)
+			cfg.Templates["tpl-reviewed"] = cube.AdmissionResources{CPUCount: 2, MemoryMB: 2048}
+			cfg.ResourceBudget.Profiles["tpl-reviewed"] = cube.ResourceProfile{CPUMillis: 500, WritableDiskMB: 8192, Kind: "runtime"}
+			if _, err := s.db.Exec(`UPDATE cube_admission_policy SET profile='resource-budget-v1',max_active=? WHERE worker_id='vps'`, cfg.MaxActive); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.ConfigureResourceBudget(ctx, cfg); err != nil {
+				t.Fatal(err)
+			}
+			j, err := s.BeginCubeRelocation(ctx, "reprofile", "stable-0", "old-0", "vps", "large")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if j.SourceAdmission.WorkerID != "vps" || j.TemplateID != "tpl-reviewed" {
+				t.Fatal("source reservation lost")
+			}
+			if !commit {
+				if err = s.AbortCubeRelocation(ctx, j.ID); err != nil {
+					t.Fatal(err)
+				}
+				old, err := s.AdmissionLookup(ctx, "old-0")
+				if err != nil || old != j.SourceAdmission {
+					t.Fatalf("abort changed source: %+v %v", old, err)
+				}
+				return
+			}
+			target := j
+			target.TemplateID = j.DestinationTemplate()
+			b := targetRelocation(t, s, target)
+			if err = s.CommitCubeRelocation(ctx, j.ID, "new-token", recoveryHash("verified current content"), b); err != nil {
+				t.Fatal(err)
+			}
+			active, err := s.AdmissionLookupKey(ctx, "app:app-0")
+			if err != nil || active.WorkerID != "vps" || active.TemplateID != "large" || active.RuntimeID != "new-runtime" || active.Charged != 1 {
+				t.Fatalf("destination reservation: %+v %v", active, err)
+			}
+			retired, err := s.AdmissionLookupKey(ctx, "relocation-retired:"+j.ID)
+			if err != nil || retired.RuntimeID != "old-0" || retired.Charged != 0 {
+				t.Fatalf("retired reservation: %+v %v", retired, err)
+			}
+			if _, err = s.AdmissionLookup(ctx, "old-0"); !errors.Is(err, cube.ErrRuntimeUnavailable) {
+				t.Fatal("source can resume after replacement")
+			}
+			binding, err := s.GetRuntimeBinding(ctx, "stable-0")
+			if err != nil || binding.RuntimeID != "new-runtime" || binding.TemplateID != "large" {
+				t.Fatalf("binding: %+v %v", binding, err)
+			}
+		})
+	}
+}

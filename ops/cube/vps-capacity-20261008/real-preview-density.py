@@ -33,7 +33,9 @@ def plan():
     candidates.sort(key=lambda r:(policy['templates'][r['template_id']]['memory_mb'],r['sandbox_id']))
     needed=50-len(active);assert 0<needed<=50
     selected=candidates[:needed];total=active+selected
-    memory=sum(policy['templates'][r['template_id']]['memory_mb'] for r in total)
+    # Match cube.VMOverheadMB: admission charges the entire guest limit plus
+    # 128 MiB for each VM, even when its measured resident footprint is lower.
+    memory=sum(policy['templates'][r['template_id']]['memory_mb']+128 for r in total)
     cpu=sum(policy['resource_budget']['profiles'][r['template_id']]['cpu_millis'] for r in total)
     assert memory<=policy['resource_budget']['memory_mb'] and cpu<=policy['resource_budget']['cpu_millis']
     return env,active,selected,{'target_total_running':50,'already_running':len(active),'eligible_stopped':len(candidates),'needed':needed,'ready':len(selected)==needed,'reserved_memory_mb':memory,'weighted_cpu_millis':cpu,'model_calls':False}

@@ -137,7 +137,13 @@ func (s *Store) BeginCubeRelocation(ctx context.Context, id, sid, expectedRuntim
 		if e != nil {
 			return e
 		}
-		if old.RuntimeID != expectedRuntime || old.TemplateID != b.TemplateID || old.State != "released" || old.Charged != 0 || old.WorkerID == targetWorker {
+		if old.RuntimeID != expectedRuntime || old.TemplateID != b.TemplateID || old.State != "released" || old.Charged != 0 {
+			return cube.ErrAdmissionPending
+		}
+		// A same-worker move is only useful for an explicit profile change.
+		// Keep the old released reservation and storage grant until commit;
+		// the destination must independently pass the durable budget below.
+		if old.WorkerID == targetWorker && (destination == "" || destination == b.TemplateID) {
 			return cube.ErrAdmissionPending
 		}
 		var n int
