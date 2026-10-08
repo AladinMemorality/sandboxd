@@ -279,3 +279,26 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   snapshot with exact raw hashes and unchanged three-task history. NoB200access.
 - Do not claim all sandboxes migrated,50agents tested, or routine project-source
   backup scheduling complete. Maximum build test still stopped on hostPSIguard.
+
+2026-10-08 22:24Z continued VPS-only recovery:
+- Release87a99c7 deployed, image0d4db42569301df88087823bd40046f090c033bc564ee99c81e41e7f9650c8ab.
+  Added compatible1GiB owner-data template tpl-b5550a57c1d14d77b4c2ddfd to
+  durable admission contract with controller stopped and baseline CAS checked.
+  All134bindings preserved, coding queue disabled, resource ceilings unchanged.
+- Portfolio01M3YSBA5CHS0XSFWAZ6RFQ477 restored with reviewed private auth data,
+  all archive content verified, stop/wake1.402s. No credential values disclosed.
+- NOS restored toVPS and browser away/back passed twice; latest6.252s,0pageerrors.
+- Batch01:9small successes; tenth failed512MiB HTTP readiness (no provenOOM).
+  Discarded only its uncommitted target and retried1GiB successfully,wake0.896s.
+- Batch02selected102Vite projects; firstrestored, second stopped BEFORE fencing
+  because backup held operator lock. Empty journal reconciled after checking
+  no relocation existed. Restore now waits up to30min for all operator locks.
+  Batch03running for remaining101; do not repeat existing recovery journals.
+-23currentVPS bindings,111stillB200 at this checkpoint. Original backups retained.
+- New routine VPS-only source backup is in verification, NOT scheduled yet.
+  Capture23/23 succeeded; offline read-only exports running. No B200 contacts,
+  guest wakeups or modelcalls. Newproject01M4EP7FC5TTW0RZS8SKTGX9RV included.
+- Initial backup attempt failed on cp reflink/sparse option compatibility;
+  corrected to sparse=auto. Failed private staging retained pending cleanup.
+- Model/agent concurrency tests remain explicitly deferred.50starter density
+  passed earlier; maximum simultaneous builds remains unestablished.

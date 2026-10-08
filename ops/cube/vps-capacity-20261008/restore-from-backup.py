@@ -6,12 +6,18 @@ spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-c
 sid=sys.argv[1];assert len(sid)==26 and sid.isalnum()
 profile=sys.argv[2] if len(sys.argv)>2 else 'small'
 templates={'small':'tpl-78e4edb3d629465e9d8372c1','standard':'tpl-86350411460a47db8ffe6ff5'}
+if profile=='owner-data':
+ receipt=json.loads((root/'owner-data-template.json').read_text())
+ deployed=json.loads((root/'owner-data-release-87a99c7/deployed.json').read_text())
+ assert receipt['ready'] and receipt['worker']=='vps' and receipt['memory_mb']==1024
+ assert deployed['deployed'] and deployed['template_id']==receipt['template_id']
+ templates[profile]=receipt['template_id']
 assert profile in templates
 attempt=sys.argv[3] if len(sys.argv)>3 else ''
 assert not attempt or (attempt.isalnum() and len(attempt)<=16)
 prepared=root/'recovery-prepared-canonical'/sid;source=json.loads((prepared/'export-result.PRIVATE.json').read_text())
 subprocess.run([str(root/'artifact-validator'),str(prepared)],check=True,capture_output=True,timeout=180)
-job=root/'recovery-moves'/('vps-restore-'+sid.lower()+('-'+attempt if attempt else ''));job.mkdir(mode=0o700,parents=True,exist_ok=False)
+job=root/'recovery-moves'/('vps-restore-'+sid.lower()+('-'+attempt if attempt else ''))
 BIN=root/'cube-relocate-package-recovery';migrations=root/'queue-release-d463b2d/source/control-plane/migrations'
 def save(name,value):b.atomic(job/name,b.encoded(value))
 def rows(query,args=()):
@@ -26,7 +32,18 @@ class LocalWorker(transport.Worker):
  def fetch(self,role,receipt):
   path=P(receipt['local_path']);assert path==prepared/(role+'.zip') and not path.is_symlink()
   assert path.stat().st_size==receipt['archive_bytes'] and transport.digest(path)==receipt['sha256'];return path
-with b.locked():
+@contextlib.contextmanager
+def wait_for_operator():
+ deadline=time.monotonic()+1800
+ while True:
+  stack=contextlib.ExitStack()
+  try:stack.enter_context(b.locked())
+  except BlockingIOError:
+   stack.close();assert time.monotonic()<deadline,'Operator locks busy; restore postponed';time.sleep(2)
+  else:break
+ with stack:yield
+with wait_for_operator():
+ job.mkdir(mode=0o700,parents=True,exist_ok=False)
  try:
   row=rows("select s.status,s.web_port,b.runtime_id,b.config_revision,a.worker_id,p.charged,p.state from sandbox s join runtime_binding b on b.sandbox_id=s.id join cube_admission p on p.runtime_id=b.runtime_id join cube_admission a on a.admission_key=p.admission_key where s.id=? and p.state<>'deleted'",(sid,))[0]
   assert row['status']=='stopped' and row['runtime_id']==source['runtime_id'] and row['worker_id']=='b200-01' and row['charged']==0 and row['state']=='released'
