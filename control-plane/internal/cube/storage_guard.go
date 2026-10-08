@@ -129,6 +129,15 @@ func ReadStorageObservation(c StorageGuardConfig, now StorageClock) (StorageObse
 // RequireStorageGuard is used by production entrypoints. Library-only synthetic
 // fixtures can omit the guard on a DB where it has never been enrolled.
 func (c AdmissionConfig) RequireStorageGuard() error {
+	if c.ResourceBudget != nil {
+		if err := c.validateResourceBudget(); err != nil {
+			return err
+		}
+		if c.StorageGuard == nil {
+			return ErrStorageUnavailable
+		}
+		return c.StorageGuard.Validate()
+	}
 	limit := 4
 	if c.NodeID != "" {
 		if err := c.validateNodeBudget(); err != nil {
@@ -145,6 +154,9 @@ func (c AdmissionConfig) RequireStorageGuard() error {
 // The benchmark ceiling changes only in a tagged test build. The guard identity,
 // disk allowance, freshness and transactional reservation rules stay identical.
 func (c AdmissionConfig) validateStorageGuard() error {
+	if c.ResourceBudget != nil {
+		return c.RequireStorageGuard()
+	}
 	limit := GuardedAdmissionLimit
 	if c.NodeID != "" {
 		if err := c.validateNodeBudget(); err != nil {

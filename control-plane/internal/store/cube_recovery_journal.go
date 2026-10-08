@@ -294,6 +294,9 @@ func (s *Store) BeginCubeRecovery(ctx context.Context, p CubeRecoveryPlan) error
 		// Hold a slot even when a prior authoritative pause had released it. A full
 		// crashed active fleet retains its existing charges, never needs an extra slot.
 		if old.Charged == 0 {
+			if e = s.resourceAdmit(ctx, tx, old.Key, old.TemplateID, 1); e != nil {
+				return e
+			}
 			var used, max int
 			if e = tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(charged),0),(SELECT max_active FROM cube_admission_policy WHERE singleton=1 AND worker_id=?) FROM cube_admission WHERE worker_id=?`, s.admissionWorkerID(), s.admissionWorkerID()).Scan(&used, &max); e != nil {
 				return e
@@ -378,7 +381,10 @@ func (s *Store) CubeRecoveryCreateIntent(ctx context.Context, id, token, request
 		if n != 0 {
 			return cube.ErrCreationBusy
 		}
-		if e = s.storageAdmit(ctx, tx, "app:"+j.AppID, token, true); e != nil {
+		if e = s.resourceAdmit(ctx, tx, "app:"+j.AppID, template, 1); e != nil {
+			return e
+		}
+		if e = s.storageAdmit(ctx, tx, "app:"+j.AppID, token, true, template); e != nil {
 			return e
 		}
 		r, e := tx.ExecContext(ctx, `UPDATE cube_admission SET runtime_id='',template_id=?,operation='create',token=? WHERE admission_key=? AND state='pending' AND operation='recovery_hold' AND token=? AND charged=1`, template, token, "app:"+j.AppID, j.HoldToken)

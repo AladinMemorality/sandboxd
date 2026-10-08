@@ -44,6 +44,7 @@ type AdmissionResources struct {
 // profiles without changing production entrypoint policy. max_active is an
 // active-reservation bound, not a limit on the number of stored/paused apps.
 type AdmissionConfig struct {
+	ResourceBudget *ResourceBudget               `json:"resource_budget,omitempty"`
 	NodeID         string                        `json:"node_id,omitempty"`
 	HostCPUMillis  int                           `json:"host_cpu_millis,omitempty"`
 	HostMemoryMB   int                           `json:"host_memory_mb,omitempty"`
@@ -77,6 +78,15 @@ func ParseAdmissionConfig(raw string) (AdmissionConfig, error) {
 const MaxPinnedWorkerActive = 100
 
 func (cfg AdmissionConfig) validate() error {
+	if cfg.ResourceBudget != nil {
+		if err := cfg.validateResourceBudget(); err != nil {
+			return err
+		}
+		if cfg.StorageGuard != nil {
+			return cfg.StorageGuard.Validate()
+		}
+		return nil
+	}
 	maximum := 12
 	if cfg.NodeID != "" {
 		if err := cfg.validateNodeBudget(); err != nil {
@@ -103,6 +113,9 @@ func (cfg AdmissionConfig) validate() error {
 }
 
 func (cfg AdmissionConfig) validateNodeBudget() error {
+	if cfg.ResourceBudget != nil {
+		return cfg.validateResourceBudget()
+	}
 	if (validateID(cfg.NodeID) != nil && net.ParseIP(cfg.NodeID) == nil) || cfg.MaxActive < 1 || cfg.MaxActive > MaxPinnedWorkerActive || cfg.CPUCount != 2 || cfg.MemoryMB != 2048 || cfg.HostCPUMillis < cfg.MaxActive*2300 || cfg.HostMemoryMB < cfg.MaxActive*2160 {
 		return errors.New("worker requires a pinned node and CPU/memory budget including VM overhead")
 	}
@@ -133,8 +146,20 @@ func (c *Client) ConfigureAdmission(ctx context.Context, db AdmissionStore, cfg 
 	// Template sets may grow after exact image review; the uniform resource and
 	// capacity contract itself remains immutable in the durable policy row.
 	profile := fmt.Sprintf("cpu=%d;memory_mb=%d", cfg.CPUCount, cfg.MemoryMB)
+	if cfg.ResourceBudget != nil {
+		profile = "resource-budget-v1"
+	}
 	if err := db.AdmissionPolicy(ctx, cfg.MaxActive, profile); err != nil {
 		return err
+	}
+	if budgeted, ok := db.(interface {
+		ConfigureResourceBudget(context.Context, AdmissionConfig) error
+	}); ok {
+		if err := budgeted.ConfigureResourceBudget(ctx, cfg); err != nil {
+			return err
+		}
+	} else if cfg.ResourceBudget != nil {
+		return errors.New("admission store cannot enforce resource budgets")
 	}
 	if guarded, ok := db.(interface {
 		ConfigureStorageGuard(context.Context, *StorageGuardConfig) error

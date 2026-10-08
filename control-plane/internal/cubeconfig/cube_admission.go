@@ -6,6 +6,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"reflect"
 	"strings"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
@@ -51,6 +52,10 @@ func ConfigureAdmission(ctx context.Context, cfg Config, st *store.Store) error 
 			}
 			if w.ID == "vps" && (w.Admission.MaxActive != admission.MaxActive || w.Admission.CPUCount != admission.CPUCount || w.Admission.MemoryMB != admission.MemoryMB || w.Admission.StorageGuard == nil || *w.Admission.StorageGuard != *admission.StorageGuard) {
 				return errors.New("fleet must preserve the VPS capacity and storage contract")
+			}
+			if w.ID == "vps" && (w.Admission.ResourceBudget != nil || admission.ResourceBudget != nil) &&
+				(!reflect.DeepEqual(w.Admission.ResourceBudget, admission.ResourceBudget) || !reflect.DeepEqual(w.Admission.Templates, admission.Templates)) {
+				return errors.New("fleet must preserve the VPS template resource budget")
 			}
 		}
 		if err := cfg.Client.ConfigurePlacement(fleet.MasterURL, "cubebox"); err != nil {

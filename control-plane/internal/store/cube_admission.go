@@ -96,11 +96,14 @@ func (s *Store) AdmissionBegin(ctx context.Context, key, runtimeID, templateID, 
 			charge = 1
 		}
 		if charge > 0 && (operation == "create" || operation == "connect" || operation == "delete") {
-			if err = s.storageAdmit(ctx, tx, key, token, charge > previous.Charged); err != nil {
+			if err = s.storageAdmit(ctx, tx, key, token, charge > previous.Charged, templateID); err != nil {
 				return err
 			}
 		}
 		if charge > previous.Charged {
+			if err = s.resourceAdmit(ctx, tx, key, templateID, charge); err != nil {
+				return err
+			}
 			var used int
 			if err = tx.QueryRowContext(ctx, `SELECT COALESCE(SUM(charged),0) FROM cube_admission WHERE worker_id=?`, s.admissionWorkerID()).Scan(&used); err != nil {
 				return err
@@ -167,7 +170,10 @@ func (s *Store) AdmissionFinish(ctx context.Context, a cube.AdmissionRecord, run
 			return cube.ErrAdmissionPending
 		}
 		if charge > a.Charged {
-			if err = s.storageAdmit(ctx, tx, a.Key, a.Token, true); err != nil {
+			if err = s.resourceAdmit(ctx, tx, a.Key, a.TemplateID, charge); err != nil {
+				return err
+			}
+			if err = s.storageAdmit(ctx, tx, a.Key, a.Token, true, a.TemplateID); err != nil {
 				return err
 			}
 		}

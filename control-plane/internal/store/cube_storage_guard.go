@@ -45,8 +45,17 @@ func (s *Store) ConfigureStorageGuard(ctx context.Context, cfg *cube.StorageGuar
 		if e2 := tx.QueryRowContext(ctx, `SELECT max_active FROM cube_admission_policy WHERE singleton=1 AND worker_id=?`, s.admissionWorkerID()).Scan(&max); e2 != nil {
 			return e2
 		}
-		if max < 1 || max > cube.MaxPinnedWorkerActive || (s.admissionWorker == "" && max > cube.GuardedAdmissionLimit) {
+		if max < 1 || max > cube.MaxPinnedWorkerActive {
 			return cube.ErrStorageUnavailable
+		}
+		if s.admissionWorker == "" && max > cube.GuardedAdmissionLimit {
+			var enrolled int
+			if err := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM cube_resource_budget WHERE worker_id=?`, s.admissionWorkerID()).Scan(&enrolled); err != nil {
+				return err
+			}
+			if enrolled != 1 {
+				return cube.ErrStorageUnavailable
+			}
 		}
 		if errors.Is(e, sql.ErrNoRows) {
 			var charged int
@@ -73,7 +82,7 @@ func (s *Store) ConfigureStorageGuard(ctx context.Context, cfg *cube.StorageGuar
 
 // The epoch resets using releases AFTER observation START, including operations
 // completed between measuring free space and reading the observation file.
-func (s *Store) storageAdmit(ctx context.Context, tx *sql.Tx, key, token string, allocate bool) error {
+func (s *Store) storageAdmit(ctx context.Context, tx *sql.Tx, key, token string, allocate bool, template string) error {
 	var contract, priorJSON, priorBoot string
 	var generation, started, spent, lastClock int64
 	e := tx.QueryRowContext(ctx, `SELECT contract,generation,observation_json,started_ns,spent_bytes,last_clock_ns,clock_boot_id FROM cube_storage_policy WHERE singleton=1 AND worker_id=?`, s.admissionWorkerID()).Scan(&contract, &generation, &priorJSON, &started, &spent, &lastClock, &priorBoot)
@@ -139,12 +148,15 @@ func (s *Store) storageAdmit(ctx context.Context, tx *sql.Tx, key, token string,
 	}
 	debit := int64(0)
 	if allocate {
-		debit = cube.StorageGrant
+		debit, e = s.storageGrantBytes(ctx, tx, template)
+		if e != nil {
+			return e
+		}
 	}
 	if free < cube.StorageBaseline || spent > free-cube.StorageReserve || debit > free-cube.StorageReserve-spent {
 		return cube.ErrStorageUnavailable
 	}
-	if _, e = tx.ExecContext(ctx, `INSERT INTO cube_storage_grant(token,admission_key,granted_ns,grant_boot_id,bytes,worker_id) VALUES(?,?,?,?,?,?)`, token, key, now.NS, now.BootID, cube.StorageGrant, s.admissionWorkerID()); e != nil {
+	if _, e = tx.ExecContext(ctx, `INSERT INTO cube_storage_grant(token,admission_key,granted_ns,grant_boot_id,bytes,worker_id) VALUES(?,?,?,?,?,?)`, token, key, now.NS, now.BootID, debit, s.admissionWorkerID()); e != nil {
 		return e
 	}
 

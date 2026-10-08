@@ -47,7 +47,7 @@ func fixture(t *testing.T) *stopFixture {
 	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
 		defer f.mu.Unlock()
-		if r.Method == "GET" && r.URL.Path == "/sandboxes" {
+		if r.Method == "GET" && r.URL.Path == "/v2/sandboxes" && r.URL.RawQuery == "limit=4096" {
 			out := []cube.Sandbox{}
 			for _, v := range f.guests {
 				out = append(out, v)

@@ -154,7 +154,7 @@ func TestStorageConcurrentAdmissionsAndUncertainCarry(t *testing.T) {
 			return e
 		}
 		defer tx.Rollback()
-		return s.storageAdmit(context.Background(), tx, "recovery", "replacement", true)
+		return s.storageAdmit(context.Background(), tx, "recovery", "replacement", true, "tpl")
 	})
 	if !errors.Is(e, cube.ErrStorageUnavailable) {
 		t.Fatalf("uncertain carry admitted a fifth disk: %v", e)
