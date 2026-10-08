@@ -22,7 +22,7 @@ const (
 
 // process supervises one long-running child — the web dev server OR a
 // background worker. One child is kept running, restarted with exponential
-// backoff on unexpected exit, and abandoned after repeated fast failures.
+// backoff on unexpected exit, and paused after repeated fast failures until explicitly resumed.
 // (Generalized from the original single dev-server supervisor so an app's
 // manifest can declare a web process and/or workers.)
 type process struct {
@@ -35,11 +35,13 @@ type process struct {
 
 	restartAfterTask bool // bounce this process after each task (manifest restart_after_task)
 
-	mu        sync.Mutex
-	proc      *os.Process
-	running   bool
-	suspended bool
-	restarts  int
+	mu               sync.Mutex
+	proc             *os.Process
+	running          bool
+	suspended        bool
+	restarts         int
+	retryBlocked     bool
+	resumeGeneration uint64
 }
 
 func newProcess(name, kind, appDir, command, logPath string, log *slog.Logger) *process {
@@ -51,13 +53,19 @@ func newProcess(name, kind, appDir, command, logPath string, log *slog.Logger) *
 // (runtimed shutdown).
 func (p *process) supervise(ctx context.Context) {
 	fastFails := 0
+	var previousGeneration uint64
 	for {
 		if ctx.Err() != nil {
 			return
 		}
 		p.mu.Lock()
-		suspended := p.suspended
+		suspended := p.suspended || p.retryBlocked
+		generation := p.resumeGeneration
 		p.mu.Unlock()
+		if generation != previousGeneration {
+			fastFails = 0
+			previousGeneration = generation
+		}
 		if suspended {
 			select {
 			case <-ctx.Done():
@@ -72,23 +80,26 @@ func (p *process) supervise(ctx context.Context) {
 			return // intentional shutdown — do not restart
 		}
 		p.mu.Lock()
-		if p.suspended {
+		if p.suspended || p.resumeGeneration != generation {
 			p.mu.Unlock()
 			fastFails = 0
 			continue
 		}
 		p.restarts++
 		restarts := p.restarts
-		p.mu.Unlock()
 		if time.Since(start) < fastFailWindow {
 			fastFails++
 		} else {
 			fastFails = 0
 		}
 		if fastFails >= maxFastFails {
-			p.log.Error("process failing repeatedly — giving up until next start", "restarts", restarts)
-			return
+			p.retryBlocked = true
+			p.mu.Unlock()
+			fastFails = 0
+			p.log.Error("process failing repeatedly; waiting for explicit resume", "restarts", restarts)
+			continue
 		}
+		p.mu.Unlock()
 		delay := backoff(fastFails)
 		p.log.Warn("process exited; restarting after backoff", "delay", delay.String(), "restarts", restarts)
 		select {
@@ -183,4 +194,10 @@ func backoff(fastFails int) time.Duration {
 }
 
 func (p *process) suspend() { p.mu.Lock(); p.suspended = true; p.mu.Unlock(); p.stop() }
-func (p *process) resume()  { p.mu.Lock(); p.suspended = false; p.mu.Unlock() }
+func (p *process) resume() {
+	p.mu.Lock()
+	p.suspended = false
+	p.retryBlocked = false
+	p.resumeGeneration++
+	p.mu.Unlock()
+}
