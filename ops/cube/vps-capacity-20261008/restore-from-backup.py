@@ -5,7 +5,7 @@ sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as tran
 spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
 sid=sys.argv[1];assert len(sid)==26 and sid.isalnum()
 profile=sys.argv[2] if len(sys.argv)>2 else 'small'
-templates={'small':'tpl-78e4edb3d629465e9d8372c1','standard':'tpl-86350411460a47db8ffe6ff5'}
+templates={'small':'tpl-78e4edb3d629465e9d8372c1','standard':'tpl-86350411460a47db8ffe6ff5','large':'tpl-5abec4cb4fcc41cc8e611f69'}
 if profile=='owner-data':
  receipt=json.loads((root/'owner-data-template.json').read_text())
  deployed=json.loads((root/'owner-data-release-87a99c7/deployed.json').read_text())
@@ -16,6 +16,16 @@ assert profile in templates
 attempt=sys.argv[3] if len(sys.argv)>3 else ''
 assert not attempt or (attempt.isalnum() and len(attempt)<=16)
 prepared=root/'recovery-prepared-canonical'/sid;source=json.loads((prepared/'export-result.PRIVATE.json').read_text())
+# Do not add another guest while the host is stalled reclaiming/compacting.
+# This runs before any provider operation or journal creation.
+pressure_deadline=time.monotonic()+1800
+while True:
+ full=next(line for line in P('/proc/pressure/memory').read_text().splitlines() if line.startswith('full '))
+ avg10=float(dict(part.split('=',1) for part in full.split()[1:])['avg10'])
+ available=int(next(line.split()[1] for line in P('/proc/meminfo').read_text().splitlines() if line.startswith('MemAvailable:')))
+ if avg10<2 and available>8*1024**2:break
+ assert time.monotonic()<pressure_deadline,'Host pressure remains high; restore postponed'
+ time.sleep(5)
 subprocess.run([str(root/'artifact-validator'),str(prepared)],check=True,capture_output=True,timeout=180)
 job=root/'recovery-moves'/('vps-restore-'+sid.lower()+('-'+attempt if attempt else ''))
 BIN=root/'cube-relocate-package-recovery';migrations=root/'queue-release-d463b2d/source/control-plane/migrations'
@@ -32,6 +42,24 @@ class LocalWorker(transport.Worker):
  def fetch(self,role,receipt):
   path=P(receipt['local_path']);assert path==prepared/(role+'.zip') and not path.is_symlink()
   assert path.stat().st_size==receipt['archive_bytes'] and transport.digest(path)==receipt['sha256'];return path
+ def application_checks(self):
+  checks={'01M1HJ4EXF1GS6GE3BS9G3ANF3':('gateway','/api/rules'),'01M3C9C0V0MQYNFTMCYS7CCNVC':('postgres','/api/health')}
+  if sid not in checks:return
+  name,path=checks[sid];deadline=time.monotonic()+90
+  while True:
+   try:
+    state=self.control('GET','/status');process=next(p for p in state['processes'] if p['name']==name)
+    assert process['running']
+    headers={**self.headers,'Host':self.headers['Host'].replace('3031-',str(self.job['web_port'])+'-',1)}
+    value=json.loads(self.http('GET',path,headers=headers,timeout=5))
+    assert (name=='gateway' and isinstance(value,list)) or (name=='postgres' and value.get('ok') is True and value.get('database')=='ready')
+    time.sleep(2);after=next(p for p in self.control('GET','/status')['processes'] if p['name']==name)
+    assert after['running'] and after['restarts']==process['restarts']
+    save('application-health.json',{'worker':name,'path':path,'passed':True,'at':time.time()});return
+   except (OSError,RuntimeError,AssertionError,ValueError,KeyError,StopIteration):
+    assert time.monotonic()<deadline,'Application worker health did not pass';time.sleep(1)
+ def verify(self):
+  proof=super().verify();self.application_checks();return proof
 @contextlib.contextmanager
 def wait_for_operator():
  deadline=time.monotonic()+1800
@@ -74,6 +102,7 @@ with wait_for_operator():
    with urllib.request.urlopen(req,timeout=180) as response:assert response.status==200;response.read()
   api('start');api('stop');began=time.monotonic();api('start');wake=time.monotonic()-began
   worker.http('GET','/',headers={**request['headers'],'Host':request['headers']['Host'].replace('3031-',str(request['web_port'])+'-',1)},timeout=10)
+  worker.application_checks()
   api('stop')
   assert rows("select worker_id,state,charged from cube_admission where runtime_id=?",(runtime,))==[{'worker_id':'vps','state':'released','charged':0}]
   result={'restored':True,'sandbox_id':sid,'worker':'vps','profile':profile,'source_contacted':False,'same_project_identity':True,'wake_seconds':wake,'all_content_verified':True,'source_retained':True,'at':time.time()};save('complete.json',result);print(json.dumps(result),flush=True)

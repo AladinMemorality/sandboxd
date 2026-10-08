@@ -1,0 +1,9 @@
+__pycache__/
+*.PRIVATE.*
+*.sqlite
+*.db
+*.zip
+*.tar*
+*.key
+exports/
+tree/

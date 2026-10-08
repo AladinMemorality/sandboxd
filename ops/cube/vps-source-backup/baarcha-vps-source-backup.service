@@ -1,0 +1,14 @@
+[Unit]
+Description=Verified VPS sandbox source backup (no B200 access)
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/baarcha-vps-source-backup/backup.py
+UMask=0077
+Nice=15
+IOWeight=10
+CPUQuota=50%
+MemoryHigh=512M
+TimeoutStartSec=8h
+

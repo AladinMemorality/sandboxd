@@ -302,3 +302,28 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   corrected to sparse=auto. Failed private staging retained pending cleanup.
 - Model/agent concurrency tests remain explicitly deferred.50starter density
   passed earlier; maximum simultaneous builds remains unestablished.
+
+2026-10-08 22:44Z backup acceptance and ongoing restores:
+- VPS source generation20261008T222308Z VERIFIED:23sandboxes,3311583116bytes,
+  including newproject01M4EP7FC5TTW0RZS8SKTGX9RV. Union with emergency133
+  covers all134current IDs at this checkpoint; these are point-in-time backups.
+- Installed daily04:15UTC+jitter20min timer;7day verified retention keeps>=2.
+  No B200 contacts or sandbox wakeups for backup.23disk captures had0changed
+  files during capture; archive copies remain crash-consistent, not logicalDB.
+- Backup load interrupted intentionally, then resumed from immutable clones.
+  Final exporter1CPU/1GiB; operator locks serialize exports with restores.
+  Python3.12TarInfo cache cleared during scan, bounding verifier RSS (~36MiB
+  observed, service memory also includes page cache). ServiceCPU50%,High512MiB.
+  Full hash/gzip/tar/identity/dependency-exclusion checks passed on all23archives.
+- Failed firstcapture clone20261008T222219Z removed only after proving identical
+  scope and successfulreplacement; failedcontroller evidence retained.
+- Restore preflight now waits for hostfullPSIavg10<2 and MemAvailable>8GiB.
+  Hostpressure temporarily rose during overlappingexport/restore; no worker
+  OOMevents seen. No THP settings or VMmemory ceilings changed. NOS browser
+  stillpassed during load, but24.857s versus6.252s quiet; not a latencySLAclaim.
+- Batch03continues (14/101passed at22:44); ten custom recipes prepared and
+  archivevalidated. Customrunner notstarted until batch03complete. PostgreSQL
+  requires /api/health database=ready; ReplyBot gateway requires JSON /api/rules
+  and stable supervisedprocess beforecommit andafterwake. Next uses2GiB trial.
+- New operations remain in isolatedworktree; no changes to shared landing tree.
+  Keep model/agentload deferred. All original source backups retained.

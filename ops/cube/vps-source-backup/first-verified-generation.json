@@ -1,0 +1,1 @@
+{"b200_contacted":false,"bytes":3311583116,"completed_at":1791499329.716047,"generation":"20261008T222308Z","other_worker_bindings":111,"sandboxes":23,"scope":"Merged /home/sandbox excluding recorded reproducible dependencies/caches; controller SQLite and decryption key. Filesystem copies are crash-consistent, not logical database dumps.","verified":true,"worker":"vps"}

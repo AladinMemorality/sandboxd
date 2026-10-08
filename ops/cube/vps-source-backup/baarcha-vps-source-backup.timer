@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily VPS sandbox source backup
+
+[Timer]
+OnCalendar=*-*-* 04:15:00 UTC
+RandomizedDelaySec=20m
+Persistent=true
+Unit=baarcha-vps-source-backup.service
+
+[Install]
+WantedBy=timers.target
