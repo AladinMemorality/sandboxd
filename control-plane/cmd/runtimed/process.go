@@ -201,3 +201,6 @@ func (p *process) resume() {
 	p.resumeGeneration++
 	p.mu.Unlock()
 }
+
+// restart is an explicit operator/task restart, including exhausted retries.
+func (p *process) restart() { p.suspend(); p.resume() }

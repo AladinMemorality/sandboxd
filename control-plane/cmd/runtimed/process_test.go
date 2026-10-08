@@ -21,7 +21,7 @@ func waitProcessCondition(t *testing.T, timeout time.Duration, condition func() 
 	}
 }
 
-func TestProcessResumeAfterRetryExhaustion(t *testing.T) {
+func testProcessRecoveryAfterRetryExhaustion(t *testing.T, restart bool) {
 	t.Parallel()
 	dir := t.TempDir()
 	p := newProcess("web", "web", dir, "test -f repaired || exit 1; exec sleep 120", filepath.Join(dir, "web.log"), slog.New(slog.NewTextHandler(io.Discard, nil)))
@@ -53,8 +53,12 @@ func TestProcessResumeAfterRetryExhaustion(t *testing.T) {
 		t.Fatal("supervisor abandoned the process")
 	default:
 	}
-	p.suspend()
-	p.resume()
+	if restart {
+		p.restart()
+	} else {
+		p.suspend()
+		p.resume()
+	}
 	waitProcessCondition(t, 2*time.Second, func() bool { _, _, running := p.snapshot(); return running })
 	first, _, _ := p.snapshot()
 	p.resume() // Repeated resume must not start a second child.
@@ -82,4 +86,11 @@ func TestProcessCancellationWhileRetryBlocked(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("blocked supervisor ignored cancellation")
 	}
+}
+
+func TestProcessResumeAfterRetryExhaustion(t *testing.T) {
+	testProcessRecoveryAfterRetryExhaustion(t, false)
+}
+func TestProcessRestartAfterRetryExhaustion(t *testing.T) {
+	testProcessRecoveryAfterRetryExhaustion(t, true)
 }

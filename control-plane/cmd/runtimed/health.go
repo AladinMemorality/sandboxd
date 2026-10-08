@@ -125,7 +125,7 @@ func checkStaleConfigRestart(ctx context.Context, h *healthCtx) finding {
 	if len(hits) == 0 || h.app.web == nil {
 		return finding{} // no watched config changed, or a worker-only app (no web to restart)
 	}
-	h.app.web.stop() // supervisor respawns with fresh config
+	h.app.web.restart() // recover exhausted retries with fresh config
 	ready := h.app.waitDevReady(ctx, 25*time.Second)
 	return finding{
 		note:       fmt.Sprintf("dev config changed (%s); restarted dev server [ready=%v]", strings.Join(hits, ","), ready),

@@ -391,12 +391,12 @@ func (a *app) runTask(t *task) {
 // restartWorkersAfterTask bounces any worker flagged restart_after_task so it
 // re-runs its command and picks up code the task changed (a long-running worker
 // otherwise keeps the old behavior). Workers have no readiness probe, so we
-// just stop() them — the supervisor re-runs the command after its backoff.
+// explicitly restart them, including workers whose failure budget was exhausted.
 func (a *app) restartWorkersAfterTask() {
 	for _, wp := range a.workers {
 		if wp.restartAfterTask {
 			a.log.Info("restarting worker after task (restart_after_task)", "worker", wp.name)
-			wp.stop()
+			wp.restart()
 		}
 	}
 }
@@ -405,7 +405,7 @@ func (a *app) restartWorkersAfterTask() {
 // bounced web process to serve again (a Next.js dev recompile can take a while).
 const webRestartReadyTimeout = 90 * time.Second
 
-// restartWebAndWait restarts the web process (via stop(); the supervisor then
+// restartWebAndWait restarts the web process (the supervisor then
 // re-runs its start command) and waits until it serves a 200 on the health
 // path again, so the post-task preview/health reflects the fresh server rather
 // than the mid-restart gap. Best-effort: returns on ctx cancel or timeout.
@@ -414,7 +414,7 @@ func (a *app) restartWebAndWait(ctx context.Context) {
 		return
 	}
 	a.log.Info("restarting web process after task (restart_after_task)")
-	a.web.stop() // blocks until the child is dead; supervisor re-runs the start cmd
+	a.web.restart() // resets exhausted retries and starts with fresh configuration
 	deadline := time.Now().Add(webRestartReadyTimeout)
 	for {
 		select {
