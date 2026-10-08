@@ -37,12 +37,14 @@ import (
 
 // Server bundles the collaborators the handlers need.
 type Server struct {
+	CubeTaskConcurrency  int                         // per-worker coding jobs; independent of dedicated builder VM slots; zero disables queue
 	CubeReadiness        func(context.Context) error // worker/storage readiness, read-only
 	cubeOnly             bool                        // set only by CubeHandler; no host execution fallback
 	RetainedHistoryRoot  string                      // read-only pre-migration event archives
 	cubeEgress           *cubeEgressManager
 	CubeAgentRelayOrigin string   // trusted HTTPS public origin; disabled by default
 	cubePreviewLeases    sync.Map // sandbox ID -> short verified running lease (time.Time)
+	cubeTaskSubmissions  sync.Map // locally submitting requests must not be reconciled as absent
 	cubeTaskWatches      sync.Map // task ID -> active watcher; restart-safe recovery is durable in SQLite
 	Cube                 *cube.Client
 	CubeTemplates        map[string]string

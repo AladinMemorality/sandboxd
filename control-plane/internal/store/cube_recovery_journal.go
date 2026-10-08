@@ -203,7 +203,7 @@ func (s *Store) recoveryWrite(ctx context.Context, fn func(*sql.Tx) error) error
 }
 func recoveryFrozen(ctx context.Context, tx *sql.Tx, j *CubeRecoveryJournal) error {
 	var active int
-	if e := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM task WHERE status='running'`).Scan(&active); e != nil {
+	if e := tx.QueryRowContext(ctx, `SELECT COUNT(*) FROM task WHERE status IN ('running','queued')`).Scan(&active); e != nil {
 		return e
 	}
 	if active != 0 {

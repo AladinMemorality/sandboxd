@@ -10,16 +10,6 @@ import (
 
 func (s *Server) v1TaskMessage(w http.ResponseWriter, r *http.Request) {
 	id, taskID := r.PathValue("id"), r.PathValue("taskId")
-	if remote, err := s.Store.IsCube(r.Context(), id); err == nil && remote {
-		if err := s.prepareCubeTaskRPC(r.Context(), id); err != nil {
-			if writeCubeAdmissionError(w, err) {
-				return
-			}
-			writeV1Err(w, 502, "sandbox_unavailable", "Cube task runtime unavailable")
-			return
-		}
-	}
-
 	sb, err := s.Store.Get(r.Context(), id)
 	if err != nil || !sb.AppID.Valid {
 		writeV1Err(w, 404, "not_found", "no such project sandbox")
@@ -33,6 +23,19 @@ func (s *Server) v1TaskMessage(w http.ResponseWriter, r *http.Request) {
 	if err != nil || task.SandboxID != id {
 		writeV1Err(w, 404, "not_found", "no such task")
 		return
+	}
+	if task.Status == "queued" {
+		writeV1Err(w, 409, "task_queued", "This request is waiting to start. Cancel it to submit an updated request.")
+		return
+	}
+	if remote, err := s.Store.IsCube(r.Context(), id); err == nil && remote {
+		if err := s.prepareCubeTaskRPC(r.Context(), id); err != nil {
+			if writeCubeAdmissionError(w, err) {
+				return
+			}
+			writeV1Err(w, 502, "sandbox_unavailable", "Cube task runtime unavailable")
+			return
+		}
 	}
 	var req runtime.TaskMessage
 	if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 160000)).Decode(&req); err != nil || !req.Valid() {

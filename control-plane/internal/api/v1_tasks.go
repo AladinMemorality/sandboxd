@@ -250,6 +250,9 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	if remote && s.enqueueCubeTask(w, r, sb, agent, req) {
+		return
+	}
 	if remote {
 		done := taskStage(r.Context(), "cube_prepare_total")
 		err := s.connectCube(r.Context(), id, int(watchWindowFor(req.TimeoutS).Seconds())+600)
@@ -399,7 +402,7 @@ func (s *Server) v1GetTask(w http.ResponseWriter, r *http.Request) {
 	}
 	if t.Status == "running" || !t.ResultJSON.Valid {
 		writeJSON(w, http.StatusOK, map[string]any{
-			"id": taskID, "sandbox_id": id, "status": "running",
+			"id": taskID, "sandbox_id": id, "status": t.Status,
 		})
 		return
 	}
@@ -541,6 +544,9 @@ func (s *Server) v1RevertTask(w http.ResponseWriter, r *http.Request) {
 // --- GET /v1/sandboxes/{id}/tasks/{taskId}/events (SSE) -------------
 
 func (s *Server) v1TaskEvents(w http.ResponseWriter, r *http.Request) {
+	if s.serveQueuedCubeTaskEvents(w, r) {
+		return
+	}
 	if s.serveMigratedTaskEvents(w, r) {
 		return
 	}
@@ -593,6 +599,18 @@ func (s *Server) v1TaskEvents(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) v1CancelTask(w http.ResponseWriter, r *http.Request) {
 	id, taskID := r.PathValue("id"), r.PathValue("taskId")
+	result := &runtime.TaskResult{ID: taskID, Status: runtime.TaskCancelled, FilesChanged: []string{}}
+	raw, _ := json.Marshal(result)
+	cancelled, queueErr := s.Store.CancelQueuedCubeTask(r.Context(), id, taskID, string(raw))
+	if queueErr != nil {
+		writeV1Err(w, 503, "runtime_unavailable", "cannot resolve queued request")
+		return
+	}
+	if cancelled {
+		writeJSON(w, 200, map[string]string{"id": taskID, "status": "cancelled"})
+		return
+	}
+
 	if remote, err := s.Store.IsCube(r.Context(), id); err == nil && remote {
 		if err := s.prepareCubeTaskRPC(r.Context(), id); err != nil {
 			if writeCubeAdmissionError(w, err) {

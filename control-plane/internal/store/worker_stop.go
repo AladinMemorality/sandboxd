@@ -52,7 +52,7 @@ func WorkerStopInventoryDB(ctx context.Context, db *sql.DB, worker ...string) (W
 			return out, errors.New("unaccounted binding prevents worker-scoped stop")
 		}
 	}
-	for _, query := range []string{`SELECT COUNT(*) FROM runtime_migration WHERE phase NOT IN ('complete','rolled_back','aborted')`, `SELECT COUNT(*) FROM task WHERE status='running'`, `SELECT COUNT(*) FROM cube_admission WHERE state='pending'`, `SELECT COUNT(*) FROM cube_recovery WHERE phase<>'complete'`} {
+	for _, query := range []string{`SELECT COUNT(*) FROM runtime_migration WHERE phase NOT IN ('complete','rolled_back','aborted')`, `SELECT COUNT(*) FROM task WHERE status IN ('running','queued')`, `SELECT COUNT(*) FROM cube_admission WHERE state='pending'`, `SELECT COUNT(*) FROM cube_recovery WHERE phase<>'complete'`} {
 		if e = tx.QueryRowContext(ctx, query).Scan(&n); e != nil {
 			return out, e
 		}

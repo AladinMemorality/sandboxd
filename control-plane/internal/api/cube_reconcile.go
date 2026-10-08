@@ -257,6 +257,7 @@ func (s *Server) ReconcileCube(ctx context.Context) {
 // RunCubeMaintenance reconciles remote state and durable task results after
 // transient failures. The context belongs to sandboxd's process lifecycle.
 func (s *Server) RunCubeMaintenance(ctx context.Context) {
+	go s.runCubeTaskQueue(ctx)
 	ticker := time.NewTicker(30 * time.Second)
 	defer ticker.Stop()
 	for {

@@ -176,8 +176,16 @@ func run() (runErr error) {
 	proxyServer := &http.Server{Handler: authproxy.New(agentAuth, log.With("component", "model-auth")),
 		ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second}
 	defer proxyServer.Close()
+	taskConcurrency, err := nonnegativeEnv("SANDBOXD_CUBE_TASK_CONCURRENCY", 0)
+	if err != nil {
+		return err
+	}
+	if taskConcurrency > 1000 {
+		return errors.New("coding concurrency exceeds 1000")
+	}
 	server := &api.Server{
-		Store: st, Secrets: cipher, Log: log.With("component", "api"),
+		CubeTaskConcurrency: taskConcurrency,
+		Store:               st, Secrets: cipher, Log: log.With("component", "api"),
 		Cube: cfg.Client, CubeAllApps: true, CubeTemplates: cfg.Templates, CubeProxyURL: cfg.ProxyURL,
 		CubeDomain: cfg.Domain, CubeAgentRelayOrigin: cfg.RelayOrigin,
 		CubeReadiness: func(ctx context.Context) error {

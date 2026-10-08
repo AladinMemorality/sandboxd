@@ -92,7 +92,7 @@ func relocationUnchanged(ctx context.Context, tx *sql.Tx, j CubeRelocation) erro
 		return ErrConflict
 	}
 	var running int
-	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM task WHERE sandbox_id=? AND status='running'`, j.SandboxID).Scan(&running); err != nil {
+	if err = tx.QueryRowContext(ctx, `SELECT count(*) FROM task WHERE sandbox_id=? AND status IN ('running','queued')`, j.SandboxID).Scan(&running); err != nil {
 		return err
 	}
 	if running != 0 {

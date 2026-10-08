@@ -17,7 +17,7 @@ type Task struct {
 	ExternalProjectID sql.NullString
 	Agent             string
 	Prompt            string
-	Status            string // running | succeeded | failed | cancelled
+	Status            string // queued | running | succeeded | failed | cancelled
 	ResultJSON        sql.NullString
 	TimeoutS          int // task timeout in seconds; 0 = runtimed default
 	CreatedAt         time.Time
@@ -40,12 +40,36 @@ func (s *Store) CreateTask(ctx context.Context, t *Task) error {
 
 // FinishTask records a task's terminal status and canonical result.
 func (s *Store) FinishTask(ctx context.Context, taskID, status, resultJSON string) error {
+	return s.finishTask(ctx, taskID, status, resultJSON, false)
+}
+
+func (s *Store) FinishCubeTaskWithoutEvents(ctx context.Context, taskID, status, resultJSON string) error {
+	return s.finishTask(ctx, taskID, status, resultJSON, true)
+}
+
+func (s *Store) finishTask(ctx context.Context, taskID, status, resultJSON string, terminalOnly bool) error {
 	return s.submit(ctx, func(db *sql.DB) error {
-		_, err := db.ExecContext(ctx, `
+		tx, err := db.BeginTx(ctx, nil)
+		if err != nil {
+			return err
+		}
+		defer tx.Rollback()
+		if terminalOnly {
+			if _, err = tx.ExecContext(ctx, `UPDATE cube_task_queue_history SET terminal_only=1 WHERE task_id=?`, taskID); err != nil {
+				return err
+			}
+		}
+		_, err = tx.ExecContext(ctx, `
 			UPDATE task SET status=?, result_json=?, finished_at=?
 			 WHERE task_id=?`,
 			status, resultJSON, time.Now().Unix(), taskID)
-		return err
+		if err == nil {
+			_, err = tx.ExecContext(ctx, `DELETE FROM cube_task_queue WHERE task_id=?`, taskID)
+		}
+		if err != nil {
+			return err
+		}
+		return tx.Commit()
 	})
 }
 
@@ -130,7 +154,7 @@ func (s *Store) ListRunningTasks(ctx context.Context) ([]*Task, error) {
 func (s *Store) SandboxHasRunningTask(ctx context.Context, sandboxID string) (bool, error) {
 	var n int
 	err := s.db.QueryRowContext(ctx,
-		`SELECT EXISTS(SELECT 1 FROM task WHERE sandbox_id=? AND status='running')`,
+		`SELECT EXISTS(SELECT 1 FROM task WHERE sandbox_id=? AND status IN ('running','queued'))`,
 		sandboxID).Scan(&n)
 	return n == 1, err
 }

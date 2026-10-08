@@ -21,6 +21,9 @@ func validCubeTaskResult(result *runtime.TaskResult, id string) bool {
 // still be working. Only an authenticated guest result or explicit absence can
 // finalize a row. No shared host file or Docker operation is used.
 func (s *Server) recoverCubeTask(ctx context.Context, t *store.Task) {
+	if _, busy := s.cubeTaskSubmissions.Load(t.TaskID); busy {
+		return
+	}
 	if _, active := s.cubeTaskWatches.Load(t.TaskID); active {
 		return
 	}
@@ -42,6 +45,12 @@ func (s *Server) recoverCubeTask(ctx context.Context, t *store.Task) {
 	}
 	if status.ActiveTask != nil && status.ActiveTask.ID == t.TaskID {
 		go s.watchTask(t.SandboxID, t.TaskID, t.TimeoutS)
+		return
+	}
+	// Queued requests may be old when dispatched. Use the dispatch checkpoint,
+	// allowing an ambiguous submission time to settle before accepting absence.
+	dispatched, dispatchErr := s.Store.CubeTaskDispatchAt(ctx, t.TaskID)
+	if dispatchErr != nil || (!dispatched.IsZero() && time.Since(dispatched) < 60*time.Second) {
 		return
 	}
 	// Allow a just-submitted task a short startup/result-write grace period.
