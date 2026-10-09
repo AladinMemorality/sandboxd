@@ -21,12 +21,13 @@ assert int(env.get('SANDBOXD_CUBE_TASK_CONCURRENCY','0'))==0
 assert all(w['draining'] for w in fleet['workers'] if w['id']!='vps')
 with urllib.request.urlopen('http://127.0.0.1:9090/readyz',timeout=5) as r:assert r.read().strip()==b'ready'
 def proof(name):return json.loads((root/name).read_text())
-assert proof('finish-vps-recovery-17/complete.json')['complete']
-deployed=proof('resume-retry-release-d5b07bb/deployed.json');assert deployed['deployed'] and deployed['image']==container['Image'] and deployed['deleted_storage_grant_reconciled']
-density=proof('real-preview-density-50-balanced-03/result.json');cleanup=proof('real-preview-density-50-balanced-03/cleanup.json')
+assert proof('finish-vps-recovery-18/complete.json')['complete']
+assert proof('resume-retry-release-d5b07bb/deployed.json')['deleted_storage_grant_reconciled']
+deployed=proof('stop-state-release-eda67d2/deployed.json');assert deployed['deployed'] and deployed['image']==container['Image'] and deployed['stop_state_verified']
+density=proof('real-preview-density-50-balanced-04/result.json');cleanup=proof('real-preview-density-50-balanced-04/cleanup.json')
 assert density['passed'] and density['concurrent_running']==50 and density['http_checks']==600
 assert cleanup['complete'] and cleanup['bindings_preserved'] and cleanup['existing_running_preserved']
-density_scope=proof('real-preview-density-50-balanced-03/scope.json');before=density_scope['before']
+density_scope=proof('real-preview-density-50-balanced-04/scope.json');before=density_scope['before']
 cohort_limits=collections.Counter(policy['templates'][binding_templates[sid]]['memory_mb'] for sid in density_scope['selected']+density_scope['existing_running'])
 assert sum(cohort_limits.values())==50
 pacing=proof('transfer-readiness-watch-01/result.json');assert pacing['passed'] and pacing['checks']==60 and pacing['failed_checks']==0

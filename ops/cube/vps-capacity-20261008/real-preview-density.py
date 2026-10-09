@@ -10,7 +10,7 @@ spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-c
 sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as transport
 spec=importlib.util.spec_from_file_location('assets',root/'preview-assets.py');assets=importlib.util.module_from_spec(spec);spec.loader.exec_module(assets)
 SSH=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','-oConnectTimeout=5','root@127.0.0.1']
-G=1024**3;run_dir=root/'real-preview-density-50-balanced-03';barrier=root/'restore-barrier.json'
+G=1024**3;run_dir=root/'real-preview-density-50-balanced-04';barrier=root/'restore-barrier.json'
 def rows(query,args=()):
     with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
         db.row_factory=sqlite3.Row;return [dict(x) for x in db.execute(query,args)]
@@ -24,7 +24,7 @@ def plan():
     for scope in root.glob('vite-batch-*/scope.json'):
         reviewed.update(x['sandbox_id'] for x in json.loads(scope.read_text())['selected'])
     candidates=[]
-    for journal in (root/'recovery-moves').iterdir():
+    for journal in [*(root/'recovery-moves').iterdir(),root/'exited-recovery-01']:
         if not (journal/'complete.json').exists() or not list(journal.glob('module-health-*.json')):continue
         receipt=json.loads((journal/'complete.json').read_text());sid=receipt['sandbox_id'];row=lookup.get(sid)
         if sid not in reviewed or not row or row['status']!='stopped' or row['charged'] or row['state']!='released':continue

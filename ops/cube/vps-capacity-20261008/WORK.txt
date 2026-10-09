@@ -597,3 +597,32 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   underlying cause; original failed memory snapshot remains preserved.
 - Full density03 / finish17 / outer20 continue with the recovered app in the
   eligible cohort. Backup/supervisor/final audit remain after successful test.
+
+2026-10-09 15:11Z second failed snapshot recovery and shared lifecycle fixes:
+- Density03 warmed25 apps, then app01M24GEQ88YGHHH3WPC9WD9DY0 restored
+  mainPID70 and exited0 before supervisor readiness. Master status2/native
+  APIstopped; current writable disk retained. Fresh source backup41,602,800
+  bytes verified; no tasks; exact4GiB native clone retained and source hash
+  unchanged with no live handles. This failure's root cause is not established.
+- Offline Session recovered the app to runtime d95e537c7aee4dda96d9bbc13f61d4f9,
+  preserving canonical identity, source/home/history/config and original VM.
+  First acknowledgment exposed a legacy hardcoded2CPU/2048MiB recovery guard.
+  eda67d2 uses the durable template resource contract; legacy uniform checks
+  remain. Exact existing replacement adopted, never recreated. Private native
+  ingress retrieved locally and authenticated; no B200 request or model call.
+- a60bfc3 requires native verification when local stop state is stale and
+  refuses stop success while a paused runtime still has a pending/charged
+  reservation. Active-task/unreachable/unknown and admission regression tests
+  pass. Full store/cube/API race suites passed; weighted recovery store/cube/
+  recovery race suites passed. Both fixes pushed to fork/main.
+- Controller eda67d2 deployed as028b53215b95194140bfbb0356e1d6e1e1cee47f8b42a2fe5e21f7d1966e70aa.
+  First deployment rolled back because retained original was not yet enrolled
+  in inactive inventory. Its completed quarantine/unbound/native stopped state
+  verified, then enrolled without provider mutation; full135-binding worker
+  observation consistent. Second deploy preserved all135 bindings and policy.
+- Three stop/wake cycles and module checks passed1.268/1.300/1.231s. Original
+  retained. Failed density03 cleanup/barrier explicitly reconciled in a new
+  receipt; old failure receipts untouched. Density04 / finish18 / outer21 now
+  scheduled, followed by fresh135 source backup, supervisor rollout and audit.
+- The kernel panic and immediate-exit underlying causes remain unproven. No
+  claim of automatic repair or50agent/build concurrency is made.

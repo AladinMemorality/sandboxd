@@ -1,0 +1,16 @@
+{
+  "at": 1791558667.2770572,
+  "b200_contacted": false,
+  "cycles": 3,
+  "model_calls": false,
+  "original_retained": true,
+  "passed": true,
+  "previous_cleanup_resolved": true,
+  "runtime_id": "d95e537c7aee4dda96d9bbc13f61d4f9",
+  "sandbox_id": "01M24GEQ88YGHHH3WPC9WD9DY0",
+  "wake_seconds": [
+    1.268465319648385,
+    1.299721084535122,
+    1.230655601248145
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "b200_contacted": false,
+  "bindings_preserved": 135,
+  "coding_queue_enabled": false,
+  "deployed": true,
+  "image": "sha256:028b53215b95194140bfbb0356e1d6e1e1cee47f8b42a2fe5e21f7d1966e70aa",
+  "revision": "eda67d2",
+  "stop_state_verified": true
+}
