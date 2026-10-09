@@ -522,3 +522,45 @@ func TestCubeRecoveryPreservesFleetPartition(t *testing.T) {
 	}
 	assertRecoveryCharge(t, s, 1)
 }
+
+func TestCubeRecoveryObservedUsesDurableWeightedProfile(t *testing.T) {
+	for _, memory := range []int{768, 1024, 2048} {
+		t.Run(fmt.Sprint(memory), func(t *testing.T) {
+			s, p := recoveryFixture(t, 1)
+			ctx := context.Background()
+			contract := resourceContract{Templates: map[string]cube.AdmissionResources{"tpl-reviewed": {CPUCount: 1, MemoryMB: memory}}}
+			raw, _ := json.Marshal(contract)
+			// Seed the durable contract after intent so this test isolates observation.
+			if e := s.BeginCubeRecovery(ctx, p); e != nil {
+				t.Fatal(e)
+			}
+			fenceRecovery(t, s)
+			j := recoveryJournal(t, s)
+			if _, e := s.CubeRecoveryCreateIntent(ctx, j.ID, "op", recoveryHash("req"), j.SupervisorSHA256, j.Target.TemplateID, j.SandboxID, j.AppID); e != nil {
+				t.Fatal(e)
+			}
+			if _, e := s.db.Exec(`INSERT INTO cube_resource_budget(worker_id,contract) VALUES('vps',?)`, string(raw)); e != nil {
+				t.Fatal(e)
+			}
+			actual := &cube.Sandbox{SandboxID: "replacement", TemplateID: j.Target.TemplateID, State: "running", CPUCount: 1, MemoryMB: memory + 1, Metadata: map[string]string{"sandboxd_id": j.SandboxID, "sandboxd_app_id": j.AppID, "sandboxd_recovery_id": j.ID, "sandboxd_admission_operation": "op"}}
+			if e := s.CubeRecoveryCreateObserved(ctx, j.ID, "op", actual); e == nil {
+				t.Fatal("wrong memory accepted")
+			}
+			if recoveryJournal(t, s).Phase != "creating" {
+				t.Fatal("rejected observation mutated journal")
+			}
+			actual.MemoryMB = memory
+			actual.CPUCount = 2
+			if e := s.CubeRecoveryCreateObserved(ctx, j.ID, "op", actual); e == nil {
+				t.Fatal("wrong CPU accepted")
+			}
+			actual.CPUCount = 1
+			if e := s.CubeRecoveryCreateObserved(ctx, j.ID, "op", actual); e != nil {
+				t.Fatal(e)
+			}
+			if e := s.CubeRecoveryCreateObserved(ctx, j.ID, "op", actual); e != nil {
+				t.Fatal("idempotence", e)
+			}
+		})
+	}
+}

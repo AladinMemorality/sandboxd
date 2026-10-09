@@ -404,7 +404,7 @@ func (s *Store) CubeRecoveryCreateIntent(ctx context.Context, id, token, request
 	return out, e
 }
 func (s *Store) CubeRecoveryCreateObserved(ctx context.Context, id, token string, actual *cube.Sandbox) error {
-	if actual == nil || !recoveryID(actual.SandboxID) || actual.State != "running" || actual.CPUCount != 2 || actual.MemoryMB != 2048 {
+	if actual == nil || !recoveryID(actual.SandboxID) || actual.State != "running" {
 		return errors.New("authoritative reviewed recovery allocation required")
 	}
 	return s.recoveryWrite(ctx, func(tx *sql.Tx) error {
@@ -414,6 +414,24 @@ func (s *Store) CubeRecoveryCreateObserved(ctx context.Context, id, token string
 		}
 		if (j.Phase != "creating" && j.Phase != "created") || j.OperationToken != token || actual.SandboxID == j.Old.RuntimeID || actual.TemplateID != j.Target.TemplateID || (actual.Domain != "" && actual.Domain != j.Target.Domain) || actual.Metadata["sandboxd_id"] != j.SandboxID || actual.Metadata["sandboxd_app_id"] != j.AppID || actual.Metadata["sandboxd_admission_operation"] != token || actual.Metadata["sandboxd_recovery_id"] != j.ID {
 			return ErrConflict
+		}
+		// Recovery uses the same durable profile as normal admission. The
+		// original uniform policy remains 2 CPUs / 2048 MiB when no weighted
+		// contract exists; missing or mismatched contracts still fail closed.
+		want := cube.AdmissionResources{CPUCount: 2, MemoryMB: 2048}
+		contract, e := s.resourceContract(ctx, tx)
+		if e != nil {
+			return e
+		}
+		if contract != nil {
+			var ok bool
+			want, ok = contract.Templates[j.Target.TemplateID]
+			if !ok {
+				return cube.ErrAdmissionUnknown
+			}
+		}
+		if actual.CPUCount != want.CPUCount || actual.MemoryMB != want.MemoryMB {
+			return errors.New("authoritative recovery allocation differs from durable profile")
 		}
 		if e = recoveryFrozen(ctx, tx, j); e != nil {
 			return e
