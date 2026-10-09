@@ -524,3 +524,15 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
  No repeated readiness failure; remaining copy still running with its own
  three-second readiness guard. Final audit now requires this proof and reports
  the exact guest-limit mix of the50-preview cohort.
+
+2026-10-09 14:10Z cold storage and offline deployment reconciliation:
+- All three September archive trees passed full checksum/metadata comparison;
+  original paths preserved via symlinks to verified HDD copies. Reclaimed
+  68,679,839,744 NVMe bytes; original private baselines retained.
+- First d5b07bb deployment refused before reconciliation because another
+  process held SQLite open. Previous controller restored and healthy; no disk
+  growth or density test began. Failure and rollback evidence retained.
+- The live consumption sampler opens SQLite read-only and was still active in
+  the offline window. Added its timer/service to the temporary deployment
+  drain, preserving the offline CLI database-user guard. Retry uses exclusive
+  deploy-attempt-02 and storage-density-followthrough-17 journals.

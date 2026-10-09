@@ -1,0 +1,29 @@
+{
+  "all_data_preserved": true,
+  "archives": [
+    {
+      "entries": 1939946,
+      "name": "online-precopy-20260926-01",
+      "original_path_preserved": true,
+      "verified_copy": true
+    },
+    {
+      "entries": 520,
+      "name": "migration-archives",
+      "original_path_preserved": true,
+      "verified_copy": true
+    },
+    {
+      "entries": 4,
+      "name": "fleet-artifact-stage",
+      "original_path_preserved": true,
+      "verified_copy": true
+    }
+  ],
+  "at": 1791554560.9580297,
+  "b200_contacted": false,
+  "complete": true,
+  "destination": "/var/backups/baarcha-cold-runtime/20261009",
+  "nvme_bytes_reclaimed": 68679839744,
+  "resumed_from": "/opt/baarcha/operations/vps-50-profiles-20261008/cold-archive-resume-01"
+}

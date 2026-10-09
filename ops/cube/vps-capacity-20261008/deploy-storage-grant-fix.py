@@ -6,6 +6,9 @@ revision=sys.argv[1];assert re.fullmatch('[a-f0-9]{7,40}',revision)
 release=root/('resume-retry-release-'+revision)
 BASE='sha256:5f90119a5b815849bb71dff9afe632fd25176301d841cd43bce89422e456ca9e'
 spec=importlib.util.spec_from_file_location('maintenance','/usr/local/libexec/baarcha-cube-maintenance.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);b=m.b
+# The live usage sampler opens SQLite read-only and must be drained for offline migration.
+TIMERS=(*b.TIMERS,'baarcha-cube-consumption.timer')
+journal=release/'deploy-attempt-02'
 def run(args):return subprocess.check_output(args,stderr=subprocess.STDOUT,timeout=240)
 def inspect():return json.loads(run(['docker','inspect','src-sandboxd-1']))[0]
 def put(p,v):b.atomic(p,b.encoded(v))
@@ -35,24 +38,25 @@ def ready():
     raise RuntimeError('controller readiness failed')
 with b.locked():
     assert not (release/'deployed.json').exists()
+    journal.mkdir(mode=0o700)
     before=inspect();assert before['Image']==BASE
     env=dict(x.split('=',1) for x in before['Config']['Env']);assert int(env.get('SANDBOXD_CUBE_TASK_CONCURRENCY','0'))==0
     fleet=json.loads(env['SANDBOXD_CUBE_FLEET']);assert all(w['draining'] for w in fleet['workers'] if w['id']!='vps')
     originals={str(p):p.read_bytes() for p in [b.COMPOSE,b.ACTIVE,b.STOP]}
     stop=json.loads(originals[str(b.STOP)]);assert stop['controller_id']==before['Id']
-    for p in [b.COMPOSE,b.ACTIVE,b.STOP]:b.atomic(release/(p.name+'.before'),originals[str(p)])
+    for p in [b.COMPOSE,b.ACTIVE,b.STOP]:b.atomic(journal/(p.name+'.before'),originals[str(p)])
     with database() as db:
         quiet(db);baseline=bindings(db)
-        with sqlite3.connect(release/'before.PRIVATE.sqlite') as backup:db.backup(backup)
+        with sqlite3.connect(journal/'before.PRIVATE.sqlite') as backup:db.backup(backup)
     old_render=json.loads(compose('config','--format','json'));candidate=(release/'image.id').read_text().strip();assert candidate.startswith('sha256:') and candidate!=BASE
     online=b.strict(b.http('/config/',2019));scope=json.loads((root/'vps-resize-plan.PRIVATE.json').read_text())['routing'];scope['online_sha256']=hashlib.sha256(json.dumps(online,sort_keys=True,separators=(',',':')).encode()).hexdigest();routes=m.routing_variants(online,scope)
-    put(release/'routing-before.PRIVATE.json',online)
-    timers={name:run(['systemctl','show',name,'-p','ActiveState','--value']).decode().strip() for name in b.TIMERS};put(release/'timers-before.json',timers)
+    put(journal/'routing-before.PRIVATE.json',online)
+    timers={name:run(['systemctl','show',name,'-p','ActiveState','--value']).decode().strip() for name in TIMERS};put(journal/'timers-before.json',timers)
     stopped=False
     def interrupted(*args):raise SystemExit('release interrupted')
     signal.signal(signal.SIGTERM,interrupted)
     try:
-        route(routes['offline']);run(['systemctl','stop',*b.TIMERS]);time.sleep(3)
+        route(routes['offline']);run(['systemctl','stop',*TIMERS]);run(['systemctl','stop','baarcha-cube-consumption.service']);time.sleep(3)
         with database() as db:quiet(db);assert bindings(db)==baseline
         stopped=True
         run(['docker','update','--restart=no',before['Id']]);run(['docker','stop','--time=-1',before['Id']])
@@ -64,7 +68,7 @@ with b.locked():
         offline={**os.environ,**env,'SANDBOXD_CUBE_API_URL':'http://127.0.0.1:20300','SANDBOXD_CUBE_MASTER_URL':'http://10.254.240.1:18089'}
         fleet['master_url']='http://10.254.240.1:18089';offline['SANDBOXD_CUBE_FLEET']=json.dumps(fleet,separators=(',',':'))
         result=subprocess.run([str(release/'cube-migrate'),'--database','/var/lib/sandboxd/state/sandboxd.db','--migrations',str(release/'migrations'),'--admission-key',key,'--provider-requests-drained','admission-reconcile'],env=offline,capture_output=True,timeout=90)
-        b.atomic(release/'reconcile.PRIVATE.log',result.stdout+result.stderr);assert result.returncode==0,'Deleted grant observation refused; review retained diagnostics'
+        b.atomic(journal/'reconcile.PRIVATE.log',result.stdout+result.stderr);assert result.returncode==0,'Deleted grant observation refused; review retained diagnostics'
         with database() as db:
             assert db.execute('select count(*) from cube_storage_grant where worker_id=? and admission_key=? and released_ns is null',('vps',key)).fetchone()==(0,)
         for path in [b.COMPOSE,b.ACTIVE]:
@@ -94,5 +98,5 @@ with b.locked():
         for name,state in timers.items():
             if state=='active':run(['systemctl','start',name])
         route(online)
-        put(release/'rolled-back.json',{'rolled_back':True})
+        put(journal/'rolled-back.json',{'rolled_back':True})
         raise

@@ -1,6 +1,6 @@
 """Run reviewed VPS storage changes and acceptance in order, stopping on failure."""
 import json,os,pathlib,subprocess,time
-P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');out=root/'storage-density-followthrough-16';out.mkdir(mode=0o700)
+P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');out=root/'storage-density-followthrough-17';out.mkdir(mode=0o700)
 def wait_file(path,unit,timeout):
  deadline=time.monotonic()+timeout;errors=0
  while not path.exists():
