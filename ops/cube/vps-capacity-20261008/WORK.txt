@@ -517,3 +517,10 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
  the already-verified first move with the two remaining moves. Waiter16 follows.
 - Recurring source-backup rsync now uses the same10MiB/s sender pacing. Observer
  freshness, disk reserves and production readiness checks remain unchanged.
+
+2026-10-09 13:47Z paced transfer readiness proof:
+- During actual10MiB/s archive writes,60 readiness checks passed over311seconds.
+ Max response0.313s; max dirty data354,353,152bytes; max writeback45,674,496bytes.
+ No repeated readiness failure; remaining copy still running with its own
+ three-second readiness guard. Final audit now requires this proof and reports
+ the exact guest-limit mix of the50-preview cohort.

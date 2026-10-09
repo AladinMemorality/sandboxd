@@ -4,7 +4,9 @@ root=pathlib.Path('/opt/baarcha/operations/vps-50-profiles-20261008')
 with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
  db.row_factory=sqlite3.Row
  def rows(q):return [dict(r) for r in db.execute(q)]
- binding_map={r['sandbox_id']:r['runtime_id'] for r in rows('select sandbox_id,runtime_id from runtime_binding')}
+ bindings=rows('select sandbox_id,runtime_id,template_id from runtime_binding')
+ binding_map={r['sandbox_id']:r['runtime_id'] for r in bindings}
+ binding_templates={r['sandbox_id']:r['template_id'] for r in bindings}
  placement=rows('select a.worker_id,count(*) as count from runtime_binding b join cube_admission a on a.runtime_id=b.runtime_id group by a.worker_id')
  pending=rows("select count(*) as count from cube_admission where state='pending'")[0]['count']
  fenced=rows("select count(*) as count from cube_relocation where phase='fenced'")[0]['count']
@@ -24,7 +26,10 @@ deployed=proof('resume-retry-release-d5b07bb/deployed.json');assert deployed['de
 density=proof('real-preview-density-50-balanced-02/result.json');cleanup=proof('real-preview-density-50-balanced-02/cleanup.json')
 assert density['passed'] and density['concurrent_running']==50 and density['http_checks']==600
 assert cleanup['complete'] and cleanup['bindings_preserved'] and cleanup['existing_running_preserved']
-before=proof('real-preview-density-50-balanced-02/scope.json')['before']
+density_scope=proof('real-preview-density-50-balanced-02/scope.json');before=density_scope['before']
+cohort_limits=collections.Counter(policy['templates'][binding_templates[sid]]['memory_mb'] for sid in density_scope['selected']+density_scope['existing_running'])
+assert sum(cohort_limits.values())==50
+pacing=proof('transfer-readiness-watch-01/result.json');assert pacing['passed'] and pacing['checks']==60 and pacing['failed_checks']==0
 assert density['after']['oom_kill']==before['oom_kill'] and density['after']['worker']['oom_kill']==before['worker']['oom_kill']
 backuproot=pathlib.Path('/var/backups/baarcha-vps-source');backup=json.loads((backuproot/'latest.json').read_text())
 assert backup['verified'] and backup['sandboxes']==134 and backup['other_worker_bindings']==0 and backup['generated_pnpm_caches_excluded']
@@ -41,4 +46,7 @@ assert worst_headroom>128*1024**3
 counts=collections.Counter()
 for row in templates:counts[policy['templates'][row['template_id']]['memory_mb']]+=row['count']
 result={'passed':True,'placement':placement,'states':states,'profiles':[{'memory_mb':memory,'count':count} for memory,count in sorted(counts.items())],'pending_admissions':pending,'fenced_relocations':fenced,'active_tasks':active_tasks,'coding_queue_enabled':False,'other_workers_drained':True,'memory_budget_mb':policy['resource_budget']['memory_mb'],'cpu_budget_millis':policy['resource_budget']['cpu_millis'],'b200_contacted':False,'controller_revision':deployed['revision'],'backup':backup,'supervisor_revision':rollout['revision'],'density':{k:density[k] for k in ['concurrent_running','http_checks','module_http_checks','http_p95_seconds','http_max_seconds','total_pss_bytes','median_pss_bytes','max_pss_bytes','application_scope']},'host_headroom_if_data_disk_full_bytes':worst_headroom,'cold_archive_nvme_bytes_reclaimed':archives['nvme_bytes_reclaimed'],'at':time.time()}
+result['density']['guest_limits']=[{'memory_mb':memory,'count':count} for memory,count in sorted(cohort_limits.items())]
+result['density']['reserved_memory_mb']=density_scope['reserved_memory_mb']
+result['transfer_readiness']=pacing
 print(json.dumps(result,indent=2))

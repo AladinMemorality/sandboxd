@@ -55,5 +55,5 @@ PNPM configuration/state, local dependency source, authored patches, and lockfil
 source/configuration fixtures; it passed on the VPS before deployment.
 
 Archive downloads are paced by rsync at10MiB/s before data enters the host page
-cache. Kernel writeback remains unthrottled so backup traffic cannot accumulate
-a large throttled write backlog behind control-plane metadata commits.
+cache. Kernel writeback remains unthrottled. Pacing limits the backup-induced write
+backlog that can delay control-plane metadata commits.
