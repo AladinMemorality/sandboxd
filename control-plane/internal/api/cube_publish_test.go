@@ -63,6 +63,8 @@ func testCubePublishForkFreshCredentialsAndNoPrivateSource(t *testing.T, legacy 
 	sourceToken := strings.Repeat("ab", 32)
 	newToken := ""
 	imported := false
+	dataModule := `export const couple = { names: "Example & Example" };`
+	importedModule := ""
 	sourceRevision := ""
 	before := time.Now().UTC().Add(-time.Hour)
 	raw := publishedZip(t, map[string]string{"package.json": "{}", "src/main.ts": "published code", ".env.local": "SECRET_ENV", "local.db": "SECRET_DB", "bench-state.json": "SECRET_STATE", "credentials.json": "SECRET_CREDS", "secrets.json": "SECRET_SECRETS", ".runtimed/key": "SECRET_RUNTIME"})
@@ -94,6 +96,34 @@ func testCubePublishForkFreshCredentialsAndNoPrivateSource(t *testing.T, legacy 
 			w.WriteHeader(202)
 		case "/export/source":
 			w.Write(raw)
+		case "/files":
+			if r.Method == http.MethodGet {
+				json.NewEncoder(w).Encode(map[string]any{"entries": []map[string]any{
+					{"path": "src/data/wedding.ts", "type": "file", "size": len(dataModule)},
+					{"path": "src/data/users.json", "type": "file", "size": 10},
+					{"path": "src/data/secrets.ts", "type": "file", "size": 10},
+				}})
+			} else if r.Method == http.MethodPut && expectedToken == newToken && r.URL.Query().Get("path") == "src/data/wedding.ts" && imported {
+				data, _ := io.ReadAll(r.Body)
+				importedModule = string(data)
+				json.NewEncoder(w).Encode(map[string]any{"path": "src/data/wedding.ts", "size": len(data)})
+			} else {
+				t.Errorf("unexpected file write")
+				w.WriteHeader(400)
+			}
+		case "/files/content":
+			if r.URL.Query().Get("path") != "src/data/wedding.ts" {
+				t.Errorf("private file requested")
+				w.WriteHeader(400)
+				return
+			}
+			if expectedToken == sourceToken {
+				io.WriteString(w, dataModule)
+			} else if importedModule != "" {
+				io.WriteString(w, importedModule)
+			} else {
+				w.WriteHeader(404)
+			}
 		case "/import/source":
 			data, _ := io.ReadAll(r.Body)
 			z, e := zip.NewReader(bytes.NewReader(data), int64(len(data)))
@@ -171,7 +201,7 @@ func testCubePublishForkFreshCredentialsAndNoPrivateSource(t *testing.T, legacy 
 		t.Fatal(err)
 	}
 	z, _ := zip.NewReader(bytes.NewReader(data), int64(len(data)))
-	if len(z.File) != 2 {
+	if len(z.File) != 3 {
 		t.Fatalf("unsafe artifact files %d", len(z.File))
 	}
 	if legacy {
@@ -179,7 +209,7 @@ func testCubePublishForkFreshCredentialsAndNoPrivateSource(t *testing.T, legacy 
 		id := newULID()
 		root := filepath.Join(s.LibraryRoot, id)
 		for name, content := range map[string]string{
-			"workspace/app/package.json": "{}", "workspace/app/src/main.ts": "published code",
+			"workspace/app/package.json": "{}", "workspace/app/src/main.ts": "published code", "workspace/app/src/data/wedding.ts": dataModule,
 			"workspace/app/.env": "SECRET_APP", "workspace/app/data/customer.json": "SECRET_DATA",
 			".claude/auth.json": "SECRET_PROVIDER", ".runtimed/key": "SECRET_RUNTIME",
 		} {
@@ -202,6 +232,9 @@ func testCubePublishForkFreshCredentialsAndNoPrivateSource(t *testing.T, legacy 
 	s.v1ForkApp(out, r)
 	if out.Code != 201 || !imported || strings.Contains(out.Body.String(), "sandbox_error") {
 		t.Fatalf("fork %d %s imported=%v", out.Code, out.Body, imported)
+	}
+	if importedModule != dataModule {
+		t.Fatal("old destination supervisor lost the source data module")
 	}
 	var fork struct {
 		App v1App `json:"app"`

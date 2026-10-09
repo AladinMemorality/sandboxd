@@ -215,6 +215,9 @@ func (s *Server) createCubeFromArchive(r *http.Request, app *store.App, archive 
 	for {
 		status, e := client.Status(ready)
 		if e == nil && status.Runtimed.BootedAt.After(before.Runtimed.BootedAt) {
+			if err := client.EnsurePublishedDataModules(ready, archive); err != nil {
+				return fail("source module verification failed; new runtime retained for recovery")
+			}
 			// Supervisor boot after atomic import proves the manifest was reloaded.
 			// Public preview status remains truthful while dependencies/install complete.
 			return 201, body
@@ -326,6 +329,10 @@ func (s *Server) restoreCubeSourceInPlace(w http.ResponseWriter, r *http.Request
 	for {
 		status, e := client.Status(ctx)
 		if e == nil && status.Runtimed.BootedAt.After(before.Runtimed.BootedAt) {
+			if err := client.EnsurePublishedDataModules(ctx, archive); err != nil {
+				writeV1Err(w, 502, "source_import_failed", "source module verification failed; existing runtime retained for recovery")
+				return
+			}
 			updated, e := s.Store.Get(ctx, current.ID)
 			if e != nil {
 				writeV1Err(w, 503, "runtime_unavailable", "source imported; runtime status unavailable")

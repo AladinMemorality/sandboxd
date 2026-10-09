@@ -213,7 +213,11 @@ func SanitizeSourceArchive(data []byte) ([]byte, error) {
 }
 
 func (c *Client) ExportSource(ctx context.Context) ([]byte, error) {
-	return c.bounded(ctx, http.MethodGet, "/export/source", nil, MaxWorkspaceExportBytes)
+	archive, err := c.bounded(ctx, http.MethodGet, "/export/source", nil, MaxWorkspaceExportBytes)
+	if err != nil {
+		return nil, err
+	}
+	return c.completePublishedDataArchive(ctx, archive)
 }
 func (c *Client) ImportSource(ctx context.Context, data []byte) error {
 	if len(data) > MaxWorkspaceExportBytes {
