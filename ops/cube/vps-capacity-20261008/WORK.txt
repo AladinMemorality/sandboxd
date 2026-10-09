@@ -493,3 +493,12 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
  package source, Git and lockfiles. Actual GNU tar fixture passed on VPS.
  The queued finish runner installs the hash-pinned exporter under operator
  locks before density/backup, retaining the original installed script.
+
+2026-10-09 12:59Z prerequisite observer recovery:
+- Controller d5b07bb, recovery CLI, and image f3194ece7c0b built successfully.
+- Waiting unit14 stopped at12:41 after one read-only systemctl query returned1;
+ no deployment/growth/density stage began. Archive verification is still active.
+ Retained failed journal14; new waiting unit15 bounds transient status-query
+ retries and rechecks a just-completed receipt before declaring a unit stopped.
+ No archive/provider operation is replayed. Finish/density journal14/-02 remain
+ unused and unchanged; only the outer waiting journal advances to15.
