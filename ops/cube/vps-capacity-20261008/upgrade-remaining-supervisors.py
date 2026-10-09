@@ -4,13 +4,14 @@ from maintenance_account import account_maintenance
 P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');out=root/'supervisor-rollout-2c7e700'
 spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
 spec=importlib.util.spec_from_file_location('copy_fleet','/opt/baarcha-bench/cube-fleet-20260927/copy-fleet.py');copy=importlib.util.module_from_spec(spec);spec.loader.exec_module(copy)
+spec=importlib.util.spec_from_file_location('assets',root/'preview-assets.py');assets=importlib.util.module_from_spec(spec);spec.loader.exec_module(assets)
 import sys;sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as transport
 ssh=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','root@127.0.0.1']
 def rows(query,args=()):
  with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
   db.row_factory=sqlite3.Row;return [dict(r) for r in db.execute(query,args)]
 with b.locked():
- assert json.loads((root/'finish-vps-recovery-08/complete.json').read_text())['complete']
+ assert json.loads((root/'finish-vps-recovery-09/complete.json').read_text())['complete']
  canary=json.loads((root/'supervisor-canary-2c7e700/passed.json').read_text());assert canary['passed'];expected=canary['receipt']['sha256']
  assert not rows("select id from cube_relocation where phase='fenced'") and not rows("select admission_key from cube_admission where state='pending'")
  assert not rows("select task_id from task where status in ('running','queued')")
@@ -42,7 +43,7 @@ with b.locked():
      while True:
       try:
        status=worker.control('GET','/status');assert not status['active_task'] and all(p['running'] for p in status['processes'])
-       worker.http('GET','/',headers={**headers,'Host':headers['Host'].replace('3031-',str(row['web_port'] or 3000)+'-',1)},timeout=10);return
+       assets.page(worker.origin,{**headers,'Host':headers['Host'].replace('3031-',str(row['web_port'] or 3000)+'-',1)},timeout=10);return
       except (OSError,RuntimeError,AssertionError):assert time.monotonic()<deadline;time.sleep(1)
     healthy()
     update=subprocess.run(ssh+['python3','/opt/baarcha-vps-export-recovery-2c7e700/worker.py','--container',runtime],capture_output=True,timeout=260)

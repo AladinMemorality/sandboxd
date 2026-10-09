@@ -5,7 +5,7 @@ No model calls, B200 requests, blind retries, or original-source deletion.
 """
 import contextlib,json,os,pathlib,sqlite3,subprocess,time
 P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008')
-out=root/'finish-vps-recovery-08';out.mkdir(mode=0o700)
+out=root/'finish-vps-recovery-09';out.mkdir(mode=0o700)
 def run(stage,args,timeout):
     (out/'stage.json').write_text(json.dumps({'stage':stage,'at':time.time()}))
     print(json.dumps({'stage':stage,'at':time.time()}),flush=True)

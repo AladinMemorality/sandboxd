@@ -58,6 +58,11 @@ class SourceWorker(transport.Worker):
   save('current-home-inventory.json',{'preserved_additions':additions})
   return manifest
 class LocalWorker(transport.Worker):
+ def http(self,method,path,body=None,size=None,headers=None,export=None,timeout=600):
+  webhost=self.headers['Host'].replace('3031-',str(self.job.get('web_port',3000))+'-',1)
+  if method=='GET' and path=='/' and headers and headers['Host']==webhost:
+   return assets.page(self.origin,headers,min(timeout,15))[1]
+  return super().http(method,path,body,size,headers,export,timeout)
  def fetch(self,role,receipt):
   path=P(receipt['local_path']);assert path==source_worker.root/(role+'.zip') and not path.is_symlink()
   assert path.stat().st_size==receipt['archive_bytes'] and transport.digest(path)==receipt['sha256'];return path
@@ -65,14 +70,15 @@ class LocalWorker(transport.Worker):
   state=self.control('GET','/status');assert not state['active_task']
   restarts={p['name']:p['restarts'] for p in state['processes']}
   headers={**self.headers,'Host':self.headers['Host'].replace('3031-',str(self.job['web_port'])+'-',1)}
-  queue=assets.entries(self.http('GET','/',headers=headers,timeout=15));assert queue,'No Vite entries'
+  base,html=assets.page(self.origin,headers);static_root=base.rsplit('/',1)[0]+'/'
+  queue=assets.entries(html,base,static_root);assert queue,'No local script or stylesheet entries'
   seen=set();total=0;began=time.monotonic()
   while queue:
    path=queue.pop(0)
    if path in seen:continue
    seen.add(path);assert len(seen)<=512
    data=self.http('GET',path,headers=headers,timeout=45);total+=len(data);assert total<=64*1024**2
-   queue.extend(p for p in assets.imports(path,data) if p not in seen)
+   queue.extend(p for p in assets.imports(path,data,static_root) if p not in seen)
   after=self.control('GET','/status')
   assert not after['active_task'] and all(p['running'] and p['restarts']==restarts[p['name']] for p in after['processes'])
   memory=assets.guest_memory(self.job['runtime_id']);assert memory['oom_kill']==0,'Guest OOM during compilation'

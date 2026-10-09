@@ -414,3 +414,20 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   Full runtimed race suite and isolated UID1000 workspace/home archive fixture
   tests pass, including a writer that proves the lock is available during IO.
   This supervisor change is committed for rollout; not yet deployed here.
+
+2026-10-09 07:54Z profile upgrades and canary complete:
+- All 49 original 512 MiB profiles are replaced by verified current-state
+  migrations (48 balanced768, one standard1024). Fresh source exports and
+  old runtimes are retained. Static production assets and local HTML redirects
+  are now checked without executing frontend/chatbot JavaScript.
+- Root relocation connect recovery now verifies fresh authoritative metadata,
+  because a successful Connect response can omit identity fields. A separate
+  observe-connected-target action reconciles an existing exact active lease
+  without replaying the provider operation. Race tests pass.
+- Supervisor2c7e700 passed VPS canary and stop/wake. Remaining63 backup restores
+  now install that static build before import. B200 is not contacted.
+- Native stored VM ceiling256→512 applied without restarting services; retained
+  recovery sources can coexist with134 replacements. Controller running slots50,
+  admission45GiB including128MiB/VM overhead, CPU9000m remain unchanged.
+- Six preview parser tests cover Vite, production bundles, static subdirectory
+  assets, and rejecting external/API redirect destinations.
