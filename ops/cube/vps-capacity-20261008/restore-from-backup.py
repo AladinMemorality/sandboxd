@@ -86,6 +86,15 @@ class LocalWorker(transport.Worker):
     assert time.monotonic()<deadline,'Application worker health did not pass';time.sleep(1)
  def verify(self):
   proof=super().verify();self.application_checks();return proof
+batch_scope=None;inherited_locks=None
+if os.environ.get('BAARCHA_VPS_BATCH_SCOPE'):
+ batch_path=P(os.environ['BAARCHA_VPS_BATCH_SCOPE'])
+ assert batch_path.parent.parent==root and batch_path.name=='scope.json'
+ batch_scope=b.strict(b.trusted(batch_path))
+ inherited_locks=json.loads(os.environ['BAARCHA_VPS_BATCH_LOCK_FDS'])
+ assert batch_scope['parent_pid']==os.getppid() and batch_scope['concurrency']==2
+ assert any(e['sandbox_id']==sid and e['journal']==job.name for e in batch_scope['selected'])
+ assert len(inherited_locks)==4 and all(type(fd) is int and fd>2 for fd in inherited_locks)
 @contextlib.contextmanager
 def wait_for_operator():
  deadline=time.monotonic()+1800
@@ -98,7 +107,7 @@ def wait_for_operator():
   assert time.monotonic()<deadline,'Operator work or barrier still active; restore postponed'
   if not permitted():time.sleep(2);continue
   stack=contextlib.ExitStack()
-  try:stack.enter_context(b.locked())
+  try:stack.enter_context(b.locked(inherited_locks))
   except BlockingIOError:
    stack.close();assert time.monotonic()<deadline,'Operator locks busy; restore postponed';time.sleep(2)
   else:
@@ -111,7 +120,8 @@ with wait_for_operator():
   row=rows("select s.status,s.web_port,b.runtime_id,b.config_revision,a.worker_id,p.charged,p.state from sandbox s join runtime_binding b on b.sandbox_id=s.id join cube_admission p on p.runtime_id=b.runtime_id join cube_admission a on a.admission_key=p.admission_key where s.id=? and p.state<>'deleted'",(sid,))[0]
   assert row['status']=='stopped' and row['runtime_id']==source['runtime_id'] and row['worker_id']=='b200-01' and row['charged']==0 and row['state']=='released'
   tasks=[r['task_id'] for r in rows('select task_id from task where sandbox_id=? order by task_id',(sid,))];assert tasks==source['task_ids']
-  assert not rows("select id from cube_relocation where phase='fenced'")
+  open_journals=rows("select id from cube_relocation where phase='fenced'")
+  assert not open_journals or (batch_scope and all(r['id'] in {e['journal'] for e in batch_scope['selected']} for r in open_journals)),'Unrelated relocation in progress'
   save('export-result.PRIVATE.json',source)
   save('scope.json',{'sandbox_id':sid,'source_worker':'b200-01','target_worker':'vps','source_archive_sha256':source['source_archive_sha256'],'source_contacted':False,'at':time.time()})
   cli('fence',SandboxID=sid,ExpectedRuntime=source['runtime_id'],TargetWorker='vps',TargetTemplate=templates[profile])

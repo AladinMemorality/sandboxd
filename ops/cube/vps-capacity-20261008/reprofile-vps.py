@@ -74,6 +74,15 @@ class LocalWorker(transport.Worker):
   save('module-health-'+str(time.time_ns())+'.json',{'passed':True,'memory':memory,'modules':len(seen),'bytes':total,'seconds':time.monotonic()-began,'model_calls':False})
  def verify(self):
   proof=super().verify();self.application_checks();return proof
+batch_scope=None;inherited_locks=None
+if os.environ.get('BAARCHA_VPS_BATCH_SCOPE'):
+ batch_path=P(os.environ['BAARCHA_VPS_BATCH_SCOPE'])
+ assert batch_path.parent.parent==root and batch_path.name=='scope.json'
+ batch_scope=b.strict(b.trusted(batch_path))
+ inherited_locks=json.loads(os.environ['BAARCHA_VPS_BATCH_LOCK_FDS'])
+ assert batch_scope['parent_pid']==os.getppid() and batch_scope['concurrency']==2
+ assert any(e['sandbox_id']==sid and e['journal']==job.name for e in batch_scope['selected'])
+ assert len(inherited_locks)==4 and all(type(fd) is int and fd>2 for fd in inherited_locks)
 @contextlib.contextmanager
 def wait_for_operator():
  deadline=time.monotonic()+1800
@@ -86,7 +95,7 @@ def wait_for_operator():
   assert time.monotonic()<deadline,'Operator work or barrier still active; restore postponed'
   if not permitted():time.sleep(2);continue
   stack=contextlib.ExitStack()
-  try:stack.enter_context(b.locked())
+  try:stack.enter_context(b.locked(inherited_locks))
   except BlockingIOError:
    stack.close();assert time.monotonic()<deadline,'Operator locks busy; restore postponed';time.sleep(2)
   else:
@@ -100,7 +109,8 @@ with wait_for_operator():
   assert row['status']=='stopped' and row['template_id']=='tpl-78e4edb3d629465e9d8372c1' and row['worker_id']=='vps' and row['charged']==0 and row['state']=='released'
   tasks=[r['task_id'] for r in rows('select task_id from task where sandbox_id=? order by task_id',(sid,))]
   assert not rows("select task_id from task where status in ('running','queued')")
-  assert not rows("select id from cube_relocation where phase='fenced'")
+  open_journals=rows("select id from cube_relocation where phase='fenced'")
+  assert not open_journals or (batch_scope and all(r['id'] in {e['journal'] for e in batch_scope['selected']} for r in open_journals)),'Unrelated relocation in progress'
   previous=[]
   for path in (root/'recovery-moves').glob('*/worker-job.PRIVATE.json'):
    old=json.loads(path.read_text())

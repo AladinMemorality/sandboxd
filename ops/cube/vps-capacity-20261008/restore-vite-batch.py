@@ -34,6 +34,14 @@ for sid in ids:
     selected.append({'sandbox_id':sid,'source_group':source.parent.name,'profile':profile,'lockfile_package_entries':package_entries})
     if len(selected)==limit:break
 (batch/'scope.json').write_text(json.dumps({'selected':selected,'skipped':skipped,'source_contacted':False,'model_calls':False}))
+if len(sys.argv)==4:
+    assert sys.argv[3]=='--prepare'
+    for entry in selected:
+        sid=entry['sandbox_id'];prepared=root/'recovery-prepared-canonical'/sid
+        with (batch/(sid+'.PRIVATE.log')).open('wb') as log:
+            if not prepared.exists():subprocess.run(['/usr/bin/python3',str(root/'canonicalize-recovery-zip.py'),sid,entry['source_group']],check=True,stdout=log,stderr=subprocess.STDOUT,timeout=300)
+            subprocess.run([str(root/'artifact-validator'),str(prepared)],check=True,stdout=log,stderr=subprocess.STDOUT,timeout=180)
+    (batch/'prepared.json').write_text(json.dumps({'prepared':True,'sandboxes':len(selected),'source_contacted':False}));sys.exit(0)
 results=[]
 for entry in selected:
     assert shutil.disk_usage('/mnt/nvme').free>80*1024**3,'NVMe free-space guard; batch stopped'
