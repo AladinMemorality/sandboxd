@@ -2,12 +2,12 @@
 import json,os,pathlib,subprocess,time
 os.umask(0o077)
 root=pathlib.Path('/opt/baarcha/operations/vps-50-profiles-20261008')
-out=root/'final-acceptance-36';out.mkdir(mode=0o700)
+out=root/'final-acceptance-43';out.mkdir(mode=0o700)
 def run(name,*args):
  print(json.dumps({'stage':name,'at':time.time()}),flush=True)
  subprocess.run(['/usr/bin/python3',str(root/name),*args],check=True)
 deadline=time.monotonic()+7200
-for unit in ['baarcha-vps-finish-fleet-35','baarcha-vps-os-image-dedupe-resume-27']:
+for unit in ['baarcha-vps-finish-fleet-42','baarcha-vps-os-image-dedupe-resume-27']:
  while True:
   state=subprocess.check_output(['systemctl','show',unit,'-p','ActiveState','--value'],text=True).strip()
   assert state!='failed','Inspect failed preceding operation: '+unit
@@ -15,7 +15,7 @@ for unit in ['baarcha-vps-finish-fleet-35','baarcha-vps-os-image-dedupe-resume-2
   assert state in ('active','activating','deactivating') and time.monotonic()<deadline
   time.sleep(10)
  assert subprocess.check_output(['systemctl','show',unit,'-p','Result','--value'],text=True).strip()=='success'
-assert json.loads((root/'finish-fleet-validation-35/complete.json').read_text())['complete']
+assert json.loads((root/'finish-fleet-validation-42/complete.json').read_text())['complete']
 assert json.loads((root/'os-image-dedupe-resume-01/complete.json').read_text())['complete']
 run('trim-compacted-vps-data.py')
 # Let the normal ten-second storage observer report the newly discarded blocks.

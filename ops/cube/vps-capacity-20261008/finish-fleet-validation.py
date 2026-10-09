@@ -1,18 +1,18 @@
 """Finish bounded VPS wake batches, compacting only verified pause memory."""
 import json,os,pathlib,subprocess,time
 os.umask(0o077);root=pathlib.Path('/opt/baarcha/operations/vps-50-profiles-20261008')
-out=root/'finish-fleet-validation-35';out.mkdir(mode=0o700)
+out=root/'finish-fleet-validation-42';out.mkdir(mode=0o700)
 def run(name,*args):
  print(json.dumps({'stage':name,'at':time.time()}),flush=True)
  subprocess.run(['/usr/bin/python3',str(root/name),*args],check=True)
 assert json.loads((root/'public-wake-deploy-02/complete.json').read_text())['complete']
 deadline=time.monotonic()+3600
 while True:
- state=subprocess.check_output(['systemctl','show','baarcha-vps-stalled-source-recovery-34','-p','ActiveState','--value'],text=True).strip()
+ state=subprocess.check_output(['systemctl','show','baarcha-vps-wedding-module-finish-41','-p','ActiveState','--value'],text=True).strip()
  assert state!='failed','Review source recovery before resuming fleet'
  if state=='inactive':break
  assert state in ('active','activating') and time.monotonic()<deadline;time.sleep(5)
-assert json.loads((root/'finish-stalled3-recovery-34/complete.json').read_text())['passed']
+assert json.loads((root/'wedding-template-module-repair-37/complete.json').read_text())['complete']
 for batch in range(5):
  run('compact-vps-pause-memory.py')
  if (root/'fleet-wake-validation-01/complete.json').exists():break

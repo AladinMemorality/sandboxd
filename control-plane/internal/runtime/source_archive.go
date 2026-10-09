@@ -16,10 +16,26 @@ import (
 // filename policy can detect credentials hardcoded in otherwise valid source.
 func PublishedSourcePath(name string) bool {
 	parts := strings.Split(name, "/")
-	for _, part := range parts {
+	// Source modules inside src/data (and other conventional source trees)
+	// are needed by remixes. Runtime data directories and data files remain
+	// excluded; private names/extensions below still apply to these modules.
+	sourceModule := false
+	switch strings.ToLower(path.Ext(name)) {
+	case ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go", ".rb", ".rs", ".php", ".vue", ".svelte", ".astro":
+		sourceModule = true
+	}
+	sourceTree := false
+	switch strings.ToLower(parts[0]) {
+	case "src", "app", "pages", "components", "lib", "server", "api", "packages", "apps":
+		sourceTree = true
+	}
+	for index, part := range parts {
 		lower := strings.ToLower(part)
 		if strings.HasPrefix(lower, ".") && lower != ".gitignore" && lower != ".dockerignore" && lower != ".well-known" {
 			return false
+		}
+		if lower == "data" && index > 0 && sourceTree && sourceModule {
+			continue
 		}
 		switch lower {
 		case "node_modules", "dist", "build", "out", "coverage", "venv", "__pycache__", "data", "storage", "uploads", "private", "secrets", "credentials", "logs", "tmp", "temp", "instance", "sessions":

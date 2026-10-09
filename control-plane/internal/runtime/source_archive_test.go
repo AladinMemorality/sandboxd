@@ -149,3 +149,59 @@ func TestSourceArchivePreservesDependencyPatchesOnly(t *testing.T) {
 		t.Fatal("dependency patch bytes changed")
 	}
 }
+
+// A published starter lost src/data/wedding.ts on remix, leaving every page
+// with an unresolved import. Preserve authored modules without exporting state.
+func TestSourceArchivePreservesDataModulesWithoutPrivateState(t *testing.T) {
+	keep := map[string]string{
+		"src/pages/Home.tsx":             `import { couple } from "../data/wedding";`,
+		"src/data/wedding.ts":            `export const couple = { names: "Example & Example" };`,
+		"src/data/catalog/index.ts":      `export const products = [];`,
+		"app/data/content.js":            `export const content = {};`,
+		"packages/site/src/data/menu.ts": `export const menu = [];`,
+		"server/data/model.py":           `class Model: pass`,
+	}
+	files := map[string]string{}
+	for name, content := range keep {
+		files[name] = content
+	}
+	for _, name := range []string{
+		"data/wedding.ts", "data/users.json", "src/data/users.json",
+		"src/data/catalog.json", "src/data/app.sqlite3", "src/data/backup.sql",
+		"src/data/credentials.ts", "src/data/secrets.js", "src/data/.env",
+		"src/data/private/model.ts", "src/private/data/model.ts",
+		"src/data/node_modules/module.js", "src/data/.hidden/source.ts",
+		"src/data/storage/source.ts", "public/data/owner.ts",
+	} {
+		files[name] = "PRIVATE_FIXTURE"
+	}
+	data, err := SanitizeSourceArchive(testSourceZip(t, files))
+	if err != nil {
+		t.Fatal(err)
+	}
+	z, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(z.File) != len(keep) {
+		t.Fatalf("got %d files, want %d", len(z.File), len(keep))
+	}
+	for _, file := range z.File {
+		reader, err := file.Open()
+		if err != nil {
+			t.Fatal(err)
+		}
+		content, err := io.ReadAll(reader)
+		reader.Close()
+		want, ok := keep[file.Name]
+		if err != nil || !ok || string(content) != want {
+			t.Fatalf("unexpected or changed source: %s", file.Name)
+		}
+	}
+	// Filesystem exporters use this probe to decide whether to walk a directory.
+	for _, directory := range []string{"src/data", "src/data/catalog", "packages/site/src/data"} {
+		if !PublishedSourcePath(directory + "/source.js") {
+			t.Errorf("source directory pruned: %s", directory)
+		}
+	}
+}

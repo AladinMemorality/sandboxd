@@ -1,0 +1,1 @@
+{"checks":[{"command":["pnpm","exec","tsc","--noEmit"],"diagnostics":"","exit":0},{"command":["pnpm","exec","tsc","--noEmit","-p","tsconfig.app.json"],"diagnostics":"","exit":0}],"model_calls":false,"runtime_id":"ce648b2c8a804ad2a0e989d61f0d351b","sha256":"d450e45fd957b2d4c4ee91b70340c82ebf4e58af6e3c459d1021d232bddc713b"}
