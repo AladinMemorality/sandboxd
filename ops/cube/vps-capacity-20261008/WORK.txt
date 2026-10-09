@@ -697,3 +697,106 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
 - Fleet wake probe now compares cumulative guest OOM counters before/after
   module checks and full wake, so historical counters cannot be mistaken for
   a new test failure. It is staged before the fleet probe starts.
+
+2026-10-09 17:27Z storage tradeoff found; fleet validation deliberately paused:
+- All136supervisors upgraded/verified2c7e700. Fleet wake validation reached72
+  (49reused post-native-density proofs plus23fresh cases), no new wake failure.
+- Full-memory snapshots allocate complete raw files and raise data use to
+  about501-502GiB of783.88GiB (~64%), near unchanged65% nativeguard. Sent
+  SIGINT onlytoexact Python fleet-probe PID1902218; finally cleanup completed.
+  Interruption journal: fleet-wake-validation-01/01M3EX97H72RTAV9EXB2JMNNBN-
+  f892459082d24fd992c5b72950e7c94a/failed.json (KeyboardInterrupt). Original
+  failure preserved; must reconcile this operator interruption before --resume.
+  Lastprogress72; outer25nowfailed; original active guest preserved; no pending
+  admissions/tasks; worker --observe consistent136bindings. Two controller
+  running rows atobservation, nativeactive1; normal visitor state may race.
+- Native source confirms replaced pause packages are GCed atnextsuccessful
+  pause; data growth is full page allocation, not an unbounded snapshot chain.
+  Raw memoryfiles liveunder /data/cubelet/storage/xfs/objects/volumes/
+  tpl-tpl-<template>-memory/tpl-snap-<id>-memory. They are flat independent
+  XFS reflink files; XFS restore MAP_PRIVATE maps them. Do not punch arbitrary
+  live/rootfs/template files or reintroduce incremental memory classification.
+- Copy-only sparse-canary02 of2GiB snapshotcf2531... preserved SHA4c3e3dd...
+  but savedonly52,985,856bytes. Copyretained /data/baarcha-sparse-memory-canary-
+  20261009-02/memory-copy; result.json there. Firstcanarydir empty aftercp
+  rejected incompatible --reflink=always --sparse=always, nooriginalmutation.
+- Read-only sample2full768MiBfiles (c2f32aa...,b19d75d...) under template3c4e...
+  found574,836,736bytes cross-offset duplicate at4KiB,448,069,632at16KiB,
+  419,692,544at64KiB. Same-offsetonly188,911,616. Filesystem FIDEDUPERANGE
+  kernel byte comparison can retain full correctness and share equal pages;
+  planning bounded64KiB dedupe batches, content hashes and live canary before
+  broader rollout. No actual snapshot deduplication performed yet.
+- Installing only Ubuntu duperemove0.11.2-3build2 oninnerVPS worker (simulation:
+  one newpackage,0upgrades/removals). Active localexec session74396 pending.
+  Rootfilesystem115GiB/free83GiB; data free282GiB. Prefer small first batches
+  andhashDB inside/data so outer worst-case full-data headroom is preserved.
+- Official docs read: man7.org/linux/man-pages/man2/fallocate.2.html,
+  github.com/markfasheh/duperemove, markfasheh.github.io/duperemove/duperemove.html.
+  Dedupe uses kernel comparison/locking; canbe safely interrupted. Use installed
+  0.11.2 CLI/man semantics, notassume latestdocs options. Only exact approved
+  immutable memory files; no B200 access, modelcalls or agentloadtest.
+- Need finish storage optimization, resume remaining64fleetchecks, then strong
+  publicNOS/Derjaforced-idle return browser checks; current VPS maintenancetimer
+  installer remains staged/disabled untilfleetcomplete. Consider rerunning real
+  density after fullsnapshots materially change physical sharing/storage state.
+
+2026-10-09 18:00Z byte-preserving storage compaction continuation:
+- Dedupe-only live checkpoint canary passed, then eight actual paused memory
+  files passed zero-hole compaction plus 64KiB partial/same dedupe. All whole
+  SHA256 hashes and inodes preserved; eight-file batch reclaimed1,092,419,584B.
+  Repeated wake/module canary after combined compaction passed four full
+  captures, three measured wakes1.14-1.22s, no guest OOM.
+- First batch unit01 hit transient b.lock contention before any journal/file
+  mutation. Unit02 ran the unchanged scope successfully after lock cleared.
+  Batch wake unit01 raced an unfinished script upload and safely rejected its
+  already-existing original canary directory before lifecycle work. Upload
+  completed; reviewed --batch unit02 passed. Retain both failed journals.
+- Fleet compaction unit baarcha-vps-memory-compaction-01 is running bounded
+  groups of8 published paused XFS memory artifacts. Private temporary hardlinks
+  pin each verified inode across normal snapshot GC; removed after SHA checks.
+  No rootfs, template, running guest, source archive or B200 path selected.
+- Subsequent version tracks completed immutable snapshot IDs so unchanged
+  groups need not be rescanned. Bounded fleet wake probe now supports --max-new
+  and clean storage stops before63.5% use; native65% guard unchanged.
+- Discovered22 matching OS-image paths in both CubeMaster/storage and
+  cubebox-os-images. First4f45a...pair whole SHA matches c37d0b2...; staged
+  kernel-only whole-file dedupe canary/all runner, not yet executed. Both paths
+  and file identities will be retained; hash equality required before/after.
+- finish-storage-and-fleet.py staged: first compaction receipt index, exact
+  prior SIGINT reconciliation against complete backup task rows, OS-image
+  canary/all dedupe, then16-new-probe batches with incremental compaction.
+- Strong public NOS browser probe pending. First harness timed out prematurely
+  on a missing live selector; now polls until120s and preserves diagnostics.
+  No production frontend change made. No model calls or B200 operator access.
+
+2026-10-09 18:22Z first fleet compaction complete; public wake defect reproduced:
+- All135paused canonical VPS snapshots passed whole-content/inode checks;
+  original running app preserved. First fleet pass reclaimed27,723,907,072B
+  (25.82GiB). Generation fleet-1791568404355196454 complete. Incremental index
+  seeded only from its passed receipts. Exact earlier fleet SIGINT case moved
+  to interrupted-cases after state and full task-row backup comparison passed.
+- OS-image canary passed identical-content checks but reclaimed no measurable
+  space (already-shared/retained references). All44images have matching pairs;
+  all-pairs run remains active, several groups completed. Do not claim75GiB
+  freed from apparent image sizes. Byte comparison is kernel-enforced.
+- Public NOS browser failed to reach live state. Public POST also timed out
+  after45s, and local web POST after180s. No native admission reservation or
+  platform reservation appeared. Native NOS stayedstatus5/paused. Independent
+  platform client started same VPS app in3.49s, readinessready. Derja web POST
+  completed2.23s. Evidence points to a per-project hung web launch promise;
+  underlying reason for the old promise's stall remains unproven.
+- Platform main69936b5 bounds web responses at2s with unconfirmed starting
+  progress (client continuesPOST), expires in-flight leases at180s, and prevents
+  a late old completion from removing a replacement. Durable account/native
+  start admission unchanged.44focusedtests,1578fullsuitepasses/1optionalskip,
+  Next typegen/tsc/productionbuild, local browser recovery fixture all passed.
+  First local build rejected an out-of-tree node_modules symlink; replaced
+  only that worktree symlink with npmci, then buildpassed. Private isolated
+  local PostgreSQL used. CI37972549291running; productionstilldafa8ec.
+- NOS and Derja were woken solely for diagnosis. No tasks/modelcalls were
+  submitted. They must be cold-tested again after deployment and returned to
+  stopped state if no intervening user work; initialcompaction scope proves
+  both were paused before these operator visits. Original live app unchanged.
+- Native unit26 runs OS dedupe then bounded fleet checks/compaction. Current
+  backup still136verified, coding queue0, no B200 operator connection. No
+  automatic memory-compaction timer installed yet; finalacceptancepending.

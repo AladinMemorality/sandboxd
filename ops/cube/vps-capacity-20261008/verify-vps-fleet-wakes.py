@@ -1,5 +1,5 @@
 """Check remaining old checkpoints after a fresh fleet source backup; no model calls."""
-import importlib.util,json,os,pathlib,sqlite3,subprocess,time,hashlib
+import argparse,importlib.util,json,os,pathlib,sqlite3,subprocess,time,hashlib
 from maintenance_account import account_maintenance
 P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');out=root/'fleet-wake-validation-01'
 spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
@@ -12,7 +12,8 @@ def rows(query,args=()):
   db.row_factory=sqlite3.Row;return [dict(r) for r in db.execute(query,args)]
 def tasks(sid):return rows('select task_id,status from task where sandbox_id=? order by task_id',(sid,))
 def bindings():return {r['sandbox_id']:r['runtime_id'] for r in rows('select sandbox_id,runtime_id from runtime_binding')}
-resume=sys.argv[1:]==['--resume'];assert not sys.argv[1:] or resume
+parser=argparse.ArgumentParser();parser.add_argument('--resume',action='store_true');parser.add_argument('--max-new',type=int,default=0);args=parser.parse_args();assert args.max_new>=0
+resume=args.resume
 with b.locked():
  native=json.loads((root/'full-pause-release-20261009/deployed.json').read_text());assert native['deployed'] and native['full_pause_snapshot_policy']
  actual=subprocess.check_output(ssh+['sha256sum /usr/local/services/cubetoolbox/Cubelet/bin/cubelet'],timeout=30).decode().split()[0];assert actual==native['cubelet_sha256']
@@ -52,7 +53,7 @@ with b.locked():
   if job['source']['task_ids']==[t['task_id'] for t in tasks(sid)]:
    update=json.loads((receipt.parent/'supervisor-update.json').read_text());assert update['runtime_id']==job['runtime_id'] and update['sha256']==expected
    proven[sid]='source-recovery-full-wakes'
- results=[]
+ results=[];new_checks=0
  for row in scope:
   sid=row['id'];runtime=row['runtime_id'];history=tasks(sid)
   case=out/(sid+'-'+runtime)
@@ -62,6 +63,11 @@ with b.locked():
    results.append(previous['result']);continue
   if sid in proven:
    results.append({'sandbox_id':sid,'runtime_id':runtime,'verification':proven[sid],'original_running_preserved':True,'supervisor_sha256':expected});continue
+  if args.max_new and new_checks>=args.max_new:
+   b.atomic(attempt/'bounded-stop.json',b.encoded({'checked':len(results),'new_checks':new_checks,'total':len(scope),'complete':False,'reason':'bounded batch completed','at':time.time()}));print(json.dumps({'bounded_stop':True,'checked':len(results),'new_checks':new_checks}),flush=True);sys.exit(0)
+  disk=json.loads(subprocess.check_output(ssh+['python3 -c '+__import__('shlex').quote("import os,json;s=os.statvfs('/data');print(json.dumps({'used':s.f_blocks-s.f_bfree,'total':s.f_blocks}))")],timeout=30))
+  if disk['used']/disk['total']>=0.635:
+   b.atomic(attempt/'bounded-stop.json',b.encoded({'checked':len(results),'new_checks':new_checks,'total':len(scope),'complete':False,'reason':'storage compaction required','at':time.time()}));print(json.dumps({'storage_stop':True,'checked':len(results),'new_checks':new_checks}),flush=True);sys.exit(0)
   assert backup_map[sid]==runtime,'Unverified replacement needs a matching backup or completed source-recovery wake proof'
   assert not rows("select task_id from task where status in ('running','queued')"),'User work started; stop verification'
   assert bindings()==initial,'Placement changed; preserve new user work'
@@ -110,7 +116,7 @@ with b.locked():
     assert unchanged,'User task changed; runtime preserved for review'
   assert success
   result={'sandbox_id':sid,'runtime_id':runtime,'verification':'full-wake-and-modules' if started else 'existing-live-guest-and-modules','wake_seconds':wake,'original_running_preserved':True,'supervisor_sha256':expected,**first}
-  b.atomic(case/'passed.json',b.encoded({'tasks':history,'result':result}));results.append(result)
+  b.atomic(case/'passed.json',b.encoded({'tasks':history,'result':result}));results.append(result);new_checks+=1
   b.atomic(attempt/'progress.json',b.encoded({'checked':len(results),'total':len(scope),'at':time.time()}));print(json.dumps({'checked':len(results),'total':len(scope)}),flush=True)
  assert bindings()==initial and not rows("select task_id from task where status in ('running','queued')")
  b.atomic(out/'complete.json',b.encoded({'complete':True,'results':results,'count':len(results),'native_sha256':native['cubelet_sha256'],'model_calls':False,'b200_contacted':False,'at':time.time()}))

@@ -72,7 +72,10 @@ Current guest limits: 110 at 768 MiB, 11 at 1 GiB, and 15 at 2 GiB.
 
 The fresh all-VPS source generation `20261009T162045Z` passed archive, hash,
 compression and dependency-exclusion checks for all 136 apps (4.12 GiB compressed).
-The remaining supervisor rollout and validation of older checkpoints are pending.
+All 136 supervisors are now updated or verified. Validation of older checkpoints
+reached 72 apps before a deliberate storage pause. Byte-preserving snapshot
+compaction passed its content-hash and repeated-wake canaries; remaining fleet
+and public browser acceptance checks are still pending.
 The 50 real-preview density test has passed; see `results/real-preview-density-50-balanced-06`.
 Maximum build/agent concurrency remains explicitly deferred. Read the latest
 append-only entries in `WORK.txt` and the private VPS journals before continuing.

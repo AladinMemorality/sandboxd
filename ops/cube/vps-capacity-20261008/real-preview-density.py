@@ -3,14 +3,16 @@
 Only wake reviewed Vite apps that were stopped before the test. Preserve existing
 running apps, stop the test on user task activity, and restore initial state.
 """
-import concurrent.futures,contextlib,importlib.util,json,os,pathlib,signal,sqlite3,statistics,subprocess,sys,time,textwrap,urllib.request,urllib.error,zipfile
+import argparse,re,concurrent.futures,contextlib,importlib.util,json,os,pathlib,signal,sqlite3,statistics,subprocess,sys,time,textwrap,urllib.request,urllib.error,zipfile
 from maintenance_account import account_maintenance
 P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008')
 spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
 sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as transport
 spec=importlib.util.spec_from_file_location('assets',root/'preview-assets.py');assets=importlib.util.module_from_spec(spec);spec.loader.exec_module(assets)
 SSH=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','-oConnectTimeout=5','root@127.0.0.1']
-G=1024**3;run_dir=root/'real-preview-density-50-balanced-06';barrier=root/'restore-barrier.json'
+parser=argparse.ArgumentParser();mode=parser.add_mutually_exclusive_group(required=True);mode.add_argument('--plan',action='store_true');mode.add_argument('--run',action='store_true');parser.add_argument('--generation',default='real-preview-density-50-balanced-06');args=parser.parse_args()
+assert re.fullmatch(r'real-preview-density-50-balanced-[0-9]{2}',args.generation)
+G=1024**3;run_dir=root/args.generation;barrier=root/'restore-barrier.json'
 def rows(query,args=()):
     with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
         db.row_factory=sqlite3.Row;return [dict(x) for x in db.execute(query,args)]
@@ -70,9 +72,9 @@ def pressure():
     vm=dict(l.split() for l in P('/proc/vmstat').read_text().splitlines())
     return {'available_bytes':mem['MemAvailable'],'full_psi_avg10':avg,'oom_kill':int(vm['oom_kill']),'worker':guest_sample}
 def save(name,value):b.atomic(run_dir/name,b.encoded(value))
-if sys.argv[1:]==['--plan']:
+if args.plan:
     print(json.dumps(plan()[3]));sys.exit(0)
-assert sys.argv[1:]==['--run']
+assert args.run
 started=[];selected=[];gate=None;cleanup=[];own_activity={};warmed=[]
 with b.locked():
     canary=json.loads((root/'supervisor-canary-2c7e700/passed.json').read_text());assert canary['passed'] and canary['revision']=='2c7e700'

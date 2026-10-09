@@ -1,0 +1,19 @@
+{
+  "at": 1791568981.9793346,
+  "b200_contacted": false,
+  "checked_files": 2,
+  "complete": true,
+  "contents_identical": true,
+  "data_total_bytes": 841687760896,
+  "data_used_bytes": 509646176256,
+  "elapsed_seconds": 19.268129638003302,
+  "filesystem_free_delta_bytes": -57344,
+  "groups": [
+    {
+      "bytes": 4026531840,
+      "files": 2,
+      "sha256": "c37d0b2d227f22da78e9cb9a6f2d0907801eab64b36437732616ff2e406085dc"
+    }
+  ],
+  "paths_and_inodes_preserved": true
+}

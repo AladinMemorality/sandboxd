@@ -1,0 +1,47 @@
+{
+  "at": 1791568274.524466,
+  "b200_contacted": false,
+  "cycles": [
+    {
+      "bytes": 5174814,
+      "cycle": 1,
+      "memory": {
+        "available_bytes": 345202688,
+        "oom_kill": 0,
+        "runtime_id": "e3a26535a2874c77a799e45f40158cd1",
+        "total_bytes": 754917376
+      },
+      "modules": 23,
+      "wake_seconds": 1.2198298191651702
+    },
+    {
+      "bytes": 5174814,
+      "cycle": 2,
+      "memory": {
+        "available_bytes": 345153536,
+        "oom_kill": 0,
+        "runtime_id": "e3a26535a2874c77a799e45f40158cd1",
+        "total_bytes": 754917376
+      },
+      "modules": 23,
+      "wake_seconds": 1.1613151906058192
+    },
+    {
+      "bytes": 5174814,
+      "cycle": 3,
+      "memory": {
+        "available_bytes": 344576000,
+        "oom_kill": 0,
+        "runtime_id": "e3a26535a2874c77a799e45f40158cd1",
+        "total_bytes": 754917376
+      },
+      "modules": 23,
+      "wake_seconds": 1.1411970304325223
+    }
+  ],
+  "full_pause_records": 4,
+  "model_calls": false,
+  "passed": true,
+  "runtime_id": "e3a26535a2874c77a799e45f40158cd1",
+  "sandbox_id": "01M2AR44CA9AW2FEFA44KVEAGQ"
+}

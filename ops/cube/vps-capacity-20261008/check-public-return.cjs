@@ -38,7 +38,7 @@ print(json.dumps(before))
   const until=Date.now()+120000;
   while(Date.now()<until){
    const loaded=page.locator('.app-stage.is-live:not(.is-loading) iframe.app-frame');
-   const handle=await loaded.elementHandle();const frame=handle&&await handle.contentFrame();
+   const handle=await loaded.count()?await loaded.elementHandle({timeout:1000}).catch(()=>null):null;const frame=handle&&await handle.contentFrame();
    if(frame){
     const text=await frame.locator('body').innerText().catch(()=> '');
     if(text.includes(app.text)&&!text.includes('sandbox_explicit_start_required')){
@@ -57,6 +57,10 @@ print(json.dumps(before))
   await page.waitForTimeout(1500);if(errors.length)throw Error('Uncaught browser errors: '+errors.length);
   await page.screenshot({path:'/tmp/baarcha-vps-return-'+name+'.png',fullPage:true});
   result={passed:true,case:name,first,returned,explicitly_asleep_while_away:!!asleep,existing_running_preserved:before.status==='running',pageErrors:errors,seconds:(Date.now()-started)/1000};
+ }catch(error){
+  await page.screenshot({path:'/tmp/baarcha-vps-return-'+name+'-failed.png',fullPage:true}).catch(()=>{});
+  fs.writeFileSync('/tmp/baarcha-vps-return-'+name+'-failed.json',JSON.stringify({error:error.message,title:await page.title(),body:await page.locator('body').innerText().catch(()=>''),frames:page.frames().map(f=>f.url().split('?')[0]),pageErrors:errors}));
+  throw error;
  }finally{
   await browser.close();
   if(opened&&before.status==='stopped')state('stop',before);

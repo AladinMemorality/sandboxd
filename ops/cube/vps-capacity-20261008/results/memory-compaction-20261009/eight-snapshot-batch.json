@@ -1,0 +1,12 @@
+{
+  "at": 1791568151.8835917,
+  "block_size": 65536,
+  "contents_identical": true,
+  "count": 8,
+  "data_total_bytes": 841687760896,
+  "data_used_bytes": 537211764736,
+  "elapsed_seconds": 19.6881576369924,
+  "filesystem_free_delta_bytes": 1092419584,
+  "inodes_preserved": true,
+  "passed": true
+}
