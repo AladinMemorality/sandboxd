@@ -17,6 +17,7 @@ type CubeRelocation struct {
 	ID, SandboxID, AppID, OwnerSHA, SourceRuntimeID string
 	TargetWorker, TargetKey, TemplateID, Domain     string
 	TargetTemplateID                                string `json:",omitempty"`
+	SameProfileReplacement                          bool   `json:",omitempty"`
 	ConfigRevision                                  int64
 	CredentialSHA, ConfigSHA, TaskSHA               string
 	TaskCount                                       int
@@ -161,6 +162,17 @@ func relocationUnchanged(ctx context.Context, tx *sql.Tx, j CubeRelocation) erro
 }
 
 func (s *Store) BeginCubeRelocation(ctx context.Context, id, sid, expectedRuntime, targetWorker string, targetTemplate ...string) (CubeRelocation, error) {
+	return s.beginCubeRelocation(ctx, id, sid, expectedRuntime, targetWorker, false, targetTemplate...)
+}
+
+// BeginCubeSameProfileReplacement is an explicit operator-only replacement of a
+// paused runtime. The caller must retain its source disk and verify a complete
+// source export; the normal relocation and commit fencing remains mandatory.
+func (s *Store) BeginCubeSameProfileReplacement(ctx context.Context, id, sid, expectedRuntime, targetWorker, targetTemplate string) (CubeRelocation, error) {
+	return s.beginCubeRelocation(ctx, id, sid, expectedRuntime, targetWorker, true, targetTemplate)
+}
+
+func (s *Store) beginCubeRelocation(ctx context.Context, id, sid, expectedRuntime, targetWorker string, sameProfileReplacement bool, targetTemplate ...string) (CubeRelocation, error) {
 	var out CubeRelocation
 	destination := ""
 	if len(targetTemplate) > 1 {
@@ -177,7 +189,7 @@ func (s *Store) BeginCubeRelocation(ctx context.Context, id, sid, expectedRuntim
 	}
 	err := s.recoveryWrite(ctx, func(tx *sql.Tx) error {
 		if j, phase, e := loadRelocation(ctx, tx, id); e == nil {
-			if phase != "fenced" || j.SandboxID != sid || j.SourceRuntimeID != expectedRuntime || j.TargetWorker != targetWorker || j.TargetTemplateID != destination {
+			if phase != "fenced" || j.SandboxID != sid || j.SourceRuntimeID != expectedRuntime || j.TargetWorker != targetWorker || j.TargetTemplateID != destination || j.SameProfileReplacement != sameProfileReplacement {
 				return ErrConflict
 			}
 			out = j
@@ -199,10 +211,14 @@ func (s *Store) BeginCubeRelocation(ctx context.Context, id, sid, expectedRuntim
 		if old.RuntimeID != expectedRuntime || old.TemplateID != b.TemplateID || old.State != "released" || old.Charged != 0 {
 			return cube.ErrAdmissionPending
 		}
-		// A same-worker move is only useful for an explicit profile change.
-		// Keep the old released reservation and storage grant until commit;
-		// the destination must independently pass the durable budget below.
-		if old.WorkerID == targetWorker && (destination == "" || destination == b.TemplateID) {
+		// Ordinary same-worker moves still require an explicit profile change.
+		// Replacement is a distinct, durable operator intent and cannot also
+		// change worker or profile. It never replays a failed native resume.
+		if sameProfileReplacement {
+			if old.WorkerID != targetWorker || destination != b.TemplateID {
+				return ErrConflict
+			}
+		} else if old.WorkerID == targetWorker && (destination == "" || destination == b.TemplateID) {
 			return cube.ErrAdmissionPending
 		}
 		var n int
@@ -220,6 +236,7 @@ func (s *Store) BeginCubeRelocation(ctx context.Context, id, sid, expectedRuntim
 		}
 		out = CubeRelocation{ID: id, SandboxID: sid, AppID: app, OwnerSHA: recoveryHash(owner), SourceRuntimeID: expectedRuntime, TargetWorker: targetWorker, TargetKey: "relocation:" + id, TemplateID: b.TemplateID, Domain: b.Domain, ConfigRevision: b.ConfigRevision, CredentialSHA: CubeRecoveryCredentialSHA(b.TokenCiphertext, b.TokenNonce), SourceAdmission: old}
 		out.TargetTemplateID = destination
+		out.SameProfileReplacement = sameProfileReplacement
 		if destination != "" {
 			var raw string
 			if e = tx.QueryRowContext(ctx, `SELECT contract FROM cube_resource_budget WHERE worker_id=?`, targetWorker).Scan(&raw); e != nil {

@@ -32,7 +32,7 @@ import (
 
 type request struct {
 	Action, ID, AppID, SandboxID, ExpectedRuntime, TargetWorker, TargetTemplate, Directory, Migrations string
-	PackageDownloads                                                                                   bool
+	PackageDownloads, SameProfileReplacement                                                           bool
 }
 type target struct {
 	Relocation      store.CubeRelocation
@@ -150,7 +150,13 @@ func main() {
 		if in.TargetTemplate != "" {
 			templates = []string{in.TargetTemplate}
 		}
-		j, e := db.BeginCubeRelocation(ctx, in.ID, in.SandboxID, in.ExpectedRuntime, in.TargetWorker, templates...)
+		var j store.CubeRelocation
+		var e error
+		if in.SameProfileReplacement {
+			j, e = db.BeginCubeSameProfileReplacement(ctx, in.ID, in.SandboxID, in.ExpectedRuntime, in.TargetWorker, in.TargetTemplate)
+		} else {
+			j, e = db.BeginCubeRelocation(ctx, in.ID, in.SandboxID, in.ExpectedRuntime, in.TargetWorker, templates...)
+		}
 		must(e)
 		privateWrite(filepath.Join(in.Directory, "fenced.json"), j)
 		fmt.Println(`{"fenced":true}`)

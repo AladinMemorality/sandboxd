@@ -348,3 +348,93 @@ func TestRetainedRelocationSourcesRequiresCompletedUnchangedFencedSource(t *test
 		})
 	}
 }
+
+func TestCubeSameProfileReplacementRetainsFencingAndReservation(t *testing.T) {
+	for _, action := range []string{"commit", "abort", "wrong-worker", "wrong-profile", "running", "pending", "replay-mode"} {
+		t.Run(action, func(t *testing.T) {
+			s, _ := relocationFixture(t)
+			ctx := context.Background()
+			if err := s.ConfigureNodeIdentity(ctx, "10.0.2.15"); err != nil {
+				t.Fatal(err)
+			}
+			cfg := resourceTestConfig(12000)
+			cfg.Templates["tpl-reviewed"] = cube.AdmissionResources{CPUCount: 2, MemoryMB: 2048}
+			cfg.ResourceBudget.Profiles["tpl-reviewed"] = cube.ResourceProfile{CPUMillis: 500, WritableDiskMB: 8192, Kind: "runtime"}
+			if _, err := s.db.Exec(`UPDATE cube_admission_policy SET profile='resource-budget-v1',max_active=? WHERE worker_id='vps'`, cfg.MaxActive); err != nil {
+				t.Fatal(err)
+			}
+			if err := s.ConfigureResourceBudget(ctx, cfg); err != nil {
+				t.Fatal(err)
+			}
+			worker, template := "vps", "tpl-reviewed"
+			switch action {
+			case "wrong-worker":
+				worker = "b200-01"
+			case "wrong-profile":
+				template = "large"
+			case "running":
+				if _, err := s.db.Exec(`UPDATE sandbox SET status='running' WHERE id='stable-0'`); err != nil {
+					t.Fatal(err)
+				}
+			case "pending":
+				if _, err := s.db.Exec(`UPDATE cube_admission SET state='pending',charged=1 WHERE runtime_id='old-0'`); err != nil {
+					t.Fatal(err)
+				}
+			}
+			j, err := s.BeginCubeSameProfileReplacement(ctx, "replace", "stable-0", "old-0", worker, template)
+			if action == "wrong-worker" || action == "wrong-profile" || action == "running" || action == "pending" {
+				if err == nil {
+					t.Fatal("invalid replacement accepted")
+				}
+				bound, e := s.GetRuntimeBinding(ctx, "stable-0")
+				if e != nil || bound.RuntimeID != "old-0" {
+					t.Fatal("refusal changed source binding")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !j.SameProfileReplacement || j.DestinationTemplate() != "tpl-reviewed" {
+				t.Fatal("replacement intent lost")
+			}
+			if _, e := s.AdmissionLookup(ctx, "old-0"); !errors.Is(e, cube.ErrRuntimeUnavailable) {
+				t.Fatal("source was not fenced")
+			}
+			if action == "replay-mode" {
+				if _, e := s.BeginCubeRelocation(ctx, "replace", "stable-0", "old-0", "vps", "tpl-reviewed"); !errors.Is(e, ErrConflict) {
+					t.Fatal("replacement replayed as ordinary relocation")
+				}
+				if _, e := s.BeginCubeSameProfileReplacement(ctx, "replace", "stable-0", "old-0", "vps", "tpl-reviewed"); e != nil {
+					t.Fatal(e)
+				}
+				return
+			}
+			if action == "abort" {
+				if err := s.AbortCubeRelocation(ctx, j.ID); err != nil {
+					t.Fatal(err)
+				}
+				old, err := s.AdmissionLookup(ctx, "old-0")
+				if err != nil || old != j.SourceAdmission {
+					t.Fatal("abort changed source reservation")
+				}
+				return
+			}
+			target := targetRelocation(t, s, j)
+			if err := s.CommitCubeRelocation(ctx, j.ID, "wrong-token", recoveryHash("verified"), target); !errors.Is(err, cube.ErrAdmissionPending) {
+				t.Fatalf("wrong target token accepted: %v", err)
+			}
+			if err := s.CommitCubeRelocation(ctx, j.ID, "new-token", recoveryHash("verified source home history config"), target); err != nil {
+				t.Fatal(err)
+			}
+			bound, err := s.GetRuntimeBinding(ctx, "stable-0")
+			if err != nil || bound.RuntimeID != "new-runtime" || bound.TemplateID != "tpl-reviewed" {
+				t.Fatal("replacement changed profile or lost binding")
+			}
+			retained, err := s.AdmissionLookupKey(ctx, "relocation-retired:"+j.ID)
+			if err != nil || retained.RuntimeID != "old-0" || retained.Charged != 0 {
+				t.Fatal("source reservation was not retained")
+			}
+		})
+	}
+}

@@ -557,3 +557,33 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   atomically renames and fsyncs the parent. Both exact new hashes verified.
 - finish16 / outer19 resumed from completed deployment/growth. Real preview
   density-02 is running; no coding/model calls and no B200 operations.
+
+2026-10-09 14:33Z real density resume failure and preserved-disk recovery:
+- Density02 warmed24 apps then stopped on app01M24DHKQQWT4APTJTBMTT40PG
+  (runtime012a1853725144dda18417c4b355c78d). CubeMaster recorded failed resume;
+  guest log showed list_del corruption/kernel BUG during restored slab
+  allocation. No host/worker OOM increment. Do not classify this as memory
+  capacity, or claim the hypervisor root cause has been fixed.
+- Native workflow terminated; Master paused state and retained pause snapshot
+  snap-4e9b156cde1d47da99f0b135 confirmed. Guarded offline reconcile released
+  the pending lease, all135 bindings preserved, production ready. Original
+  source disks/memory snapshot retained. No blind native resume retry.
+- Cleanup's stop200 was insufficient evidence of admission release. Future
+  test cleanup now also requires stopped/released/charged0, otherwise retains
+  its barrier and reports incomplete cleanup.
+- Native failure removed live Cubelet inspection metadata. Targeted capture
+  therefore validates authenticated Master identity and retained snapshot
+  catalog/spec, base-image SHA, exact root disk size, stable metadata and
+  source identities; clones read-only with reflink and exports in networkless
+  libguestfs. Fresh source archive1,602,226 bytes verified;2 historical tasks
+  unchanged; prepared workspace/home/history passed conversion. Earlier failed
+  captures retained. Targeted backup receipt's original other_worker_bindings
+  field counted134 unselected VPS bindings; it does not mean B200 placement.
+- Same-worker/same-profile restore was refused by ordinary relocation policy
+  before fencing. Added explicit same-profile operator replacement intent,
+  retaining source and all commit/budget/identity checks; tests in progress.
+
+2026-10-09 14:34Z same-profile replacement validation:
+- Full Go race suites store/cube/API and cube-relocate tests passed. Explicit
+  replacement tests cover commit, abort, identity/profile/worker drift, pending
+  source, operation-mode replay and target-token fencing. Building VPS CLI.

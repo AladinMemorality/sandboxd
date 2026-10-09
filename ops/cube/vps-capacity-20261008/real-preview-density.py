@@ -172,7 +172,11 @@ with b.locked():
             for sid in reversed(started):
                 activity=rows('select last_active_at from sandbox where id=?',(sid,))[0]['last_active_at']
                 if task_ids(sid)!=initial_tasks[sid] or (sid in own_activity and activity>own_activity[sid]):cleanup.append({'sandbox_id':sid,'preserved_for_user_work':True});continue
-                try:api(sid,'stop');cleanup.append({'sandbox_id':sid,'stopped':True})
+                try:
+                    api(sid,'stop')
+                    settled=rows('select s.status,a.state,a.charged from sandbox s join runtime_binding b on b.sandbox_id=s.id join cube_admission a on a.runtime_id=b.runtime_id where s.id=?',(sid,))
+                    assert settled==[{'status':'stopped','state':'released','charged':0}],'Stop acknowledged but admission still unsettled'
+                    cleanup.append({'sandbox_id':sid,'stopped':True})
                 except Exception as error:cleanup.append({'sandbox_id':sid,'error':type(error).__name__})
             current={r['sandbox_id']:r['runtime_id'] for r in inventory()}
             final={'runtimes':cleanup,'bindings_preserved':all(current.get(k)==v for k,v in bindings.items()),'existing_running_preserved':all(r['sandbox_id'] not in started for r in active),'complete':all(r.get('stopped') or r.get('preserved_for_user_work') for r in cleanup)}
