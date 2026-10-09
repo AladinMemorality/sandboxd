@@ -680,3 +680,20 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
 - Activeunit baarcha-vps-finish-acceptance-24 runs reviewed supervisor resume,
   fleet wake validation, conditional source backup refresh, final audit.
   Original43results/failurelogs retained; no arbitrary retry mode introduced.
+
+2026-10-09 17:07Z Motion supervisor source review and continuation:
+- Outer24 reached66checks then safely rejected Motion runtime6516e4dc614d4a1990360e186344c709
+  supervisorb300f9ce69e2377851c978bb546ac30e553abae388f7ac38807764189eb78434.
+  No guest/kernel failure. Read-only binary capture first used non-PTY Cube
+  exec and failed its hash; no update occurred. Reviewed PTY/base64 capture02
+  obtained exact13,006,676byte artifact; original state and history retained.
+- Rebuilt d7ee603 understaticGo1.22.12: entire binary matches except Go buildID.
+  Existing config/quiescence and journal-bound Motion transport preserved;
+  new project-source routes do not change those control paths. Exact prior
+  SHA approved onVPS; old release manifests and source comparison retained.
+- Activeunit baarcha-vps-finish-acceptance-25 uses explicit reviewed-motion
+  continuation; completed66receipts reused. Motion updated to8bbddf... with
+  config_preserved true and normal stop. No model/render/worker-service call.
+- Fleet wake probe now compares cumulative guest OOM counters before/after
+  module checks and full wake, so historical counters cannot be mistaken for
+  a new test failure. It is staged before the fleet probe starts.

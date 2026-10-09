@@ -199,3 +199,9 @@ Go 1.22.12 reproduced every byte except the Go build identifier. Its configurati
 and quiescence APIs are unchanged. The exact hash was then approved on the VPS;
 the rejected attempt and prior manifest remain preserved. Resuming retains
 completed receipts and respects apps that visitors woke during the review.
+
+Motion's older `b300f9…` supervisor was reviewed the same way against `d7ee603`.
+Its binary also differs from the rebuilt source only in Go's build identifier.
+The guarded upgrade passed with configuration preserved; no render, generation,
+model request, or Motion worker change was made. Both exact source comparisons
+are recorded under `results/`.

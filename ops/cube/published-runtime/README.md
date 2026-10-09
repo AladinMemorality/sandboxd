@@ -67,3 +67,17 @@ was not retained, so the rollout is the likely trigger, not a proven crash stack
 wrong architecture, shared-object type, absent load segments and malformed ELF.
 Do not enable the timer until a bounded canary passes and every failed receipt
 has been investigated. The guard is installed on both worker VMs.
+
+## October 9 VPS continuation
+
+The static `2c7e700` supervisor passed the VPS canary and sequential production
+upgrades. The older `ea25000…` and Motion `b300f9…` builds were rejected before
+mutation, then reproduced from `06ab5e4` and `d7ee603` respectively. Every byte
+matches except Go's build identifier. Their existing configuration/quiescence
+contracts remain compatible; both exact hashes were added to the VPS release's
+previous-build list. Motion's update preserved configuration. See the source
+comparison receipts in `../vps-capacity-20261008/results/`.
+
+The fleet continuation preserves completed receipts and original failed attempts.
+Its VPS-only timer installer requires completed fleet wake validation; the timer
+has not yet been enabled. The B200 timer remains untouched and disabled.

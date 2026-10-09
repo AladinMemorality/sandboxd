@@ -76,6 +76,7 @@ with b.locked():
     origin,headers=copy.client(sid);assert origin==('127.0.0.1',20080)
     worker=transport.Worker({'worker':'vps','id':'fleet-wake-'+sid,'sandbox_id':sid,'runtime_id':runtime,'headers':headers,'web_port':row['web_port'] or 3000})
     def healthy():
+     memory_before=assets.guest_memory(runtime)
      status=worker.control('GET','/status');assert not status['active_task'] and all(p['running'] for p in status['processes'])
      web={**headers,'Host':headers['Host'].replace('3031-',str(row['web_port'] or 3000)+'-',1)}
      base,html=assets.page(worker.origin,web,timeout=15);static=base.rsplit('/',1)[0]+'/';queue=assets.entries(html,base,static);seen=set();total=0
@@ -87,15 +88,16 @@ with b.locked():
       queue.extend(p for p in assets.imports(path,data,static) if p not in seen)
      after=worker.control('GET','/status');assert not after['active_task'] and all(p['running'] for p in after['processes'])
      assert {p['name']:p['restarts'] for p in status['processes']}=={p['name']:p['restarts'] for p in after['processes']}
-     memory=assets.guest_memory(runtime);assert memory['oom_kill']==0
-     return {'modules':len(seen),'bytes':total,'guest_memory':memory}
+     memory=assets.guest_memory(runtime);assert memory['oom_kill']==memory_before['oom_kill'],'New guest OOM during preview validation'
+     return {'modules':len(seen),'bytes':total,'guest_memory':memory,'new_oom_kills':memory['oom_kill']-memory_before['oom_kill']}
     update=subprocess.run(ssh+['python3','/opt/baarcha-vps-export-recovery-2c7e700/worker.py','--container',runtime],capture_output=True,timeout=460)
     b.atomic(case/'supervisor.PRIVATE.log',update.stdout+update.stderr);assert update.returncode==0
     receipt=[json.loads(line) for line in update.stdout.splitlines()];assert len(receipt)==1 and receipt[0]['status'] in ('updated','current') and receipt[0]['sha256']==expected
     first=healthy();wake=None
     if row['status']=='stopped':
      api('stop');began=time.monotonic();api('start');wake=time.monotonic()-began
-     own_activity=rows('select last_active_at from sandbox where id=?',(sid,))[0]['last_active_at'];healthy()
+     own_activity=rows('select last_active_at from sandbox where id=?',(sid,))[0]['last_active_at'];again=healthy()
+     assert again['guest_memory']['oom_kill']==first['guest_memory']['oom_kill'],'Guest OOM counter changed during full-snapshot wake'
     success=True
    except BaseException as error:
     b.atomic(case/'failed.json',b.encoded({'type':type(error).__name__,'reason':str(error)[:250],'at':time.time()}));raise

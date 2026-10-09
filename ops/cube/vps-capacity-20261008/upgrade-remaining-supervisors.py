@@ -6,7 +6,8 @@ spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-c
 spec=importlib.util.spec_from_file_location('copy_fleet','/opt/baarcha-bench/cube-fleet-20260927/copy-fleet.py');copy=importlib.util.module_from_spec(spec);spec.loader.exec_module(copy)
 spec=importlib.util.spec_from_file_location('assets',root/'preview-assets.py');assets=importlib.util.module_from_spec(spec);spec.loader.exec_module(assets)
 import sys;sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as transport
-resume=sys.argv[1:]==['--resume-reviewed-binary'];assert not sys.argv[1:] or resume
+resume=sys.argv[1:] in (['--resume-reviewed-binary'],['--resume-reviewed-motion']);assert not sys.argv[1:] or resume
+review_motion=sys.argv[1:]==['--resume-reviewed-motion']
 ssh=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','root@127.0.0.1']
 def rows(query,args=()):
  with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
@@ -26,15 +27,17 @@ with b.locked():
   # Normal visitor wakes/idle stops may occur during review. Preserve the fresh
   # state, while requiring unchanged binding, profile and task identities.
   b.atomic(out/('resume-scope-'+str(time.time_ns())+'.json'),b.encoded(scope))
-  approval=json.loads((root/'review-ea25000/complete.json').read_text());assert approval['reviewed'] and approval['normalized_reproduced_sha256']==approval['approved_previous_sha256'] and approval['all_other_bytes_identical']
+  review_name='review-b300f9' if review_motion else 'review-ea25000'
+  rejected_sid='01M3CKN99ZF90BEEA4DS66YAQV' if review_motion else '01M2P1KJ8086W06ANFAV50KA93'
+  approval=json.loads((root/review_name/'complete.json').read_text());assert approval['reviewed'] and approval['normalized_reproduced_sha256']==approval['approved_previous_sha256'] and approval['all_other_bytes_identical']
   # Preserve the failed attempt and require its exact non-mutating rejection.
-  rejected=out/'01M2P1KJ8086W06ANFAV50KA93'/'update.PRIVATE.log'
+  rejected=out/rejected_sid/'update.PRIVATE.log'
   receipt=json.loads(rejected.read_text());assert receipt['status']=='unreviewed_binary' and receipt['sha256']==approval['approved_previous_sha256']
   backup=json.loads(P('/var/backups/baarcha-vps-source/latest.json').read_text());assert backup['verified']
   with sqlite3.connect('file:/var/backups/baarcha-vps-source/'+backup['generation']+'/controller.PRIVATE.sqlite?mode=ro',uri=True) as db:
    history=[tuple(r) for r in db.execute('select task_id,sandbox_id,status from task order by task_id')]
   assert history==[tuple(r.values()) for r in rows('select task_id,sandbox_id,status from task order by task_id')],'User work changed; review before resuming'
-  previous=json.loads((out/'progress.json').read_text());assert len(previous)==43
+  previous=json.loads((out/'progress.json').read_text());assert len(previous)==(66 if review_motion else 43)
   b.atomic(out/('resume-'+str(time.time_ns())+'.json'),b.encoded({'approved_previous_sha256':approval['approved_previous_sha256'],'completed_checks':len(previous),'at':time.time()}))
  else:
   out.mkdir(mode=0o700);b.atomic(out/'scope.json',b.encoded(scope));previous=[]
@@ -44,9 +47,10 @@ with b.locked():
   receipt=json.loads(path.read_text())
   if receipt.get('sha256')==expected and receipt.get('status') in ('updated','current'):verified.add(receipt['runtime_id'])
  for row in previous:
-  if row['status']=='updated':
-   receipt=json.loads((out/row['sandbox_id']/'updated.json').read_text());assert receipt['runtime_id']==row['runtime_id'] and receipt['sha256']==expected
+  for path in (out/row['sandbox_id']).glob('**/updated.json'):
+   receipt=json.loads(path.read_text());assert receipt['runtime_id']==row['runtime_id'] and receipt['sha256']==expected
    verified.add(row['runtime_id'])
+  assert row['runtime_id'] in verified,'Completed update lost its reviewed receipt'
  results=[]
  for row in scope:
   sid=row['id'];runtime=row['runtime_id']
@@ -56,7 +60,7 @@ with b.locked():
   assert rows('select runtime_id from runtime_binding where sandbox_id=?',(sid,))==[{'runtime_id':runtime}]
   job=out/sid
   if job.exists():
-   assert resume and sid=='01M2P1KJ8086W06ANFAV50KA93'
+   assert resume and sid==rejected_sid
    job=job/('reviewed-retry-'+str(time.time_ns()))
   job.mkdir(mode=0o700)
   tasks=rows('select task_id,status from task where sandbox_id=? order by task_id',(sid,))
