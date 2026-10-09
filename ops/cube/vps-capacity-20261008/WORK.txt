@@ -885,3 +885,17 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   Failure journal retained. Deploy65 waits for verified backup/acceptance50;
   private legacy-remix67,supervisor canary68,activation69 follow in order.
   No production source-release activation is claimed yet.
+
+2026-10-09 backup gate follow-through:
+- Captured immutable export for01M3D1Q0E1KM1FEM244XVHEC65 reports
+  file receive cancelled by daemon. Its partial tar parses to1365entries,
+  but is not accepted as a backup. Original captured disks and failed partial
+  remain retained. Other exports proceed; no additional failures so far.
+- Diagnostic70 waits for the original export pass to finish, then permits
+  only that exact failure/sandbox and logs verbose guestfs privately.
+  Acceptance71 resumes the same immutable generation only if diagnosis
+  succeeds, independently verifies all archives and runs the final audit.
+- Waiting deploy65 was stopped before mutation. Successor gates are deploy72,
+  legacy-remix73,canary74,maintenance75. Existing output journal names for
+  legacy67,canary68,maintenance69 remain unchanged and not yet created.
+  Production remains old controllereda67d2 until these gates complete.

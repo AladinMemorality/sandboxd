@@ -5,7 +5,7 @@ spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-c
 ssh=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','root@127.0.0.1']
 deadline=time.monotonic()+18000
 while True:
- state=subprocess.check_output(['systemctl','show','baarcha-vps-source-data-canary-68','-p','ActiveState','--value'],text=True).strip()
+ state=subprocess.check_output(['systemctl','show','baarcha-vps-source-data-canary-74','-p','ActiveState','--value'],text=True).strip()
  assert state!='failed' and time.monotonic()<deadline
  if state=='inactive':break
  time.sleep(5)

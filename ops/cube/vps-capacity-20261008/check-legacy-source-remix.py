@@ -24,7 +24,7 @@ def api(method,path,body=None,status=200):
 
 deadline=time.monotonic()+18000
 while True:
- state=subprocess.check_output(['systemctl','show','baarcha-vps-source-data-deploy-65','-p','ActiveState','--value'],text=True).strip()
+ state=subprocess.check_output(['systemctl','show','baarcha-vps-source-data-deploy-72','-p','ActiveState','--value'],text=True).strip()
  assert state!='failed' and time.monotonic()<deadline
  if state=='inactive':break
  time.sleep(5)

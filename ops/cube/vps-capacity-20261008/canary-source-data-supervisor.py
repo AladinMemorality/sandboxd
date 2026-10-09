@@ -11,7 +11,7 @@ def rows(q,args=()):
  with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
   db.row_factory=sqlite3.Row;return [dict(r) for r in db.execute(q,args)]
 deadline=time.monotonic()+14400
-for unit,proof in [('baarcha-vps-source-data-stage-66',release/'supervisor-staged.json'),('baarcha-vps-source-data-deploy-65',release/'deployed.json'),('baarcha-vps-legacy-source-remix-67',root/'legacy-source-remix-67/complete.json')]:
+for unit,proof in [('baarcha-vps-source-data-stage-66',release/'supervisor-staged.json'),('baarcha-vps-source-data-deploy-72',release/'deployed.json'),('baarcha-vps-legacy-source-remix-73',root/'legacy-source-remix-67/complete.json')]:
  while True:
   state=subprocess.check_output(['systemctl','show',unit,'-p','ActiveState','--value'],text=True).strip()
   assert state!='failed' and time.monotonic()<deadline,'Review preceding operation: '+unit
