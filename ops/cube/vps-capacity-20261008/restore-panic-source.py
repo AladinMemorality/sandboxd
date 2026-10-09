@@ -169,7 +169,7 @@ with wait_for_operator():
    worker.application_checks()
    api('stop')
    for cycle in range(2):
-    api('start');worker.verify();api('stop')
+    api('start');worker.application_checks();api('stop')
     save('repeat-wake-'+str(cycle+1)+'.json',{'passed':True,'cycle':cycle+1,'runtime_id':runtime})
    assert rows("select worker_id,state,charged from cube_admission where runtime_id=?",(runtime,))==[{'worker_id':'vps','state':'released','charged':0}]
    result={'restored':True,'sandbox_id':sid,'worker':'vps','profile':profile,'source_contacted':False,'same_project_identity':True,'wake_seconds':wake,'all_content_verified':True,'source_retained':True,'at':time.time()};save('complete.json',result);print(json.dumps(result),flush=True)

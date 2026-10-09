@@ -10,7 +10,7 @@ spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-c
 sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as transport
 spec=importlib.util.spec_from_file_location('assets',root/'preview-assets.py');assets=importlib.util.module_from_spec(spec);spec.loader.exec_module(assets)
 SSH=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','-oConnectTimeout=5','root@127.0.0.1']
-G=1024**3;run_dir=root/'real-preview-density-50-balanced-02';barrier=root/'restore-barrier.json'
+G=1024**3;run_dir=root/'real-preview-density-50-balanced-03';barrier=root/'restore-barrier.json'
 def rows(query,args=()):
     with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
         db.row_factory=sqlite3.Row;return [dict(x) for x in db.execute(query,args)]

@@ -587,3 +587,13 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
 - Full Go race suites store/cube/API and cube-relocate tests passed. Explicit
   replacement tests cover commit, abort, identity/profile/worker drift, pending
   source, operation-mode replay and target-token fencing. Building VPS CLI.
+
+2026-10-09 14:36Z failed snapshot replaced and verified:
+- VPS operator CLIff7349f built and used. Same-profile replacement retained
+  original768MiB source and imported the freshly verified paused-disk export.
+  Workspace/home/history/config verified before routing; original project
+  identity retained. Three stop/wake cycles with full module checks passed,
+  measured initial wake1.507s. This does not establish the hypervisor panic's
+  underlying cause; original failed memory snapshot remains preserved.
+- Full density03 / finish17 / outer20 continue with the recovered app in the
+  eligible cohort. Backup/supervisor/final audit remain after successful test.
