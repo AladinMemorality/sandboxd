@@ -61,6 +61,7 @@ if sys.argv[1:]==['--plan']:
 assert sys.argv[1:]==['--run']
 started=[];selected=[];gate=None;cleanup=[];own_activity={};warmed=[]
 with b.locked():
+    canary=json.loads((root/'supervisor-canary-2c7e700/passed.json').read_text());assert canary['passed'] and canary['revision']=='2c7e700'
     assert not barrier.exists(),'Another reviewed restore batch is active'
     assert not rows("select id from cube_relocation where phase='fenced'")
     assert not rows("select task_id from task where status in ('running','queued')"),'User work is active'
@@ -111,7 +112,7 @@ with b.locked():
                 guard();started.append(row['sandbox_id']);save('start-intents.json',started)
                 api(row['sandbox_id'],'start')
                 own_activity[row['sandbox_id']]=rows('select last_active_at from sandbox where id=?',(row['sandbox_id'],))[0]['last_active_at']
-                update=subprocess.run(SSH+['python3','/opt/baarcha-vps-process-recovery-a583d45/worker.py','--container',row['runtime_id']],capture_output=True,timeout=260)
+                update=subprocess.run(SSH+['python3','/opt/baarcha-vps-export-recovery-2c7e700/worker.py','--container',row['runtime_id']],capture_output=True,timeout=260)
                 receipts=[json.loads(line) for line in update.stdout.splitlines()]
                 assert update.returncode==0 and len(receipts)==1 and receipts[0]['status'] in ('updated','current'),'Supervisor update requires reconciliation'
                 save(row['sandbox_id']+'-supervisor.json',receipts[0])

@@ -140,9 +140,9 @@ with wait_for_operator():
     try:
      assert select.select([channel.stdout],[],[],60)[0]
      channel_ready=json.loads(channel.stdout.readline());assert channel_ready.get('channel_ready') and channel_ready['outbound']=='npm-registry-only'
-     canary=json.loads((root/'supervisor-canary-a583d45/passed.json').read_text());assert canary['passed'] and canary['revision']=='a583d45'
+     canary=json.loads((root/'supervisor-canary-2c7e700/passed.json').read_text());assert canary['passed'] and canary['revision']=='2c7e700'
      ssh=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','root@127.0.0.1']
-     update=subprocess.run(ssh+['python3','/opt/baarcha-vps-process-recovery-a583d45/worker.py','--container',runtime],capture_output=True,timeout=260)
+     update=subprocess.run(ssh+['python3','/opt/baarcha-vps-export-recovery-2c7e700/worker.py','--container',runtime],capture_output=True,timeout=260)
      assert update.returncode==0,'Supervisor update did not complete'
      receipts=[json.loads(line) for line in update.stdout.splitlines()]
      assert len(receipts)==1 and receipts[0]['status'] in ('updated','current'),'Supervisor update requires reconciliation'
