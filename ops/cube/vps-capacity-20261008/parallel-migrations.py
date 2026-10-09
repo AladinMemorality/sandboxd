@@ -23,7 +23,8 @@ with b.locked() as locks:
  for item in selected:
   sid=item['sandbox_id'];assert len(sid)==26 and sid.isalnum()
   item['journal']=('vps-reprofile-'+sid.lower()+'-768-01') if kind=='reprofile' else ('vps-restore-'+sid.lower())
-  assert not (root/'recovery-moves'/item['journal']).exists()
+  item['journals']=['vps-reprofile-'+sid.lower()+'-'+str(memory)+'-01' for memory in [768,1024,2048]] if kind=='reprofile' else [item['journal'],item['journal']+'-memory1024',item['journal']+'-memory2048']
+  assert all(not (root/'recovery-moves'/j).exists() for j in item['journals'])
  out.mkdir(mode=0o700)
  scope={'parent_pid':os.getpid(),'concurrency':2,'kind':kind,'selected':selected,'model_calls':False,'b200_contacted':False}
  b.atomic(out/'scope.json',b.encoded(scope))

@@ -4,12 +4,14 @@ P=pathlib.Path;root=P('/opt/baarcha/operations/vps-50-profiles-20261008');os.uma
 sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as transport
 spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
 sid=sys.argv[1];assert len(sid)==26 and sid.isalnum()
-profile='balanced'
+profile=sys.argv[3] if len(sys.argv)>3 else 'balanced'
+assert profile in ('balanced','standard','large')
+profile_memory={'balanced':768,'standard':1024,'large':2048}
 receipt=json.loads((root/'balanced-template-a583d45.json').read_text())
 deployed=json.loads((root/'balanced-release-a583d45/deployed.json').read_text())
 assert receipt['ready'] and receipt['worker']=='vps' and receipt['memory_mb']==768
 assert deployed['deployed'] and deployed['template_id']==receipt['template_id']
-templates={profile:receipt['template_id']}
+templates={'balanced':receipt['template_id'],'standard':'tpl-86350411460a47db8ffe6ff5','large':'tpl-5abec4cb4fcc41cc8e611f69'}
 source=None
 spec=importlib.util.spec_from_file_location('copy_fleet','/opt/baarcha-bench/cube-fleet-20260927/copy-fleet.py');copy=importlib.util.module_from_spec(spec);spec.loader.exec_module(copy)
 spec=importlib.util.spec_from_file_location('assets',root/'preview-assets.py');assets=importlib.util.module_from_spec(spec);spec.loader.exec_module(assets)
@@ -25,7 +27,7 @@ while True:
  time.sleep(5)
 attempt=sys.argv[2] if len(sys.argv)>2 else '01'
 assert attempt.isalnum() and len(attempt)<=8
-job=root/'recovery-moves'/('vps-reprofile-'+sid.lower()+'-768-'+attempt)
+job=root/'recovery-moves'/('vps-reprofile-'+sid.lower()+'-'+str(profile_memory[profile])+'-'+attempt)
 BIN=root/'cube-relocate-reprofile';migrations=root/'queue-release-d463b2d/source/control-plane/migrations'
 def save(name,value):b.atomic(job/name,b.encoded(value))
 def rows(query,args=()):
@@ -81,7 +83,7 @@ if os.environ.get('BAARCHA_VPS_BATCH_SCOPE'):
  batch_scope=b.strict(b.trusted(batch_path))
  inherited_locks=json.loads(os.environ['BAARCHA_VPS_BATCH_LOCK_FDS'])
  assert batch_scope['parent_pid']==os.getppid() and batch_scope['concurrency']==2
- assert any(e['sandbox_id']==sid and e['journal']==job.name for e in batch_scope['selected'])
+ assert any(e['sandbox_id']==sid and job.name in e['journals'] for e in batch_scope['selected'])
  assert len(inherited_locks)==4 and all(type(fd) is int and fd>2 for fd in inherited_locks)
 @contextlib.contextmanager
 def wait_for_operator():
@@ -110,7 +112,7 @@ with wait_for_operator():
   tasks=[r['task_id'] for r in rows('select task_id from task where sandbox_id=? order by task_id',(sid,))]
   assert not rows("select task_id from task where status in ('running','queued')")
   open_journals=rows("select id from cube_relocation where phase='fenced'")
-  assert not open_journals or (batch_scope and all(r['id'] in {e['journal'] for e in batch_scope['selected']} for r in open_journals)),'Unrelated relocation in progress'
+  assert not open_journals or (batch_scope and all(r['id'] in {j for e in batch_scope['selected'] for j in e['journals']} for r in open_journals)),'Unrelated relocation in progress'
   previous=[]
   for path in (root/'recovery-moves').glob('*/worker-job.PRIVATE.json'):
    old=json.loads(path.read_text())
@@ -176,4 +178,18 @@ with wait_for_operator():
   assert rows("select worker_id,state,charged from cube_admission where runtime_id=?",(runtime,))==[{'worker_id':'vps','state':'released','charged':0}]
   result={'restored':True,'sandbox_id':sid,'worker':'vps','profile':profile,'fresh_current_export':True,'same_project_identity':True,'wake_seconds':wake,'all_content_verified':True,'source_retained':True,'at':time.time()};save('complete.json',result);print(json.dumps(result),flush=True)
  except BaseException as error:
-  save('failed.json',{'error':type(error).__name__,'reason':str(error)[:512],'line':traceback.extract_tb(error.__traceback__)[-1].lineno,'at':time.time(),'source_retained':True});raise
+  save('failed.json',{'error':type(error).__name__,'reason':str(error)[:512],'line':traceback.extract_tb(error.__traceback__)[-1].lineno,'at':time.time(),'source_retained':True})
+  # Only a proven guest OOM before routing changes permits one larger-profile
+  # attempt. The unused target is discarded by the guarded CLI; the canonical
+  # source is resumed and freshly exported again, preserving current data.
+  if profile in ('balanced','standard') and 'worker' in globals() and (worker.root/'content-verified.json').exists() and rows('select phase from cube_relocation where id=?',(job.name,))==[{'phase':'fenced'}] and rows('select runtime_id from runtime_binding where sandbox_id=?',(sid,))==[{'runtime_id':source['runtime_id']}]:
+   memory=assets.guest_memory(runtime);save('failed-guest-memory.json',memory)
+   if memory['oom_kill']>0:
+    next_profile='standard' if profile=='balanced' else 'large'
+    cli('discard-target')
+    source_api('start');source_worker.control('POST','/workspace/resume');source_api('stop')
+    save('promotion.json',{'from':profile,'to':next_profile,'proven_oom_kills':memory['oom_kill'],'unused_target_discarded':True,'source_preserved':True})
+    print(json.dumps({'stage':'memory-profile-promotion','sandbox_id':sid,'from':profile,'to':next_profile}),flush=True)
+    for fd in inherited_locks or []:os.set_inheritable(fd,True)
+    os.execve('/usr/bin/python3',['/usr/bin/python3',str(root/'reprofile-vps.py'),sid,attempt,next_profile],os.environ)
+  raise
