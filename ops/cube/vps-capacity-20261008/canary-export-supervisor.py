@@ -7,6 +7,8 @@ sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as tran
 ssh=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','root@127.0.0.1']
 def rows(sql,args=()):
  with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:return db.execute(sql,args).fetchall()
+if not (root/'stored-runtime-limit-512/applied.json').exists():
+ subprocess.run(['/usr/bin/python3',str(root/'raise-vps-stored-runtime-limit-512.py')],check=True,timeout=180)
 deadline=time.monotonic()+1800
 while True:
  stack=contextlib.ExitStack()

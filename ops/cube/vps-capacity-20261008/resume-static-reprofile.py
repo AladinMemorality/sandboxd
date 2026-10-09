@@ -27,7 +27,7 @@ while True:
 attempt=sys.argv[2] if len(sys.argv)>2 else '01'
 assert attempt.isalnum() and len(attempt)<=8
 job=root/'recovery-moves'/('vps-reprofile-'+sid.lower()+'-768-'+attempt)
-BIN=root/'cube-relocate-connect-target-commit';migrations=root/'queue-release-d463b2d/source/control-plane/migrations'
+BIN=root/'observe-release-e261aac/cube-relocate';migrations=root/'queue-release-d463b2d/source/control-plane/migrations'
 def save(name,value):b.atomic(job/name,b.encoded(value))
 def rows(query,args=()):
  with contextlib.closing(sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True,timeout=10)) as db:
@@ -106,7 +106,7 @@ with wait_for_operator(),account_maintenance([sid],job):
  assert proof['RuntimeID']==runtime and proof['RelocationID']==job.name and proof['ApplicationReady'] and proof['WorkspaceVerified'] and proof['HomeVerified'] and proof['HistoryVerified']
  save('probe-resume-intent.json',{'at':time.time(),'read_only_probe_retry':True})
  try:
-  cli('connect-target')
+  cli('observe-connected-target')
   worker.application_checks();save('verified.json',proof)
   cli('commit')
   env=dict(x.split('=',1) for x in json.loads(subprocess.check_output(['docker','inspect','src-sandboxd-1']))[0]['Config']['Env']);token=env['SANDBOXD_API_TOKENS'].split(',')[0].split('=',1)[1]
