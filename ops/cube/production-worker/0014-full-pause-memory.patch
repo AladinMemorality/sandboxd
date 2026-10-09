@@ -1,0 +1,78 @@
+--- a/Cubelet/services/cubebox/pause_cow.go
++++ b/Cubelet/services/cubebox/pause_cow.go
+@@ -39,10 +39,14 @@
+ 	SnapshotType string `json:"snapshot_type,omitempty"`
+ }
+ 
+-func newPauseSnapshotConfig(dest, memURL, snapshotType string) pauseSnapshotConfig {
++func newPauseSnapshotConfig(dest, memURL, _ string) pauseSnapshotConfig {
+ 	cfg := pauseSnapshotConfig{
+ 		DestinationURL: dest,
+-		SnapshotType:   normalizeSnapshotType(snapshotType),
++		// Pause must retain every page of the currently frozen VM. Incremental
++		// anonymous-page classification is not sufficient evidence that omitted
++		// memory equals the selected base. Repeated restores have exhibited
++		// guest kernel list corruption; use the existing complete dump path.
++		SnapshotType: snapshotTypeFull,
+ 	}
+ 	if memURL != "" {
+ 		cfg.MemoryVolURL = &memURL
+--- a/Cubelet/services/cubebox/pause_cow_test.go
++++ b/Cubelet/services/cubebox/pause_cow_test.go
+@@ -184,36 +184,26 @@
+ 	}
+ }
+ 
+-func TestNewPauseSnapshotConfigCarriesSnapshotType(t *testing.T) {
+-	t.Parallel()
+-	cfg := newPauseSnapshotConfig("/data/snap/pause-1", "file:///dev/cubecow/mem1", snapshotTypeSoftDirty)
+-	if cfg.DestinationURL != "/data/snap/pause-1" {
+-		t.Fatalf("dest=%q", cfg.DestinationURL)
+-	}
+-	if cfg.MemoryVolURL == nil || *cfg.MemoryVolURL != "file:///dev/cubecow/mem1" {
+-		t.Fatalf("memory_vol=%v", cfg.MemoryVolURL)
+-	}
+-	if cfg.SnapshotType != snapshotTypeSoftDirty {
+-		t.Fatalf("snapshot_type=%q", cfg.SnapshotType)
+-	}
+-	raw, err := json.Marshal(cfg)
+-	if err != nil {
+-		t.Fatalf("marshal: %v", err)
+-	}
+-	var got pauseSnapshotConfig
+-	if err := json.Unmarshal(raw, &got); err != nil {
+-		t.Fatalf("unmarshal: %v", err)
+-	}
+-	if got.SnapshotType != snapshotTypeSoftDirty {
+-		t.Fatalf("roundtrip snapshot_type=%q", got.SnapshotType)
+-	}
+-
+-	empty := newPauseSnapshotConfig("/data/snap/pause-1", "", "")
+-	if empty.MemoryVolURL != nil {
+-		t.Fatalf("empty mem url should omit pointer, got %v", empty.MemoryVolURL)
+-	}
+-	if empty.SnapshotType != snapshotTypeFull {
+-		t.Fatalf("empty type must default to full, got %q", empty.SnapshotType)
++func TestPauseSnapshotAlwaysCapturesFullMemory(t *testing.T) {
++	for _, proposed := range []string{snapshotTypeFull, snapshotTypeIncremental, snapshotTypeSoftDirty, "", "unknown"} {
++		cfg := newPauseSnapshotConfig("/snapshot", "file:///memory", proposed)
++		if cfg.SnapshotType != snapshotTypeFull || cfg.DestinationURL != "/snapshot" || cfg.MemoryVolURL == nil || *cfg.MemoryVolURL != "file:///memory" {
++			t.Fatalf("unsafe pause config for %q: %#v", proposed, cfg)
++		}
++		data, err := json.Marshal(cfg)
++		if err != nil {
++			t.Fatal(err)
++		}
++		var got pauseSnapshotConfig
++		if err := json.Unmarshal(data, &got); err != nil {
++			t.Fatal(err)
++		}
++		if got.SnapshotType != snapshotTypeFull {
++			t.Fatal("full snapshot policy lost on wire")
++		}
++	}
++	if newPauseSnapshotConfig("/snapshot", "", snapshotTypeIncremental).MemoryVolURL != nil {
++		t.Fatal("unexpected volume override")
+ 	}
+ }
+ 

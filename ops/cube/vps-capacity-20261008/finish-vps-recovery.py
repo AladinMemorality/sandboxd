@@ -5,7 +5,7 @@ No model calls, B200 requests, blind retries, or original-source deletion.
 """
 import contextlib,json,os,pathlib,sqlite3,subprocess,time
 P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008')
-out=root/'finish-vps-recovery-18';out.mkdir(mode=0o700)
+out=root/'finish-vps-recovery-19';out.mkdir(mode=0o700)
 def run(stage,args,timeout):
     (out/'stage.json').write_text(json.dumps({'stage':stage,'at':time.time()}))
     print(json.dumps({'stage':stage,'at':time.time()}),flush=True)
@@ -23,17 +23,18 @@ try:
     assert json.loads((root/'supervisor-canary-2c7e700/passed.json').read_text())['passed']
     with contextlib.closing(sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True)) as db:
         workers=db.execute("select a.worker_id,count(*) from runtime_binding b join cube_admission a on a.runtime_id=b.runtime_id group by a.worker_id").fetchall()
-        assert workers==[('vps',135)],'Incomplete VPS placement'
+        assert len(workers)==1 and workers[0][0]=='vps' and workers[0][1]>=135,'Incomplete VPS placement'
+        count=workers[0][1]
         assert not db.execute("select id from cube_relocation where phase='fenced'").fetchall()
         assert not db.execute("select admission_key from cube_admission where state='pending'").fetchall()
-    (out/'all-vps.json').write_text(json.dumps({'sandboxes':135,'worker':'vps','b200_contacted':False,'at':time.time()}))
+    (out/'all-vps.json').write_text(json.dumps({'sandboxes':count,'worker':'vps','b200_contacted':False,'at':time.time()}))
     run('backup-exporter',['/usr/bin/python3',str(root/'install-source-backup-exporter.py')],120)
     plan=json.loads(subprocess.check_output(['/usr/bin/python3',str(root/'real-preview-density.py'),'--plan'],timeout=90))
     assert plan['ready'];(out/'density-plan.json').write_text(json.dumps(plan))
     run('density',['/usr/bin/python3',str(root/'real-preview-density.py'),'--run'],5400)
-    assert json.loads((root/'real-preview-density-50-balanced-04/result.json').read_text())['passed']
+    assert json.loads((root/'real-preview-density-50-balanced-05/result.json').read_text())['passed']
     run('source-backup',['/usr/bin/python3','/usr/local/libexec/baarcha-vps-source-backup/backup.py'],7*3600)
-    result={'complete':True,'sandboxes_on_vps':135,'real_preview_test_passed':True,'fresh_source_backup_completed':True,'model_calls':False,'b200_contacted':False,'at':time.time()}
+    result={'complete':True,'sandboxes_on_vps':count,'real_preview_test_passed':True,'fresh_source_backup_completed':True,'model_calls':False,'b200_contacted':False,'at':time.time()}
     (out/'complete.json').write_text(json.dumps(result));print(json.dumps(result),flush=True)
 except BaseException as error:
     (out/'failed.json').write_text(json.dumps({'error':type(error).__name__,'reason':str(error)[:400],'at':time.time()}))

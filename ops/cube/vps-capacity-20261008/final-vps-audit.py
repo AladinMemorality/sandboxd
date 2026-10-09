@@ -16,28 +16,30 @@ with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True
 container=json.loads(subprocess.check_output(['docker','inspect','src-sandboxd-1']))[0]
 env=dict(x.split('=',1) for x in container['Config']['Env'])
 fleet=json.loads(env['SANDBOXD_CUBE_FLEET']);policy=json.loads(env['SANDBOXD_CUBE_ADMISSION'])
-assert placement==[{'worker_id':'vps','count':135}] and pending==fenced==active_tasks==0
+assert len(bindings)>=135 and placement==[{'worker_id':'vps','count':len(bindings)}] and pending==fenced==active_tasks==0
 assert int(env.get('SANDBOXD_CUBE_TASK_CONCURRENCY','0'))==0
 assert all(w['draining'] for w in fleet['workers'] if w['id']!='vps')
 with urllib.request.urlopen('http://127.0.0.1:9090/readyz',timeout=5) as r:assert r.read().strip()==b'ready'
 def proof(name):return json.loads((root/name).read_text())
-assert proof('finish-vps-recovery-18/complete.json')['complete']
+assert proof('finish-vps-recovery-19/complete.json')['complete']
 assert proof('resume-retry-release-d5b07bb/deployed.json')['deleted_storage_grant_reconciled']
 deployed=proof('stop-state-release-eda67d2/deployed.json');assert deployed['deployed'] and deployed['image']==container['Image'] and deployed['stop_state_verified']
-density=proof('real-preview-density-50-balanced-04/result.json');cleanup=proof('real-preview-density-50-balanced-04/cleanup.json')
+native=proof('full-pause-release-20261009/deployed.json');assert native['deployed'] and native['full_pause_snapshot_policy']
+assert proof('full-pause-canary-01/complete.json')['passed']
+density=proof('real-preview-density-50-balanced-05/result.json');cleanup=proof('real-preview-density-50-balanced-05/cleanup.json')
 assert density['passed'] and density['concurrent_running']==50 and density['http_checks']==600
 assert cleanup['complete'] and cleanup['bindings_preserved'] and cleanup['existing_running_preserved']
-density_scope=proof('real-preview-density-50-balanced-04/scope.json');before=density_scope['before']
+density_scope=proof('real-preview-density-50-balanced-05/scope.json');before=density_scope['before']
 cohort_limits=collections.Counter(policy['templates'][binding_templates[sid]]['memory_mb'] for sid in density_scope['selected']+density_scope['existing_running'])
 assert sum(cohort_limits.values())==50
 pacing=proof('transfer-readiness-watch-01/result.json');assert pacing['passed'] and pacing['checks']==60 and pacing['failed_checks']==0
 assert density['after']['oom_kill']==before['oom_kill'] and density['after']['worker']['oom_kill']==before['worker']['oom_kill']
 backuproot=pathlib.Path('/var/backups/baarcha-vps-source');backup=json.loads((backuproot/'latest.json').read_text())
-assert backup['verified'] and backup['sandboxes']==135 and backup['other_worker_bindings']==0 and backup['generated_pnpm_caches_excluded']
+assert backup['verified'] and backup['sandboxes']==len(bindings) and backup['other_worker_bindings']==0 and backup['generated_pnpm_caches_excluded']
 assert 0<=time.time()-backup['completed_at']<6*3600
 saved=json.loads((backuproot/backup['generation']/'scope.json').read_text())
 assert saved['worker']=='vps' and {r['sandbox_id']:r['runtime_id'] for r in saved['bindings']}==binding_map
-rollout=proof('supervisor-rollout-2c7e700/complete.json');assert rollout['complete'] and rollout['revision']=='2c7e700' and len(rollout['results'])==135
+rollout=proof('supervisor-rollout-2c7e700/complete.json');assert rollout['complete'] and rollout['revision']=='2c7e700' and len(rollout['results'])==len(bindings)
 assert {r['sandbox_id']:r['runtime_id'] for r in rollout['results']}==binding_map
 archives=proof('cold-archive-move/complete.json');assert archives['complete'] and archives['all_data_preserved']
 growth=proof('data-growth-784-complete.json');assert growth['target_bytes']==784*1024**3

@@ -1,0 +1,9 @@
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/internal/durability	4.783s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/pkg/utils	13.944s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/pkg/store/cubebox	108.667s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/plugins/cube/internals/cubes	2.794s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/services/cubebox	5.345s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/services/server/config	1.023s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/cmd/cubelet	1.345s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/plugins/metadata	4.149s
+ok  	github.com/tencentcloud/CubeSandbox/Cubelet/plugins/backup	1.819s

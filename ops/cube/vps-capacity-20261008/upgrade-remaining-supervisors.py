@@ -11,12 +11,12 @@ def rows(query,args=()):
  with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
   db.row_factory=sqlite3.Row;return [dict(r) for r in db.execute(query,args)]
 with b.locked():
- assert json.loads((root/'finish-vps-recovery-18/complete.json').read_text())['complete']
+ assert json.loads((root/'finish-vps-recovery-19/complete.json').read_text())['complete']
  canary=json.loads((root/'supervisor-canary-2c7e700/passed.json').read_text());assert canary['passed'];expected=canary['receipt']['sha256']
  assert not rows("select id from cube_relocation where phase='fenced'") and not rows("select admission_key from cube_admission where state='pending'")
  assert not rows("select task_id from task where status in ('running','queued')")
  scope=rows("select s.id,s.status,s.web_port,b.runtime_id,a.worker_id,a.state,a.charged from sandbox s join runtime_binding b on b.sandbox_id=s.id join cube_admission a on a.runtime_id=b.runtime_id order by s.id")
- assert len(scope)==135 and all(r['worker_id']=='vps' and (r['status'],r['state'],r['charged']) in [('stopped','released',0),('running','active',1)] for r in scope)
+ assert len(scope)>=135 and all(r['worker_id']=='vps' and (r['status'],r['state'],r['charged']) in [('stopped','released',0),('running','active',1)] for r in scope)
  out.mkdir(mode=0o700);b.atomic(out/'scope.json',b.encoded(scope));verified={canary['runtime_id']}
  paths=[root/'exited-recovery-01/supervisor-update.json']+list((root/'recovery-moves').glob('*/supervisor-update.json'))+list(root.glob('real-preview-density-50-balanced*/*-supervisor.json'))
  for path in paths:
@@ -57,4 +57,4 @@ with b.locked():
     if row['status']=='stopped':api('stop')
   results.append({'sandbox_id':sid,'runtime_id':runtime,'status':receipts[0]['status']})
   b.atomic(out/'progress.json',b.encoded(results));print(json.dumps({'verified':len(results),'total':len(scope)}),flush=True)
- b.atomic(out/'complete.json',b.encoded({'complete':True,'revision':'2c7e700','sandboxes':135,'results':results,'model_calls':False,'b200_contacted':False}))
+ b.atomic(out/'complete.json',b.encoded({'complete':True,'revision':'2c7e700','sandboxes':len(scope),'results':results,'model_calls':False,'b200_contacted':False}))

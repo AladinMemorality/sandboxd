@@ -1,0 +1,1 @@
+{"passed": true, "changed_files": ["Cubelet/services/cubebox/pause_cow.go", "Cubelet/services/cubebox/pause_cow_test.go"], "embedded_bpf_preserved": true, "native_source_sha256": "fa13b21134b56294da490a379602d676aa08793aadc4701ae58b5e83322b73fc", "candidate_sha256": "43d8c020a949569aa546f2eebea5d632c17ba1231b7c330fd4c31d7a4f72337f"}

@@ -1,6 +1,6 @@
 """Run reviewed VPS storage changes and acceptance in order, stopping on failure."""
 import json,os,pathlib,subprocess,time
-P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');out=root/'storage-density-followthrough-21';out.mkdir(mode=0o700)
+P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');out=root/'storage-density-followthrough-22';out.mkdir(mode=0o700)
 def wait_file(path,unit,timeout):
  deadline=time.monotonic()+timeout;errors=0
  while not path.exists():
@@ -20,7 +20,8 @@ def run(stage,script,timeout,*args):
   result=subprocess.run(['/usr/bin/python3',str(root/script),*args],stdout=log,stderr=subprocess.STDOUT,timeout=timeout)
  assert result.returncode==0,'Stage failed; retained diagnostics: '+stage
 try:
- wait_file(root/'exited-recovery-01/wake-check.json','baarcha-vps-wake-exited-01.service',1200)
+ assert json.loads((root/'full-pause-release-20261009/deployed.json').read_text())['deployed']
+ assert json.loads((root/'full-pause-canary-01/complete.json').read_text())['passed']
  assert json.loads((root/'stop-state-release-eda67d2/deployed.json').read_text())['deployed']
  wait_file(root/'cold-archive-move/complete.json','baarcha-vps-archive-cold-resume-01.service',10800)
  assert json.loads((root/'cold-archive-move/complete.json').read_text())['all_data_preserved']
