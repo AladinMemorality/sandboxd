@@ -94,7 +94,7 @@ if os.environ.get('BAARCHA_VPS_BATCH_SCOPE'):
  assert batch_path.parent.parent==root and batch_path.name=='scope.json'
  batch_scope=b.strict(b.trusted(batch_path))
  inherited_locks=json.loads(os.environ['BAARCHA_VPS_BATCH_LOCK_FDS'])
- assert batch_scope['parent_pid']==os.getppid() and batch_scope['concurrency']==2
+ assert batch_scope['parent_pid']==os.getppid() and batch_scope['concurrency'] in (2,4)
  assert any(e['sandbox_id']==sid and job.name in e['journals'] for e in batch_scope['selected'])
  assert len(inherited_locks)==4 and all(type(fd) is int and fd>2 for fd in inherited_locks)
 @contextlib.contextmanager

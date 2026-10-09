@@ -1,4 +1,4 @@
-"""Run two independent VPS migrations under continuously inherited operator locks.
+"""Run a bounded number of independent VPS migrations under continuously inherited operator locks.
 
 Stop scheduling on a failure; let already-started migrations reach a safe result.
 The storage/memory admission transactions still enforce the full resource budget.
@@ -6,7 +6,9 @@ The storage/memory admission transactions still enforce the full resource budget
 import contextlib,importlib.util,json,os,pathlib,signal,sqlite3,subprocess,sys,time
 P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008')
 spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
-kind,name=sys.argv[1:];assert kind in ('reprofile','restore') and name.isalnum()
+kind,name=sys.argv[1:3];assert kind in ('reprofile','restore') and name.isalnum()
+concurrency=int(sys.argv[3]) if len(sys.argv)==4 else 2
+assert len(sys.argv) in (3,4) and concurrency in (2,4)
 out=root/('parallel-'+kind+'-'+name);barrier=root/'restore-barrier.json'
 def rows(sql,args=()):
  with contextlib.closing(sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True)) as db:return db.execute(sql,args).fetchall()
@@ -26,7 +28,7 @@ with b.locked() as locks:
   item['journals']=['vps-reprofile-'+sid.lower()+'-'+str(memory)+'-01' for memory in [768,1024,2048]] if kind=='reprofile' else [item['journal'],item['journal']+'-memory1024',item['journal']+'-memory2048']
   assert all(not (root/'recovery-moves'/j).exists() for j in item['journals'])
  out.mkdir(mode=0o700)
- scope={'parent_pid':os.getpid(),'concurrency':2,'kind':kind,'selected':selected,'model_calls':False,'b200_contacted':False}
+ scope={'parent_pid':os.getpid(),'concurrency':concurrency,'kind':kind,'selected':selected,'model_calls':False,'b200_contacted':False}
  b.atomic(out/'scope.json',b.encoded(scope))
  gate={'purpose':'reviewed-restore-barrier','allowed_sandboxes':[x['sandbox_id'] for x in selected],'owner':out.name};b.atomic(barrier,b.encoded(gate))
  env={**os.environ,'BAARCHA_VPS_BATCH_SCOPE':str(out/'scope.json'),'BAARCHA_VPS_BATCH_LOCK_FDS':json.dumps(locks)}
@@ -37,7 +39,7 @@ with b.locked() as locks:
  signal.signal(signal.SIGTERM,interrupted);signal.signal(signal.SIGINT,interrupted)
  while pending or active:
   if rows("select task_id from task where status in ('running','queued')"):halt=True
-  while pending and len(active)<2 and not halt:
+  while pending and len(active)<concurrency and not halt:
    item=pending.pop(0);sid=item['sandbox_id'];log=(out/(sid+'.PRIVATE.log')).open('wb')
    args=['/usr/bin/python3',str(root/('reprofile-vps.py' if kind=='reprofile' else 'restore-from-backup.py')),sid,'01' if kind=='reprofile' else item['profile']]
    process=subprocess.Popen(args,stdout=log,stderr=subprocess.STDOUT,env=env,pass_fds=locks)
