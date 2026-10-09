@@ -11,6 +11,10 @@ def unreferenced(source):
    path=P(mount['Source']);assert not (path==source or path in source.parents or source in path.parents),'Container mount references archive'
  for proc in P('/proc').glob('[0-9]*'):
   try:
+   for kind in ['cwd','root','exe']:
+    try:value=os.readlink(proc/kind)
+    except OSError:continue
+    assert not below(value,source),'Archive is a process working directory, root or executable'
    for fd in (proc/'fd').iterdir():
     try:value=os.readlink(fd)
     except OSError:continue

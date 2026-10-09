@@ -14,6 +14,11 @@ class CacheExclusions(unittest.TestCase):
    archive=root/'home.tar'
    subprocess.run(['tar','-cf',str(archive),*['--exclude='+pattern for pattern in patterns],'-C',str(home),'.'],check=True)
    with tarfile.open(archive) as tar:
-    files={str(pathlib.PurePosixPath(m.name)):tar.extractfile(m).read().decode() for m in tar if m.isfile()}
+    members=tar.getmembers()
+    for member in members:
+     parts=pathlib.PurePosixPath(member.name).parts
+     self.assertNotIn('node_modules',parts)
+     self.assertFalse(any(parts[:len(prefix)]==prefix for prefix in [('.local','share','pnpm','store'),('.pnpm-store',),('.cache','pnpm')]))
+    files={str(pathlib.PurePosixPath(m.name)):tar.extractfile(m).read().decode() for m in members if m.isfile()}
    self.assertEqual(files,{name:name for name in retained})
 if __name__=='__main__':unittest.main()
