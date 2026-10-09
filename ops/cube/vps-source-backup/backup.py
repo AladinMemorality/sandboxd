@@ -83,7 +83,9 @@ with (ROOT/'operator.lock').open('a') as lock:
             entries=0
             with tarfile.open(archive,'r|gz') as tar:
                 for item in tar:
-                    assert 'node_modules' not in P(item.name).parts,'dependency exclusion failed'
+                    parts=P(item.name).parts
+                    assert 'node_modules' not in parts,'dependency exclusion failed'
+                    assert not any(parts[:len(prefix)]==prefix for prefix in [('.local','share','pnpm','store'),('.pnpm-store',),('.cache','pnpm')]),'PNPM cache exclusion failed'
                     entries+=1
                     # Python 3.12 retains TarInfo objects even in stream mode.
                     # We only count headers, so bound memory for large Git trees.
@@ -93,7 +95,7 @@ with (ROOT/'operator.lock').open('a') as lock:
             if audit.get('archive_sha256'):
                 dep=folder/'dependency-modifications.tar.gz';assert sha(dep)==audit['archive_sha256'] and dep.stat().st_size==audit['archive_bytes']
             save(folder/'verified.json',{'sha256':receipt['sha256'],'bytes':receipt['bytes'],'entries':entries,'verified_at':time.time()});receipts.append(receipt)
-        result={'verified':True,'generation':stamp,'worker':'vps','sandboxes':len(rows),'bytes':sum(r['bytes'] for r in receipts),'other_worker_bindings':len(all_bindings)-len(rows),'b200_contacted':False,'completed_at':time.time(),'scope':'Merged /home/sandbox excluding recorded reproducible dependencies/caches; controller SQLite and decryption key. Filesystem copies are crash-consistent, not logical database dumps.'}
+        result={'verified':True,'generation':stamp,'worker':'vps','sandboxes':len(rows),'bytes':sum(r['bytes'] for r in receipts),'other_worker_bindings':len(all_bindings)-len(rows),'generated_pnpm_caches_excluded':True,'b200_contacted':False,'completed_at':time.time(),'scope':'Merged /home/sandbox excluding recorded reproducible dependencies/caches; controller SQLite and decryption key. Filesystem copies are crash-consistent, not logical database dumps.'}
         save(dest/'VERIFIED.json',result);save(ROOT/'latest.json',result)
         # Remove only this job's clones after independently verifying the copies.
         remote('rm','-rf','--',inner,timeout=900)

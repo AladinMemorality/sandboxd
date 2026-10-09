@@ -1,0 +1,35 @@
+{
+  "passed": false,
+  "target_concurrent": 50,
+  "successful_new_previews": 41,
+  "existing_running": 1,
+  "concurrent_reached": 42,
+  "failure": {
+    "at": 1791545723.7878919,
+    "reason": "HTTP Error 503: Service Unavailable",
+    "type": "HTTPError",
+    "start_intents_including_rejected": 42
+  },
+  "cleanup": {
+    "complete": true,
+    "bindings_preserved": true,
+    "existing_running_preserved": true
+  },
+  "module_http_checks": 1430,
+  "model_calls": false,
+  "b200_contacted": false,
+  "last_pressure": {
+    "available_bytes": 14830866432,
+    "full_psi_avg10": 0.02,
+    "oom_kill": 69,
+    "worker": {
+      "available_bytes": 33854955520,
+      "full_psi_avg10": 0.0,
+      "oom_kill": 0
+    }
+  },
+  "oom_delta": {
+    "host": 0,
+    "worker": 0
+  }
+}
