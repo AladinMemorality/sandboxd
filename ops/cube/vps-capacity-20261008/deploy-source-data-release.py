@@ -5,8 +5,8 @@ new controller is switched in; all app bindings and policy remain preserved.
 """
 import contextlib,copy,hashlib,importlib.util,json,os,pathlib,shlex,signal,sqlite3,subprocess,time,urllib.request
 P=pathlib.Path;os.umask(0o077)
-root=P('/opt/baarcha/operations/vps-50-profiles-20261008');artifacts=root/'source-data-release-3b1a6f0';release=artifacts/'deploy-attempt-01'
-BASE='sha256:028b53215b95194140bfbb0356e1d6e1cee47f8b42a2fe5e21f7d1966e70aa'
+root=P('/opt/baarcha/operations/vps-50-profiles-20261008');artifacts=root/'source-data-release-867d7de';release=artifacts/'deploy-attempt-01'
+BASE='sha256:028b53215b95194140bfbb0356e1d6e1e1cee47f8b42a2fe5e21f7d1966e70aa'
 KEY='app:01M1HH5DJRG3C8HDJ2553XR2S1';RUNTIME='63dbec13950f4568b45731328de593f7'
 spec=importlib.util.spec_from_file_location('maintenance','/usr/local/libexec/baarcha-cube-maintenance.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);b=m.b
 def run(args):return subprocess.check_output(args,stderr=subprocess.STDOUT,timeout=240)
@@ -52,7 +52,7 @@ print(json.dumps(out))
         assert set(statuses)<=m.TERMINAL|({'PARTIALLY_READY'} if table=='t_cube_template_definition' else set()),'Provider job in progress'
     put(release/'provider-terminal-counts.json',result)
 deadline=time.monotonic()+10800
-for unit,proof in [('baarcha-vps-final-acceptance-50',root/'final-acceptance-50/complete.json'),('baarcha-vps-source-data-build-51',artifacts/'built.json')]:
+for unit,proof in [('baarcha-vps-final-acceptance-50',root/'final-acceptance-50/complete.json'),('baarcha-vps-source-data-build-64',artifacts/'built.json')]:
     while True:
         state=run(['systemctl','show',unit,'-p','ActiveState','--value']).decode().strip()
         assert state!='failed' and time.monotonic()<deadline,'Review preceding operation: '+unit
@@ -98,7 +98,7 @@ with b.locked():
         for name,state in timers.items():
             if state=='active':run(['systemctl','start',name])
         route(online)
-        result={'deployed':True,'revision':'3b1a6f0','image':candidate,'bindings_preserved':len(baseline),'stop_state_verified':True,'coding_queue_enabled':False,'b200_contacted':False}
+        result={'deployed':True,'revision':'867d7de','image':candidate,'bindings_preserved':len(baseline),'stop_state_verified':True,'coding_queue_enabled':False,'b200_contacted':False}
         put(release/'deployed.json',result);put(artifacts/'deployed.json',result);print(json.dumps(result),flush=True)
     except BaseException:
         if stopped:

@@ -24,8 +24,8 @@ VPS; they are excluded from this repository.
 - Real application density subsequently passed with 49 reviewed 768 MiB apps
   and the preserved 2 GiB customer app: 600 homepage checks and 1,702 module
   checks, no new host or guest OOM, and original running states restored.
-  Combined guest process PSS was 11.11 GiB (228 MiB mean). Internal HTTP p95
-  was 15 ms; this measures preview serving, not browser rendering or agent work.
+  The repeated acceptance run measured 9.05 GiB combined guest process PSS
+  (178 MiB median). Internal HTTP p95 was 11.4 ms; this measures preview serving, not browser rendering or agent work.
 - Controller `eda67d2` is deployed. Its durable coding queue remains disabled
   (`SANDBOXD_CUBE_TASK_CONCURRENCY=0`). Tests use local mocks; no live agent load
   test is implied by queue acceptance.
@@ -72,11 +72,12 @@ Current guest limits: 110 at 768 MiB, 11 at 1 GiB, and 15 at 2 GiB.
 
 The fresh all-VPS source generation `20261009T162045Z` passed archive, hash,
 compression and dependency-exclusion checks for all 136 apps (4.12 GiB compressed).
-All 136 supervisors are now updated or verified. Validation of older checkpoints
-reached 72 apps before a deliberate storage pause. Byte-preserving snapshot
-compaction passed its content-hash and repeated-wake canaries; remaining fleet
-and public browser acceptance checks are still pending.
-The 50 real-preview density test has passed; see `results/real-preview-density-50-balanced-06`.
+All 136 supervisors were updated or verified at `2c7e700`; all 136 canonical
+apps subsequently passed wake/module checks. Byte-preserving snapshot compaction
+passed content-hash and repeated-wake canaries. Real Chrome public navigation
+checks passed on NOS and Derja. A new backup and source-publishing compatibility
+release are being verified before the final production audit.
+The repeated 50-preview test passed; see `results/real-preview-density-50-balanced-07`.
 Maximum build/agent concurrency remains explicitly deferred. Read the latest
 append-only entries in `WORK.txt` and the private VPS journals before continuing.
 
@@ -226,8 +227,10 @@ collector retires old snapshot names. Source trees, guest filesystems and
 running memory are not selected. A failed pass retains its review evidence and
 prevents unattended retries.
 
-The staged maintenance timer limits each run to four batches of eight images
+The installed maintenance timer limits each run to four batches of eight images
 and skips busy operator locks. Its installer requires all-fleet wake acceptance
 and the repeated 50-preview test. It also increases the VPS guest's existing
-discard schedule to hourly. The installer is not a claim that those final
-acceptance gates have already passed; production receipts record activation.
+discard schedule to hourly. Both fleet and repeated density gates passed. Activation is recorded in
+`results/pause-compaction-maintenance-01`. Discard uses a 1 MiB minimum extent
+to bound overhead from tiny deduplicated holes; smaller holes remain reusable
+inside XFS.

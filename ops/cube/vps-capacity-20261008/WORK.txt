@@ -861,3 +861,27 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   bounded private response bodies and HTTP status instead of an empty assert.
 - Native main d2ae564 CI37975776729passed all6jobs. Website69936b5 is healthy
   in production; CI's deployment rerun still needs a clear operator-lock window.
+
+2026-10-09 20:15Z fleet and repeated density accepted; final release pending:
+- All136 canonical VPS apps passed wake/module verification. Wedding remix
+  lacked src/data/wedding.ts; all76 source/package files matched the platform
+  starter, so the exact original module was restored and TypeScript/module/
+  full-wake checks passed. Source archives and original failure retained.
+- Shared publishing filter now preserves policy-approved source data modules.
+  Controller867d7de also repairs legacy template export/import omissions, with
+  bounded inventories and content verification. Full CI37984139439passed;
+  focused runtime+API compatibility tests passed on VPS. No model calls.
+- Repeated density07 passed50 previews,600pages,1702modules,9.05GiB totalPSS,
+  178MiB medianPSS,11.4ms internalHTTPp95,no newOOM. Cleanup passed.
+-22OS-image pairs/44files verified identical. Full-memory incremental
+  compaction passed; bounded1MiBtrim restored~411GiB physicalNVMe free.
+  Scheduled compaction and hourly discard are enabled; guards unchanged.
+- Fresh136-source capture200641Z retained onVPS; export in progress. One
+  captured app export reported daemon cancellation and needs review before
+  this generation can verify. Previous verified generation remains intact.
+- Packaging56 failed on a mistyped Docker base digest before deployment.
+  Corrected against actual installed image028b... (full64hex digest); build64
+  reused verified binaries/tests and produced38bcaf828f29..., stage66passed.
+  Failure journal retained. Deploy65 waits for verified backup/acceptance50;
+  private legacy-remix67,supervisor canary68,activation69 follow in order.
+  No production source-release activation is claimed yet.

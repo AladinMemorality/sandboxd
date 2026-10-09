@@ -1,7 +1,7 @@
 """Verify published source on both the starter and repaired remix before activation."""
 import contextlib,hashlib,importlib.util,json,os,pathlib,sqlite3,subprocess,sys,time,zipfile
 from maintenance_account import account_maintenance
-P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');release=root/'source-data-release-3b1a6f0'
+P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');release=root/'source-data-release-867d7de'
 def module(name,path):
  spec=importlib.util.spec_from_file_location(name,path);m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);return m
 b=module('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');copy=module('copy_fleet','/opt/baarcha-bench/cube-fleet-20260927/copy-fleet.py');assets=module('assets',root/'preview-assets.py')
@@ -11,7 +11,7 @@ def rows(q,args=()):
  with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
   db.row_factory=sqlite3.Row;return [dict(r) for r in db.execute(q,args)]
 deadline=time.monotonic()+14400
-for unit,proof in [('baarcha-vps-source-data-stage-53',release/'supervisor-staged.json'),('baarcha-vps-source-data-deploy-52',release/'deployed.json')]:
+for unit,proof in [('baarcha-vps-source-data-stage-66',release/'supervisor-staged.json'),('baarcha-vps-source-data-deploy-65',release/'deployed.json'),('baarcha-vps-legacy-source-remix-67',root/'legacy-source-remix-67/complete.json')]:
  while True:
   state=subprocess.check_output(['systemctl','show',unit,'-p','ActiveState','--value'],text=True).strip()
   assert state!='failed' and time.monotonic()<deadline,'Review preceding operation: '+unit
@@ -19,7 +19,7 @@ for unit,proof in [('baarcha-vps-source-data-stage-53',release/'supervisor-stage
   time.sleep(5)
  assert proof.exists() and subprocess.check_output(['systemctl','show',unit,'-p','Result','--value'],text=True).strip()=='success'
 with b.locked():
- out=root/'source-data-supervisor-canary-54';out.mkdir(mode=0o700)
+ out=root/'source-data-supervisor-canary-68';out.mkdir(mode=0o700)
  expected=json.loads((release/'supervisor-release.json').read_text())['sha256'];results=[]
  for sid in ['01M1HH5DT8FVCP5TNRESEDJBH6','01M4DWDR4TQ4JRBTTTJMG5SB78']:
   job=out/sid;job.mkdir(mode=0o700)
@@ -35,7 +35,7 @@ with b.locked():
    try:
     started=True;api('start');origin,headers=copy.client(sid);assert origin==('127.0.0.1',20080)
     worker=transport.Worker({'worker':'vps','id':job.name,'sandbox_id':sid,'runtime_id':runtime,'headers':headers,'web_port':3000})
-    update=subprocess.run(ssh+['python3','/opt/baarcha-vps-source-data-3b1a6f0/worker.py','--container',runtime],capture_output=True,timeout=460)
+    update=subprocess.run(ssh+['python3','/opt/baarcha-vps-source-data-867d7de/worker.py','--container',runtime],capture_output=True,timeout=460)
     b.atomic(job/'update.PRIVATE.log',update.stdout+update.stderr);assert update.returncode==0
     receipt=json.loads(update.stdout);assert receipt['sha256']==expected and receipt['status']=='updated' and receipt['config_preserved']
     b.atomic(job/'updated.json',b.encoded(receipt))
@@ -68,5 +68,5 @@ with b.locked():
     if started:api('stop')
    assert rows('select status from sandbox where id=?',(sid,))==[{'status':'stopped'}]
   b.atomic(job/'passed.json',b.encoded(result));results.append(result)
- proof={'passed':True,'revision':'3b1a6f0','sha256':expected,'results':results,'b200_contacted':False,'model_calls':False,'at':time.time()}
+ proof={'passed':True,'revision':'867d7de','sha256':expected,'results':results,'b200_contacted':False,'model_calls':False,'at':time.time()}
  b.atomic(out/'complete.json',b.encoded(proof));print(json.dumps(proof),flush=True)

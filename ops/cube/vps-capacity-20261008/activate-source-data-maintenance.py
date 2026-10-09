@@ -5,16 +5,16 @@ spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-c
 ssh=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','root@127.0.0.1']
 deadline=time.monotonic()+18000
 while True:
- state=subprocess.check_output(['systemctl','show','baarcha-vps-source-data-canary-54','-p','ActiveState','--value'],text=True).strip()
+ state=subprocess.check_output(['systemctl','show','baarcha-vps-source-data-canary-68','-p','ActiveState','--value'],text=True).strip()
  assert state!='failed' and time.monotonic()<deadline
  if state=='inactive':break
  time.sleep(5)
-proof=json.loads((root/'source-data-supervisor-canary-54/complete.json').read_text());assert proof['passed'] and len(proof['results'])==2
+proof=json.loads((root/'source-data-supervisor-canary-68/complete.json').read_text());assert proof['passed'] and len(proof['results'])==2
 with b.locked():
- out=root/'source-data-maintenance-55';out.mkdir(mode=0o700)
+ out=root/'source-data-maintenance-69';out.mkdir(mode=0o700)
  code='EXPECTED='+repr(proof['sha256'])+'\n'+'''import hashlib,json,os,pathlib,subprocess,time
 P=pathlib.Path;assert P('/etc/machine-id').read_text().strip()=='2b9e31d4abd345e3bd4b966591e61296'
-root=P('/opt/baarcha-vps-source-data-3b1a6f0');assert hashlib.sha256((root/'runtimed').read_bytes()).hexdigest()==EXPECTED
+root=P('/opt/baarcha-vps-source-data-867d7de');assert hashlib.sha256((root/'runtimed').read_bytes()).hexdigest()==EXPECTED
 for name in ['runtimed','guest.py','worker.py','release.json']:
  p=root/name;assert not p.is_symlink() and p.stat().st_uid==0 and p.stat().st_mode&0o022==0
 service='baarcha-published-runtime.service';timer='baarcha-published-runtime.timer'
@@ -32,7 +32,7 @@ try:
  (root/'activation.PRIVATE.log').write_bytes(p.stdout+p.stderr);assert p.returncode==0
  rows=[json.loads(line) for line in p.stdout.splitlines()]
  assert rows and all(r.get('status') in ('current','updated') and r.get('sha256')==EXPECTED for r in rows)
- new=old.replace('/opt/baarcha-vps-export-recovery-2c7e700/','/opt/baarcha-vps-source-data-3b1a6f0/')
+ new=old.replace('/opt/baarcha-vps-export-recovery-2c7e700/','/opt/baarcha-vps-source-data-867d7de/')
  temporary=target.with_suffix('.pending');assert not temporary.exists()
  with temporary.open('x') as f:f.write(new);f.flush();os.fsync(f.fileno())
  temporary.chmod(0o644);os.replace(temporary,target)

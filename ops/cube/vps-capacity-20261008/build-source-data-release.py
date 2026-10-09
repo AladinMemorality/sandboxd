@@ -1,6 +1,6 @@
 """Build the shared source-directory fix after the measured density window."""
 import hashlib,json,os,pathlib,shutil,subprocess,tarfile,time
-P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');revision='3b1a6f0';out=root/('source-data-release-'+revision)
+P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');revision='867d7de';out=root/('source-data-release-'+revision)
 out.mkdir(mode=0o700,exist_ok=True);assert not list(out.iterdir()), "Inspect an unfinished build before retrying"
 deadline=time.monotonic()+7200
 while not (root/'real-preview-density-50-balanced-07/cleanup.json').exists():
@@ -16,7 +16,7 @@ with (out/'tests.log').open('wb') as log:
 for command in ['cube-controller','runtimed']:
  subprocess.run(base+['-e','CGO_ENABLED='+('0' if command=='runtimed' else '1'),'golang:1.22-bookworm','go','build','-p','1','-trimpath','-ldflags=-s -w -X main.buildVersion=dev -X main.buildCommit='+revision,'-o','/out/'+command,'./cmd/'+command],check=True)
 shutil.copytree(source/'control-plane/migrations',out/'migrations')
-(out/'Dockerfile').write_text('FROM sha256:028b53215b95194140bfbb0356e1d6e1cee47f8b42a2fe5e21f7d1966e70aa\nCOPY cube-controller /usr/local/bin/cube-controller\nCOPY migrations/ /usr/local/share/cube-controller/migrations/\nLABEL org.opencontainers.image.revision="'+revision+'"\n')
+(out/'Dockerfile').write_text('FROM sha256:028b53215b95194140bfbb0356e1d6e1e1cee47f8b42a2fe5e21f7d1966e70aa\nCOPY cube-controller /usr/local/bin/cube-controller\nCOPY migrations/ /usr/local/share/cube-controller/migrations/\nLABEL org.opencontainers.image.revision="'+revision+'"\n')
 subprocess.run(['docker','build','--network=none','--pull=false','-t','baarcha-cube-controller:source-data-'+revision,'--iidfile',str(out/'image.id'),str(out)],check=True,env={**os.environ,'DOCKER_BUILDKIT':'0'})
 binary=(out/'runtimed').read_bytes()
 result={'revision':revision,'image':(out/'image.id').read_text().strip(),'runtimed_sha256':hashlib.sha256(binary).hexdigest(),'runtimed_bytes':len(binary),'tests_passed':True,'b200_contacted':False,'at':time.time()}
