@@ -52,6 +52,10 @@ func validDiscardTarget(j store.CubeRelocation, t target, actual *cube.Sandbox, 
 	return j.TargetWorker == "vps" && t.Relocation.ID == j.ID && t.Runtime != nil && actual != nil && binding != nil && binding.RuntimeID == j.SourceRuntimeID && t.Runtime.SandboxID != j.SourceRuntimeID && actual.SandboxID == t.Runtime.SandboxID && actual.TemplateID == j.DestinationTemplate() && t.Admission.Key == j.TargetKey && actual.Metadata["sandboxd_id"] == j.SandboxID && actual.Metadata["sandboxd_app_id"] == j.AppID && actual.Metadata["sandboxd_relocation_id"] == j.ID && actual.Metadata["sandboxd_admission_operation"] == t.Admission.Token
 }
 
+func validConnectedTargetLease(j store.CubeRelocation, runtime string, a cube.AdmissionRecord) bool {
+	return a.Key == j.TargetKey && a.RuntimeID == runtime && runtime != j.SourceRuntimeID && a.TemplateID == j.DestinationTemplate() && a.WorkerID == j.TargetWorker && a.Operation == "connect" && a.State == "active" && a.Charged == 1 && a.Token != ""
+}
+
 func must(err error) {
 	if err != nil {
 		panic(err)
@@ -403,6 +407,26 @@ func main() {
 		if actual.State != "running" {
 			panic("target no longer running")
 		}
+		targetToken := t.Admission.Token
+		if _, err := os.Lstat(filepath.Join(in.Directory, "connected-target.PRIVATE.json")); err == nil {
+			var connected cube.Sandbox
+			privateRead(filepath.Join(in.Directory, "connected-target.PRIVATE.json"), &connected)
+			binding, err := db.GetRuntimeBinding(ctx, j.SandboxID)
+			must(err)
+			if connected.State != "running" || !validDiscardTarget(j, t, &connected, binding) || !validDiscardTarget(j, t, actual, binding) {
+				panic("connected target identity differs")
+			}
+			lease, err := partition.AdmissionLookup(ctx, actual.SandboxID)
+			must(err)
+			if !validConnectedTargetLease(j, actual.SandboxID, lease) {
+				panic("connected target admission differs")
+			}
+			// Connect replaces the original create lease. Commit still CASes
+			// the exact freshly observed target token; no source lease changes.
+			targetToken = lease.Token
+		} else if !os.IsNotExist(err) {
+			must(err)
+		}
 		credentials, e := json.Marshal(map[string]string{"supervisor_token": t.SupervisorToken, "traffic_access_token": t.TrafficToken})
 		must(e)
 		sealed, nonce, e := cipher.Seal(credentials)
@@ -410,7 +434,7 @@ func main() {
 		proofRaw, e := json.Marshal(p)
 		must(e)
 		sha := sha256.Sum256(proofRaw)
-		must(db.CommitCubeRelocation(ctx, j.ID, t.Admission.Token, hex.EncodeToString(sha[:]), store.RuntimeBinding{SandboxID: j.SandboxID, Provider: "cube", RuntimeID: t.Runtime.SandboxID, TemplateID: j.DestinationTemplate(), Domain: j.Domain, ConfigRevision: j.ConfigRevision, ConfigAppliedRevision: j.ConfigRevision, TokenCiphertext: sealed, TokenNonce: nonce}))
+		must(db.CommitCubeRelocation(ctx, j.ID, targetToken, hex.EncodeToString(sha[:]), store.RuntimeBinding{SandboxID: j.SandboxID, Provider: "cube", RuntimeID: t.Runtime.SandboxID, TemplateID: j.DestinationTemplate(), Domain: j.Domain, ConfigRevision: j.ConfigRevision, ConfigAppliedRevision: j.ConfigRevision, TokenCiphertext: sealed, TokenNonce: nonce}))
 		fmt.Println(`{"committed":true}`)
 		return
 	}
