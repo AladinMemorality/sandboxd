@@ -12,7 +12,7 @@ VPS; they are excluded from this repository.
 - Worker: 48 GiB RAM, 12 virtual CPUs; XFS data disk grown to 784 GiB with discard.
 - Admission: 45 GiB memory budget (including 128 MiB VM overhead per runtime), 50 runtime slots and two dedicated builder-VM
   slots. Builder-VM slots are independent of coding-task concurrency.
-- Density: 50 temporary starter sandboxes plus one customer sandbox served
+- Initial density: 50 temporary starter sandboxes plus one customer sandbox served
   1,920 checks without failure; page p95 was 1.265 seconds. Combined guest PSS
   was 6.424 GiB. One and two concurrent Vite builds also passed.
 - The later 50-build burst stopped on the host memory-pressure guard. It did
@@ -21,7 +21,12 @@ VPS; they are excluded from this repository.
 - Discard reclaimed 103.34 GiB of physical storage. Verified MySQL backup and
   binlog archival reclaimed 54.70 GiB inside the worker. Daily MySQL backups
   have a 14-day retention policy with at least two complete backups retained.
-- Controller `d5b07bb` is deployed. Its durable coding queue remains disabled
+- Real application density subsequently passed with 49 reviewed 768 MiB apps
+  and the preserved 2 GiB customer app: 600 homepage checks and 1,702 module
+  checks, no new host or guest OOM, and original running states restored.
+  Combined guest process PSS was 11.11 GiB (228 MiB mean). Internal HTTP p95
+  was 15 ms; this measures preview serving, not browser rendering or agent work.
+- Controller `eda67d2` is deployed. Its durable coding queue remains disabled
   (`SANDBOXD_CUBE_TASK_CONCURRENCY=0`). Tests use local mocks; no live agent load
   test is implied by queue acceptance.
 - Derja is restored on the VPS and passed browser away/back navigation.
@@ -58,16 +63,17 @@ This avoids adopting the older runtime identity from the initial backup.
 
 ## Outstanding acceptance
 
-All 134 recovered sandboxes are placed on the VPS. One additional user-created
-VPS app brings the reviewed inventory to 135, with no pending
+All 134 recovered sandboxes are placed on the VPS. Two additional user-created
+VPS apps bring the reviewed inventory to 136, with no pending
 admissions or fenced relocations. Each restore/profile change passed its
 content and preview checks and a stop/wake cycle. Two unfinished applications
 required separately recorded source repairs; original archives remain intact.
-Current guest limits: 110 at 768 MiB, 11 at 1 GiB, and 14 at 2 GiB.
+Current guest limits: 110 at 768 MiB, 11 at 1 GiB, and 15 at 2 GiB.
 
 The previous emergency and recurring source backup generations cover all 134
-projects in aggregate. A fresh 135-app all-VPS generation, the 50 real-preview density
-test, and the remaining supervisor rollout are the outstanding final stages.
+projects in aggregate. A fresh 136-app all-VPS generation, the remaining
+supervisor rollout, and validation of the remaining old checkpoints are pending.
+The 50 real-preview density test has passed; see `results/real-preview-density-50-balanced-06`.
 Maximum build/agent concurrency remains explicitly deferred. Read the latest
 append-only entries in `WORK.txt` and the private VPS journals before continuing.
 
@@ -165,5 +171,24 @@ was reclaimed on NVMe. The data disk grew online from 728 to 784 GiB with
 its original inode, filesystem UUID and worker boot preserved, leaving over
 128 GiB physical headroom even at full allocation. Controller `d5b07bb`
 reconciled the stale grant through the offline CLI. See the deployment, cold
-archive and disk-growth receipts. The second density result, fresh backup and
-remaining supervisor rollout are still pending; the runner stops on failure.
+archive and disk-growth receipts. The sixth density run passed after recovering
+four old checkpoints from verified source copies. The fresh backup and remaining
+supervisor/wake checks are still pending; the runner stops on failure.
+
+## Full memory snapshots and retained recovery sources
+
+The VPS Cubelet now saves full guest memory on pause. The candidate was built
+from the exact installed production source, preserving its embedded BPF objects,
+and passed focused race tests. Deployment preserved all guest processes and
+bindings. A canary passed four full pauses and three restores. This policy
+applies to new pauses; it does not repair an older checkpoint before its first
+successful wake. Source recovery is still an explicit, journaled operator action.
+
+The controller now verifies native pause and released admission before reporting
+stop success. Offline recovery validates the actual admitted CPU/memory profile,
+including 768 MiB and 1 GiB, before accepting an observed create result.
+
+The fleet validation reuses matching post-deployment density and recovery
+evidence. Other stopped apps receive a wake, preview/module check, full pause,
+second wake, and final stop. Existing running apps are checked without pausing
+them. Failed journals are retained and require reviewed recovery before resume.
