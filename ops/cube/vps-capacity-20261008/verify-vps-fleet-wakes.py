@@ -84,7 +84,10 @@ with operator_locks():
   case.mkdir(mode=0o700);b.atomic(case/'before.json',b.encoded(row));own_activity=None;started=False;success=False
   with account_maintenance([sid],case):
    def api(action):
-    code,_=copy.api('POST','/v1/sandboxes/'+sid+'/'+action);assert code==200
+    code,body=copy.api('POST','/v1/sandboxes/'+sid+'/'+action)
+    if code!=200:
+     b.atomic(case/(action+'-error-'+str(time.time_ns())+'.PRIVATE.json'),b.encoded({'status':code,'response':json.dumps(body)[:16384],'at':time.time()}))
+     raise RuntimeError('Sandbox '+action+' returned HTTP '+str(code)+'; private response retained')
    try:
     if row['status']=='stopped':
      b.atomic(case/'start-intent.json',b.encoded({'runtime_id':runtime,'at':time.time()}));started=True;api('start')

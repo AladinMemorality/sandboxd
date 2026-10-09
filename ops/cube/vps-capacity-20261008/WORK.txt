@@ -831,3 +831,33 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   Units passed systemd-analyze verify (unrelated existing pdl-viewer warning).
   Trim script, density generation07 and final audit remain pending. No B200
   operator access, coding tasks or model load test.
+
+2026-10-09 19:05Z one additional old checkpoint recovered:
+- Fleet31 stopped at91/136 on SID01M3MHG8KQHE8BM4JF8W7YAZ4Q,
+  RIDb11475484a4544fbb48dad0660e7d0f7. Native resume timed out waiting for
+  guest ports and left pending admission. Native shutdown then waited on the
+  exact shim process; task registration was already absent. This is a stalled
+  old checkpoint, not a proven guest kernel panic. Root cause remains unproven.
+- Retained snap733b1d... dates from08:06, before the full-pause policy. Its
+  complete SHA still equals the pre-compaction receipt. Reviewed pidfd signals
+  terminated only native shim3347588 after authenticated paused identity,
+  original snapshot inode/hash, completed shutdown and unchanged task history
+  checks. Snapshot retained; no blind resume retry.
+- Fresh retained-disk clone/export verified34,062,854B,11,407archive entries,
+  two historical tasks, no dependencies/caches. Backup generation185651Z in
+  /var/backups/baarcha-vps-stalled3-20261009; no B200 contact.
+- Offline guarded reconcile released only the known pending reservation,
+  preserved136bindings and current controller imageeda67d2, restored routes
+  and prior timers. Replacement735524f7e66e4d3ba85f49d3ddc0da45 imported and
+  verified workspace/home/history/config, then passed three measured full wake
+  cycles plus module checks. First wake0.865s. Original source retained.
+- Recovery receipt was accepted as a real fleet proof for the new binding;
+  original failed case has source-recovery.json and remains preserved. Fleet
+  now92covered. Unit35 resumes remaining batches after recovery34; unit36 waits
+  for fleet and OS-image completion before trim, density07, scheduled
+  maintenance, refreshed source backup and final audit.
+- Prior units31 and32 remain failed (32 stopped at its dependency guard before
+  changes). New generations have distinct journals. Fleet API errors now retain
+  bounded private response bodies and HTTP status instead of an empty assert.
+- Native main d2ae564 CI37975776729passed all6jobs. Website69936b5 is healthy
+  in production; CI's deployment rerun still needs a clear operator-lock window.
