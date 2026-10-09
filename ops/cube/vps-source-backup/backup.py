@@ -72,7 +72,7 @@ with (ROOT/'operator.lock').open('a') as lock:
             subprocess.run(SSH+[shlex.join(['nice','-n','15','ionice','-c','3','/usr/bin/python3',INNER+'/export-source.py',inner])],check=True,stdout=log,stderr=subprocess.STDOUT,timeout=6*3600)
         exports=dest/'sandboxes';exports.mkdir(mode=0o700,exist_ok=resume)
         rsync_ssh=shlex.join(SSH[:-1])
-        run(['rsync','-a','--safe-links','--chmod=Du=rwx,Dgo=,Fu=rw,Fgo=','-e',rsync_ssh,SSH[-1]+':'+inner+'/exports/',str(exports)+'/'],timeout=3600)
+        run(['rsync','-a','--bwlimit=10240','--safe-links','--chmod=Du=rwx,Dgo=,Fu=rw,Fgo=','-e',rsync_ssh,SSH[-1]+':'+inner+'/exports/',str(exports)+'/'],timeout=3600)
         receipts=[]
         for row in rows:
             folder=exports/row['sandbox_id'];receipt=json.loads((folder/'receipt.json').read_text());archive=folder/'home.tar.gz'

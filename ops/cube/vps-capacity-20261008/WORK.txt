@@ -502,3 +502,18 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
  retries and rechecks a just-completed receipt before declaring a unit stopped.
  No archive/provider operation is replayed. Finish/density journal14/-02 remain
  unused and unchanged; only the outer waiting journal advances to15.
+
+2026-10-09 13:30Z cold archive move and writeback correction:
+- First cold tree passed checksum and unchanged metadata for1,939,946 entries.
+ Original path now resolves to verified HDD copy; about42GiB NVMe reclaimed.
+- Raising block-device writeback cap50MB/s for remaining bulk archives caused
+ stale storage observations and readiness503. Pausing copy cleared writeback
+ and restored ready200. No controller deployment or guest mutation occurred.
+ Stopped archive unit and waiting unit15; original remaining sources intact,
+ destination contains no unexpected paths, interrupted journals preserved.
+- Resume-01 uses rsync sender pacing10MiB/s with unthrottled kernel writeback,
+ verifies existing destination files before skipping, and watches readiness
+ every3seconds, stopping its own transfer on failure. Final receipt aggregates
+ the already-verified first move with the two remaining moves. Waiter16 follows.
+- Recurring source-backup rsync now uses the same10MiB/s sender pacing. Observer
+ freshness, disk reserves and production readiness checks remain unchanged.

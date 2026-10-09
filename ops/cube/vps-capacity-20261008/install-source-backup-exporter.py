@@ -28,7 +28,7 @@ print(json.dumps({'installed':True,'old_sha256':old,'new_sha256':new,'worker':'v
  code='DATA='+repr(base64.b64encode(data).decode())+'\nOLD='+repr(old)+'\nNEW='+repr(new)+'\n'+code
  result=json.loads(subprocess.check_output(ssh+['python3 -'],input=code.encode(),timeout=30))
  verifier=P('/usr/local/libexec/baarcha-vps-source-backup/backup.py');prior=verifier.read_bytes();mode=verifier.stat().st_mode & 0o777
- old_verifier='3f58257512686dcf3e26bd8ed79fb69ef3bd75bcaf0ee9bbc5a9deadb11c2da8';new_verifier='40a4ee01d72ad4b09a0a83da47a545fd94623913eaffb5c6d00583270b0e128a'
+ old_verifier='3f58257512686dcf3e26bd8ed79fb69ef3bd75bcaf0ee9bbc5a9deadb11c2da8';new_verifier='cfc55c834f8504d5eb315f58853ee326df669a837f3e40d9a75c3195884dc36b'
  data=(root/'source-backup-verifier-pnpm.py').read_bytes();assert hashlib.sha256(data).hexdigest()==new_verifier;compile(data,str(verifier),'exec')
  saved=root/'source-backup-verifier-before.PRIVATE.py'
  if hashlib.sha256(prior).hexdigest()==new_verifier:

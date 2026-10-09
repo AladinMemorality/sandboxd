@@ -53,3 +53,7 @@ The source exporter also excludes PNPM's generated stores and cache:
 PNPM configuration/state, local dependency source, authored patches, and lockfiles.
 `test_cache_exclusions.py` exercises the actual GNU tar patterns against retained
 source/configuration fixtures; it passed on the VPS before deployment.
+
+Archive downloads are paced by rsync at10MiB/s before data enters the host page
+cache. Kernel writeback remains unthrottled so backup traffic cannot accumulate
+a large throttled write backlog behind control-plane metadata commits.
