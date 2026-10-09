@@ -548,3 +548,12 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
 - Exact inventory guard stopped finish14 before mutations. Updated reviewed
   scope to135; finish15 and outer18 continue from completed deployment/growth,
   never replaying them. All failure journals remain retained.
+
+2026-10-09 14:12Z cache exclusion rollout and acceptance restart:
+- Inner exporter update verified, but the outer script replacement initially
+  hit the private-data atomic helper's0600-only guard. Old outer executable
+  remained intact. Installer now validates trusted root-owned executable
+  bytes/mode, writes a private temporary sibling, preserves executable mode,
+  atomically renames and fsyncs the parent. Both exact new hashes verified.
+- finish16 / outer19 resumed from completed deployment/growth. Real preview
+  density-02 is running; no coding/model calls and no B200 operations.

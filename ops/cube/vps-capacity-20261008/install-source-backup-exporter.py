@@ -27,7 +27,7 @@ print(json.dumps({'installed':True,'old_sha256':old,'new_sha256':new,'worker':'v
 """
  code='DATA='+repr(base64.b64encode(data).decode())+'\nOLD='+repr(old)+'\nNEW='+repr(new)+'\n'+code
  result=json.loads(subprocess.check_output(ssh+['python3 -'],input=code.encode(),timeout=30))
- verifier=P('/usr/local/libexec/baarcha-vps-source-backup/backup.py');prior=verifier.read_bytes();mode=verifier.stat().st_mode & 0o777
+ verifier=P('/usr/local/libexec/baarcha-vps-source-backup/backup.py');prior=b.trusted(verifier,private=False);mode=verifier.stat().st_mode & 0o777
  old_verifier='3f58257512686dcf3e26bd8ed79fb69ef3bd75bcaf0ee9bbc5a9deadb11c2da8';new_verifier='cfc55c834f8504d5eb315f58853ee326df669a837f3e40d9a75c3195884dc36b'
  data=(root/'source-backup-verifier-pnpm.py').read_bytes();assert hashlib.sha256(data).hexdigest()==new_verifier;compile(data,str(verifier),'exec')
  saved=root/'source-backup-verifier-before.PRIVATE.py'
@@ -37,7 +37,12 @@ print(json.dumps({'installed':True,'old_sha256':old,'new_sha256':new,'worker':'v
   assert hashlib.sha256(prior).hexdigest()==old_verifier and not verifier.is_symlink()
   if saved.exists():assert hashlib.sha256(saved.read_bytes()).hexdigest()==old_verifier
   else:b.atomic(saved,prior)
-  b.atomic(verifier,data);verifier.chmod(mode)
+  tmp=verifier.with_name('.backup.py.pnpm-install-'+str(os.getpid()))
+  assert not tmp.exists()
+  b.atomic(tmp,data);tmp.chmod(mode);os.replace(tmp,verifier)
+  directory=os.open(verifier.parent,os.O_RDONLY|os.O_DIRECTORY)
+  try:os.fsync(directory)
+  finally:os.close(directory)
  assert hashlib.sha256(verifier.read_bytes()).hexdigest()==new_verifier
  result['verifier_sha256']=new_verifier
  b.atomic(root/'source-backup-exporter-installed.json',b.encoded(result));print(json.dumps(result))

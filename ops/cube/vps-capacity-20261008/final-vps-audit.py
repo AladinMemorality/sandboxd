@@ -21,7 +21,7 @@ assert int(env.get('SANDBOXD_CUBE_TASK_CONCURRENCY','0'))==0
 assert all(w['draining'] for w in fleet['workers'] if w['id']!='vps')
 with urllib.request.urlopen('http://127.0.0.1:9090/readyz',timeout=5) as r:assert r.read().strip()==b'ready'
 def proof(name):return json.loads((root/name).read_text())
-assert proof('finish-vps-recovery-15/complete.json')['complete']
+assert proof('finish-vps-recovery-16/complete.json')['complete']
 deployed=proof('resume-retry-release-d5b07bb/deployed.json');assert deployed['deployed'] and deployed['image']==container['Image'] and deployed['deleted_storage_grant_reconciled']
 density=proof('real-preview-density-50-balanced-02/result.json');cleanup=proof('real-preview-density-50-balanced-02/cleanup.json')
 assert density['passed'] and density['concurrent_running']==50 and density['http_checks']==600
