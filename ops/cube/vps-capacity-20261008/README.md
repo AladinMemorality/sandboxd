@@ -9,7 +9,7 @@ VPS; they are excluded from this repository.
 
 ## Verified results
 
-- Worker: 48 GiB RAM, 12 virtual CPUs; XFS data disk grown to 728 GiB with discard.
+- Worker: 48 GiB RAM, 12 virtual CPUs; XFS data disk grown to 784 GiB with discard.
 - Admission: 45 GiB memory budget (including 128 MiB VM overhead per runtime), 50 runtime slots and two dedicated builder-VM
   slots. Builder-VM slots are independent of coding-task concurrency.
 - Density: 50 temporary starter sandboxes plus one customer sandbox served
@@ -21,7 +21,7 @@ VPS; they are excluded from this repository.
 - Discard reclaimed 103.34 GiB of physical storage. Verified MySQL backup and
   binlog archival reclaimed 54.70 GiB inside the worker. Daily MySQL backups
   have a 14-day retention policy with at least two complete backups retained.
-- Controller `f41e186` is deployed. Its durable coding queue remains disabled
+- Controller `d5b07bb` is deployed. Its durable coding queue remains disabled
   (`SANDBOXD_CUBE_TASK_CONCURRENCY=0`). Tests use local mocks; no live agent load
   test is implied by queue acceptance.
 - Derja is restored on the VPS and passed browser away/back navigation.
@@ -58,14 +58,15 @@ This avoids adopting the older runtime identity from the initial backup.
 
 ## Outstanding acceptance
 
-All 134 canonical sandboxes are now placed on the VPS, with no pending
+All 134 recovered sandboxes are placed on the VPS. One additional user-created
+VPS app brings the reviewed inventory to 135, with no pending
 admissions or fenced relocations. Each restore/profile change passed its
 content and preview checks and a stop/wake cycle. Two unfinished applications
 required separately recorded source repairs; original archives remain intact.
-Current guest limits: 110 at 768 MiB, 11 at 1 GiB, and 13 at 2 GiB.
+Current guest limits: 110 at 768 MiB, 11 at 1 GiB, and 14 at 2 GiB.
 
 The previous emergency and recurring source backup generations cover all 134
-projects in aggregate. A fresh all-VPS generation, the 50 real-preview density
+projects in aggregate. A fresh 135-app all-VPS generation, the 50 real-preview density
 test, and the remaining supervisor rollout are the outstanding final stages.
 Maximum build/agent concurrency remains explicitly deferred. Read the latest
 append-only entries in `WORK.txt` and the private VPS journals before continuing.
@@ -158,9 +159,11 @@ The new density run uses a separate journal, checks observed free space against
 all retained and proposed grants plus reserve/startup margin, and retains bounded
 HTTP error responses privately. Storage thresholds are unchanged.
 
-Cold September transfer archives are being copied with metadata and checksum
-verification to the VPS HDD. Their original paths are preserved with symlinks.
-The planned online 728-to-784 GiB data-disk growth requires completed archive
-proof and more than 128 GiB physical headroom even at full allocation. These
-operations and the second density result remain pending until their receipts
-exist; the ordered runner stops on any failed prerequisite or stage.
+Cold September transfer archives passed metadata and checksum verification
+on the VPS HDD. Original paths remain available through symlinks, and 64 GiB
+was reclaimed on NVMe. The data disk grew online from 728 to 784 GiB with
+its original inode, filesystem UUID and worker boot preserved, leaving over
+128 GiB physical headroom even at full allocation. Controller `d5b07bb`
+reconciled the stale grant through the offline CLI. See the deployment, cold
+archive and disk-growth receipts. The second density result, fresh backup and
+remaining supervisor rollout are still pending; the runner stops on failure.

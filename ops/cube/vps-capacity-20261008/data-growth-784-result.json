@@ -1,0 +1,111 @@
+{
+  "before": {
+    "io-status": "ok",
+    "device": "virtio1",
+    "locked": false,
+    "removable": false,
+    "inserted": {
+      "iops_rd": 0,
+      "detect_zeroes": "off",
+      "image": {
+        "virtual-size": 781684047872,
+        "filename": "/mnt/nvme/baarcha-cube/worker-01/data.qcow2",
+        "cluster-size": 65536,
+        "format": "qcow2",
+        "actual-size": 606736220160,
+        "format-specific": {
+          "type": "qcow2",
+          "data": {
+            "compat": "1.1",
+            "compression-type": "zlib",
+            "lazy-refcounts": false,
+            "refcount-bits": 16,
+            "corrupt": false,
+            "extended-l2": false
+          }
+        },
+        "dirty-flag": false
+      },
+      "iops_wr": 0,
+      "ro": false,
+      "node-name": "#block330",
+      "backing_file_depth": 0,
+      "drv": "qcow2",
+      "iops": 0,
+      "bps_wr": 0,
+      "write_threshold": 0,
+      "encrypted": false,
+      "bps": 0,
+      "bps_rd": 0,
+      "cache": {
+        "no-flush": false,
+        "direct": false,
+        "writeback": true
+      },
+      "file": "/mnt/nvme/baarcha-cube/worker-01/data.qcow2"
+    },
+    "qdev": "/machine/peripheral-anon/device[2]/virtio-backend",
+    "type": "unknown"
+  },
+  "inode": 3932163,
+  "boot": "2c6402ae-b2fc-4c6f-bee3-cbc9550e974b",
+  "identity": [
+    "/dev/vdb",
+    "xfs",
+    "793c3349-db9c-4815-9842-989ed484f1f8"
+  ],
+  "target_bytes": 841813590016,
+  "host_free_bytes": 384664825856,
+  "host_headroom_if_full_bytes": 149587456000,
+  "at": 1791554854.236235,
+  "grow_output": "meta-data=/dev/vdb               isize=512    agcount=13, agsize=15728640 blks\n         =                       sectsz=512   attr=2, projid32bit=1\n         =                       crc=1        finobt=1, sparse=1, rmapbt=1\n         =                       reflink=1    bigtime=1 inobtcount=1 nrext64=0\ndata     =                       bsize=4096   blocks=190840832, imaxpct=25\n         =                       sunit=0      swidth=0 blks\nnaming   =version 2              bsize=4096   ascii-ci=0, ftype=1\nlog      =internal log           bsize=4096   blocks=30720, version=2\n         =                       sectsz=512   sunit=0 blks, lazy-count=1\nrealtime =none                   extsz=4096   blocks=0, rtextents=0\ndata blocks changed from 190840832 to 205520896",
+  "after": {
+    "io-status": "ok",
+    "device": "virtio1",
+    "locked": false,
+    "removable": false,
+    "inserted": {
+      "iops_rd": 0,
+      "detect_zeroes": "off",
+      "image": {
+        "virtual-size": 841813590016,
+        "filename": "/mnt/nvme/baarcha-cube/worker-01/data.qcow2",
+        "cluster-size": 65536,
+        "format": "qcow2",
+        "actual-size": 606736355328,
+        "format-specific": {
+          "type": "qcow2",
+          "data": {
+            "compat": "1.1",
+            "compression-type": "zlib",
+            "lazy-refcounts": false,
+            "refcount-bits": 16,
+            "corrupt": false,
+            "extended-l2": false
+          }
+        },
+        "dirty-flag": false
+      },
+      "iops_wr": 0,
+      "ro": false,
+      "node-name": "#block330",
+      "backing_file_depth": 0,
+      "drv": "qcow2",
+      "iops": 0,
+      "bps_wr": 0,
+      "write_threshold": 0,
+      "encrypted": false,
+      "bps": 0,
+      "bps_rd": 0,
+      "cache": {
+        "no-flush": false,
+        "direct": false,
+        "writeback": true
+      },
+      "file": "/mnt/nvme/baarcha-cube/worker-01/data.qcow2"
+    },
+    "qdev": "/machine/peripheral-anon/device[2]/virtio-backend",
+    "type": "unknown"
+  },
+  "guest_df": "Filesystem        1B-blocks         Used    Available Use% Mounted on\n/dev/vdb       841687760896 493853126656 347834634240  59% /data"
+}

@@ -1,0 +1,9 @@
+{
+  "b200_contacted": false,
+  "bindings_preserved": 135,
+  "coding_queue_enabled": false,
+  "deleted_storage_grant_reconciled": true,
+  "deployed": true,
+  "image": "sha256:f3194ece7c0b70101ab0191e4fdfab73dc1c7adf1365765f67887a3e9f096ab6",
+  "revision": "d5b07bb"
+}

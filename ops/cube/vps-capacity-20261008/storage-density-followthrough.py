@@ -1,6 +1,6 @@
 """Run reviewed VPS storage changes and acceptance in order, stopping on failure."""
 import json,os,pathlib,subprocess,time
-P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');out=root/'storage-density-followthrough-17';out.mkdir(mode=0o700)
+P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');out=root/'storage-density-followthrough-18';out.mkdir(mode=0o700)
 def wait_file(path,unit,timeout):
  deadline=time.monotonic()+timeout;errors=0
  while not path.exists():
@@ -23,8 +23,9 @@ try:
  wait_file(root/'cold-archive-move/complete.json','baarcha-vps-archive-cold-resume-01.service',10800)
  assert json.loads((root/'cold-archive-move/complete.json').read_text())['all_data_preserved']
  wait_file(root/'resume-retry-release-d5b07bb/built.json','baarcha-vps-build-d5b07bb.service',1800)
- run('controller','deploy-storage-grant-fix.py',1200,'d5b07bb')
- run('data-growth','grow-data-784.py',600)
+ deployed=json.loads((root/'resume-retry-release-d5b07bb/deployed.json').read_text())
+ assert deployed['deployed'] and deployed['deleted_storage_grant_reconciled']
+ assert json.loads((root/'data-growth-784-complete.json').read_text())['target_bytes']==784*1024**3
  # Give the independent storage observer time to publish the new filesystem size.
  time.sleep(35)
  run('density-and-backup','finish-vps-recovery.py',9*3600)

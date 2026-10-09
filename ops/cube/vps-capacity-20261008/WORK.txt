@@ -536,3 +536,15 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   the offline window. Added its timer/service to the temporary deployment
   drain, preserving the offline CLI database-user guard. Retry uses exclusive
   deploy-attempt-02 and storage-density-followthrough-17 journals.
+
+2026-10-09 14:13Z storage deployment and live inventory change:
+- Controller d5b07bb deployed; exact deleted 12GiB grant reconciled through
+  the guarded offline CLI;135 bindings preserved. Controller ready.
+- Data disk grew728->784GiB with original identity and full-allocation reserve.
+- New user-created VPS sandbox appeared during archive work, bringing total
+  to135. Its task succeeded and it later stopped through normal lifecycle;
+  no operator stop was issued. New plan fits50 with49 reviewed768MiB previews
+  and the existing2GiB app, memory reservation46080MiB unchanged.
+- Exact inventory guard stopped finish14 before mutations. Updated reviewed
+  scope to135; finish15 and outer18 continue from completed deployment/growth,
+  never replaying them. All failure journals remain retained.
