@@ -54,7 +54,7 @@ def export(row):
   g.debug('sh',['set -eu; mkdir -p /tmp/saved-upper /tmp/saved-base; mount -t ext4 -o ro,nosuid,nodev,noexec '+devices[0]+' /tmp/saved-upper; mount -t ext4 -o ro,noload,nosuid,nodev,noexec '+devices[1]+' /tmp/saved-base; modprobe overlay; mount -t overlay overlay -o ro,nosuid,nodev,noexec,metacopy=on,redirect_dir=on,lowerdir=/tmp/saved-upper/disk/'+upper_id+'/upper:/tmp/saved-base /sysroot'])
   assert g.is_dir('/home/sandbox')
   exclusions=['*/node_modules','node_modules','*/__pycache__','__pycache__',
-      './.npm/_cacache','./.cache/pip','./.cache/yarn','./.cache/node-gyp','./.cache/ms-playwright',
+      './.npm/_cacache','./.local/share/pnpm/store','./.pnpm-store','./.cache/pnpm','./.cache/pip','./.cache/yarn','./.cache/node-gyp','./.cache/ms-playwright',
       '*/.next/cache','*/.vite','*/.turbo','*/.parcel-cache','./.runtimed/sock',
       './.baarcha-postgres/run/.s.PGSQL.*','./.myhometroc/socket/.s.PGSQL.*']
   for name in ['.venv','venv']:

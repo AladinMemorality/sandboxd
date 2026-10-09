@@ -472,3 +472,24 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
  to HDD with checksum+metadata verification and preserved original paths;
  no container mounts, open descriptors, mapped files or loop devices reference
  the selected archive trees. Original VM disks and source data remain retained.
+
+2026-10-09 12:30Z ordered final acceptance prepared:
+- Main ffc2c93 adds a fresh storage-ledger preflight and private bounded HTTP
+  error diagnostics to the real preview test. Its new journal is
+  real-preview-density-50-balanced-02; the failed run remains immutable.
+- Ordered unit baarcha-vps-storage-density-14 waits for verified cold archives
+  and controller d5b07bb build, then deploys/reconciles the deleted grant, grows
+  the same disk to784GiB with128GiB full-allocation headroom, runs50 previews,
+  takes a fresh all-VPS source backup, completes the supervisor rollout, audits.
+  Each stage stops on failure. No model calls or B200 runtime access.
+- Cold archive copy is low-priority (nice10, idle IO) and capped15MB/s writes
+  to HDD. A45-second automatic pause/resume reduced disk-write backlog; Docker
+  build is still waiting for filesystem writeback. Production readyz passes.
+  No new controller deployment or disk growth has occurred yet.
+
+2026-10-09 12:35Z source backup cache refinement:
+-PNPM's generated package store was not excluded by the source-only exporter.
+ Added its three known home cache paths, retaining configuration/state, local
+ package source, Git and lockfiles. Actual GNU tar fixture passed on VPS.
+ The queued finish runner installs the hash-pinned exporter under operator
+ locks before density/backup, retaining the original installed script.

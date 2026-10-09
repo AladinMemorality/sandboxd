@@ -47,3 +47,9 @@ An interrupted export with a completed capture can be resumed using
 `backup.py --resume TIMESTAMP`. It verifies the saved scope, reuses only finished
 per-sandbox exports, and verifies all destination archives again. Do not resume
 a failed or incomplete capture; investigate it and create a fresh generation.
+
+The source exporter also excludes PNPM's generated stores and cache:
+`~/.local/share/pnpm/store`, `~/.pnpm-store`, and `~/.cache/pnpm`. It retains
+PNPM configuration/state, local dependency source, authored patches, and lockfiles.
+`test_cache_exclusions.py` exercises the actual GNU tar patterns against retained
+source/configuration fixtures; it passed on the VPS before deployment.

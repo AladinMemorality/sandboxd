@@ -27,6 +27,7 @@ try:
         assert not db.execute("select id from cube_relocation where phase='fenced'").fetchall()
         assert not db.execute("select admission_key from cube_admission where state='pending'").fetchall()
     (out/'all-vps.json').write_text(json.dumps({'sandboxes':134,'worker':'vps','b200_contacted':False,'at':time.time()}))
+    run('backup-exporter',['/usr/bin/python3',str(root/'install-source-backup-exporter.py')],120)
     plan=json.loads(subprocess.check_output(['/usr/bin/python3',str(root/'real-preview-density.py'),'--plan'],timeout=90))
     assert plan['ready'];(out/'density-plan.json').write_text(json.dumps(plan))
     run('density',['/usr/bin/python3',str(root/'real-preview-density.py'),'--run'],5400)
