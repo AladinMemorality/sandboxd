@@ -10,7 +10,7 @@ VPS; they are excluded from this repository.
 ## Verified results
 
 - Worker: 48 GiB RAM, 12 virtual CPUs; XFS data disk grown to 672 GiB with discard.
-- Admission: 40 GiB memory budget, 50 runtime slots and two dedicated builder-VM
+- Admission: 45 GiB memory budget (including 128 MiB VM overhead per runtime), 50 runtime slots and two dedicated builder-VM
   slots. Builder-VM slots are independent of coding-task concurrency.
 - Density: 50 temporary starter sandboxes plus one customer sandbox served
   1,920 checks without failure; page p95 was 1.265 seconds. Combined guest PSS
@@ -21,7 +21,7 @@ VPS; they are excluded from this repository.
 - Discard reclaimed 103.34 GiB of physical storage. Verified MySQL backup and
   binlog archival reclaimed 54.70 GiB inside the worker. Daily MySQL backups
   have a 14-day retention policy with at least two complete backups retained.
-- Controller `d463b2d` is deployed. Its durable coding queue remains disabled
+- Controller `7745f34` is deployed. Its durable coding queue remains disabled
   (`SANDBOXD_CUBE_TASK_CONCURRENCY=0`). Tests use local mocks; no live agent load
   test is implied by queue acceptance.
 - Derja is restored on the VPS and passed browser away/back navigation.
@@ -64,7 +64,36 @@ Remaining B200 bindings require individual verified restoration. Some archives
 need special handling for app authentication state, external cache links or
 missing historical events; preserve the originals and do not fabricate data.
 
-Maximum build/agent concurrency, recurring project-source backup coverage and
-all-project production serving still require further acceptance. Read the
+Recurring VPS source backups are installed and a first generation was verified.
+The union of that generation and the emergency archive covers all 134 current
+projects. Maximum build/agent concurrency and all-project production serving
+still require further acceptance. Read the
 latest append-only progress entries in `WORK.txt` and the private VPS journals
 before continuing this operation.
+
+## Real application memory and concurrent starts
+
+The first real-application density run exposed an esbuild OOM at 512 MiB.
+The reviewed Vite default is now 768 MiB. An app that exhausted that profile
+passed full module serving at 1 GiB. Migration runners can promote a target to
+1 GiB, then 2 GiB, only after proving guest OOM before routing changes; the
+unused target is discarded through the guarded CLI and source data is kept.
+These profiles are limits, not measured resident usage.
+
+`parallel-migrations.py` runs two independent archive transfers with the parent
+operator locks continuously inherited by both children, including profile
+promotion via exec. `migration_lifecycle.py` serializes their short provider
+mutations to respect native creation concurrency and the pending-create ledger.
+
+Native Cubelet concurrency rejection `130513` with the exact create-flow busy
+message occurs before workflow steps run. Controller `7745f34` retries only
+that explicit rejection with bounded jittered backoff and a single admission
+lease. Transport errors, ambiguous responses and other errors are not replayed.
+Exhausted safe rejections release the lease only after a fresh verified paused
+observation. The deployment reconciled the one already-stranded lease with the
+controller drained and stopped, using the offline recovery CLI.
+
+Race tests passed for cube, store and API packages. Production verification ran
+two simultaneous real starts in three rounds: six successful starts in
+1.3–2.9 seconds, no pending admissions, original stopped states restored.
+See `concurrent-resume-7745f34.json` and `resume-retry-deployed.json`.
