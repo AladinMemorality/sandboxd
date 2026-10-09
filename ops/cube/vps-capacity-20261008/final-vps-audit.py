@@ -75,6 +75,11 @@ for timer in ['baarcha-vps-pause-compaction.timer','baarcha-vps-source-backup.ti
  assert subprocess.check_output(['systemctl','is-active',timer],text=True).strip()=='active'
 import hashlib
 assert hashlib.sha256(pathlib.Path('/usr/local/libexec/baarcha-vps-pause-compaction.py').read_bytes()).hexdigest()==maintenance['files']['compact-vps-pause-memory.py']
+backup_stats=proof('source-backup-stats-76/complete.json');assert backup_stats['passed'] and backup_stats['excluded_only_postgres_counters']
+database=proof('captured-postgres-check-81/complete.json');assert database['passed'] and database['original_state_restored'] and database['database']['database_query_passed']
+result['backup_counter_file_repair']={'export_verified':True,'live_database_query_passed':True,'failed_capture_retained':True}
+pty=proof('bounded-pty-worker-82/complete.json');assert pty['installed'] and pty['nonblocking_pty'] and pty['tests']==8
+result['bounded_pty_updater']=pty
 result['source_export_fix']=source_export
 result['platform_revision']=platform_revision
 result['public_return']=public

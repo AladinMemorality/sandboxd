@@ -1,4 +1,4 @@
-# VPS capacity and recovery operation — 8 October 2026
+# VPS capacity and recovery operation — 8–9 October 2026
 
 This directory records the reviewed operation against the existing Baarcha VPS.
 The scripts pin incident-specific paths, image hashes, runtime identities and
@@ -26,7 +26,7 @@ VPS; they are excluded from this repository.
   checks, no new host or guest OOM, and original running states restored.
   The repeated acceptance run measured 9.05 GiB combined guest process PSS
   (178 MiB median). Internal HTTP p95 was 11.4 ms; this measures preview serving, not browser rendering or agent work.
-- Controller `eda67d2` is deployed. Its durable coding queue remains disabled
+- Controller `867d7de` is deployed. Its durable coding queue remains disabled
   (`SANDBOXD_CUBE_TASK_CONCURRENCY=0`). Tests use local mocks; no live agent load
   test is implied by queue acceptance.
 - Derja is restored on the VPS and passed browser away/back navigation.
@@ -61,7 +61,7 @@ directories created during its first blocked install.
 exact verified artifacts, checking their hashes and unchanged task history.
 This avoids adopting the older runtime identity from the initial backup.
 
-## Outstanding acceptance
+## Final acceptance
 
 All 134 recovered sandboxes are placed on the VPS. Two additional user-created
 VPS apps bring the reviewed inventory to 136, with no pending
@@ -70,13 +70,15 @@ content and preview checks and a stop/wake cycle. Two unfinished applications
 required separately recorded source repairs; original archives remain intact.
 Current guest limits: 110 at 768 MiB, 11 at 1 GiB, and 15 at 2 GiB.
 
-The fresh all-VPS source generation `20261009T162045Z` passed archive, hash,
+The fresh all-VPS source generation `20261009T200641Z` passed archive, hash,
 compression and dependency-exclusion checks for all 136 apps (4.12 GiB compressed).
 All 136 supervisors were updated or verified at `2c7e700`; all 136 canonical
 apps subsequently passed wake/module checks. Byte-preserving snapshot compaction
 passed content-hash and repeated-wake canaries. Real Chrome public navigation
-checks passed on NOS and Derja. A new backup and source-publishing compatibility
-release are being verified before the final production audit.
+checks passed on NOS and Derja. The refreshed backup and source-publishing compatibility release passed
+verification, including a disposable remix on old template supervisors.
+The new supervisor updater is enabled on the VPS; sleeping guests are
+updated on later activity.
 The repeated 50-preview test passed; see `results/real-preview-density-50-balanced-07`.
 Maximum build/agent concurrency remains explicitly deferred. Read the latest
 append-only entries in `WORK.txt` and the private VPS journals before continuing.
@@ -177,7 +179,7 @@ its original inode, filesystem UUID and worker boot preserved, leaving over
 reconciled the stale grant through the offline CLI. See the deployment, cold
 archive and disk-growth receipts. The sixth density run passed after recovering
 four old checkpoints from verified source copies. The fresh backup passed;
-remaining supervisor/wake checks are still pending. The runner stops on failure.
+remaining supervisor/wake checks were still pending at that stage. They subsequently passed; the runner retains each failed attempt.
 
 ## Full memory snapshots and retained recovery sources
 
@@ -234,3 +236,32 @@ discard schedule to hourly. Both fleet and repeated density gates passed. Activa
 `results/pause-compaction-maintenance-01`. Discard uses a 1 MiB minimum extent
 to bound overhead from tiny deduplicated holes; smaller holes remain reusable
 inside XFS.
+
+## Published source and final maintenance
+
+The source filter used to omit `src/data` along with runtime data. Controller
+`867d7de` preserves permitted source modules, including when old template
+supervisors omit them during export or import. A private disposable remix
+passed 49 module checks and was deleted with its temporary snapshot; all
+136 original bindings were preserved. Two supervisor canaries passed export
+and repeated wake checks in approximately 1.2–1.3 seconds.
+
+One immutable backup capture had a deleted PostgreSQL cumulative-counter inode.
+The failed capture is retained; the exporter omits only the managed `pgstat.stat`
+and `pgstat.tmp` counters, retaining database relations, WAL and configuration.
+The live retained recovery-test sandbox passed a read-only PostgreSQL query.
+All 136 source archives are independently verified, totaling 4,425,411,506 bytes.
+
+An older maintenance sender blocked writing a PTY after its child exited.
+Its exact process/stack evidence was retained before termination. The deployed
+worker now uses nonblocking PTY I/O and bounds native task enumeration. Eight
+real-PTY, locking and binary tests passed on macOS and Linux; CI runs them and
+the source-backup exclusion regression. No B200 access or model calls occurred.
+
+Final production evidence is in `results/final-production-20261009`. All 136
+bindings are on the VPS; one prior app remains running and 135 are stopped.
+There are no pending admissions, fenced relocations or coding tasks. NOS and
+Derja passed real Chrome cold-open/forced-sleep/away/back checks in 6.001 and
+37.718 seconds respectively, with visible live frames and no page errors.
+The platform build/check/deploy workflow is green. This verifies the measured
+preview workload; maximum coding-agent/build concurrency remains deferred.

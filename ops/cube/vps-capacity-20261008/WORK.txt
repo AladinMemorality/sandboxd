@@ -924,3 +924,42 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   Proofs in results/backup-stats-20261009; no model or B200 calls.
 -Units71..75 restarted only after confirming they stopped at dependency guards
   and had created no output journals. Original failed logs are retained.
+
+2026-10-09 20:46Z deployed source compatibility and bounded supervisor sender:
+- Backup200641Z verified all136 archives,4,425,411,506B. Acceptance71 passed
+  before the controller switch. Stale daily-backup unit failure reset only
+  after manual verification succeeded; earlier failure journals retained.
+- Controller867d7de/image38bcaf828f29... deployed preserving136bindings,
+  admission policies, routes and prior timers. Legacy-remix73 proved source
+  export and import compatibility on two old supervisors,49module checks.
+  Its temporary private app and snapshot were deleted; source stopped again.
+- Canary74 passed bothstarter+wedding source export and fullwake tests:
+  49modules each,before/after,wakes1.299/1.235s,configpreserved. Maintenance75
+  switched to95d010ca... supervisor and updated the one alreadyawakeguest.
+- Old automatic updater overlapped fixture deletion. Its actual parent3655323
+  blocked in n_tty_write with a zombie ctr child3655439, bypassing its240s
+  intended deadline. Exact identity,stack,FD and child evidence was verified
+  before SIGTERM of only that managed updater main process. No guest runtime
+  was killed and its guest helper requires the complete hash-verified payload
+  before any binary replacement or quiescence. Original evidence retained.
+- Sharedworker now uses nonblockingPTYI/O,30s native-list timeout and bounded
+  own-child cleanup. Eight tests passed locally and onVPS, including realPTY
+  blocked/departed peers and complete4MiBtransfer. Installer82 passed live
+  read-only probe; newworkerSHA6d7014f8... installed onVPS only, timerenabled.
+  CI now includes updater and backup exclusion regressions. B200 untouched.
+- Platform CI37972549291 retry passed deployment:69936b5 was already active,
+  so the deployer preserved live artifacts. NOS Chrome cold/away/back passed
+  in6.001s; Derja and current final audit are next.
+
+2026-10-09 20:48Z final production acceptance:
+- NOS passed real Chrome cold/forced-sleep/away/back in6.001s; Derja37.718s.
+  Both visibleHTTPSframes,expectedcontent,no explicit-start error,pageErrors[].
+  Screenshots inspected. Test wakes returned to stopped states.
+- Current final audit passed:136VPSbindings,1running/135stopped,zero pending
+  admissions/fencedrelocations/tasks; queueoff,B200drained. Controller867d7de,
+  platform69936b5, backup200641Zverified. New supervisor and boundedPTY worker
+  receipts required. PhysicalNVMe free426,847,354,880B; worst full-data-disk
+  headroom149,584,367,616B. Hourly discard and bounded compaction enabled.
+- Sourcecode,opsautomation,regressions and sanitized receipts committedtoMain.
+  Platform CI37972549291fullygreen. Final nativeCI now includes realPTY and
+  source-backup exclusion tests; finalcommitCI completion remains tocheck.

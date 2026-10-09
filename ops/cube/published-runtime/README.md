@@ -79,5 +79,16 @@ previous-build list. Motion's update preserved configuration. See the source
 comparison receipts in `../vps-capacity-20261008/results/`.
 
 The fleet continuation preserves completed receipts and original failed attempts.
-Its VPS-only timer installer requires completed fleet wake validation; the timer
-has not yet been enabled. The B200 timer remains untouched and disabled.
+Its VPS-only timer installer requires completed fleet wake validation; the
+VPS timer is now enabled after all 136 validations and the repeated 50-preview test. The B200 timer remains untouched and disabled.
+
+The later `867d7de` source-module release passed two full-wake/export canaries
+and a disposable legacy-template remix. Existing awake guests are upgraded;
+stopped guests are considered when they next become active. The controller
+also preserves the modules when an immutable template still has an old supervisor.
+
+The PTY sender uses nonblocking reads/writes so a departed or stalled peer
+cannot bypass its 240-second deadline. Native task enumeration is bounded at
+30 seconds; subprocess cleanup escalates only the updater's own child.
+`test_pty_deadline.py` exercises real PTY backpressure, a departed peer, and
+a complete 4 MiB payload. All eight updater tests passed on macOS and the VPS.
