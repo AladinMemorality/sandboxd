@@ -1,10 +1,9 @@
 """Follow local Vite module imports over HTTP without executing application JS."""
-import re
+import json,pathlib,subprocess
 from html.parser import HTMLParser
 from urllib.parse import urljoin,urlsplit
 
 _ALLOWED=('/src/','/node_modules/','/@vite/','/@id/','/@fs/','/@react-refresh')
-_IMPORT=re.compile(r'''(?:\b(?:import|export)\s+(?:[^;\n]*?\s+from\s*)?["']([^"']+)["']|\bimport\s*\(\s*["']([^"']+)["']\s*\))''')
 class Entries(HTMLParser):
     def __init__(self):super().__init__();self.paths=[]
     def handle_starttag(self,tag,attrs):
@@ -20,4 +19,10 @@ def entries(html):
     parser=Entries();parser.feed(html.decode('utf-8',errors='replace'))
     return [p for raw in parser.paths if (p:=local_module('/',raw))]
 def imports(path,source):
-    return list(dict.fromkeys(p for match in _IMPORT.finditer(source.decode('utf-8',errors='replace')) if (p:=local_module(path,match.group(1) or match.group(2)))))
+    # CSS and binary assets are fetched but are not JavaScript modules.
+    if pathlib.PurePosixPath(urlsplit(path).path).suffix in ('.css','.svg','.png','.jpg','.webp','.wasm','.woff','.woff2'):return []
+    parser=pathlib.Path(__file__).with_name('module-parser')/'imports.cjs'
+    result=subprocess.run(['node',str(parser)],input=source,capture_output=True,timeout=15)
+    assert result.returncode==0,'JavaScript module parse failed'
+    specs=json.loads(result.stdout)
+    return list(dict.fromkeys(p for spec in specs if (p:=local_module(path,spec))))

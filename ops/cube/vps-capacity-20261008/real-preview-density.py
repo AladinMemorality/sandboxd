@@ -9,7 +9,7 @@ spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-c
 sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as transport
 spec=importlib.util.spec_from_file_location('assets',root/'preview-assets.py');assets=importlib.util.module_from_spec(spec);spec.loader.exec_module(assets)
 SSH=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','-oConnectTimeout=5','root@127.0.0.1']
-G=1024**3;run_dir=root/'real-preview-density-50';barrier=root/'restore-barrier.json'
+G=1024**3;run_dir=root/'real-preview-density-50-balanced';barrier=root/'restore-barrier.json'
 def rows(query,args=()):
     with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
         db.row_factory=sqlite3.Row;return [dict(x) for x in db.execute(query,args)]
@@ -23,7 +23,7 @@ def plan():
     for scope in root.glob('vite-batch-*/scope.json'):
         reviewed.update(x['sandbox_id'] for x in json.loads(scope.read_text())['selected'])
     candidates=[]
-    for journal in (root/'recovery-moves').glob('vps-restore-*'):
+    for journal in (root/'recovery-moves').iterdir():
         if not (journal/'complete.json').exists():continue
         receipt=json.loads((journal/'complete.json').read_text());sid=receipt['sandbox_id'];row=lookup.get(sid)
         if sid not in reviewed or not row or row['status']!='stopped' or row['charged'] or row['state']!='released':continue
@@ -39,11 +39,16 @@ def plan():
     cpu=sum(policy['resource_budget']['profiles'][r['template_id']]['cpu_millis'] for r in total)
     assert memory<=policy['resource_budget']['memory_mb'] and cpu<=policy['resource_budget']['cpu_millis']
     return env,active,selected,{'target_total_running':50,'already_running':len(active),'eligible_stopped':len(candidates),'needed':needed,'ready':len(selected)==needed,'reserved_memory_mb':memory,'weighted_cpu_millis':cpu,'model_calls':False}
+guest_sample={};guest_sample_at=0
 def pressure():
+    global guest_sample,guest_sample_at
+    if time.monotonic()-guest_sample_at>5:
+        code="import pathlib,json;p=pathlib.Path;m={l.split(':',1)[0]:int(l.split()[1])*1024 for l in p('/proc/meminfo').read_text().splitlines()};v=dict(l.split() for l in p('/proc/vmstat').read_text().splitlines());f=next(l for l in p('/proc/pressure/memory').read_text().splitlines() if l.startswith('full '));print(json.dumps({'available_bytes':m['MemAvailable'],'oom_kill':int(v['oom_kill']),'full_psi_avg10':float(dict(x.split('=') for x in f.split()[1:])['avg10'])}))"
+        guest_sample=json.loads(subprocess.check_output(SSH+['python3 -'],input=code.encode(),timeout=20));guest_sample_at=time.monotonic()
     mem={l.split(':',1)[0]:int(l.split()[1])*1024 for l in P('/proc/meminfo').read_text().splitlines()}
     full=next(l for l in P('/proc/pressure/memory').read_text().splitlines() if l.startswith('full '));avg=float(dict(x.split('=') for x in full.split()[1:])['avg10'])
     vm=dict(l.split() for l in P('/proc/vmstat').read_text().splitlines())
-    return {'available_bytes':mem['MemAvailable'],'full_psi_avg10':avg,'oom_kill':int(vm['oom_kill'])}
+    return {'available_bytes':mem['MemAvailable'],'full_psi_avg10':avg,'oom_kill':int(vm['oom_kill']),'worker':guest_sample}
 def save(name,value):b.atomic(run_dir/name,b.encoded(value))
 if sys.argv[1:]==['--plan']:
     print(json.dumps(plan()[3]));sys.exit(0)
@@ -66,6 +71,7 @@ with b.locked():
         with urllib.request.urlopen(req,timeout=180) as response:assert response.status==200;response.read()
     def guard():
         now=pressure();save('last-pressure.json',now)
+        assert now['worker']['oom_kill']==before['worker']['oom_kill'] and now['worker']['available_bytes']>2*G and now['worker']['full_psi_avg10']<5,'Worker pressure guard'
         assert now['oom_kill']==before['oom_kill'] and now['available_bytes']>8*G and now['full_psi_avg10']<5,'Host pressure guard'
         assert not rows("select task_id from task where status in ('running','queued')"),'User work started; stop load test'
         with urllib.request.urlopen('http://127.0.0.1:9090/readyz',timeout=5) as r:assert r.read().strip()==b'ready'

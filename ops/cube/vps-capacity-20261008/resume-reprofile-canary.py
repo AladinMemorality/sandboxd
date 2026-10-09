@@ -93,57 +93,17 @@ def wait_for_operator():
    stack.close();time.sleep(2)
  with stack:yield
 with wait_for_operator():
- job.mkdir(mode=0o700,parents=True,exist_ok=False)
+ assert sid=='01M16MV7KZSF3YNAJ1VKWKYED5' and attempt=='01'
+ assert json.loads((job/'failed.json').read_text())['error']=='HTTPFailure'
+ assert not (job/'parser-resume-intent.json').exists()
+ assert rows('select phase from cube_relocation where id=?',(job.name,))==[{'phase':'fenced'}]
+ request=json.loads((job/'worker-job.PRIVATE.json').read_text());runtime=request['runtime_id']
+ worker=LocalWorker(request)
+ proof=json.loads((worker.root/'verified.json').read_text())
+ assert proof['RuntimeID']==runtime and proof['RelocationID']==job.name and proof['ApplicationReady'] and proof['WorkspaceVerified'] and proof['HomeVerified'] and proof['HistoryVerified']
+ save('parser-resume-intent.json',{'at':time.time(),'module_parser':'acorn-8.15.0'})
  try:
-  row=rows("select s.status,s.web_port,b.runtime_id,b.template_id,b.config_revision,p.worker_id,p.charged,p.state from sandbox s join runtime_binding b on b.sandbox_id=s.id join cube_admission p on p.runtime_id=b.runtime_id where s.id=? and p.state<>'deleted'",(sid,))[0]
-  assert row['status']=='stopped' and row['template_id']=='tpl-78e4edb3d629465e9d8372c1' and row['worker_id']=='vps' and row['charged']==0 and row['state']=='released'
-  tasks=[r['task_id'] for r in rows('select task_id from task where sandbox_id=? order by task_id',(sid,))]
-  assert not rows("select task_id from task where status in ('running','queued')")
-  assert not rows("select id from cube_relocation where phase='fenced'")
-  previous=[]
-  for path in (root/'recovery-moves').glob('*/worker-job.PRIVATE.json'):
-   old=json.loads(path.read_text())
-   if old['sandbox_id']==sid and old['runtime_id']==row['runtime_id'] and (path.parent/'complete.json').exists():previous.append(old)
-  assert len(previous)==1,'No unambiguous reviewed owner manifest for current runtime'
-  home=previous[0]['source']['home_manifest']
-  if '.bash_logout' not in [e['path'] for e in home['entries']]:home['entries'].append(dict(path='.bash_logout',disposition='preserve'))
-  if not any(e['path']=='.cache' or e['path'].startswith('.cache/') for e in home['entries']):home['entries'].append(dict(path='.cache',disposition='preserve'))
-  origin,headers=copy.client(sid);assert origin==('127.0.0.1',20080)
-  def source_api(action):
-   status,_=copy.api('POST','/v1/sandboxes/'+sid+'/'+action);assert status==200
-  save('source-before.json',row)
-  source_api('start')
-  source_worker=SourceWorker({'worker':'vps','id':job.name+'-source','sandbox_id':sid,'runtime_id':row['runtime_id'],'headers':headers,'home_manifest':home,'task_ids':tasks})
-  try:
-   source=source_worker.export()
-   for role,v in source['artifacts'].items():v['local_path']=str(source_worker.root/(role+'.zip'))
-   save('export-result.PRIVATE.json',source)
-  finally:
-   source_worker.control('POST','/workspace/resume');source_api('stop')
-  assert tasks==[r['task_id'] for r in rows('select task_id from task where sandbox_id=? order by task_id',(sid,))]
-  save('scope.json',{'sandbox_id':sid,'source_worker':'vps','target_worker':'vps','fresh_current_export':True,'at':time.time()})
-  cli('fence',SandboxID=sid,ExpectedRuntime=source['runtime_id'],TargetWorker='vps',TargetTemplate=templates[profile])
-  cli('create')
-  target=json.loads((job/'target.PRIVATE.json').read_text());runtime=target['Runtime']['sandboxID'] if 'sandboxID' in target['Runtime'] else target['Runtime'].get('sandbox_id')
-  assert runtime,'target provider identity missing'
-  request={'worker':'vps','id':job.name,'sandbox_id':sid,'runtime_id':runtime,'headers':{'Host':'3031-'+runtime+'.'+target['Relocation']['Domain'],'Authorization':'Bearer '+target['supervisor_token'],'cube-traffic-access-token':target['traffic_access_token']},'source':source,'receipts':source['artifacts'],'env':target['Env'],'config_revision':row['config_revision'],'web_port':row['web_port'] or 3000}
-  save('worker-job.PRIVATE.json',request)
-  save('channel-request.PRIVATE.json',{'Action':'channel','ID':job.name,'Directory':str(job),'Migrations':str(migrations),'PackageDownloads':True})
-  with (job/'channel-error.log').open('ab') as error:
-   channel=subprocess.Popen([str(BIN),str(job/'channel-request.PRIVATE.json')],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=error)
-   try:
-    assert select.select([channel.stdout],[],[],60)[0]
-    channel_ready=json.loads(channel.stdout.readline());assert channel_ready.get('channel_ready') and channel_ready['outbound']=='npm-registry-only'
-    canary=json.loads((root/'supervisor-canary-a583d45/passed.json').read_text());assert canary['passed'] and canary['revision']=='a583d45'
-    ssh=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','root@127.0.0.1']
-    update=subprocess.run(ssh+['python3','/opt/baarcha-vps-process-recovery-a583d45/worker.py','--container',runtime],capture_output=True,timeout=260)
-    assert update.returncode==0,'Supervisor update did not complete'
-    receipts=[json.loads(line) for line in update.stdout.splitlines()]
-    assert len(receipts)==1 and receipts[0]['status'] in ('updated','current'),'Supervisor update requires reconciliation'
-    save('supervisor-update.json',receipts[0])
-    worker=LocalWorker(request);proof=worker.restore();save('verified.json',proof)
-   finally:
-    channel.stdin.close();channel.wait(timeout=30)
+  worker.application_checks();save('verified.json',proof)
   cli('commit')
   env=dict(x.split('=',1) for x in json.loads(subprocess.check_output(['docker','inspect','src-sandboxd-1']))[0]['Config']['Env']);token=env['SANDBOXD_API_TOKENS'].split(',')[0].split('=',1)[1]
   import urllib.request
@@ -157,4 +117,4 @@ with wait_for_operator():
   assert rows("select worker_id,state,charged from cube_admission where runtime_id=?",(runtime,))==[{'worker_id':'vps','state':'released','charged':0}]
   result={'restored':True,'sandbox_id':sid,'worker':'vps','profile':profile,'fresh_current_export':True,'same_project_identity':True,'wake_seconds':wake,'all_content_verified':True,'source_retained':True,'at':time.time()};save('complete.json',result);print(json.dumps(result),flush=True)
  except BaseException as error:
-  save('failed.json',{'error':type(error).__name__,'reason':str(error)[:512],'line':traceback.extract_tb(error.__traceback__)[-1].lineno,'at':time.time(),'source_retained':True});raise
+  save('parser-resume-failed.json',{'error':type(error).__name__,'reason':str(error)[:512],'at':time.time()});raise

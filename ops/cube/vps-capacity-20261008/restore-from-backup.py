@@ -1,5 +1,5 @@
 """Restore one stopped B200 project from VPS-local verified artifacts only."""
-import contextlib,fcntl,importlib.util,json,os,pathlib,select,shutil,sqlite3,subprocess,sys,time,traceback
+import contextlib,fcntl,importlib.util,json,os,pathlib,select,shutil,sqlite3,subprocess,sys,time,traceback,zipfile
 P=pathlib.Path;root=P('/opt/baarcha/operations/vps-50-profiles-20261008');os.umask(0o077)
 sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as transport
 spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
@@ -12,7 +12,15 @@ if profile=='owner-data':
  assert receipt['ready'] and receipt['worker']=='vps' and receipt['memory_mb']==1024
  assert deployed['deployed'] and deployed['template_id']==receipt['template_id']
  templates[profile]=receipt['template_id']
+if profile=='balanced':
+ receipt=json.loads((root/'balanced-template-a583d45.json').read_text())
+ deployed=json.loads((root/'balanced-release-a583d45/deployed.json').read_text())
+ canary=json.loads((root/'recovery-moves/vps-reprofile-01m16mv7kzsf3ynaj1vkwkyed5-768-01/complete.json').read_text())
+ assert receipt['ready'] and receipt['worker']=='vps' and receipt['memory_mb']==768 and canary['restored']
+ assert deployed['deployed'] and deployed['template_id']==receipt['template_id']
+ templates[profile]=receipt['template_id']
 assert profile in templates
+spec=importlib.util.spec_from_file_location('assets',root/'preview-assets.py');assets=importlib.util.module_from_spec(spec);spec.loader.exec_module(assets)
 attempt=sys.argv[3] if len(sys.argv)>3 else ''
 assert not attempt or (attempt.isalnum() and len(attempt)<=16)
 prepared=root/'recovery-prepared-canonical'/sid;source=json.loads((prepared/'export-result.PRIVATE.json').read_text())
@@ -44,7 +52,24 @@ class LocalWorker(transport.Worker):
   assert path.stat().st_size==receipt['archive_bytes'] and transport.digest(path)==receipt['sha256'];return path
  def application_checks(self):
   checks={'01M1HJ4EXF1GS6GE3BS9G3ANF3':('gateway','/api/rules'),'01M3C9C0V0MQYNFTMCYS7CCNVC':('postgres','/api/health')}
-  if sid not in checks:return
+  if sid not in checks:
+   with zipfile.ZipFile(prepared/'workspace.zip') as archive:
+    manifest=archive.read('sandbox.yaml').decode() if 'sandbox.yaml' in archive.namelist() else ''
+   if 'pnpm exec vite --host 0.0.0.0 --port 3000' not in manifest or '\nworkers:' in manifest:return
+   state=self.control('GET','/status');assert not state['active_task']
+   restarts={p['name']:p['restarts'] for p in state['processes']}
+   headers={**self.headers,'Host':self.headers['Host'].replace('3031-',str(self.job['web_port'])+'-',1)}
+   queue=assets.entries(self.http('GET','/',headers=headers,timeout=15));assert queue,'No Vite entries'
+   seen=set();total=0;began=time.monotonic()
+   while queue:
+    path=queue.pop(0)
+    if path in seen:continue
+    seen.add(path);assert len(seen)<=512
+    data=self.http('GET',path,headers=headers,timeout=45);total+=len(data);assert total<=64*1024**2
+    queue.extend(p for p in assets.imports(path,data) if p not in seen)
+   after=self.control('GET','/status')
+   assert not after['active_task'] and all(p['running'] and p['restarts']==restarts[p['name']] for p in after['processes'])
+   save('module-health-'+str(time.time_ns())+'.json',{'passed':True,'modules':len(seen),'bytes':total,'seconds':time.monotonic()-began,'model_calls':False});return
   name,path=checks[sid];deadline=time.monotonic()+90
   while True:
    try:

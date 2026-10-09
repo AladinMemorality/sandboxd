@@ -26,7 +26,7 @@ for sid in ids:
         package_entries=len(re.findall(r'^  \S[^\n]*:\s*$',packages,re.M))
         # Conservative trial allocation, not a measured minimum. Every app
         # still has to pass HTTP readiness and a complete stop/wake cycle.
-        profile='small' if 0<package_entries<=400 else 'standard'
+        profile='balanced' if 0<package_entries<=400 else 'standard'
     valid=subprocess.run([str(root/'artifact-validator'),str(source)],capture_output=True,timeout=180)
     if valid.returncode:
         skipped.append({'sandbox_id':sid,'reason':'import contract review required'});continue

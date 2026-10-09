@@ -8,6 +8,13 @@ import "./app.css";
 export {App} from "./App.tsx";
 const lazy = import('./Lazy.tsx');
 fetch('/api/model'); import('/api/model'); import('https://model.example/call'); import('//model.example/call');'''),['/node_modules/.vite/deps/react.js?v=123','/src/app.css','/src/App.tsx','/src/Lazy.tsx'])
+ def test_comments_strings_and_regex_are_not_imports(self):
+  self.assertEqual(a.imports('/node_modules/.vite/deps/react.js',b'''// import MyComponent from './MyComponent'
+/* export {sample} from './example' */
+const docs = "import x from './fake.js'";
+const pattern = /import x from 'regex'/;
+import {real} from './actual.js';
+export * from './exports.js';'''),['/node_modules/.vite/deps/actual.js','/node_modules/.vite/deps/exports.js'])
  def test_escape_cannot_turn_into_api_request(self):
   self.assertIsNone(a.local_module('/src/main.tsx','../../api/start-task'))
   self.assertIsNone(a.local_module('/src/main.tsx','react'))
