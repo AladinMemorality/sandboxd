@@ -973,3 +973,9 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   on its disposable runner, preserving prior daemon settings and validating
   configuration before restart. Cache misses fall back toDockerHub. No
   Dockerfile, appcode, VPSdaemon or B200 configuration changes.
+
+- Workflow37990087323 proved the console Docker build passes with the cache.
+  Both uncached E2E jobs then hitDockerHub429 fetchinggolang:1.22-bookworm.
+  The same validated cache setup now serves both architecture runners through
+  scripts/ci-docker-cache.sh, guarded toLinuxGitHubActions. Production
+  Dockerfiles and hosts remain unchanged. Final workflow is rerunning.
