@@ -15,14 +15,16 @@ def save(name,v):b.atomic(out/name,b.encoded(v))
 def native_log(offsets=None):
  code='''import pathlib,json
 old=OFFSETS;rid=RID;result={};matches=0
-for p in pathlib.Path('/data/log/Cubelet').glob('*.log'):
+for p in pathlib.Path('/data/log/CubeShim').glob('*.log'):
  st=p.stat();result[p.name]={'inode':st.st_ino,'size':st.st_size}
  if old is not None:
   before=old[p.name];assert before['inode']==st.st_ino and before['size']<=st.st_size
   with p.open('rb') as f:f.seek(before['size']);data=f.read()
   for line in data.splitlines():
-   if rid.encode() in line and b'PauseToSnapshot destination=' in line:
-    assert b'snapshot_type=full' in line;matches+=1
+   if rid.encode() not in line:continue
+   record=json.loads(line)
+   if record.get('InstanceId')==rid and record.get('LogContent','').startswith('pause to snapshot: destination='):
+    assert record['LogContent'].endswith('snapshot_type=full');matches+=1
 print(json.dumps({'offsets':result,'full_pause_records':matches}))
 '''.replace('OFFSETS',repr(offsets)).replace('RID',repr(rid))
  return json.loads(subprocess.check_output(SSH+['python3 -'],input=code.encode(),timeout=30))

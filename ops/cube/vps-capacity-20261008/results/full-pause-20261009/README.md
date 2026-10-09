@@ -50,4 +50,10 @@ preserving all 136 app bindings and the one remaining active guest. Native
 metadata and the previous binary are retained. Controller management proxies
 are explicitly reattached after its container starts.
 
-The live wake canary and 50-app acceptance remain separate required evidence.
+The live canary passed: three restores from new full checkpoints each served
+23 modules without OOM, in 1.11–1.23 seconds per wake. Cubelet Info messages were
+not present in its configured file logs, so the initial log assertion failed.
+The original failure remains retained. Timestamped Shim records and VMM Full
+capture/dump records independently verified all four checkpoints and linked the
+three new restores to them; no test cycles were repeated to produce this proof.
+The 50-app acceptance remains separate required evidence.
