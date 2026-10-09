@@ -208,3 +208,26 @@ Its binary also differs from the rebuilt source only in Go's build identifier.
 The guarded upgrade passed with configuration preserved; no render, generation,
 model request, or Motion worker change was made. Both exact source comparisons
 are recorded under `results/`.
+
+## Public navigation and bounded storage maintenance
+
+Platform `69936b5` bounds a shared public wake response at two seconds and
+expires stale in-flight leases after three minutes. The response remains
+unconfirmed `starting` until admission completes, so the browser keeps retrying
+POST instead of becoming stuck on status polling. The late completion of an old
+request cannot clear a newer lease. Account and native admission remain intact.
+Both NOS and Derja passed real Chrome cold-open and forced-stop-away/back checks
+after deployment; see `results/public-return-20261009`.
+
+The first full-memory compaction pass preserved every whole-file hash and inode
+across 135 paused apps and recovered 25.82 GiB. Incremental runs skip checkpoint
+IDs already processed. Private hardlinks pin immutable memory while the native
+collector retires old snapshot names. Source trees, guest filesystems and
+running memory are not selected. A failed pass retains its review evidence and
+prevents unattended retries.
+
+The staged maintenance timer limits each run to four batches of eight images
+and skips busy operator locks. Its installer requires all-fleet wake acceptance
+and the repeated 50-preview test. It also increases the VPS guest's existing
+discard schedule to hourly. The installer is not a claim that those final
+acceptance gates have already passed; production receipts record activation.

@@ -1,0 +1,12 @@
+[Unit]
+Description=Compact verified immutable VPS pause memory without waking guests
+After=network-online.target docker.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 /usr/local/libexec/baarcha-vps-pause-compaction.py --scheduled
+UMask=0077
+Nice=15
+IOWeight=10
+CPUQuota=50%
+TimeoutStartSec=80min

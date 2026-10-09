@@ -26,10 +26,10 @@ assert proof('resume-retry-release-d5b07bb/deployed.json')['deleted_storage_gran
 deployed=proof('stop-state-release-eda67d2/deployed.json');assert deployed['deployed'] and deployed['image']==container['Image'] and deployed['stop_state_verified']
 native=proof('full-pause-release-20261009/deployed.json');assert native['deployed'] and native['full_pause_snapshot_policy']
 assert proof('full-pause-canary-01/complete.json')['passed']
-density=proof('real-preview-density-50-balanced-06/result.json');cleanup=proof('real-preview-density-50-balanced-06/cleanup.json')
+density=proof('real-preview-density-50-balanced-07/result.json');cleanup=proof('real-preview-density-50-balanced-07/cleanup.json')
 assert density['passed'] and density['concurrent_running']==50 and density['http_checks']==600
 assert cleanup['complete'] and cleanup['bindings_preserved'] and cleanup['existing_running_preserved']
-density_scope=proof('real-preview-density-50-balanced-06/scope.json');before=density_scope['before']
+density_scope=proof('real-preview-density-50-balanced-07/scope.json');before=density_scope['before']
 cohort_limits=collections.Counter(policy['templates'][binding_templates[sid]]['memory_mb'] for sid in density_scope['selected']+density_scope['existing_running'])
 assert sum(cohort_limits.values())==50
 pacing=proof('transfer-readiness-watch-01/result.json');assert pacing['passed'] and pacing['checks']==60 and pacing['failed_checks']==0
@@ -54,6 +54,22 @@ for row in templates:counts[policy['templates'][row['template_id']]['memory_mb']
 result={'passed':True,'placement':placement,'states':states,'profiles':[{'memory_mb':memory,'count':count} for memory,count in sorted(counts.items())],'pending_admissions':pending,'fenced_relocations':fenced,'active_tasks':active_tasks,'coding_queue_enabled':False,'other_workers_drained':True,'memory_budget_mb':policy['resource_budget']['memory_mb'],'cpu_budget_millis':policy['resource_budget']['cpu_millis'],'b200_contacted':False,'controller_revision':deployed['revision'],'backup':backup,'supervisor_revision':rollout['revision'],'density':{k:density[k] for k in ['concurrent_running','http_checks','module_http_checks','http_p95_seconds','http_max_seconds','total_pss_bytes','median_pss_bytes','max_pss_bytes','application_scope']},'host_headroom_if_data_disk_full_bytes':worst_headroom,'cold_archive_nvme_bytes_reclaimed':archives['nvme_bytes_reclaimed'],'at':time.time()}
 result['density']['guest_limits']=[{'memory_mb':memory,'count':count} for memory,count in sorted(cohort_limits.items())]
 result['density']['reserved_memory_mb']=density_scope['reserved_memory_mb']
+platform_revision=subprocess.check_output(['git','-C','/opt/baarcha/app','rev-parse','HEAD'],text=True).strip()
+assert platform_revision=='69936b503843b597c9f0a938e6c78e25a5fa51b6'
+public={name:proof('public-return-'+name+'.json') for name in ['nos','derja']}
+assert all(v['passed'] and v['explicitly_asleep_while_away'] and not v['pageErrors'] for v in public.values())
+assert proof('os-image-dedupe-resume-01/complete.json')['complete']
+maintenance=proof('pause-compaction-maintenance-01/complete.json');assert maintenance['installed']
+assert proof('vps-supervisor-maintenance-2c7e700/complete.json')['enabled']
+for timer in ['baarcha-vps-pause-compaction.timer','baarcha-vps-source-backup.timer']:
+ assert subprocess.check_output(['systemctl','is-active',timer],text=True).strip()=='active'
+import hashlib
+assert hashlib.sha256(pathlib.Path('/usr/local/libexec/baarcha-vps-pause-compaction.py').read_bytes()).hexdigest()==maintenance['files']['compact-vps-pause-memory.py']
+result['platform_revision']=platform_revision
+result['public_return']=public
+result['snapshot_maintenance']=maintenance
+result['nvme_free_bytes']=fs.f_bavail*fs.f_frsize
+result['data_disk_allocated_bytes']=st.st_blocks*512
 result['transfer_readiness']=pacing
 result['fleet_wake_validation']={'count':fleet_wakes['count'],'native_sha256':fleet_wakes['native_sha256']}
 print(json.dumps(result,indent=2))

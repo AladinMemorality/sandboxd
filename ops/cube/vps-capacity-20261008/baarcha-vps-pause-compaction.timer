@@ -1,0 +1,11 @@
+[Unit]
+Description=Reclaim unchanged memory blocks from idle VPS sandbox snapshots
+
+[Timer]
+OnBootSec=15min
+OnUnitInactiveSec=10min
+RandomizedDelaySec=2min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

@@ -1,5 +1,5 @@
 """Check remaining old checkpoints after a fresh fleet source backup; no model calls."""
-import argparse,importlib.util,json,os,pathlib,sqlite3,subprocess,time,hashlib
+import contextlib,argparse,importlib.util,json,os,pathlib,sqlite3,subprocess,time,hashlib
 from maintenance_account import account_maintenance
 P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');out=root/'fleet-wake-validation-01'
 spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
@@ -14,7 +14,17 @@ def tasks(sid):return rows('select task_id,status from task where sandbox_id=? o
 def bindings():return {r['sandbox_id']:r['runtime_id'] for r in rows('select sandbox_id,runtime_id from runtime_binding')}
 parser=argparse.ArgumentParser();parser.add_argument('--resume',action='store_true');parser.add_argument('--max-new',type=int,default=0);args=parser.parse_args();assert args.max_new>=0
 resume=args.resume
-with b.locked():
+@contextlib.contextmanager
+def operator_locks():
+ # Wait only before the operation starts; never replay a failed mutation.
+ deadline=time.monotonic()+1800
+ with contextlib.ExitStack() as stack:
+  while True:
+   try:stack.enter_context(b.locked());break
+   except BlockingIOError:
+    assert time.monotonic()<deadline,'Operator lock wait exceeded';time.sleep(2)
+  yield
+with operator_locks():
  native=json.loads((root/'full-pause-release-20261009/deployed.json').read_text());assert native['deployed'] and native['full_pause_snapshot_policy']
  actual=subprocess.check_output(ssh+['sha256sum /usr/local/services/cubetoolbox/Cubelet/bin/cubelet'],timeout=30).decode().split()[0];assert actual==native['cubelet_sha256']
  expected=json.loads((root/'supervisor-canary-2c7e700/passed.json').read_text())['receipt']['sha256']

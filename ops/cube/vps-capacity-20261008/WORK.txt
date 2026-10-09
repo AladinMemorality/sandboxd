@@ -800,3 +800,34 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
 - Native unit26 runs OS dedupe then bounded fleet checks/compaction. Current
   backup still136verified, coding queue0, no B200 operator connection. No
   automatic memory-compaction timer installed yet; finalacceptancepending.
+
+2026-10-09 18:47Z deployed public wake fix and continued VPS acceptance:
+- Platform main69936b5 passed CI type checks, full tests, build and browser
+  contracts. First deploy refused an active runtime-recovery job; a second
+  attempt refused the repair-agent job. Existing release remained healthy.
+  Scoped wrapper02 paused exactly the existing deployer's timers, allowed
+  in-flight jobs to finish, deployed69936b5 and restored every prior timer.
+  Receipt public-wake-deploy-02/complete.json. Subsequent CI deploy retry hit
+  the shared operator lock75 during OS dedupe; rerun once operations finish.
+- Real Chrome NOS and Derja cold/away/forced-stop/back tests both passed with
+  visible HTTPS app frames, expected text, zero page errors and no explicit
+  start error. Test-owned wakes returned to stopped state. Sanitized receipts
+  in results/public-return-20261009; screenshots inspected locally.
+- OS-image all-pairs unit26 was deliberately interrupted at pair009 after9
+  verified pairs. Exact pidfd/FD/log receipt retained. Resume27 validated all
+  metadata and interrupted contents, then resumed after platform deployment,
+  releasing locks between each remaining pair. It has now verified pair009.
+- Fleet batch28 reached88/136. Finish-fleet31 runs remaining16-case batches
+  with incremental compaction between them. First incremental pass verified47
+  current files and reclaimed7,140,126,720B. Current fleet progress90/136.
+- Compactor scheduled mode is staged, not enabled: nonblocking operator locks,
+  at most4 batches/32 files, unchanged snapshot IDs skipped, incomplete prior
+  generations require review. Pinning now occurs before hashing to tolerate
+  native GC retiring source names. Descriptor cleanup on failure preserves
+  review pins. Three filesystem tests cover GC before/after pin and corruption;
+  passed on macOS and VPS Linux with ResourceWarning treated as error.
+- Timer installer requires complete fleet and second50-preview acceptance,
+  pins exact script/unit hashes, and stages hourly discard on the inner VPS.
+  Units passed systemd-analyze verify (unrelated existing pdl-viewer warning).
+  Trim script, density generation07 and final audit remain pending. No B200
+  operator access, coding tasks or model load test.
