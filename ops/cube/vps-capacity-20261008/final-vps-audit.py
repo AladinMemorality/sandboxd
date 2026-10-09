@@ -23,7 +23,16 @@ with urllib.request.urlopen('http://127.0.0.1:9090/readyz',timeout=5) as r:asser
 def proof(name):return json.loads((root/name).read_text())
 assert proof('finish-vps-recovery-20/complete.json')['complete']
 assert proof('resume-retry-release-d5b07bb/deployed.json')['deleted_storage_grant_reconciled']
-deployed=proof('stop-state-release-eda67d2/deployed.json');assert deployed['deployed'] and deployed['image']==container['Image'] and deployed['stop_state_verified']
+deployed=proof('stop-state-release-eda67d2/deployed.json')
+source_release=root/'source-data-release-3b1a6f0/deployed.json'
+source_export=None
+if source_release.exists():
+ deployed=json.loads(source_release.read_text())
+ canary=proof('source-data-supervisor-canary-54/complete.json');maintenance=proof('source-data-maintenance-55/complete.json')
+ assert canary['passed'] and len(canary['results'])==2 and maintenance['enabled'] and canary['sha256']==maintenance['sha256']
+ assert all(v['passed'] and v['config_preserved'] and v['exported_source_module_sha256']=='d450e45fd957b2d4c4ee91b70340c82ebf4e58af6e3c459d1021d232bddc713b' for v in canary['results'])
+ source_export={'revision':'3b1a6f0','canary':canary,'maintenance':maintenance,'rollout':'awake guests; stopped guests upgrade on later activity'}
+assert deployed['deployed'] and deployed['image']==container['Image'] and deployed['stop_state_verified']
 native=proof('full-pause-release-20261009/deployed.json');assert native['deployed'] and native['full_pause_snapshot_policy']
 assert proof('full-pause-canary-01/complete.json')['passed']
 density=proof('real-preview-density-50-balanced-07/result.json');cleanup=proof('real-preview-density-50-balanced-07/cleanup.json')
@@ -65,6 +74,7 @@ for timer in ['baarcha-vps-pause-compaction.timer','baarcha-vps-source-backup.ti
  assert subprocess.check_output(['systemctl','is-active',timer],text=True).strip()=='active'
 import hashlib
 assert hashlib.sha256(pathlib.Path('/usr/local/libexec/baarcha-vps-pause-compaction.py').read_bytes()).hexdigest()==maintenance['files']['compact-vps-pause-memory.py']
+result['source_export_fix']=source_export
 result['platform_revision']=platform_revision
 result['public_return']=public
 result['snapshot_maintenance']=maintenance
