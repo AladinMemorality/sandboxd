@@ -32,6 +32,9 @@ func (s *Server) CubeHandler(ctx context.Context) (http.Handler, error) {
 	mux.HandleFunc("GET /sandboxes", s.observe("GET /sandboxes", s.handleList))
 	// Keep the read-only platform admin response shape without Docker inspect.
 	mux.HandleFunc("GET /sandbox/{id}", s.observe("GET /v1/sandboxes/{id}", s.cubeControllerGet))
+	// Bounded metadata-only keepalive: retain the existing operator API without
+	// introducing any legacy host execution or implicit sandbox startup path.
+	mux.HandleFunc("POST /sandbox/{id}/keepalive", s.observe("POST /sandbox/{id}/keepalive", s.handleKeepalive))
 	mux.HandleFunc("GET /preview-auth", s.handlePreviewAuth)
 	mux.HandleFunc("GET /forward-auth", s.handleForwardAuth)
 	mux.HandleFunc("POST /preview-gateway", s.handlePreviewGateway)

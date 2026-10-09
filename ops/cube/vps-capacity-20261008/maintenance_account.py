@@ -1,6 +1,39 @@
 """Hold platform account locks only for the explicitly selected maintenance apps."""
-import contextlib,json,pathlib,select,subprocess,time
+import contextlib,json,pathlib,select,sqlite3,subprocess,threading,time,urllib.request
 ROOT=pathlib.Path('/opt/baarcha/operations/vps-50-profiles-20261008')
+def keepalive_value(sid):
+    with contextlib.closing(sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True)) as db:
+        return db.execute('select keepalive_until from sandbox where id=?',(sid,)).fetchone()[0]
+@contextlib.contextmanager
+def active_maintenance(ids,journal):
+    env=dict(x.split('=',1) for x in json.loads(subprocess.check_output(['docker','inspect','src-sandboxd-1']))[0]['Config']['Env'])
+    token=env['SANDBOXD_API_TOKENS'].split(',')[0].split('=',1)[1]
+    before={sid:keepalive_value(sid) for sid in ids};owned={};stop=threading.Event();failed=[]
+    (journal/'keepalive-before.json').write_text(json.dumps(before))
+    def set_until(sid,until):
+        request=urllib.request.Request('http://127.0.0.1:9090/sandbox/'+sid+'/keepalive',method='POST',data=json.dumps({'until':until}).encode(),headers={'Authorization':'Bearer '+token,'Content-Type':'application/json'})
+        with urllib.request.urlopen(request,timeout=10) as response:
+            assert response.status==200
+            return json.load(response)['keepalive_until']
+    def renew():
+        for sid in ids:
+            current=keepalive_value(sid);until=int(time.time())+900
+            if (current or 0)>=until:continue
+            owned[sid]=set_until(sid,until)
+    def heartbeat():
+        while not stop.wait(60):
+            try:renew()
+            except BaseException as error:failed.append(type(error).__name__);return
+    thread=None
+    try:
+        renew();thread=threading.Thread(target=heartbeat,daemon=True);thread.start()
+        yield
+        assert not failed,'Maintenance keepalive renewal failed'
+    finally:
+        stop.set()
+        if thread:thread.join(timeout=520);assert not thread.is_alive()
+        for sid,value in owned.items():
+            if keepalive_value(sid)==value:set_until(sid,max(before[sid] or 0,int(time.time())+1))
 @contextlib.contextmanager
 def account_maintenance(ids, journal):
     assert ids and len(ids)<=50 and len(set(ids))==len(ids)
@@ -19,7 +52,7 @@ def account_maintenance(ids, journal):
                 if line.startswith(b'MAINTENANCE_READY='):
                     value=json.loads(line.split(b'=',1)[1]);assert value['sandboxes']==ids
                     break
-            yield
+            with active_maintenance(ids,journal):yield
         finally:
             process.stdin.close();process.stdin=None
             try:
