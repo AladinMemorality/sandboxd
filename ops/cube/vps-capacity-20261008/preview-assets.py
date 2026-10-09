@@ -26,3 +26,11 @@ def imports(path,source):
     assert result.returncode==0,'JavaScript module parse failed'
     specs=json.loads(result.stdout)
     return list(dict.fromkeys(p for spec in specs if (p:=local_module(path,spec))))
+
+def guest_memory(runtime_id):
+    # Root-only read of counters inside this VPS guest, with no application JS.
+    assert len(runtime_id)==32 and all(c in '0123456789abcdef' for c in runtime_id)
+    guest="import pathlib,json;p=pathlib.Path;m={l.split(':',1)[0]:int(l.split()[1])*1024 for l in p('/proc/meminfo').read_text().splitlines()};v=dict(l.split() for l in p('/proc/vmstat').read_text().splitlines());print('RUNTIME_RECEIPT='+json.dumps({'oom_kill':int(v['oom_kill']),'available_bytes':m['MemAvailable'],'total_bytes':m['MemTotal']}))"
+    inner="import sys,json;sys.path.insert(0,'/opt/baarcha-vps-process-recovery-a583d45');import worker; print(json.dumps(worker.execute("+repr(runtime_id)+","+repr(guest)+",'probe',b'')))"
+    ssh=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','root@127.0.0.1']
+    return json.loads(subprocess.check_output(ssh+['python3 -'],input=inner.encode(),timeout=45))

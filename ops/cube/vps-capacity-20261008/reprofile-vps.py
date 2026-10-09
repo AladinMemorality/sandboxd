@@ -70,7 +70,8 @@ class LocalWorker(transport.Worker):
    queue.extend(p for p in assets.imports(path,data) if p not in seen)
   after=self.control('GET','/status')
   assert not after['active_task'] and all(p['running'] and p['restarts']==restarts[p['name']] for p in after['processes'])
-  save('module-health-'+str(time.time_ns())+'.json',{'passed':True,'modules':len(seen),'bytes':total,'seconds':time.monotonic()-began,'model_calls':False})
+  memory=assets.guest_memory(self.job['runtime_id']);assert memory['oom_kill']==0,'Guest OOM during compilation'
+  save('module-health-'+str(time.time_ns())+'.json',{'passed':True,'memory':memory,'modules':len(seen),'bytes':total,'seconds':time.monotonic()-began,'model_calls':False})
  def verify(self):
   proof=super().verify();self.application_checks();return proof
 @contextlib.contextmanager

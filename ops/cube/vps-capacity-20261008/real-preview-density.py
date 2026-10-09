@@ -94,7 +94,8 @@ with b.locked():
             queue.extend(p for p in assets.imports(path,data) if p not in seen)
         state=worker.control('GET','/status')
         assert not state['active_task'] and all(p['running'] and p['restarts']==restarts[p['name']] for p in state['processes']),'Process restarted during module compilation'
-        warmed.append({'sandbox_id':row['sandbox_id'],'modules':len(seen),'bytes':total,'seconds':time.monotonic()-began})
+        memory=assets.guest_memory(row['runtime_id']);assert memory['oom_kill']==0,'Guest OOM during preview load'
+        warmed.append({'memory':memory,'sandbox_id':row['sandbox_id'],'modules':len(seen),'bytes':total,'seconds':time.monotonic()-began})
         save('module-warmup.json',warmed)
     def interrupted(*args):raise KeyboardInterrupt('operator interrupted preview test')
     signal.signal(signal.SIGTERM,interrupted)

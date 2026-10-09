@@ -366,3 +366,36 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
 - Model/coding-agent load tests remain deferred. Original backups are retained;
   daily VPS source backups are enabled. A fresh full generation should follow
   the migrations to capture the new bindings.
+
+2026-10-09 00:10Z real-preview memory validation:
+- The 50-real-preview attempt stopped on its first 512 MiB guest: HTML passed,
+  but React's optimized JavaScript returned 502. Guest dmesg confirmed repeated
+  esbuild OOM kills. Cleanup preserved bindings and existing running apps.
+  Do not use the earlier 50-starter-VM result as evidence for real app previews.
+- Built/enrolled tpl-3c4e83ebf6c641f293c0e816: 768 MiB, 1 vCPU, 4 GiB writable,
+  static supervisor a583d45. Same-worker reprofile now requires an explicit,
+  different enrolled runtime profile and the existing stopped/released source.
+  Store and relocation tests pass; commit/abort preserve identity and fences.
+- Canary 01M16MV7KZSF3YNAJ1VKWKYED5 moved using a fresh current-state export,
+  including newly created owner home directories. Exact workspace/home/history
+  verification passed before startup. Both 41-module/3.87 MB checks passed;
+  stop/wake took 1.129 seconds. Old runtime remains paused and quarantined.
+- Replaced regex dependency discovery with pinned Acorn 8.15.0: parse code as
+  data, never evaluate it. A React documentation comment had produced a false
+  MyComponent import. Tests cover real static/dynamic imports, comments,
+  strings, regular expressions, and refusing external/API paths.
+- The 48 remaining 512 MiB upgrades started sequentially. Two completed before
+  pausing the next item for lifecycle deployment. No model/agent calls.
+- Default/budget deployment rolled back because retained old VPS runtimes were
+  absent from the lifecycle inventory allowlist. Fixed worker lifecycle tools
+  to recognize completed relocation sources only when exact released source
+  reservation, quarantine and unbound status still match. Native observation
+  still refuses a running or unknown retained runtime. Store/workerstop tests
+  passed. Revision 4b502b6 built for VPS deployment; retry pending here.
+- Native memory ceiling is now 45 GiB inside the unchanged 48 GiB worker.
+  Planned admission budget also 45 GiB, including 128 MiB overhead per VM;
+  CPU reservations remain 9000m and runtime slots 50. This accommodates 49
+  768 MiB previews plus one 2 GiB existing app. It is not yet a measured result.
+- Real density tester now includes VM overhead in planning and worker-level
+  pressure/OOM counters. Each subsequent profile/restore also checks guest OOM
+  counters after loading its local JavaScript graph. B200 remains untouched.

@@ -5,7 +5,7 @@ The controller is stopped while its immutable durable contract is extended.
 """
 import contextlib,copy,hashlib,importlib.util,json,os,pathlib,signal,sqlite3,subprocess,time,urllib.request
 P=pathlib.Path;os.umask(0o077)
-root=P('/opt/baarcha/operations/vps-50-profiles-20261008');release=root/'balanced-default-release'
+root=P('/opt/baarcha/operations/vps-50-profiles-20261008');release=root/'balanced-default-release-02'
 BASE='sha256:0d4db42569301df88087823bd40046f090c033bc564ee99c81e41e7f9650c8ab'
 spec=importlib.util.spec_from_file_location('maintenance','/usr/local/libexec/baarcha-cube-maintenance.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);b=m.b
 def run(args):return subprocess.check_output(args,stderr=subprocess.STDOUT,timeout=180)
@@ -68,7 +68,7 @@ with b.locked():
     old_render=json.loads(compose('config','--format','json'));candidate=before['Image']
     online=b.strict(b.http('/config/',2019));scope=json.loads((root/'vps-resize-plan.PRIVATE.json').read_text())['routing'];scope['online_sha256']=hashlib.sha256(json.dumps(online,sort_keys=True,separators=(',',':')).encode()).hexdigest();routes=m.routing_variants(online,scope)
     put(release/'routing-before.PRIVATE.json',online)
-    helpers={}
+    helpers={P('/usr/local/libexec/baarcha-'+name):root/'lifecycle-retained-4b502b6'/name for name in ['cube-worker-start','cube-worker-stop']}
     for path in helpers:subprocess.run(['cp','-p',str(path),str(release/(path.name+'.before'))],check=True)
     timers={name:run(['systemctl','show',name,'-p','ActiveState','--value']).decode().strip() for name in b.TIMERS};put(release/'timers-before.json',timers)
     stopped=False;contract_changed=False
@@ -98,7 +98,7 @@ with b.locked():
         for name,state in timers.items():
             if state=='active':run(['systemctl','start',name])
         route(online)
-        result={'deployed':True,'revision':'a583d45','image':candidate,'template_id':template,'memory_budget_mb':46080,'worker_memory_mb':49152,'runtime_slots':50,'cpu_millis':9000,'new_react_memory_mb':768,'bindings_preserved':len(baseline),'coding_queue_enabled':False,'b200_contacted':False}
+        result={'deployed':True,'revision':'4b502b6','image':candidate,'template_id':template,'memory_budget_mb':46080,'worker_memory_mb':49152,'runtime_slots':50,'cpu_millis':9000,'new_react_memory_mb':768,'bindings_preserved':len(baseline),'coding_queue_enabled':False,'b200_contacted':False}
         put(release/'deployed.json',result);print(json.dumps(result),flush=True)
     except BaseException:
         if stopped:
