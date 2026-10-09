@@ -38,7 +38,7 @@ with stack:
    except (OSError,RuntimeError,AssertionError):assert time.monotonic()<deadline;time.sleep(1)
  try:
   api('start');healthy()
-  result=subprocess.run(ssh+['python3','/opt/baarcha-vps-export-recovery-2c7e700/worker.py','--container',runtime],capture_output=True,timeout=260)
+  result=subprocess.run(ssh+['python3','/opt/baarcha-vps-export-recovery-2c7e700/worker.py','--container',runtime],capture_output=True,timeout=460)
   (out/'native-output.log').write_bytes(result.stdout+result.stderr);assert result.returncode==0
   receipts=[json.loads(l) for l in result.stdout.splitlines()];assert len(receipts)==1 and receipts[0]['status']=='updated' and receipts[0]['config_preserved']
   healthy();api('stop');began=time.monotonic();api('start');wake=time.monotonic()-began;healthy()

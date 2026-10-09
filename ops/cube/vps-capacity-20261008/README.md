@@ -9,7 +9,7 @@ VPS; they are excluded from this repository.
 
 ## Verified results
 
-- Worker: 48 GiB RAM, 12 virtual CPUs; XFS data disk grown to 672 GiB with discard.
+- Worker: 48 GiB RAM, 12 virtual CPUs; XFS data disk grown to 728 GiB with discard.
 - Admission: 45 GiB memory budget (including 128 MiB VM overhead per runtime), 50 runtime slots and two dedicated builder-VM
   slots. Builder-VM slots are independent of coding-task concurrency.
 - Density: 50 temporary starter sandboxes plus one customer sandbox served
@@ -21,7 +21,7 @@ VPS; they are excluded from this repository.
 - Discard reclaimed 103.34 GiB of physical storage. Verified MySQL backup and
   binlog archival reclaimed 54.70 GiB inside the worker. Daily MySQL backups
   have a 14-day retention policy with at least two complete backups retained.
-- Controller `7745f34` is deployed. Its durable coding queue remains disabled
+- Controller `f41e186` is deployed. Its durable coding queue remains disabled
   (`SANDBOXD_CUBE_TASK_CONCURRENCY=0`). Tests use local mocks; no live agent load
   test is implied by queue acceptance.
 - Derja is restored on the VPS and passed browser away/back navigation.
@@ -80,8 +80,8 @@ passed full module serving at 1 GiB. Migration runners can promote a target to
 unused target is discarded through the guarded CLI and source data is kept.
 These profiles are limits, not measured resident usage.
 
-`parallel-migrations.py` runs two independent archive transfers with the parent
-operator locks continuously inherited by both children, including profile
+`parallel-migrations.py` runs up to four independent archive transfers with the parent
+operator locks continuously inherited by all children, including profile
 promotion via exec. `migration_lifecycle.py` serializes their short provider
 mutations to respect native creation concurrency and the pending-create ledger.
 
@@ -115,3 +115,31 @@ operator review. `cube-relocate connect-target` verifies the retained source
 binding, target metadata and fenced journal before admitted resume. Commit
 checks the completed connect receipt and CASes the new active target admission
 token. Unknown provider outcomes still require explicit reconciliation.
+
+## October 9 runtime recovery
+
+All 49 original 512 MiB VPS profiles were replaced with verified fresh-state
+768 MiB or 1 GiB runtimes. Production-bundle assets and safe local HTML redirects
+are supported by the preview checks. Source runtimes and archives remain retained.
+
+The owner-scoped Cube keepalive route is deployed. Migration maintenance renews
+only its selected sandboxes, avoiding idle-reaper interruptions while retaining
+normal account enforcement elsewhere. Two orphaned export sockets were repaired
+with exact descriptor shutdown; no source process or data was replaced.
+
+Supervisor `2c7e700` releases workspace locks before transmitting completed
+workspace/home archives and bounds network reads/writes. Its isolated guest
+regression tests and VPS stop/wake canary passed. New restores and the density
+test install this static build. The updater now waits for its lock with a bound
+and reports contention explicitly; parallel migrations no longer receive a
+silent empty result.
+
+The stored VM ceiling is 512 to retain recovery copies. Running slots remain 50,
+RAM reservations 45 GiB including VM overhead, CPU reservations 9000m. This stored
+limit is not a claim about 512 active VMs. See sanitized rollout receipts here.
+
+The native 65% disk-use guard rejected a create before allocation after 112 apps
+were restored. Verified request/operation evidence permits one bounded retry.
+The VPS XFS data disk grew online from 672 to 728 GiB, preserving boot identity
+and leaving over 128 GiB physical NVMe headroom even at full allocation.
+The disk-use threshold and memory/CPU admission limits remain unchanged.

@@ -4,6 +4,16 @@ import argparse, fcntl, hashlib, json, os, pathlib, pty, re, select, subprocess,
 from guest import require_static_supervisor
 P=pathlib.Path;ROOT=P('/opt/baarcha-published-runtime')
 
+def acquire_update_lock(lock, timeout=180):
+    deadline=time.monotonic()+timeout
+    while True:
+        try:
+            fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
+            return True
+        except BlockingIOError:
+            if time.monotonic()>=deadline:return False
+            time.sleep(min(.25,max(0,deadline-time.monotonic())))
+
 def execute(cid,guest,config,binary):
     master,slave=pty.openpty()
     args=['ctr','--address','/data/cubelet/cubelet.sock','--namespace','default','tasks','exec','--tty','--exec-id','published-'+uuid.uuid4().hex,'--user','0',cid,'/usr/bin/python3','-c',guest,config]
@@ -33,8 +43,9 @@ def execute(cid,guest,config,binary):
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--probe',action='store_true');parser.add_argument('--container');args=parser.parse_args()
     with open(ROOT/'update.lock','a+') as lock:
-        try:fcntl.flock(lock,fcntl.LOCK_EX|fcntl.LOCK_NB)
-        except BlockingIOError:return
+        if not acquire_update_lock(lock,180 if args.container else 0):
+            print(json.dumps({'runtime_id':args.container,'status':'busy','reason':'update_lock_timeout'}),flush=True)
+            return
         guest=(ROOT/'guest.py').read_text();binary=b'';config='probe'
         if not args.probe:
             cfg=json.loads((ROOT/'release.json').read_text());binary=(ROOT/'runtimed').read_bytes()

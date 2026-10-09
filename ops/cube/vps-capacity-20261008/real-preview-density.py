@@ -112,7 +112,7 @@ with b.locked():
                 guard();started.append(row['sandbox_id']);save('start-intents.json',started)
                 api(row['sandbox_id'],'start')
                 own_activity[row['sandbox_id']]=rows('select last_active_at from sandbox where id=?',(row['sandbox_id'],))[0]['last_active_at']
-                update=subprocess.run(SSH+['python3','/opt/baarcha-vps-export-recovery-2c7e700/worker.py','--container',row['runtime_id']],capture_output=True,timeout=260)
+                update=subprocess.run(SSH+['python3','/opt/baarcha-vps-export-recovery-2c7e700/worker.py','--container',row['runtime_id']],capture_output=True,timeout=460)
                 receipts=[json.loads(line) for line in update.stdout.splitlines()]
                 assert update.returncode==0 and len(receipts)==1 and receipts[0]['status'] in ('updated','current'),'Supervisor update requires reconciliation'
                 save(row['sandbox_id']+'-supervisor.json',receipts[0])

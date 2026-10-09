@@ -38,7 +38,7 @@ while True:
  time.sleep(5)
 subprocess.run([str(root/'artifact-validator'),str(prepared)],check=True,capture_output=True,timeout=180)
 job=root/'recovery-moves'/('vps-restore-'+sid.lower()+('-'+attempt if attempt else ''))
-BIN=root/'cube-relocate-package-recovery';migrations=root/'queue-release-d463b2d/source/control-plane/migrations'
+BIN=root/'observe-release-e261aac/cube-relocate';migrations=root/'queue-release-d463b2d/source/control-plane/migrations'
 def save(name,value):b.atomic(job/name,b.encoded(value))
 def rows(query,args=()):
  with contextlib.closing(sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True,timeout=10)) as db:
@@ -124,18 +124,22 @@ def wait_for_operator():
    stack.close();time.sleep(2)
  with stack:yield
 with wait_for_operator():
- job.mkdir(mode=0o700,parents=True,exist_ok=False)
+ assert sid=='01M39MX85MJJ1HNGVAY4W3RQZH' and job.is_dir()
+ assert 'Supervisor update requires reconciliation' in (root/'parallel-restore-05'/(sid+'.PRIVATE.log')).read_text()
+ assert not (job/'complete.json').exists() and not (job/'resume-intent-02.json').exists()
+ save('resume-intent-02.json',{'at':time.time(),'known_update_lock_rejection':True})
  with account_maintenance([sid],job):
   try:
    row=rows("select s.status,s.web_port,b.runtime_id,b.config_revision,a.worker_id,p.charged,p.state from sandbox s join runtime_binding b on b.sandbox_id=s.id join cube_admission p on p.runtime_id=b.runtime_id join cube_admission a on a.admission_key=p.admission_key where s.id=? and p.state<>'deleted'",(sid,))[0]
-   assert row['status']=='stopped' and row['runtime_id']==source['runtime_id'] and row['worker_id']=='b200-01' and row['charged']==0 and row['state']=='released'
+   assert row['status'] in ('stopped','error') and row['runtime_id']==source['runtime_id'] and row['worker_id']=='b200-01' and row['charged']==0 and row['state']=='released'
    tasks=[r['task_id'] for r in rows('select task_id from task where sandbox_id=? order by task_id',(sid,))];assert tasks==source['task_ids']
    open_journals=rows("select id from cube_relocation where phase='fenced'")
-   assert not open_journals or (batch_scope and all(r['id'] in {j for e in batch_scope['selected'] for j in e['journals']} for r in open_journals)),'Unrelated relocation in progress'
+   assert open_journals==[{'id':job.name}], 'Unrelated relocation in progress'
    save('export-result.PRIVATE.json',source)
    save('scope.json',{'sandbox_id':sid,'source_worker':'b200-01','target_worker':'vps','source_archive_sha256':source['source_archive_sha256'],'source_contacted':False,'at':time.time()})
-   cli('fence',SandboxID=sid,ExpectedRuntime=source['runtime_id'],TargetWorker='vps',TargetTemplate=templates[profile])
-   cli('create')
+   prior=json.loads((job/'worker-job.PRIVATE.json').read_text())
+   assert not (transport.Worker(prior).root/'restore-intent').exists(),'An import already started; review required'
+   cli('connect-target')
    target=json.loads((job/'target.PRIVATE.json').read_text());runtime=target['Runtime']['sandboxID'] if 'sandboxID' in target['Runtime'] else target['Runtime'].get('sandbox_id')
    assert runtime,'target provider identity missing'
    request={'worker':'vps','id':job.name,'sandbox_id':sid,'runtime_id':runtime,'headers':{'Host':'3031-'+runtime+'.'+target['Relocation']['Domain'],'Authorization':'Bearer '+target['supervisor_token'],'cube-traffic-access-token':target['traffic_access_token']},'source':source,'receipts':source['artifacts'],'env':target['Env'],'config_revision':row['config_revision'],'web_port':row['web_port'] or 3000}
@@ -170,7 +174,7 @@ with wait_for_operator():
    assert rows("select worker_id,state,charged from cube_admission where runtime_id=?",(runtime,))==[{'worker_id':'vps','state':'released','charged':0}]
    result={'restored':True,'sandbox_id':sid,'worker':'vps','profile':profile,'source_contacted':False,'same_project_identity':True,'wake_seconds':wake,'all_content_verified':True,'source_retained':True,'at':time.time()};save('complete.json',result);print(json.dumps(result),flush=True)
   except BaseException as error:
-   save('failed.json',{'error':type(error).__name__,'reason':str(error)[:512],'line':traceback.extract_tb(error.__traceback__)[-1].lineno,'at':time.time(),'source_retained':True})
+   save('resume-lock-failed-02.json',{'error':type(error).__name__,'reason':str(error)[:512],'line':traceback.extract_tb(error.__traceback__)[-1].lineno,'at':time.time(),'source_retained':True})
    if profile in ('balanced','standard') and 'worker' in globals() and (worker.root/'content-verified.json').exists() and rows('select phase from cube_relocation where id=?',(job.name,))==[{'phase':'fenced'}] and rows('select runtime_id from runtime_binding where sandbox_id=?',(sid,))==[{'runtime_id':source['runtime_id']}]:
     memory=assets.guest_memory(runtime);save('failed-guest-memory.json',memory)
     if memory['oom_kill']>0:

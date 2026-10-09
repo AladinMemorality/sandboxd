@@ -11,7 +11,7 @@ def rows(query,args=()):
  with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
   db.row_factory=sqlite3.Row;return [dict(r) for r in db.execute(query,args)]
 with b.locked():
- assert json.loads((root/'finish-vps-recovery-09/complete.json').read_text())['complete']
+ assert json.loads((root/'finish-vps-recovery-11/complete.json').read_text())['complete']
  canary=json.loads((root/'supervisor-canary-2c7e700/passed.json').read_text());assert canary['passed'];expected=canary['receipt']['sha256']
  assert not rows("select id from cube_relocation where phase='fenced'") and not rows("select admission_key from cube_admission where state='pending'")
  assert not rows("select task_id from task where status in ('running','queued')")
@@ -46,7 +46,7 @@ with b.locked():
        assets.page(worker.origin,{**headers,'Host':headers['Host'].replace('3031-',str(row['web_port'] or 3000)+'-',1)},timeout=10);return
       except (OSError,RuntimeError,AssertionError):assert time.monotonic()<deadline;time.sleep(1)
     healthy()
-    update=subprocess.run(ssh+['python3','/opt/baarcha-vps-export-recovery-2c7e700/worker.py','--container',runtime],capture_output=True,timeout=260)
+    update=subprocess.run(ssh+['python3','/opt/baarcha-vps-export-recovery-2c7e700/worker.py','--container',runtime],capture_output=True,timeout=460)
     b.atomic(job/'update.PRIVATE.log',update.stdout+update.stderr)
     receipts=[json.loads(line) for line in update.stdout.splitlines()]
     assert update.returncode==0 and len(receipts)==1 and receipts[0]['status'] in ('updated','current') and receipts[0]['sha256']==expected
