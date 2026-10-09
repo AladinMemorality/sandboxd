@@ -27,7 +27,7 @@ while True:
 attempt=sys.argv[2] if len(sys.argv)>2 else '01'
 assert attempt.isalnum() and len(attempt)<=8
 job=root/'recovery-moves'/('vps-reprofile-'+sid.lower()+'-768-'+attempt)
-BIN=root/'cube-relocate-reprofile';migrations=root/'queue-release-d463b2d/source/control-plane/migrations'
+BIN=root/'cube-relocate-connect-target';migrations=root/'queue-release-d463b2d/source/control-plane/migrations'
 def save(name,value):b.atomic(job/name,b.encoded(value))
 def rows(query,args=()):
  with contextlib.closing(sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True,timeout=10)) as db:
@@ -97,7 +97,8 @@ def wait_for_operator():
 with wait_for_operator(),account_maintenance([sid],job):
  assert sid=='01M2JY1NNJZZ05FPC6M464Q86G' and attempt=='01'
  assert json.loads((job/'failed.json').read_text())['error']=='CalledProcessError'
- assert not (job/'probe-resume-intent.json').exists()
+ assert json.loads((job/'probe-resume-failed.json').read_text())['reason']=="('GET', '/status', 503)"
+ assert not (job/'connect-target-intent.json').exists()
  assert rows('select phase from cube_relocation where id=?',(job.name,))==[{'phase':'fenced'}]
  request=json.loads((job/'worker-job.PRIVATE.json').read_text());runtime=request['runtime_id']
  worker=LocalWorker(request)
@@ -105,6 +106,7 @@ with wait_for_operator(),account_maintenance([sid],job):
  assert proof['RuntimeID']==runtime and proof['RelocationID']==job.name and proof['ApplicationReady'] and proof['WorkspaceVerified'] and proof['HomeVerified'] and proof['HistoryVerified']
  save('probe-resume-intent.json',{'at':time.time(),'read_only_probe_retry':True})
  try:
+  cli('connect-target')
   worker.application_checks();save('verified.json',proof)
   cli('commit')
   env=dict(x.split('=',1) for x in json.loads(subprocess.check_output(['docker','inspect','src-sandboxd-1']))[0]['Config']['Env']);token=env['SANDBOXD_API_TOKENS'].split(',')[0].split('=',1)[1]
