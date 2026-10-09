@@ -1,6 +1,6 @@
 """Wait for user work, then execute the reviewed VPS rollout and acceptance once."""
 import contextlib,json,os,pathlib,sqlite3,subprocess,time
-P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');out=root/'full-pause-followthrough-01';out.mkdir(mode=0o700)
+P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');out=root/'full-pause-followthrough-02';out.mkdir(mode=0o700)
 def save(name,v):(out/name).write_text(json.dumps(v)+'\n')
 def quiet():
  with contextlib.closing(sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True)) as db:

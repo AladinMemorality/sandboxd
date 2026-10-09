@@ -1,7 +1,7 @@
 """Drain VPS mutations and replace only the tested Cubelet process."""
 import contextlib,copy,hashlib,importlib.util,json,os,pathlib,shlex,signal,sqlite3,subprocess,time,urllib.request
 P=pathlib.Path;os.umask(0o077)
-root=P('/opt/baarcha/operations/vps-50-profiles-20261008');artifacts=root/'full-pause-release-20261009';artifacts.mkdir(mode=0o700,exist_ok=True);release=artifacts/'deploy-01';release.mkdir(mode=0o700)
+root=P('/opt/baarcha/operations/vps-50-profiles-20261008');artifacts=root/'full-pause-release-20261009';artifacts.mkdir(mode=0o700,exist_ok=True);release=artifacts/'deploy-02';release.mkdir(mode=0o700)
 BASE='sha256:028b53215b95194140bfbb0356e1d6e1e1cee47f8b42a2fe5e21f7d1966e70aa'
 KEY='app:01M1HH5DJRG3C8HDJ2553XR2S1';RUNTIME='63dbec13950f4568b45731328de593f7'
 spec=importlib.util.spec_from_file_location('maintenance','/usr/local/libexec/baarcha-cube-maintenance.py');m=importlib.util.module_from_spec(spec);spec.loader.exec_module(m);b=m.b
@@ -75,7 +75,9 @@ with b.locked():
         native_good=True
     finally:
         if stopped:
-            run(['docker','start',before['Id']]);run(['docker','update','--restart=unless-stopped',before['Id']]);ready()
+            run(['docker','start',before['Id']]);run(['docker','update','--restart=unless-stopped',before['Id']])
+            compose('up','-d','--no-deps','--no-build','--pull','never','--force-recreate','cube-management-api','cube-management-proxy','cube-management-master','cube-management-b200-proxy')
+            ready()
         with database() as db:quiet(db,False);assert bindings(db)==baseline
         observation=json.loads(run(['/usr/local/libexec/baarcha-cube-worker-start','--observe']));assert observation['consistent'];put(release/'observation.json',observation)
         for name,state in timers.items():

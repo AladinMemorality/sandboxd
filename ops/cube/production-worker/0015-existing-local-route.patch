@@ -1,0 +1,11 @@
+--- a/scripts/cube-egress/cube-proxy-iptables-init.sh
++++ b/scripts/cube-egress/cube-proxy-iptables-init.sh
+@@ -191,7 +191,7 @@
+         fi
+     done
+ 
+-    if ! ip route show table "${ROUTE_TABLE}" | grep -q "local 0.0.0.0/0 dev lo"; then
++    if ! ip route show table "${ROUTE_TABLE}" | grep -qE '^local (default|0\.0\.0\.0/0) dev lo([[:space:]]|$)'; then
+         ip route add local 0.0.0.0/0 dev lo table "${ROUTE_TABLE}"
+     fi
+ }

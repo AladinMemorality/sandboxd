@@ -1,7 +1,7 @@
 """Install the exact tested Cubelet only; preserve every existing guest process."""
-import fcntl,hashlib,importlib.util,json,os,pathlib,subprocess,time
+import fcntl,hashlib,importlib.util,json,os,pathlib,subprocess,time,signal
 P=pathlib.Path;os.umask(0o077)
-r=P('/root/vps-full-pause-20261009-02');out=r/'install-01';out.mkdir(mode=0o700)
+r=P('/root/vps-full-pause-20261009-02');out=r/'install-02';out.mkdir(mode=0o700)
 oldsha='de3bd4c1a4db12c11d58cf7f558589f04ab4b3d736d4e72a947d45b8343bef9b'
 newsha='43d8c020a949569aa546f2eebea5d632c17ba1231b7c330fd4c31d7a4f72337f'
 unit='cube-sandbox-cubelet.service';binary=P('/usr/local/services/cubetoolbox/Cubelet/bin/cubelet');config=P('/etc/baarcha-cube/lifecycle.json')
@@ -30,25 +30,45 @@ run(['/usr/bin/python3','/usr/local/libexec/baarcha-cube-worker-lifecycle.py','n
 original=config.read_bytes();cfg=json.loads(original);assert cfg['binaries']['cubelet']=={'path':str(binary),'sha256':oldsha}
 old=binary.read_bytes();new=(r/'cubelet-candidate').read_bytes();(out/'cubelet-before').write_bytes(old);(out/'cubelet-before').chmod(0o700);(out/'lifecycle-before.PRIVATE.json').write_bytes(original)
 before=guests();assert before,'Expected existing production guest'
+assert json.loads((r/'direct-stop-witness.json').read_text())['passed']
+dependents=['cube-sandbox-cube-egress.service','cube-sandbox-cube-egress-net.service']
+def dependency_state():
+ return {u:run(['systemctl','show',u,'-p','ActiveState','-p','MainPID']).decode() for u in dependents}
+deps=dependency_state();assert all('ActiveState=active' in v for v in deps.values())
+assert not run(['systemctl','show',unit,'-p','BoundBy','--value']).strip()
+
 save('intent.json',{'old_sha256':oldsha,'new_sha256':newsha,'guest_processes_before':before,'at':time.time()})
 override=P('/run/systemd/system/'+unit+'.d/zz-full-pause-maintenance.conf');assert not override.exists()
 def install(data,configuration):
  # TERM only, main process only. Never use the whole-worker stop hook or KILL.
  override.parent.mkdir(parents=True,exist_ok=True)
  override.write_text('[Service]\nExecStop=\nKillMode=process\nSendSIGKILL=no\nTimeoutStopSec=infinity\nRestart=no\n')
- run(['systemctl','daemon-reload']);run(['systemctl','stop','--no-block',unit]);deadline=time.monotonic()+60
+ run(['systemctl','daemon-reload'])
+ # A systemd StopUnit job cascades to Requires dependents. Signal the exact
+ # reviewed main process instead: Requires (without BindsTo) preserves them
+ # when the required service exits on its own. Tested on this worker first.
+ pid=int(run(['systemctl','show',unit,'-p','MainPID','--value']))
+ if pid:
+  assert P('/proc',str(pid),'exe').resolve(strict=True)==binary
+  assert hashlib.sha256(P('/proc',str(pid),'exe').read_bytes()).hexdigest() in (oldsha,newsha)
+  fd=os.pidfd_open(pid)
+  try:signal.pidfd_send_signal(fd,signal.SIGTERM)
+  finally:os.close(fd)
+ deadline=time.monotonic()+60
  while True:
   state=dict(v.split('=',1) for v in run(['systemctl','show',unit,'-p','ActiveState','-p','MainPID']).decode().splitlines())
   if state=={'MainPID':'0','ActiveState':'inactive'}:break
   assert time.monotonic()<deadline,'Graceful stop pending; no escalation permitted'
   time.sleep(.25)
  assert guests()==before,'Guest processes changed during management stop'
+ assert dependency_state()==deps,'Dependent service changed during Cubelet exit'
  if not (out/'persistent-metadata-before.PRIVATE').exists():
   run(['cp','-a','--reflink=auto','/data/cubelet/persistent-metadata',str(out/'persistent-metadata-before.PRIVATE')],60)
  atomic(binary,data,0o755);atomic(config,configuration,0o600)
  override.unlink();run(['systemctl','daemon-reload']);run(['systemctl','start',unit],90)
  run(['/usr/bin/python3','/usr/local/libexec/baarcha-cube-worker-lifecycle.py','nested-ready'])
  assert guests()==before,'Guest processes changed during management start'
+ assert dependency_state()==deps,'Dependent service changed during Cubelet start'
 try:
  cfg['binaries']['cubelet']['sha256']=newsha
  if str(binary) in cfg['artifacts']:
