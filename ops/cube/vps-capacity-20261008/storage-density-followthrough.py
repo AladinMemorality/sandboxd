@@ -33,7 +33,7 @@ try:
  # Give the independent storage observer time to publish the new filesystem size.
  time.sleep(35)
  run('density-and-backup','finish-vps-recovery.py',9*3600)
- run('supervisors','upgrade-remaining-supervisors.py',2*3600)
+ run('supervisors','upgrade-remaining-supervisors.py',9*3600)
  run('audit','final-vps-audit.py',120)
  (out/'complete.json').write_text(json.dumps({'complete':True,'b200_contacted':False,'model_calls':False,'at':time.time()}))
 except BaseException as error:

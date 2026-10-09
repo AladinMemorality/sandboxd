@@ -58,3 +58,7 @@ with b.locked():
   results.append({'sandbox_id':sid,'runtime_id':runtime,'status':receipts[0]['status']})
   b.atomic(out/'progress.json',b.encoded(results));print(json.dumps({'verified':len(results),'total':len(scope)}),flush=True)
  b.atomic(out/'complete.json',b.encoded({'complete':True,'revision':'2c7e700','sandboxes':len(scope),'results':results,'model_calls':False,'b200_contacted':False}))
+
+# Old checkpoints need a live wake check even when the supervisor binary was current.
+subprocess.run(['/usr/bin/python3',str(root/'verify-vps-fleet-wakes.py')],check=True,timeout=5400)
+subprocess.run(['/usr/bin/python3',str(root/'refresh-source-backup.py')],check=True,timeout=7*3600)

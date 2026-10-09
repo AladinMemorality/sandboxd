@@ -39,8 +39,11 @@ assert backup['verified'] and backup['sandboxes']==len(bindings) and backup['oth
 assert 0<=time.time()-backup['completed_at']<6*3600
 saved=json.loads((backuproot/backup['generation']/'scope.json').read_text())
 assert saved['worker']=='vps' and {r['sandbox_id']:r['runtime_id'] for r in saved['bindings']}==binding_map
-rollout=proof('supervisor-rollout-2c7e700/complete.json');assert rollout['complete'] and rollout['revision']=='2c7e700' and len(rollout['results'])==len(bindings)
-assert {r['sandbox_id']:r['runtime_id'] for r in rollout['results']}==binding_map
+rollout=proof('supervisor-rollout-2c7e700/complete.json');assert rollout['complete'] and rollout['revision']=='2c7e700' and len(rollout['results'])>=135
+fleet_wakes=proof('fleet-wake-validation-01/complete.json');assert fleet_wakes['complete'] and fleet_wakes['count']==len(bindings)
+assert {r['sandbox_id']:r['runtime_id'] for r in fleet_wakes['results']}==binding_map
+expected_supervisor=proof('supervisor-canary-2c7e700/passed.json')['receipt']['sha256']
+assert all(r['supervisor_sha256']==expected_supervisor for r in fleet_wakes['results'])
 archives=proof('cold-archive-move/complete.json');assert archives['complete'] and archives['all_data_preserved']
 growth=proof('data-growth-784-complete.json');assert growth['target_bytes']==784*1024**3
 st=pathlib.Path('/mnt/nvme/baarcha-cube/worker-01/data.qcow2').stat();assert st.st_ino==3932163
@@ -52,4 +55,5 @@ result={'passed':True,'placement':placement,'states':states,'profiles':[{'memory
 result['density']['guest_limits']=[{'memory_mb':memory,'count':count} for memory,count in sorted(cohort_limits.items())]
 result['density']['reserved_memory_mb']=density_scope['reserved_memory_mb']
 result['transfer_readiness']=pacing
+result['fleet_wake_validation']={'count':fleet_wakes['count'],'native_sha256':fleet_wakes['native_sha256']}
 print(json.dumps(result,indent=2))
