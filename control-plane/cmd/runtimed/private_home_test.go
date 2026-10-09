@@ -87,6 +87,13 @@ func TestPrivateHomeGuestFileBackedRoundtrip(t *testing.T) {
 	if exported.Code != 200 {
 		t.Fatal(exported.Code, exported.Body)
 	}
+	r := httptest.NewRequest("POST", "/export/private-home", bytes.NewReader(raw))
+	r.Header.Set("Authorization", "Bearer "+token)
+	snapshot := &snapshotLockWriter{httptest.NewRecorder(), a, t}
+	handler.ServeHTTP(snapshot, r)
+	if snapshot.Code != 200 || snapshot.Body.Len() == 0 {
+		t.Fatal("home snapshot export failed", snapshot.Code)
+	}
 	if e = os.WriteFile(filepath.Join(home, "workspace/data/owner.txt"), []byte("changed"), 0600); e != nil {
 		t.Fatal(e)
 	}

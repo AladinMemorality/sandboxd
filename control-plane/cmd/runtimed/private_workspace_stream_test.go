@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
@@ -9,6 +10,20 @@ import (
 	"testing"
 	"time"
 )
+
+type snapshotLockWriter struct {
+	*httptest.ResponseRecorder
+	app *app
+	t   *testing.T
+}
+
+func (w *snapshotLockWriter) Write(data []byte) (int, error) {
+	if !w.app.workspaceMu.TryLock() {
+		w.t.Fatal("export network transfer retained the workspace lock")
+	}
+	w.app.workspaceMu.Unlock()
+	return w.ResponseRecorder.Write(data)
+}
 
 func TestPrivateWorkspaceFileRoutesRequireAuthAndQuiescence(t *testing.T) {
 	a := &app{}
@@ -65,6 +80,15 @@ func TestPrivateWorkspaceFileGuestRoundtripAndRestartFence(t *testing.T) {
 	exported := call("GET", "/export/private-workspace-v2", nil)
 	if exported.Code != 200 {
 		t.Fatal(exported.Code, exported.Body)
+	}
+	// Exercise the real archive path in the isolated fixture. Network writes
+	// must leave the quiesced workspace available for recovery operations.
+	r := httptest.NewRequest(http.MethodGet, "/export/private-workspace-v2", nil)
+	r.Header.Set("Authorization", "Bearer "+token)
+	snapshot := &snapshotLockWriter{httptest.NewRecorder(), a, t}
+	handler.ServeHTTP(snapshot, r)
+	if snapshot.Code != 200 || snapshot.Body.Len() == 0 {
+		t.Fatal("snapshot export failed", snapshot.Code)
 	}
 	os.WriteFile(filepath.Join(appDir, ".env"), []byte("changed"), 0600)
 	if w := call("PUT", "/import/private-workspace-v2", []byte("invalid")); w.Code != 422 {

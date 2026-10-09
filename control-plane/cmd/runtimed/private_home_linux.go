@@ -17,7 +17,15 @@ import (
 
 func (a *app) handlePrivateHome(w http.ResponseWriter, r *http.Request) {
 	a.workspaceMu.Lock()
-	defer a.workspaceMu.Unlock()
+	locked := true
+	defer func() {
+		if locked {
+			a.workspaceMu.Unlock()
+		}
+	}()
+	controller := http.NewResponseController(w)
+	_ = controller.SetReadDeadline(time.Now().Add(10 * time.Minute))
+	defer controller.SetReadDeadline(time.Time{})
 	a.taskMu.Lock()
 	allowed := a.workspaceQuiesced && !a.restartPending
 	a.taskMu.Unlock()
@@ -114,6 +122,12 @@ func (a *app) handlePrivateHome(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		w.Header().Set("Content-Type", "application/zip")
+		// The archive is complete; network backpressure must not hold the
+		// workspace lock after a client disconnect or a paused VM resumes.
+		a.workspaceMu.Unlock()
+		locked = false
+		_ = controller.SetWriteDeadline(time.Now().Add(10 * time.Minute))
+		defer controller.SetWriteDeadline(time.Time{})
 		http.ServeContent(w, r, "owner-home.zip", time.Time{}, io.NewSectionReader(f, 0, size))
 		return
 	}

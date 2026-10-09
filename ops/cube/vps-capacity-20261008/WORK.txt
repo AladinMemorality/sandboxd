@@ -399,3 +399,18 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
 - Real density tester now includes VM overhead in planning and worker-level
   pressure/OOM counters. Each subsequent profile/restore also checks guest OOM
   counters after loading its local JavaScript graph. B200 remains untouched.
+
+2026-10-09 07:35Z interrupted-export recovery:
+- Deployed controller f41e186 with authenticated, owner-scoped Cube keepalive;
+  all 134 bindings preserved, model queue disabled and B200 still drained.
+- Account maintenance advisory locks and per-sandbox renewable keepalive now
+  protect migration transfers from quota-worker and idle-reaper interruption.
+- Two retained sources had orphaned export TCP connections after VM pauses.
+  Exact socket-only pidfd_getfd/shutdown recovery restored responsiveness; no
+  process kills or source file replacement. Both fresh migrations completed,
+  with all content verified and old sources retained. Remaining ten underway.
+- Supervisor workspace/home archive exports now release the workspace lock
+  before network delivery; uploads/downloads have bounded socket deadlines.
+  Full runtimed race suite and isolated UID1000 workspace/home archive fixture
+  tests pass, including a writer that proves the lock is available during IO.
+  This supervisor change is committed for rollout; not yet deployed here.

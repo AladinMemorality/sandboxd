@@ -11,7 +11,12 @@ import (
 
 func (a *app) handlePrivateWorkspaceFile(w http.ResponseWriter, r *http.Request) {
 	a.workspaceMu.Lock()
-	defer a.workspaceMu.Unlock()
+	locked := true
+	defer func() {
+		if locked {
+			a.workspaceMu.Unlock()
+		}
+	}()
 	a.taskMu.Lock()
 	allowed := a.workspaceQuiesced && !a.restartPending && (r.Method == http.MethodGet || a.requestRestart != nil)
 	a.taskMu.Unlock()
@@ -46,9 +51,20 @@ func (a *app) handlePrivateWorkspaceFile(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		w.Header().Set("Content-Type", "application/zip")
+		// The complete archive is immutable and has its own open descriptor.
+		// A disconnected exporter must not block resume or later migrations
+		// while TCP waits for a peer that disappeared during a VM pause.
+		a.workspaceMu.Unlock()
+		locked = false
+		controller := http.NewResponseController(w)
+		_ = controller.SetWriteDeadline(time.Now().Add(10 * time.Minute))
+		defer controller.SetWriteDeadline(time.Time{})
 		http.ServeContent(w, r, "workspace.zip", time.Time{}, io.NewSectionReader(f, 0, size))
 		return
 	}
+	controller := http.NewResponseController(w)
+	_ = controller.SetReadDeadline(time.Now().Add(10 * time.Minute))
+	defer controller.SetReadDeadline(time.Time{})
 	n, err := io.Copy(f, http.MaxBytesReader(w, r.Body, runtime.MaxPrivateWorkspaceStreamBytes))
 	if err != nil {
 		http.Error(w, "private workspace upload limit", 413)
