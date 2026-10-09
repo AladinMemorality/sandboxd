@@ -10,7 +10,7 @@ spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-c
 sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as transport
 spec=importlib.util.spec_from_file_location('assets',root/'preview-assets.py');assets=importlib.util.module_from_spec(spec);spec.loader.exec_module(assets)
 SSH=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','-oConnectTimeout=5','root@127.0.0.1']
-G=1024**3;run_dir=root/'real-preview-density-50-balanced-05';barrier=root/'restore-barrier.json'
+G=1024**3;run_dir=root/'real-preview-density-50-balanced-06';barrier=root/'restore-barrier.json'
 def rows(query,args=()):
     with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
         db.row_factory=sqlite3.Row;return [dict(x) for x in db.execute(query,args)]
@@ -24,7 +24,7 @@ def plan():
     for scope in root.glob('vite-batch-*/scope.json'):
         reviewed.update(x['sandbox_id'] for x in json.loads(scope.read_text())['selected'])
     candidates=[]
-    for journal in [*(root/'recovery-moves').iterdir(),root/'exited-recovery-01']:
+    for journal in [*(root/'recovery-moves').iterdir(),root/'exited-recovery-01',root/'exited-recovery-02']:
         if not (journal/'complete.json').exists() or not list(journal.glob('module-health-*.json')):continue
         receipt=json.loads((journal/'complete.json').read_text());sid=receipt['sandbox_id'];row=lookup.get(sid)
         if sid not in reviewed or not row or row['status']!='stopped' or row['charged'] or row['state']!='released':continue
@@ -133,6 +133,7 @@ with b.locked():
                 api(row['sandbox_id'],'start')
                 own_activity[row['sandbox_id']]=rows('select last_active_at from sandbox where id=?',(row['sandbox_id'],))[0]['last_active_at']
                 update=subprocess.run(SSH+['python3','/opt/baarcha-vps-export-recovery-2c7e700/worker.py','--container',row['runtime_id']],capture_output=True,timeout=460)
+                b.atomic(run_dir/(row['sandbox_id']+'-supervisor-update.PRIVATE.log'),update.stdout+update.stderr)
                 receipts=[json.loads(line) for line in update.stdout.splitlines()]
                 assert update.returncode==0 and len(receipts)==1 and receipts[0]['status'] in ('updated','current'),'Supervisor update requires reconciliation'
                 save(row['sandbox_id']+'-supervisor.json',receipts[0])
