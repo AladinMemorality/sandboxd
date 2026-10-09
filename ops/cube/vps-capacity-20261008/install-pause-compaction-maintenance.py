@@ -31,9 +31,14 @@ assert subprocess.check_output(['systemctl','is-active','fstrim.timer'],text=Tru
 p=P('/etc/systemd/system/fstrim.timer.d/20-vps-sandbox-discard.conf');p.parent.mkdir(exist_ok=True)
 with p.open('x') as f:f.write('[Timer]\\nOnCalendar=\\nOnCalendar=hourly\\nAccuracySec=1min\\nRandomizedDelaySec=10min\\n')
 p.chmod(0o644)
+# A byte-level dedupe creates many tiny free extents. Skip sub-MiB extents
+# during scheduled discard; they stay reusable inside XFS.
+s=P('/etc/systemd/system/fstrim.service.d/20-vps-sandbox-discard.conf');s.parent.mkdir(exist_ok=True)
+with s.open('x') as f:f.write('[Service]\\nExecStart=\\nExecStart=/usr/sbin/fstrim --listed-in /etc/fstab:/proc/self/mountinfo --verbose --quiet-unsupported --minimum 1MiB\\n')
+s.chmod(0o644)
 subprocess.run(['systemctl','daemon-reload'],check=True)
 subprocess.run(['systemctl','restart','fstrim.timer'],check=True)
-print(json.dumps({'trim_schedule':'hourly','worker':'vps','at':time.time()}))
+print(json.dumps({'trim_schedule':'hourly','minimum_extent_bytes':1048576,'worker':'vps','at':time.time()}))
 """
  b.atomic(out/'install-worker-trim.py',code.encode())
  worker=json.loads(subprocess.check_output(ssh+['python3','-'],input=code.encode(),timeout=60))

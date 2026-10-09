@@ -5,13 +5,13 @@ spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-c
 ssh=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','root@127.0.0.1']
 deadline=time.monotonic()+18000
 while True:
- state=subprocess.check_output(['systemctl','show','baarcha-vps-source-data-canary-47','-p','ActiveState','--value'],text=True).strip()
+ state=subprocess.check_output(['systemctl','show','baarcha-vps-source-data-canary-54','-p','ActiveState','--value'],text=True).strip()
  assert state!='failed' and time.monotonic()<deadline
  if state=='inactive':break
  time.sleep(5)
-proof=json.loads((root/'source-data-supervisor-canary-47/complete.json').read_text());assert proof['passed'] and len(proof['results'])==2
+proof=json.loads((root/'source-data-supervisor-canary-54/complete.json').read_text());assert proof['passed'] and len(proof['results'])==2
 with b.locked():
- out=root/'source-data-maintenance-48';out.mkdir(mode=0o700)
+ out=root/'source-data-maintenance-55';out.mkdir(mode=0o700)
  code='EXPECTED='+repr(proof['sha256'])+'\n'+'''import hashlib,json,os,pathlib,subprocess,time
 P=pathlib.Path;assert P('/etc/machine-id').read_text().strip()=='2b9e31d4abd345e3bd4b966591e61296'
 root=P('/opt/baarcha-vps-source-data-3b1a6f0');assert hashlib.sha256((root/'runtimed').read_bytes()).hexdigest()==EXPECTED

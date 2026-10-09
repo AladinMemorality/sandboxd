@@ -11,7 +11,7 @@ def rows(q,args=()):
  with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
   db.row_factory=sqlite3.Row;return [dict(r) for r in db.execute(q,args)]
 deadline=time.monotonic()+14400
-for unit,proof in [('baarcha-vps-source-data-stage-46',release/'supervisor-staged.json'),('baarcha-vps-source-data-deploy-45',release/'deployed.json')]:
+for unit,proof in [('baarcha-vps-source-data-stage-53',release/'supervisor-staged.json'),('baarcha-vps-source-data-deploy-52',release/'deployed.json')]:
  while True:
   state=subprocess.check_output(['systemctl','show',unit,'-p','ActiveState','--value'],text=True).strip()
   assert state!='failed' and time.monotonic()<deadline,'Review preceding operation: '+unit
@@ -19,7 +19,7 @@ for unit,proof in [('baarcha-vps-source-data-stage-46',release/'supervisor-stage
   time.sleep(5)
  assert proof.exists() and subprocess.check_output(['systemctl','show',unit,'-p','Result','--value'],text=True).strip()=='success'
 with b.locked():
- out=root/'source-data-supervisor-canary-47';out.mkdir(mode=0o700)
+ out=root/'source-data-supervisor-canary-54';out.mkdir(mode=0o700)
  expected=json.loads((release/'supervisor-release.json').read_text())['sha256'];results=[]
  for sid in ['01M1HH5DT8FVCP5TNRESEDJBH6','01M4DWDR4TQ4JRBTTTJMG5SB78']:
   job=out/sid;job.mkdir(mode=0o700)

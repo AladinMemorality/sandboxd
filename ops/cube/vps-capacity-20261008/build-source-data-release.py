@@ -1,10 +1,10 @@
 """Build the shared source-directory fix after the measured density window."""
 import hashlib,json,os,pathlib,shutil,subprocess,tarfile,time
 P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008');revision='3b1a6f0';out=root/('source-data-release-'+revision)
-out.mkdir(mode=0o700)
+out.mkdir(mode=0o700,exist_ok=True);assert not list(out.iterdir()), "Inspect an unfinished build before retrying"
 deadline=time.monotonic()+7200
 while not (root/'real-preview-density-50-balanced-07/cleanup.json').exists():
- state=subprocess.check_output(['systemctl','show','baarcha-vps-final-acceptance-43','-p','ActiveState','--value'],text=True).strip()
+ state=subprocess.check_output(['systemctl','show','baarcha-vps-final-acceptance-50','-p','ActiveState','--value'],text=True).strip()
  assert state!='failed' and time.monotonic()<deadline,'Review acceptance before building'
  time.sleep(5)
 assert json.loads((root/'real-preview-density-50-balanced-07/result.json').read_text())['passed']

@@ -4,7 +4,7 @@ P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-2
 ssh=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','root@127.0.0.1']
 deadline=time.monotonic()+10800
 while not (release/'built.json').exists():
- state=subprocess.check_output(['systemctl','show','baarcha-vps-source-data-build-44','-p','ActiveState','--value'],text=True).strip()
+ state=subprocess.check_output(['systemctl','show','baarcha-vps-source-data-build-51','-p','ActiveState','--value'],text=True).strip()
  assert state!='failed' and time.monotonic()<deadline
  time.sleep(5)
 assert not (release/'supervisor-staged.json').exists()

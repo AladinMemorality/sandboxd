@@ -52,7 +52,7 @@ print(json.dumps(out))
         assert set(statuses)<=m.TERMINAL|({'PARTIALLY_READY'} if table=='t_cube_template_definition' else set()),'Provider job in progress'
     put(release/'provider-terminal-counts.json',result)
 deadline=time.monotonic()+10800
-for unit,proof in [('baarcha-vps-final-acceptance-43',root/'final-acceptance-43/complete.json'),('baarcha-vps-source-data-build-44',artifacts/'built.json')]:
+for unit,proof in [('baarcha-vps-final-acceptance-50',root/'final-acceptance-50/complete.json'),('baarcha-vps-source-data-build-51',artifacts/'built.json')]:
     while True:
         state=run(['systemctl','show',unit,'-p','ActiveState','--value']).decode().strip()
         assert state!='failed' and time.monotonic()<deadline,'Review preceding operation: '+unit

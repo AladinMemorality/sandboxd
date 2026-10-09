@@ -17,8 +17,8 @@ with contextlib.ExitStack() as stack:
  code="""import pathlib,subprocess,json,os
 assert pathlib.Path('/etc/machine-id').read_text().strip()=='2b9e31d4abd345e3bd4b966591e61296'
 assert subprocess.check_output(['findmnt','-n','-o','UUID','--target','/data'],text=True).strip()=='793c3349-db9c-4815-9842-989ed484f1f8'
-result=subprocess.check_output(['fstrim','--verbose','/data'],text=True,timeout=300)
+result=subprocess.check_output(['fstrim','--verbose','--minimum','1MiB','/data'],text=True,timeout=300)
 s=os.statvfs('/data');print(json.dumps({'trim':result.strip(),'data_used_bytes':(s.f_blocks-s.f_bfree)*s.f_frsize,'data_total_bytes':s.f_blocks*s.f_frsize}))
 """
  b.atomic(out/'before.json',b.encoded(before));result=json.loads(subprocess.check_output(ssh+['python3','-'],input=code.encode(),timeout=360));after=stats();assert after['headroom_if_data_full_bytes']>128*1024**3
- report={'complete':True,'before':before,'after':after,'worker':result,'b200_contacted':False,'at':time.time()};b.atomic(out/'complete.json',b.encoded(report));print(json.dumps(report))
+ report={'complete':True,'before':before,'after':after,'worker':result,'minimum_extent_bytes':1048576,'b200_contacted':False,'at':time.time()};b.atomic(out/'complete.json',b.encoded(report));print(json.dumps(report))
