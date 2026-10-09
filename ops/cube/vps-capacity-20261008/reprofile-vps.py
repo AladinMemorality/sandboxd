@@ -120,10 +120,18 @@ with wait_for_operator():
    for role,v in source['artifacts'].items():v['local_path']=str(source_worker.root/(role+'.zip'))
    save('export-result.PRIVATE.json',source)
   finally:
-   source_worker.control('POST','/workspace/resume');source_api('stop')
+   if source is None:source_worker.control('POST','/workspace/resume')
+   source_api('stop')
   assert tasks==[r['task_id'] for r in rows('select task_id from task where sandbox_id=? order by task_id',(sid,))]
   save('scope.json',{'sandbox_id':sid,'source_worker':'vps','target_worker':'vps','fresh_current_export':True,'at':time.time()})
-  cli('fence',SandboxID=sid,ExpectedRuntime=source['runtime_id'],TargetWorker='vps',TargetTemplate=templates[profile])
+  try:
+   cli('fence',SandboxID=sid,ExpectedRuntime=source['runtime_id'],TargetWorker='vps',TargetTemplate=templates[profile])
+  except BaseException:
+   # Failed fencing must not leave the still-canonical source quiesced. Never
+   # reopen a source if an ambiguous CLI result actually installed the fence.
+   if not rows('select id from cube_relocation where id=?',(job.name,)) and rows('select runtime_id from runtime_binding where sandbox_id=?',(sid,))==[{'runtime_id':source['runtime_id']}]:
+    source_api('start');source_worker.control('POST','/workspace/resume');source_api('stop')
+   raise
   cli('create')
   target=json.loads((job/'target.PRIVATE.json').read_text());runtime=target['Runtime']['sandboxID'] if 'sandboxID' in target['Runtime'] else target['Runtime'].get('sandbox_id')
   assert runtime,'target provider identity missing'

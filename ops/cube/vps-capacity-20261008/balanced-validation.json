@@ -1,0 +1,72 @@
+{
+  "canary": {
+    "all_content_verified": true,
+    "at": 1791504052.065492,
+    "fresh_current_export": true,
+    "profile": "balanced",
+    "restored": true,
+    "same_project_identity": true,
+    "sandbox_id": "01M16MV7KZSF3YNAJ1VKWKYED5",
+    "source_retained": true,
+    "wake_seconds": 1.1289175786077976,
+    "worker": "vps"
+  },
+  "canary_module_checks": [
+    {
+      "bytes": 3871769,
+      "model_calls": false,
+      "modules": 41,
+      "passed": true,
+      "seconds": 2.856471019797027
+    },
+    {
+      "bytes": 3871769,
+      "model_calls": false,
+      "modules": 41,
+      "passed": true,
+      "seconds": 2.8251514909788966
+    }
+  ],
+  "template": {
+    "cpu_count": 1,
+    "image": "127.0.0.1:5000/baarcha/react-vite-balanced@sha256:195d62b4e229a2e2751db34b40f26fc73794ac555f2cc14937fd52bf4f0bc4b7",
+    "memory_mb": 768,
+    "ready": true,
+    "runtimed_sha256": "89027e211a4dbf7339c42fef7858c0d6a4ac111ef3bb6db54fa9903aca034b8e",
+    "template_id": "tpl-3c4e83ebf6c641f293c0e816",
+    "worker": "vps",
+    "writable_disk_mb": 4096
+  },
+  "deployed": {
+    "b200_contacted": false,
+    "bindings_preserved": 134,
+    "coding_queue_enabled": false,
+    "cpu_millis": 9000,
+    "deployed": true,
+    "image": "sha256:0d4db42569301df88087823bd40046f090c033bc564ee99c81e41e7f9650c8ab",
+    "memory_budget_mb": 46080,
+    "new_react_memory_mb": 768,
+    "revision": "4b502b6",
+    "runtime_slots": 50,
+    "template_id": "tpl-3c4e83ebf6c641f293c0e816",
+    "worker_memory_mb": 49152
+  },
+  "failed_512m_density_attempt": {
+    "at": 1791502859.6935196,
+    "reason": "('GET', '/node_modules/.vite/deps/react_jsx-dev-runtime.js?v=2a5769a7', 502)",
+    "started": 1,
+    "type": "HTTPFailure"
+  },
+  "failed_attempt_cleanup": {
+    "bindings_preserved": true,
+    "complete": true,
+    "existing_running_preserved": true,
+    "runtimes": [
+      {
+        "sandbox_id": "01M16MV7KZSF3YNAJ1VKWKYED5",
+        "stopped": true
+      }
+    ]
+  },
+  "limits": "Not yet a 50 real-app result. No coding-agent or model load tests."
+}

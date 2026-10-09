@@ -24,13 +24,18 @@ def plan():
         reviewed.update(x['sandbox_id'] for x in json.loads(scope.read_text())['selected'])
     candidates=[]
     for journal in (root/'recovery-moves').iterdir():
-        if not (journal/'complete.json').exists():continue
+        if not (journal/'complete.json').exists() or not list(journal.glob('module-health-*.json')):continue
         receipt=json.loads((journal/'complete.json').read_text());sid=receipt['sandbox_id'];row=lookup.get(sid)
         if sid not in reviewed or not row or row['status']!='stopped' or row['charged'] or row['state']!='released':continue
         job=json.loads((journal/'worker-job.PRIVATE.json').read_text())
         if job['runtime_id']!=row['runtime_id'] or task_ids(sid)!=job['source']['task_ids']:continue
         candidates.append({**row,'journal':str(journal),'job':job})
     candidates.sort(key=lambda r:(policy['templates'][r['template_id']]['memory_mb'],r['sandbox_id']))
+    spec=importlib.util.spec_from_file_location('copy_fleet','/opt/baarcha-bench/cube-fleet-20260927/copy-fleet.py');copy=importlib.util.module_from_spec(spec);spec.loader.exec_module(copy)
+    for row in active:
+        sid=row['sandbox_id'];origin,headers=copy.client(sid);assert origin==('127.0.0.1',20080)
+        port=rows('select web_port from sandbox where id=?',(sid,))[0]['web_port'] or 3000
+        row['job']={'worker':'vps','id':'density-existing-'+sid,'sandbox_id':sid,'runtime_id':row['runtime_id'],'headers':headers,'web_port':port}
     needed=50-len(active);assert 0<needed<=50
     selected=candidates[:needed];total=active+selected
     # Match cube.VMOverheadMB: admission charges the entire guest limit plus
@@ -119,7 +124,7 @@ with b.locked():
         measurements=[]
         for _ in range(12):
             guard()
-            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:measurements.extend(pool.map(probe,selected))
+            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:measurements.extend(pool.map(probe,selected+active))
             time.sleep(5)
         wanted=[r['runtime_id'] for r in live]
         code="""import pathlib,subprocess,json
