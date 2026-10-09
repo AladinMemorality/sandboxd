@@ -15,6 +15,9 @@ const docs = "import x from './fake.js'";
 const pattern = /import x from 'regex'/;
 import {real} from './actual.js';
 export * from './exports.js';'''),['/node_modules/.vite/deps/actual.js','/node_modules/.vite/deps/exports.js'])
+ def test_production_bundles_are_checked_without_executing_them(self):
+  self.assertEqual(a.entries(b'<script type="module" src="/assets/index-a1.js"></script><link rel="stylesheet" href="/assets/index-a1.css">'),['/assets/index-a1.js','/assets/index-a1.css'])
+  self.assertEqual(a.imports('/assets/index-a1.js',b'import("./chunk-b2.js"); import("/api/model");'),['/assets/chunk-b2.js'])
  def test_escape_cannot_turn_into_api_request(self):
   self.assertIsNone(a.local_module('/src/main.tsx','../../api/start-task'))
   self.assertIsNone(a.local_module('/src/main.tsx','react'))

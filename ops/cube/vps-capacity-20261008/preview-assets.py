@@ -3,7 +3,7 @@ import json,pathlib,subprocess,time
 from html.parser import HTMLParser
 from urllib.parse import urljoin,urlsplit
 
-_ALLOWED=('/src/','/node_modules/','/@vite/','/@id/','/@fs/','/@react-refresh')
+_ALLOWED=('/assets/','/src/','/node_modules/','/@vite/','/@id/','/@fs/','/@react-refresh')
 class Entries(HTMLParser):
     def __init__(self):super().__init__();self.paths=[]
     def handle_starttag(self,tag,attrs):

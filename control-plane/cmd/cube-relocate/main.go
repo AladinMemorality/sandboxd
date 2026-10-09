@@ -205,7 +205,7 @@ func main() {
 		_, e = os.Stat("/var/lib/sandboxd/secrets.key")
 		must(e)
 	}
-	if in.Action == "discard-target" || in.Action == "connect-target" {
+	if in.Action == "discard-target" || in.Action == "connect-target" || in.Action == "observe-connected-target" {
 		var t target
 		privateRead(filepath.Join(in.Directory, "target.PRIVATE.json"), &t)
 		if j.TargetWorker != "vps" || t.Relocation.ID != j.ID || t.Runtime == nil || t.Runtime.SandboxID == j.SourceRuntimeID || t.Admission.Token == "" {
@@ -218,15 +218,33 @@ func main() {
 		if !validDiscardTarget(j, t, actual, binding) {
 			panic("refusing to discard a source or changed target")
 		}
-		if in.Action == "connect-target" {
+		if in.Action == "connect-target" || in.Action == "observe-connected-target" {
 			if actual.State != "paused" && actual.State != "running" {
 				panic("target state requires reconciliation")
 			}
-			privateWrite(filepath.Join(in.Directory, "connect-target-intent.json"), map[string]string{"runtime_id": actual.SandboxID, "source_retained": j.SourceRuntimeID})
-			connected, err := guard.Connect(ctx, actual.SandboxID, cube.ConnectRequest{TimeoutSeconds: 3600})
+			intent := map[string]string{"runtime_id": actual.SandboxID, "source_retained": j.SourceRuntimeID}
+			if in.Action == "connect-target" {
+				privateWrite(filepath.Join(in.Directory, "connect-target-intent.json"), intent)
+				_, err = guard.Connect(ctx, actual.SandboxID, cube.ConnectRequest{TimeoutSeconds: 3600})
+				must(err)
+			} else {
+				var recorded map[string]string
+				privateRead(filepath.Join(in.Directory, "connect-target-intent.json"), &recorded)
+				if recorded["runtime_id"] != intent["runtime_id"] || recorded["source_retained"] != intent["source_retained"] {
+					panic("connected target intent differs")
+				}
+			}
+			// Connect responses may omit metadata. Re-read authoritative identity;
+			// reconciliation only observes an already active exact connect lease.
+			connected, err := provider.Get(ctx, actual.SandboxID)
 			must(err)
 			if connected.State != "running" || !validDiscardTarget(j, t, connected, binding) {
 				panic("target connection was not authoritatively verified")
+			}
+			lease, err := partition.AdmissionLookup(ctx, connected.SandboxID)
+			must(err)
+			if !validConnectedTargetLease(j, connected.SandboxID, lease) {
+				panic("connected target admission differs")
 			}
 			privateWrite(filepath.Join(in.Directory, "connected-target.PRIVATE.json"), connected)
 			fmt.Println(`{"connected_target":true,"source_retained":true}`)

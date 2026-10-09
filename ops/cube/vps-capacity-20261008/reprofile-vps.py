@@ -121,8 +121,14 @@ with wait_for_operator():
    for path in (root/'recovery-moves').glob('*/worker-job.PRIVATE.json'):
     old=json.loads(path.read_text())
     if old['sandbox_id']==sid and old['runtime_id']==row['runtime_id'] and (path.parent/'complete.json').exists():previous.append(old)
-   assert len(previous)==1,'No unambiguous reviewed owner manifest for current runtime'
-   home=previous[0]['source']['home_manifest']
+   if len(previous)==1:
+    home=previous[0]['source']['home_manifest']
+   else:
+    assert not previous,'Ambiguous prior owner manifest'
+    reviewed=b.strict(b.trusted(root/'reprofile-owner-manifests'/(sid+'.json')))
+    assert reviewed['sandbox_id']==sid and reviewed['runtime_id']==row['runtime_id']
+    assert reviewed['backup_verified'] and reviewed['same_owner_only']
+    home=reviewed['home_manifest']
    if '.bash_logout' not in [e['path'] for e in home['entries']]:home['entries'].append(dict(path='.bash_logout',disposition='preserve'))
    if not any(e['path']=='.cache' or e['path'].startswith('.cache/') for e in home['entries']):home['entries'].append(dict(path='.cache',disposition='preserve'))
    origin,headers=copy.client(sid);assert origin==('127.0.0.1',20080)
