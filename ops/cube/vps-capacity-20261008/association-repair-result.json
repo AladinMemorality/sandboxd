@@ -1,0 +1,20 @@
+{
+  "added_files": 4,
+  "application_repaired": true,
+  "at": 1791543466.3845356,
+  "changed_files": 1,
+  "module_checks": [
+    55,
+    55
+  ],
+  "original_source_verified_before_repair": true,
+  "profile": "balanced",
+  "restored": true,
+  "same_project_identity": true,
+  "sandbox_id": "01M3MPPSK8RPNMK9TE5Y00EN55",
+  "source_contacted": false,
+  "source_retained": true,
+  "typescript_passed": true,
+  "wake_seconds": 0.9601161340251565,
+  "worker": "vps"
+}

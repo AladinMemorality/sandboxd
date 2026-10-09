@@ -3,7 +3,7 @@
 Only wake reviewed Vite apps that were stopped before the test. Preserve existing
 running apps, stop the test on user task activity, and restore initial state.
 """
-import concurrent.futures,contextlib,importlib.util,json,os,pathlib,signal,sqlite3,statistics,subprocess,sys,time,urllib.request,zipfile
+import concurrent.futures,contextlib,importlib.util,json,os,pathlib,signal,sqlite3,statistics,subprocess,sys,time,textwrap,urllib.request,zipfile
 from maintenance_account import account_maintenance
 P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008')
 spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
@@ -130,17 +130,18 @@ with b.locked():
                 with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:measurements.extend(pool.map(probe,selected+active))
                 time.sleep(5)
             wanted=[r['runtime_id'] for r in live]
-            code="""import pathlib,subprocess,json
+            code=textwrap.dedent("""
+    import pathlib,subprocess,json
     wanted=set(WANTED);p=pathlib.Path;items=[]
     raw=subprocess.check_output(['ctr','--address','/data/cubelet/cubelet.sock','--namespace','default','tasks','list'],text=True)
     for line in raw.splitlines()[1:]:
      a=line.split()
      if len(a)<3 or a[0] not in wanted:continue
-     v={l.split(':',1)[0]:int(l.split()[1])*1024 for l in (p('/proc')/a[1]/'smaps_rollup').read_text().splitlines() if ':' in l}
+     v={l.split(':',1)[0]:int(l.split()[1])*1024 for l in (p('/proc')/a[1]/'smaps_rollup').read_text().splitlines() if l.split(':',1)[0] in ('Rss','Pss')}
      items.append({'runtime_id':a[0],'rss_bytes':v['Rss'],'pss_bytes':v['Pss']})
     m={l.split(':',1)[0]:int(l.split()[1])*1024 for l in p('/proc/meminfo').read_text().splitlines()}
     print(json.dumps({'runtimes':items,'guest_available_bytes':m['MemAvailable'],'guest_memory_pressure':p('/proc/pressure/memory').read_text()}))
-    """.replace('WANTED',repr(wanted))
+    """).replace('WANTED',repr(wanted))
             native=json.loads(subprocess.check_output(SSH+['python3 -'],input=code.encode(),timeout=30));assert len(native['runtimes'])==50
             save('runtime-memory.json',native);times=sorted(r['seconds'] for r in measurements);pss=sorted(r['pss_bytes'] for r in native['runtimes'])
             result={'passed':True,'concurrent_running':50,'http_checks':len(times),'http_p95_seconds':times[int(.95*(len(times)-1))],'http_max_seconds':max(times),'total_pss_bytes':sum(pss),'median_pss_bytes':statistics.median(pss),'max_pss_bytes':max(pss),'model_calls':False,'module_http_checks':sum(r['modules'] for r in warmed),'module_bytes':sum(r['bytes'] for r in warmed),'application_scope':'HTML and local Vite module graph serving; no browser JS execution, model requests or coding tasks','after':pressure()}

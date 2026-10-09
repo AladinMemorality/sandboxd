@@ -431,3 +431,17 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   admission45GiB including128MiB/VM overhead, CPU9000m remain unchanged.
 - Six preview parser tests cover Vite, production bundles, static subdirectory
   assets, and rejecting external/API redirect destinations.
+
+2026-10-09 10:58Z incomplete application source repaired:
+- 119 canonical sandboxes now placed on VPS; 15 untouched backups remain.
+- One source archive and its Git history lacked four imported UI modules.
+  Restored and committed the exact archive first, then added those modules
+  and updated the stale contributions view to its existing contacts model.
+- Original archive retained privately. TypeScript passes without diagnostics;
+  55 local modules pass before and after a 0.96-second stop/wake. File proof
+  allows exactly four new modules, one changed source file, and generated
+  Vite dependency-cache updates. Private application code is not published
+  in the infrastructure repository. No coding-agent/model calls were made.
+- Fixed the density memory probe's indentation and restricted smaps parsing
+  to Rss/Pss fields, excluding the address line's colon-delimited device ID.
+- Preview parser six tests and updater lock two tests pass.

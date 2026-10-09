@@ -5,7 +5,7 @@ No model calls, B200 requests, blind retries, or original-source deletion.
 """
 import contextlib,json,os,pathlib,sqlite3,subprocess,time
 P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008')
-out=root/'finish-vps-recovery-11';out.mkdir(mode=0o700)
+out=root/'finish-vps-recovery-12';out.mkdir(mode=0o700)
 def run(stage,args,timeout):
     (out/'stage.json').write_text(json.dumps({'stage':stage,'at':time.time()}))
     print(json.dumps({'stage':stage,'at':time.time()}),flush=True)
@@ -13,7 +13,7 @@ def run(stage,args,timeout):
         result=subprocess.run(args,stdout=log,stderr=subprocess.STDOUT,timeout=timeout)
     assert result.returncode==0,stage+' failed; retained private diagnostics and journals'
 try:
-    stage=root/'parallel-restore-07';deadline=time.monotonic()+5400
+    stage=root/'parallel-restore-08';deadline=time.monotonic()+5400
     while True:
         if (stage/'complete.json').exists():break
         assert not (stage/'paused.json').exists(),'Restore batch paused; review required'

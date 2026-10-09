@@ -1,0 +1,15 @@
+{
+  "added_files": {
+    "src/components/events/SponsorsTab.tsx": "7e80bf8062fb7435d2dc5779007298ab42ae436494d8a5251be3db6691973ae5",
+    "src/pages/Checkin.tsx": "464a6c64dfe394e61d018237704bc677e87472907e8ab3c9e41c37b92079d0a6",
+    "src/pages/Finance.tsx": "c5229509c2192ac4389ea613b8573e048b08be59d1c13369e8593a26edd8efbb",
+    "src/views/Settings.tsx": "04bcaf1d3e5733b399b37473fcab6078779734fc5730c82e90ca6b1c048b2608"
+  },
+  "changed_files": {
+    "src/pages/Contributions.tsx": "552af93acbd3ec0a82d5fa38870fd28bbbdcbdbc079fc54c604350e2a4f1cb2f"
+  },
+  "generated_vite_cache_excluded": true,
+  "other_source_files_unchanged": true,
+  "source_backup_preserved": true,
+  "typescript_passed": true
+}
