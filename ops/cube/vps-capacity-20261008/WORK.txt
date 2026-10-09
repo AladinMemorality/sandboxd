@@ -626,3 +626,57 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   scheduled, followed by fresh135 source backup, supervisor rollout and audit.
 - The kernel panic and immediate-exit underlying causes remain unproven. No
   claim of automatic repair or50agent/build concurrency is made.
+
+2026-10-09 16:40Z full snapshots, real density and fleet backup:
+- Native Cubelet43d8c020a949569aa546f2eebea5d632c17ba1231b7c330fd4c31d7a4f72337f
+  deployed from exact installed production source plus full-pause patch0014.
+  Focused native race suites passed. First service-stop approach was aborted
+  after Requires dependents entered retained stop hooks. No guest was killed.
+  Exact local-route idempotency patch0015 restored egress; Linux prints local
+  default instead of local0.0.0.0/0. Second rollout used reviewed direct main
+  process SIGTERM, preserving guest shim PIDs and dependent network services.
+  Full worker observation136bindings consistent; original guest preserved.
+- Full-pause canary passed4captures/3restores. Evidence reconciled from exact
+  timestamped Shim and VMM messages, retaining initial missing-log failure.
+- Panic2 app01M2AR44CA9AW2FEFA44KVEAGQ recovered to
+  e3a26535a2874c77a799e45f40158cd1 from25,073,885byte verified source backup.
+- Density05 found another old checkpoint failure on
+  01M2QDV0PGEJ1AAKE2MJXGK4P8. Exact native-stopped source5373f2de0dac4906987503f741534ccb
+  recovered via OfflineSession to8bcae4ad09814feba7d0df3bd99937b1, preserving
+  4,998,406byte source backup and old VM. Three full stop/wakes passed.
+  Failed journals/barriers reconciled without blind native resume or create.
+- Density06 PASSED49reviewed768MiB apps plus original2GiB app=50 live.
+  600homepage/1702module HTTP checks, no new host/worker OOM, guest process
+  PSS11.11GiB total/228MiB mean. Cleanup preserved bindings and original
+  running state. This does not measure maximum agent/build concurrency.
+- Full136-app source generation20261009T162045Z exported successfully:
+  4,420,046,447bytes excluding reproducible dependencies/caches. Transfer
+  finished; full per-archive verification is still running. Do not yet claim
+  VERIFIED until latest.json and generation/VERIFIED.json say so.
+- Active outerunit baarcha-vps-storage-density-followthrough-23 now finishes
+  source backup, supervisor rollout, remaining old-checkpoint validation,
+  conditional backup refresh and final audit. All callers stop on failure.
+- Public forced-idle browser return checks are prepared for NOS and Derja,
+  not yet run. VPS-only guarded idle supervisor timer installer staged but
+  not enabled; requires completed fleet validation. B200 remains untouched.
+- Source supervisor2c7e700 SHA8bbddf74142ed5ffe1cc3c8ddcd1883fde66e165bddea8bcaf0d6aeba3c26669
+  (89027e... is the preceding build, not the currently deployed fix).
+
+2026-10-09 16:56Z full backup verified; reviewed supervisor continuation:
+- Generation20261009T162045Z VERIFIED136/136,4,420,046,447compressedbytes,
+  dependencies/caches excluded, provider map entirelyVPS. Sanitized proof in
+  results/source-backup-136-20261009.json. Private clone generation removed.
+- Outer23 stopped after43supervisorchecks on exact unreviewed_binary receipt
+  ea25000e638fadf00a1fbf74ab09632406d16e46ac51e02c3c7a2d37bde6a0b2.
+  App01M2P1KJ8086W06ANFAV50KA93 woke/served/stopped normally. No kernelfailure.
+- Retained installed artifact is staticCGO0Go1.22.12. Rebuilding06ab5e4 yields
+  6b7b41d8bd9a2da0020462fd1e241bf24cde039d9a8d39df188ac5d3aa5bb989:
+  entire binary matches except .note.go.buildid. Original configuration and
+  quiescence APIs unchanged. Exact prior SHA added to VPS2c7e700manifest only;
+  prior manifest retained. No unknown hash wildcard or B200 change.
+- A visitor woke this app during review. Guard initially refused old stopped
+  assumption; revised continuation preserves fresh valid lifecycle state with
+  identical runtime/profile/task identities. No user task was started/stopped.
+- Activeunit baarcha-vps-finish-acceptance-24 runs reviewed supervisor resume,
+  fleet wake validation, conditional source backup refresh, final audit.
+  Original43results/failurelogs retained; no arbitrary retry mode introduced.

@@ -70,9 +70,9 @@ content and preview checks and a stop/wake cycle. Two unfinished applications
 required separately recorded source repairs; original archives remain intact.
 Current guest limits: 110 at 768 MiB, 11 at 1 GiB, and 15 at 2 GiB.
 
-The previous emergency and recurring source backup generations cover all 134
-projects in aggregate. A fresh 136-app all-VPS generation, the remaining
-supervisor rollout, and validation of the remaining old checkpoints are pending.
+The fresh all-VPS source generation `20261009T162045Z` passed archive, hash,
+compression and dependency-exclusion checks for all 136 apps (4.12 GiB compressed).
+The remaining supervisor rollout and validation of older checkpoints are pending.
 The 50 real-preview density test has passed; see `results/real-preview-density-50-balanced-06`.
 Maximum build/agent concurrency remains explicitly deferred. Read the latest
 append-only entries in `WORK.txt` and the private VPS journals before continuing.
@@ -172,8 +172,8 @@ its original inode, filesystem UUID and worker boot preserved, leaving over
 128 GiB physical headroom even at full allocation. Controller `d5b07bb`
 reconciled the stale grant through the offline CLI. See the deployment, cold
 archive and disk-growth receipts. The sixth density run passed after recovering
-four old checkpoints from verified source copies. The fresh backup and remaining
-supervisor/wake checks are still pending; the runner stops on failure.
+four old checkpoints from verified source copies. The fresh backup passed;
+remaining supervisor/wake checks are still pending. The runner stops on failure.
 
 ## Full memory snapshots and retained recovery sources
 
@@ -192,3 +192,10 @@ The fleet validation reuses matching post-deployment density and recovery
 evidence. Other stopped apps receive a wake, preview/module check, full pause,
 second wake, and final stop. Existing running apps are checked without pausing
 them. Failed journals are retained and require reviewed recovery before resume.
+
+An older production supervisor (`ea25000…`) was safely rejected before upgrade
+because it was absent from the approved list. Rebuilding source `06ab5e4` with
+Go 1.22.12 reproduced every byte except the Go build identifier. Its configuration
+and quiescence APIs are unchanged. The exact hash was then approved on the VPS;
+the rejected attempt and prior manifest remain preserved. Resuming retains
+completed receipts and respects apps that visitors woke during the review.

@@ -1,0 +1,13 @@
+{
+  "source_revision": "06ab5e4",
+  "toolchain": "go1.22.12",
+  "build": "CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath ./cmd/runtimed",
+  "approved_previous_sha256": "ea25000e638fadf00a1fbf74ab09632406d16e46ac51e02c3c7a2d37bde6a0b2",
+  "rebuilt_sha256": "6b7b41d8bd9a2da0020462fd1e241bf24cde039d9a8d39df188ac5d3aa5bb989",
+  "normalized_reproduced_sha256": "ea25000e638fadf00a1fbf74ab09632406d16e46ac51e02c3c7a2d37bde6a0b2",
+  "only_go_build_id_differs": true,
+  "all_other_bytes_identical": true,
+  "bytes": 13163655,
+  "static_elf_verified": true,
+  "config_and_quiescence_contract_unchanged": true
+}
