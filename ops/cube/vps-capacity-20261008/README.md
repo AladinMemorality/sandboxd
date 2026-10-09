@@ -97,3 +97,21 @@ Race tests passed for cube, store and API packages. Production verification ran
 two simultaneous real starts in three rounds: six successful starts in
 1.3–2.9 seconds, no pending admissions, original stopped states restored.
 See `concurrent-resume-7745f34.json` and `resume-retry-deployed.json`.
+
+## Maintenance and account allowances
+
+Some non-admin Free accounts exhausted their allowance during operator checks.
+The independent account worker then correctly stopped their canonical sources,
+interrupting exports. `maintenance-account.mjs` now takes the platform's exact
+Postgres account locks for the explicitly reviewed maintenance sandboxes. It
+checkpoints prior usage normally, then advances only those sandboxes' counters
+without charging operator time. It never changes plans or deletes prior usage.
+An EOF releases the guard; other accounts continue normal enforcement.
+`maintenance-account-verified.json` records real lock contention, release, and
+unchanged daily usage for three stopped test accounts.
+
+A verified, uncommitted target can reach its native sleep timeout while awaiting
+operator review. `cube-relocate connect-target` verifies the retained source
+binding, target metadata and fenced journal before admitted resume. Commit
+checks the completed connect receipt and CASes the new active target admission
+token. Unknown provider outcomes still require explicit reconciliation.
