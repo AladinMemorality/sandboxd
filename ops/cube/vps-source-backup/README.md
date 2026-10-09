@@ -57,3 +57,10 @@ source/configuration fixtures; it passed on the VPS before deployment.
 Archive downloads are paced by rsync at10MiB/s before data enters the host page
 cache. Kernel writeback remains unthrottled. Pacing limits the backup-induced write
 backlog that can delay control-plane metadata commits.
+
+PostgreSQL cumulative-counter files `pg_stat/pgstat.stat` and `pgstat.tmp`
+under the platform-managed `.baarcha-postgres/data` are omitted. PostgreSQL
+resets these counters on crash recovery; relations, WAL, control files and
+configuration remain included. This is still a filesystem source backup, not
+a logical PostgreSQL backup or database-consistency verification.
+Reference: https://www.postgresql.org/docs/16/monitoring-stats.html

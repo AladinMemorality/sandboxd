@@ -5,8 +5,8 @@ class CacheExclusions(unittest.TestCase):
   source=pathlib.Path(__file__).with_name('export-source.py').read_text()
   assignments=[n for n in ast.walk(ast.parse(source)) if isinstance(n,ast.Assign) and any(isinstance(t,ast.Name) and t.id=='exclusions' for t in n.targets)]
   self.assertEqual(len(assignments),1);patterns=ast.literal_eval(assignments[0].value)
-  excluded=['.local/share/pnpm/store/v3/files/package','.pnpm-store/v3/files/package','.cache/pnpm/metadata','workspace/app/node_modules/react/index.js']
-  retained=['.local/share/pnpm/config/rc','.local/state/pnpm/state.json','workspace/app/pnpm-lock.yaml','workspace/app/packages/local/index.ts','.npmrc','workspace/app/.git/HEAD']
+  excluded=['.local/share/pnpm/store/v3/files/package','.pnpm-store/v3/files/package','.cache/pnpm/metadata','workspace/app/node_modules/react/index.js','.baarcha-postgres/data/pg_stat/pgstat.stat','.baarcha-postgres/data/pg_stat/pgstat.tmp']
+  retained=['.local/share/pnpm/config/rc','.local/state/pnpm/state.json','workspace/app/pnpm-lock.yaml','workspace/app/packages/local/index.ts','.npmrc','workspace/app/.git/HEAD','.baarcha-postgres/data/base/16384/12345','.baarcha-postgres/data/global/pg_control','.baarcha-postgres/data/pg_wal/000000010000000000000001','.baarcha-postgres/data/postgresql.conf','workspace/app/pg_stat/pgstat.stat']
   with tempfile.TemporaryDirectory() as folder:
    root=pathlib.Path(folder);home=root/'home';home.mkdir()
    for name in excluded+retained:

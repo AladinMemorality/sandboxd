@@ -899,3 +899,28 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   legacy-remix73,canary74,maintenance75. Existing output journal names for
   legacy67,canary68,maintenance69 remain unchanged and not yet created.
   Production remains old controllereda67d2 until these gates complete.
+
+2026-10-09 20:30Z source backup export repaired and live database verified:
+-135of136 exports succeeded. Verbose libguestfs on the single retained failed
+  capture identified only .baarcha-postgres/data/pg_stat/pgstat.stat: deleted
+  inode referenced / Structure needs cleaning. No archive was accepted while
+  tar reported failure. Both failed archives and cloned input disks are kept
+  separately at /data/baarcha-source-diagnostics/20261009-pgstat onVPS.
+-Exporter now omits exactly pgstat.stat/pgstat.tmp under the managed PostgreSQL
+  directory. PostgreSQL resets cumulative counters during crash recovery.
+  GNUtar regression proved relations,WAL,control/configuration and similarly
+  named user files remain included. Test passed onVPS and macOS with
+  COPYFILE_DISABLE=1 (default macOS tar added AppleDouble metadata initially).
+-Stats76 export passed12,850,411B. Backup71 resumed captured generation200641Z
+  and now transfers and verifies all136 archives. No live source filesystem
+  was repaired or edited. Daily exporter updated toad60e4c4... .
+-Affected sandbox is retained Cube recovery acceptance fixture6ff432593177fb12.
+  Probe77 assumed the wrong socket;78/79 assumed system psql binaries.
+  Probe80 identified the real embedded PostgreSQL18 server and client module.
+  Check81 passed a read-onlySQL transaction through the platform client,
+  flushed guest buffers, and restored original stopped state/history. Live
+  statistics file is absent (ENOENT), not a damaged runtime inode. Initial81
+  lock contention occurred before mutation; bounded lock wait was then used.
+  Proofs in results/backup-stats-20261009; no model or B200 calls.
+-Units71..75 restarted only after confirming they stopped at dependency guards
+  and had created no output journals. Original failed logs are retained.
