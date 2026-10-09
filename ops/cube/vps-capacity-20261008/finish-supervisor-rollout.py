@@ -1,7 +1,7 @@
 """Wait for the reviewed placement/density/backup proofs, then finish rollout."""
 import json,os,pathlib,time
-root=pathlib.Path('/opt/baarcha/operations/vps-50-profiles-20261008');stage=root/'finish-vps-recovery-13'
-deadline=time.monotonic()+18000
+root=pathlib.Path('/opt/baarcha/operations/vps-50-profiles-20261008');stage=root/'finish-vps-recovery-14'
+deadline=time.monotonic()+9*3600
 while not (stage/'complete.json').exists():
  assert not (stage/'failed.json').exists(),'Recovery stage failed; no supervisor rollout started'
  assert time.monotonic()<deadline,'Recovery deadline exceeded'

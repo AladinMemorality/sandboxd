@@ -11,14 +11,14 @@ def rows(query,args=()):
  with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
   db.row_factory=sqlite3.Row;return [dict(r) for r in db.execute(query,args)]
 with b.locked():
- assert json.loads((root/'finish-vps-recovery-13/complete.json').read_text())['complete']
+ assert json.loads((root/'finish-vps-recovery-14/complete.json').read_text())['complete']
  canary=json.loads((root/'supervisor-canary-2c7e700/passed.json').read_text());assert canary['passed'];expected=canary['receipt']['sha256']
  assert not rows("select id from cube_relocation where phase='fenced'") and not rows("select admission_key from cube_admission where state='pending'")
  assert not rows("select task_id from task where status in ('running','queued')")
  scope=rows("select s.id,s.status,s.web_port,b.runtime_id,a.worker_id,a.state,a.charged from sandbox s join runtime_binding b on b.sandbox_id=s.id join cube_admission a on a.runtime_id=b.runtime_id order by s.id")
  assert len(scope)==134 and all(r['worker_id']=='vps' and (r['status'],r['state'],r['charged']) in [('stopped','released',0),('running','active',1)] for r in scope)
  out.mkdir(mode=0o700);b.atomic(out/'scope.json',b.encoded(scope));verified={canary['runtime_id']}
- paths=list((root/'recovery-moves').glob('*/supervisor-update.json'))+list((root/'real-preview-density-50-balanced').glob('*-supervisor.json'))
+ paths=list((root/'recovery-moves').glob('*/supervisor-update.json'))+list(root.glob('real-preview-density-50-balanced*/*-supervisor.json'))
  for path in paths:
   receipt=json.loads(path.read_text())
   if receipt.get('sha256')==expected and receipt.get('status') in ('updated','current'):verified.add(receipt['runtime_id'])

@@ -5,7 +5,7 @@ No model calls, B200 requests, blind retries, or original-source deletion.
 """
 import contextlib,json,os,pathlib,sqlite3,subprocess,time
 P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008')
-out=root/'finish-vps-recovery-13';out.mkdir(mode=0o700)
+out=root/'finish-vps-recovery-14';out.mkdir(mode=0o700)
 def run(stage,args,timeout):
     (out/'stage.json').write_text(json.dumps({'stage':stage,'at':time.time()}))
     print(json.dumps({'stage':stage,'at':time.time()}),flush=True)
@@ -30,8 +30,8 @@ try:
     plan=json.loads(subprocess.check_output(['/usr/bin/python3',str(root/'real-preview-density.py'),'--plan'],timeout=90))
     assert plan['ready'];(out/'density-plan.json').write_text(json.dumps(plan))
     run('density',['/usr/bin/python3',str(root/'real-preview-density.py'),'--run'],5400)
-    assert json.loads((root/'real-preview-density-50-balanced/result.json').read_text())['passed']
-    run('source-backup',['/usr/bin/python3','/usr/local/libexec/baarcha-vps-source-backup/backup.py'],7200)
+    assert json.loads((root/'real-preview-density-50-balanced-02/result.json').read_text())['passed']
+    run('source-backup',['/usr/bin/python3','/usr/local/libexec/baarcha-vps-source-backup/backup.py'],7*3600)
     result={'complete':True,'sandboxes_on_vps':134,'real_preview_test_passed':True,'fresh_source_backup_completed':True,'model_calls':False,'b200_contacted':False,'at':time.time()}
     (out/'complete.json').write_text(json.dumps(result));print(json.dumps(result),flush=True)
 except BaseException as error:

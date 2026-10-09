@@ -142,3 +142,25 @@ were restored. Verified request/operation evidence permits one bounded retry.
 The VPS XFS data disk grew online from 672 to 728 GiB, preserving boot identity
 and leaving over 128 GiB physical NVMe headroom even at full allocation.
 The disk-use threshold and memory/CPU admission limits remain unchanged.
+
+## Real application density: storage admission
+
+The first 768 MiB application run warmed 41 stopped apps alongside one existing
+2 GiB app (42 live). The next start received HTTP 503 before provider work.
+Host/worker memory guards did not trip. Cleanup completed with canonical bindings
+and the existing active runtime preserved. This run did not establish 50-app
+capacity. Its immutable journal is `real-preview-density-50-balanced` on the VPS.
+
+The storage ledger still held a 12 GiB grant for an acknowledged deleted, unbound
+runtime whose native lookup returns 404. The tested controller fix reconciles
+that grant only after matching identity/token/state and a fresh native 404.
+The new density run uses a separate journal, checks observed free space against
+all retained and proposed grants plus reserve/startup margin, and retains bounded
+HTTP error responses privately. Storage thresholds are unchanged.
+
+Cold September transfer archives are being copied with metadata and checksum
+verification to the VPS HDD. Their original paths are preserved with symlinks.
+The planned online 728-to-784 GiB data-disk growth requires completed archive
+proof and more than 128 GiB physical headroom even at full allocation. These
+operations and the second density result remain pending until their receipts
+exist; the ordered runner stops on any failed prerequisite or stage.

@@ -3,14 +3,14 @@
 Only wake reviewed Vite apps that were stopped before the test. Preserve existing
 running apps, stop the test on user task activity, and restore initial state.
 """
-import concurrent.futures,contextlib,importlib.util,json,os,pathlib,signal,sqlite3,statistics,subprocess,sys,time,textwrap,urllib.request,zipfile
+import concurrent.futures,contextlib,importlib.util,json,os,pathlib,signal,sqlite3,statistics,subprocess,sys,time,textwrap,urllib.request,urllib.error,zipfile
 from maintenance_account import account_maintenance
 P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008')
 spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
 sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as transport
 spec=importlib.util.spec_from_file_location('assets',root/'preview-assets.py');assets=importlib.util.module_from_spec(spec);spec.loader.exec_module(assets)
 SSH=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','-oConnectTimeout=5','root@127.0.0.1']
-G=1024**3;run_dir=root/'real-preview-density-50-balanced';barrier=root/'restore-barrier.json'
+G=1024**3;run_dir=root/'real-preview-density-50-balanced-02';barrier=root/'restore-barrier.json'
 def rows(query,args=()):
     with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
         db.row_factory=sqlite3.Row;return [dict(x) for x in db.execute(query,args)]
@@ -44,7 +44,21 @@ def plan():
     memory=sum(policy['templates'][r['template_id']]['memory_mb']+128 for r in total)
     cpu=sum(policy['resource_budget']['profiles'][r['template_id']]['cpu_millis'] for r in total)
     assert memory<=policy['resource_budget']['memory_mb'] and cpu<=policy['resource_budget']['cpu_millis']
-    return env,active,selected,{'target_total_running':50,'already_running':len(active),'eligible_stopped':len(candidates),'needed':needed,'ready':len(selected)==needed,'reserved_memory_mb':memory,'weighted_cpu_millis':cpu,'model_calls':False}
+    # Mirror the production storage ledger using its fresh, pinned observer file.
+    config=policy['storage_guard'];container=json.loads(subprocess.check_output(['docker','inspect','src-sandboxd-1']))[0]
+    path=P(config['observation_path']);mounts=[m for m in container['Mounts'] if path==P(m['Destination']) or P(m['Destination']) in path.parents]
+    mount=max(mounts,key=lambda m:len(m['Destination']));host_path=P(mount['Source'])/path.relative_to(mount['Destination'])
+    observation=json.loads(host_path.read_text());now=time.clock_gettime_ns(time.CLOCK_BOOTTIME)
+    for field in ['outer_boot_id','observer_id','worker_machine_id','inner_fs_uuid','outer_fs_uuid']:assert observation[field]==config[field]
+    assert observation['worker_boot_id']==config['expected_boot_id']
+    assert observation['outer_boot_id']==P('/proc/sys/kernel/random/boot_id').read_text().strip()
+    assert 0<=now-observation['completed_boottime_ns']<=now-observation['started_boottime_ns']<30*10**9,'Storage observation stale'
+    spent=rows('select coalesce(sum(bytes),0) as bytes from cube_storage_grant where worker_id=? and (released_ns is null or (released_boot_id=? and released_ns>=?))',('vps',observation['outer_boot_id'],observation['started_boottime_ns']))[0]['bytes']
+    new_grants=sum(policy['resource_budget']['profiles'][r['template_id']]['writable_disk_mb']+policy['templates'][r['template_id']]['memory_mb'] for r in selected)*1024**2
+    free=min(observation['inner_free_bytes'],observation['outer_free_bytes']);required=spent+new_grants+48*G
+    assert free>=max(96*G,required+12*G),'Insufficient storage for all starts plus startup writes'
+    storage={'observed_free_bytes':free,'required_bytes':required,'startup_margin_bytes':free-required,'existing_grants_bytes':spent}
+    return env,active,selected,{'storage':storage,'target_total_running':50,'already_running':len(active),'eligible_stopped':len(candidates),'needed':needed,'ready':len(selected)==needed,'reserved_memory_mb':memory,'weighted_cpu_millis':cpu,'model_calls':False}
 guest_sample={};guest_sample_at=0
 def pressure():
     global guest_sample,guest_sample_at
@@ -75,7 +89,13 @@ with b.locked():
     token=env['SANDBOXD_API_TOKENS'].split(',')[0].split('=',1)[1]
     def api(sid,action):
         req=urllib.request.Request('http://127.0.0.1:9090/v1/sandboxes/'+sid+'/'+action,method='POST',headers={'Authorization':'Bearer '+token})
-        with urllib.request.urlopen(req,timeout=180) as response:assert response.status==200;response.read()
+        try:
+            with urllib.request.urlopen(req,timeout=180) as response:assert response.status==200;response.read()
+        except urllib.error.HTTPError as error:
+            # Preserve the bounded response privately; never retry an ambiguous start.
+            body=error.read(16384)
+            b.atomic(run_dir/(sid+'-'+action+'-error.PRIVATE.json'),b.encoded({'status':error.code,'body':body.decode('utf-8','replace'),'at':time.time()}))
+            raise
     def guard():
         now=pressure();save('last-pressure.json',now)
         assert now['worker']['oom_kill']==before['worker']['oom_kill'] and now['worker']['available_bytes']>2*G and now['worker']['full_psi_avg10']<5,'Worker pressure guard'
