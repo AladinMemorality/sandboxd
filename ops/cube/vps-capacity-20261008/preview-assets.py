@@ -1,5 +1,5 @@
 """Follow local Vite module imports over HTTP without executing application JS."""
-import json,pathlib,subprocess
+import json,pathlib,subprocess,time
 from html.parser import HTMLParser
 from urllib.parse import urljoin,urlsplit
 
@@ -33,4 +33,10 @@ def guest_memory(runtime_id):
     guest="import pathlib,json;p=pathlib.Path;m={l.split(':',1)[0]:int(l.split()[1])*1024 for l in p('/proc/meminfo').read_text().splitlines()};v=dict(l.split() for l in p('/proc/vmstat').read_text().splitlines());print('RUNTIME_RECEIPT='+json.dumps({'oom_kill':int(v['oom_kill']),'available_bytes':m['MemAvailable'],'total_bytes':m['MemTotal']}))"
     inner="import sys,json;sys.path.insert(0,'/opt/baarcha-vps-process-recovery-a583d45');import worker; print(json.dumps(worker.execute("+repr(runtime_id)+","+repr(guest)+",'probe',b'')))"
     ssh=['ssh','-i','/opt/baarcha-cube/worker-01/operator-key','-p','20222','-oUserKnownHostsFile=/opt/baarcha-cube/worker-01/known_hosts','-oBatchMode=yes','root@127.0.0.1']
-    return json.loads(subprocess.check_output(ssh+['python3 -'],input=inner.encode(),timeout=45))
+    for attempt in range(3):
+        result=subprocess.run(ssh+['python3 -'],input=inner.encode(),capture_output=True,timeout=45)
+        if result.returncode==0:
+            try:return json.loads(result.stdout)
+            except ValueError:pass
+        if attempt<2:time.sleep(attempt+1)
+    raise RuntimeError('Read-only guest memory probe unavailable after three attempts')

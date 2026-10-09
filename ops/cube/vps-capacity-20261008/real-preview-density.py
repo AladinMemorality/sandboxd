@@ -4,6 +4,7 @@ Only wake reviewed Vite apps that were stopped before the test. Preserve existin
 running apps, stop the test on user task activity, and restore initial state.
 """
 import concurrent.futures,contextlib,importlib.util,json,os,pathlib,signal,sqlite3,statistics,subprocess,sys,time,urllib.request,zipfile
+from maintenance_account import account_maintenance
 P=pathlib.Path;os.umask(0o077);root=P('/opt/baarcha/operations/vps-50-profiles-20261008')
 spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
 sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as transport
@@ -104,54 +105,55 @@ with b.locked():
         save('module-warmup.json',warmed)
     def interrupted(*args):raise KeyboardInterrupt('operator interrupted preview test')
     signal.signal(signal.SIGTERM,interrupted)
-    try:
-        for row in selected:
-            guard();started.append(row['sandbox_id']);save('start-intents.json',started)
-            api(row['sandbox_id'],'start')
-            own_activity[row['sandbox_id']]=rows('select last_active_at from sandbox where id=?',(row['sandbox_id'],))[0]['last_active_at']
-            update=subprocess.run(SSH+['python3','/opt/baarcha-vps-process-recovery-a583d45/worker.py','--container',row['runtime_id']],capture_output=True,timeout=260)
-            receipts=[json.loads(line) for line in update.stdout.splitlines()]
-            assert update.returncode==0 and len(receipts)==1 and receipts[0]['status'] in ('updated','current'),'Supervisor update requires reconciliation'
-            save(row['sandbox_id']+'-supervisor.json',receipts[0])
-            deadline=time.monotonic()+60
-            while True:
-                try:probe(row);break
-                except (OSError,RuntimeError):assert time.monotonic()<deadline;time.sleep(1)
-            warm(row)
-            save('progress.json',{'started':len(started),'total_requested':len(selected),'at':time.time()})
-        live=[r for r in inventory() if r['charged']];assert len(live)==50 and all(r['status']=='running' for r in live)
-        save('fifty-running.json',{'count':len(live),'runtime_ids':[r['runtime_id'] for r in live],'at':time.time()})
-        measurements=[]
-        for _ in range(12):
-            guard()
-            with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:measurements.extend(pool.map(probe,selected+active))
-            time.sleep(5)
-        wanted=[r['runtime_id'] for r in live]
-        code="""import pathlib,subprocess,json
-wanted=set(WANTED);p=pathlib.Path;items=[]
-raw=subprocess.check_output(['ctr','--address','/data/cubelet/cubelet.sock','--namespace','default','tasks','list'],text=True)
-for line in raw.splitlines()[1:]:
- a=line.split()
- if len(a)<3 or a[0] not in wanted:continue
- v={l.split(':',1)[0]:int(l.split()[1])*1024 for l in (p('/proc')/a[1]/'smaps_rollup').read_text().splitlines() if ':' in l}
- items.append({'runtime_id':a[0],'rss_bytes':v['Rss'],'pss_bytes':v['Pss']})
-m={l.split(':',1)[0]:int(l.split()[1])*1024 for l in p('/proc/meminfo').read_text().splitlines()}
-print(json.dumps({'runtimes':items,'guest_available_bytes':m['MemAvailable'],'guest_memory_pressure':p('/proc/pressure/memory').read_text()}))
-""".replace('WANTED',repr(wanted))
-        native=json.loads(subprocess.check_output(SSH+['python3 -'],input=code.encode(),timeout=30));assert len(native['runtimes'])==50
-        save('runtime-memory.json',native);times=sorted(r['seconds'] for r in measurements);pss=sorted(r['pss_bytes'] for r in native['runtimes'])
-        result={'passed':True,'concurrent_running':50,'http_checks':len(times),'http_p95_seconds':times[int(.95*(len(times)-1))],'http_max_seconds':max(times),'total_pss_bytes':sum(pss),'median_pss_bytes':statistics.median(pss),'max_pss_bytes':max(pss),'model_calls':False,'module_http_checks':sum(r['modules'] for r in warmed),'module_bytes':sum(r['bytes'] for r in warmed),'application_scope':'HTML and local Vite module graph serving; no browser JS execution, model requests or coding tasks','after':pressure()}
-        save('result.json',result);print(json.dumps(result),flush=True)
-    except BaseException as error:
-        save('failed.json',{'type':type(error).__name__,'reason':str(error)[:300],'started':len(started),'at':time.time()});raise
-    finally:
-        for sid in reversed(started):
-            activity=rows('select last_active_at from sandbox where id=?',(sid,))[0]['last_active_at']
-            if task_ids(sid)!=initial_tasks[sid] or (sid in own_activity and activity>own_activity[sid]):cleanup.append({'sandbox_id':sid,'preserved_for_user_work':True});continue
-            try:api(sid,'stop');cleanup.append({'sandbox_id':sid,'stopped':True})
-            except Exception as error:cleanup.append({'sandbox_id':sid,'error':type(error).__name__})
-        current={r['sandbox_id']:r['runtime_id'] for r in inventory()}
-        final={'runtimes':cleanup,'bindings_preserved':all(current.get(k)==v for k,v in bindings.items()),'existing_running_preserved':all(r['sandbox_id'] not in started for r in active),'complete':all(r.get('stopped') or r.get('preserved_for_user_work') for r in cleanup)}
-        save('cleanup.json',final)
-        if final['complete'] and final['bindings_preserved'] and gate is not None and json.loads(barrier.read_text())==gate:barrier.unlink()
-        assert final['complete'] and final['bindings_preserved'],'Preview cleanup requires reconciliation; barrier retained'
+    with account_maintenance([r['sandbox_id'] for r in selected],run_dir):
+        try:
+            for row in selected:
+                guard();started.append(row['sandbox_id']);save('start-intents.json',started)
+                api(row['sandbox_id'],'start')
+                own_activity[row['sandbox_id']]=rows('select last_active_at from sandbox where id=?',(row['sandbox_id'],))[0]['last_active_at']
+                update=subprocess.run(SSH+['python3','/opt/baarcha-vps-process-recovery-a583d45/worker.py','--container',row['runtime_id']],capture_output=True,timeout=260)
+                receipts=[json.loads(line) for line in update.stdout.splitlines()]
+                assert update.returncode==0 and len(receipts)==1 and receipts[0]['status'] in ('updated','current'),'Supervisor update requires reconciliation'
+                save(row['sandbox_id']+'-supervisor.json',receipts[0])
+                deadline=time.monotonic()+60
+                while True:
+                    try:probe(row);break
+                    except (OSError,RuntimeError):assert time.monotonic()<deadline;time.sleep(1)
+                warm(row)
+                save('progress.json',{'started':len(started),'total_requested':len(selected),'at':time.time()})
+            live=[r for r in inventory() if r['charged']];assert len(live)==50 and all(r['status']=='running' for r in live)
+            save('fifty-running.json',{'count':len(live),'runtime_ids':[r['runtime_id'] for r in live],'at':time.time()})
+            measurements=[]
+            for _ in range(12):
+                guard()
+                with concurrent.futures.ThreadPoolExecutor(max_workers=10) as pool:measurements.extend(pool.map(probe,selected+active))
+                time.sleep(5)
+            wanted=[r['runtime_id'] for r in live]
+            code="""import pathlib,subprocess,json
+    wanted=set(WANTED);p=pathlib.Path;items=[]
+    raw=subprocess.check_output(['ctr','--address','/data/cubelet/cubelet.sock','--namespace','default','tasks','list'],text=True)
+    for line in raw.splitlines()[1:]:
+     a=line.split()
+     if len(a)<3 or a[0] not in wanted:continue
+     v={l.split(':',1)[0]:int(l.split()[1])*1024 for l in (p('/proc')/a[1]/'smaps_rollup').read_text().splitlines() if ':' in l}
+     items.append({'runtime_id':a[0],'rss_bytes':v['Rss'],'pss_bytes':v['Pss']})
+    m={l.split(':',1)[0]:int(l.split()[1])*1024 for l in p('/proc/meminfo').read_text().splitlines()}
+    print(json.dumps({'runtimes':items,'guest_available_bytes':m['MemAvailable'],'guest_memory_pressure':p('/proc/pressure/memory').read_text()}))
+    """.replace('WANTED',repr(wanted))
+            native=json.loads(subprocess.check_output(SSH+['python3 -'],input=code.encode(),timeout=30));assert len(native['runtimes'])==50
+            save('runtime-memory.json',native);times=sorted(r['seconds'] for r in measurements);pss=sorted(r['pss_bytes'] for r in native['runtimes'])
+            result={'passed':True,'concurrent_running':50,'http_checks':len(times),'http_p95_seconds':times[int(.95*(len(times)-1))],'http_max_seconds':max(times),'total_pss_bytes':sum(pss),'median_pss_bytes':statistics.median(pss),'max_pss_bytes':max(pss),'model_calls':False,'module_http_checks':sum(r['modules'] for r in warmed),'module_bytes':sum(r['bytes'] for r in warmed),'application_scope':'HTML and local Vite module graph serving; no browser JS execution, model requests or coding tasks','after':pressure()}
+            save('result.json',result);print(json.dumps(result),flush=True)
+        except BaseException as error:
+            save('failed.json',{'type':type(error).__name__,'reason':str(error)[:300],'started':len(started),'at':time.time()});raise
+        finally:
+            for sid in reversed(started):
+                activity=rows('select last_active_at from sandbox where id=?',(sid,))[0]['last_active_at']
+                if task_ids(sid)!=initial_tasks[sid] or (sid in own_activity and activity>own_activity[sid]):cleanup.append({'sandbox_id':sid,'preserved_for_user_work':True});continue
+                try:api(sid,'stop');cleanup.append({'sandbox_id':sid,'stopped':True})
+                except Exception as error:cleanup.append({'sandbox_id':sid,'error':type(error).__name__})
+            current={r['sandbox_id']:r['runtime_id'] for r in inventory()}
+            final={'runtimes':cleanup,'bindings_preserved':all(current.get(k)==v for k,v in bindings.items()),'existing_running_preserved':all(r['sandbox_id'] not in started for r in active),'complete':all(r.get('stopped') or r.get('preserved_for_user_work') for r in cleanup)}
+            save('cleanup.json',final)
+            if final['complete'] and final['bindings_preserved'] and gate is not None and json.loads(barrier.read_text())==gate:barrier.unlink()
+            assert final['complete'] and final['bindings_preserved'],'Preview cleanup requires reconciliation; barrier retained'
