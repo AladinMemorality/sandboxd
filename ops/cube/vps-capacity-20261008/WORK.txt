@@ -445,3 +445,17 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
 - Fixed the density memory probe's indentation and restricted smaps parsing
   to Rss/Pss fields, excluding the address line's colon-delimited device ID.
 - Preview parser six tests and updater lock two tests pass.
+
+2026-10-09 11:23Z all canonical sandboxes on VPS:
+- All 134 bindings now point to VPS; zero pending admissions, fenced relocations,
+  or running/queued coding tasks. Existing running app preserved; other133 stopped.
+- Limits:110x768MiB,11x1024MiB,13x2048MiB. These are reservations, not resident use.
+- Final restore required2048MiB for dependency installation (proven OOM at768/1024),
+  then exposed two syntax errors in its original Vite config. Only those syntax
+  edits were applied. Original workspace/home/history had already passed exact
+  verification. Repaired workspace and unchanged history were re-exported;
+  durable home files rechecked, new PNPM cache/state paths explicitly recorded.
+  Preview29 modules and stop/wake0.917s passed. No media/model jobs executed.
+- Retained failed batch08 journal and closed it with15 canonical target proofs.
+- Density plan:49 stopped768MiB apps plus existing2GiB app,46080MiB reserved
+  including128MiB VM overhead each,5400m CPU. Actual load test now running.

@@ -1,0 +1,21 @@
+{
+  "application_repaired": true,
+  "at": 1791544933.0797033,
+  "changed_files": 1,
+  "model_calls": false,
+  "module_checks": [
+    29,
+    29
+  ],
+  "original_source_verified_before_repair": true,
+  "profile": "large",
+  "restored": true,
+  "same_project_identity": true,
+  "sandbox_id": "01M45GE5BT8GTFEA2VV2R9KCEZ",
+  "source_contacted": false,
+  "source_retained": true,
+  "syntax_edits": 2,
+  "syntax_passed": true,
+  "wake_seconds": 0.9165464648976922,
+  "worker": "vps"
+}

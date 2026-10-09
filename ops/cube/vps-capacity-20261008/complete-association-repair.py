@@ -61,11 +61,11 @@ print('RUNTIME_RECEIPT='+json.dumps({'typescript_exit':check.returncode,'diagnos
   b.atomic(out/'contributions-guest.PRIVATE.log',p.stdout+p.stderr);assert p.returncode==0
   result=json.loads(p.stdout);b.atomic(out/'typescript.json',b.encoded(result));assert result['typescript_exit']==0
   worker.http('GET','/export/private-workspace-v2',export=out/'after.PRIVATE.zip')
-  before=manifest(out/'before-install.PRIVATE.zip');after=manifest(out/'after.PRIVATE.zip');added=json.loads(b.trusted(out/'repair.PRIVATE.json'))['manifest']['files'];changed=patch['path']
+  before={k:v for k,v in manifest(out/'before-install.PRIVATE.zip').items() if not k.startswith('node_modules/.vite/')};after={k:v for k,v in manifest(out/'after.PRIVATE.zip').items() if not k.startswith('node_modules/.vite/')};added=json.loads(b.trusted(out/'repair.PRIVATE.json'))['manifest']['files'];changed=patch['path']
   assert all(after.get(name)==value for name,value in before.items() if name!=changed),'Unexpected original file change'
   assert set(after)-set(before)==set(added)|{'src/views/'},'Unexpected new files'
   assert all(after[name][2]==digest for name,digest in added.items()) and after[changed][2]==patch['sha256']
-  b.atomic(out/'files-verified.json',b.encoded({'added_files':added,'changed_files':{changed:patch['sha256']},'other_files_unchanged':True,'typescript_passed':True,'source_backup_preserved':True}))
+  b.atomic(out/'files-verified.json',b.encoded({'added_files':added,'changed_files':{changed:patch['sha256']},'other_source_files_unchanged':True,'generated_vite_cache_excluded':True,'typescript_passed':True,'source_backup_preserved':True}))
  finally:worker.control('POST','/workspace/resume')
  first=health();api('stop');began=time.monotonic();api('start');wake=time.monotonic()-began;second=health();api('stop')
  result={'restored':True,'sandbox_id':sid,'worker':'vps','profile':'balanced','source_contacted':False,'same_project_identity':True,'wake_seconds':wake,'original_source_verified_before_repair':True,'application_repaired':True,'added_files':4,'changed_files':1,'typescript_passed':True,'module_checks':[first['modules'],second['modules']],'source_retained':True,'at':time.time()}

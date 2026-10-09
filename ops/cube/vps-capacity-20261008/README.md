@@ -58,18 +58,17 @@ This avoids adopting the older runtime identity from the initial backup.
 
 ## Outstanding acceptance
 
-The first 133-project archive set is stored on the VPS. Source backups and
-offline archive validation do not mean all projects have been started there.
-Remaining B200 bindings require individual verified restoration. Some archives
-need special handling for app authentication state, external cache links or
-missing historical events; preserve the originals and do not fabricate data.
+All 134 canonical sandboxes are now placed on the VPS, with no pending
+admissions or fenced relocations. Each restore/profile change passed its
+content and preview checks and a stop/wake cycle. Two unfinished applications
+required separately recorded source repairs; original archives remain intact.
+Current guest limits: 110 at 768 MiB, 11 at 1 GiB, and 13 at 2 GiB.
 
-Recurring VPS source backups are installed and a first generation was verified.
-The union of that generation and the emergency archive covers all 134 current
-projects. Maximum build/agent concurrency and all-project production serving
-still require further acceptance. Read the
-latest append-only progress entries in `WORK.txt` and the private VPS journals
-before continuing this operation.
+The previous emergency and recurring source backup generations cover all 134
+projects in aggregate. A fresh all-VPS generation, the 50 real-preview density
+test, and the remaining supervisor rollout are the outstanding final stages.
+Maximum build/agent concurrency remains explicitly deferred. Read the latest
+append-only entries in `WORK.txt` and the private VPS journals before continuing.
 
 ## Real application memory and concurrent starts
 

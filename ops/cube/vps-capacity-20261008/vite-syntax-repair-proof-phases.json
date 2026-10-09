@@ -1,0 +1,7 @@
+{
+  "final_history": "fresh export equals original digest",
+  "final_home": "durable original files rechecked; PNPM caches and store created by dependency install",
+  "final_workspace": "two reviewed syntax edits; other source files unchanged; generated Vite cache allowed",
+  "model_calls": false,
+  "original_workspace_home_history": "fully byte-verified before dependency installation"
+}
