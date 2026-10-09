@@ -1,5 +1,6 @@
 """Restore one stopped B200 project from VPS-local verified artifacts only."""
 import contextlib,fcntl,importlib.util,json,os,pathlib,select,shutil,sqlite3,subprocess,sys,time,traceback,zipfile
+from migration_lifecycle import lifecycle
 P=pathlib.Path;root=P('/opt/baarcha/operations/vps-50-profiles-20261008');os.umask(0o077)
 sys.path.insert(0,str(root/'recovery-tools'));import move_project_worker as transport
 spec=importlib.util.spec_from_file_location('boot','/usr/local/libexec/baarcha-cube-boot-transition.py');b=importlib.util.module_from_spec(spec);spec.loader.exec_module(b)
@@ -43,7 +44,8 @@ def rows(query,args=()):
   db.row_factory=sqlite3.Row;return [dict(r) for r in db.execute(query,args)]
 def cli(action,**extra):
  request={'Action':action,'ID':job.name,'Directory':str(job),'Migrations':str(migrations),**extra}
- p=subprocess.run([str(BIN)],input=json.dumps(request).encode(),capture_output=True,timeout=200)
+ with lifecycle():
+  p=subprocess.run([str(BIN)],input=json.dumps(request).encode(),capture_output=True,timeout=200)
  if p.returncode:save('cli-'+action+'-failed.json',{'exit_code':p.returncode});raise RuntimeError('relocation '+action+' refused')
  return json.loads(p.stdout)
 class LocalWorker(transport.Worker):
@@ -151,7 +153,8 @@ with wait_for_operator():
   import urllib.request
   def api(action):
    req=urllib.request.Request('http://127.0.0.1:9090/v1/sandboxes/'+sid+'/'+action,method='POST',headers={'Authorization':'Bearer '+token})
-   with urllib.request.urlopen(req,timeout=180) as response:assert response.status==200;response.read()
+   with lifecycle():
+    with urllib.request.urlopen(req,timeout=180) as response:assert response.status==200;response.read()
   api('start');api('stop');began=time.monotonic();api('start');wake=time.monotonic()-began
   worker.http('GET','/',headers={**request['headers'],'Host':request['headers']['Host'].replace('3031-',str(request['web_port'])+'-',1)},timeout=10)
   worker.application_checks()

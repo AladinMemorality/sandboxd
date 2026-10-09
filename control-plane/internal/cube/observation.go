@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"math/rand"
 	"net/http"
 	"net/url"
 	"time"
@@ -105,43 +106,71 @@ func decodeMasterObservation(raw []byte, id string) (*Sandbox, error) {
 // Admission has already read this paused runtime. Use CubeMaster's same resume
 // operation without CubeAPI repeating the before/after reads. The caller still
 // verifies state/resources/placement afterward and retains uncertain admission.
+var errNativeResumeBusy = errors.New("Cube native resume concurrency limit")
+
 func (c *Client) nativeResume(origin *url.URL, instance string) func(context.Context, string, ConnectRequest) error {
 	return func(ctx context.Context, id string, in ConnectRequest) error {
 		if validateID(id) != nil {
 			return ErrAdmissionUnknown
 		}
-		requestID, err := admissionToken()
-		if err != nil {
-			return err
-		}
-		body, _ := json.Marshal(map[string]any{"requestID": requestID, "sandbox_id": id, "instance_type": instance, "action": "resume", "timeout": in.TimeoutSeconds})
-		target := *origin
-		target.Path = "/cube/sandbox/update"
 		bounded, cancel := context.WithTimeout(ctx, lifecycleTimeout)
 		defer cancel()
-		req, err := http.NewRequestWithContext(bounded, http.MethodPost, target.String(), bytes.NewReader(body))
-		if err != nil {
-			return err
+		target := *origin
+		target.Path = "/cube/sandbox/update"
+		for attempt := 0; ; attempt++ {
+			if bounded.Err() != nil {
+				return errNativeResumeBusy
+			}
+			requestID, err := admissionToken()
+			if err != nil {
+				return err
+			}
+			body, _ := json.Marshal(map[string]any{"requestID": requestID, "sandbox_id": id, "instance_type": instance, "action": "resume", "timeout": in.TimeoutSeconds})
+			req, err := http.NewRequestWithContext(bounded, http.MethodPost, target.String(), bytes.NewReader(body))
+			if err != nil {
+				return err
+			}
+			req.Header.Set("Content-Type", "application/json")
+			req.Header.Set("X-Caller", masterControlCaller)
+			response, err := c.http.Do(req)
+			// A transport failure may have happened after allocation. Never replay it.
+			if err != nil {
+				return errors.New("Cube native resume unavailable")
+			}
+			raw, readErr := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
+			response.Body.Close()
+			if readErr != nil || len(raw) > maxResponseBytes || response.StatusCode != http.StatusOK {
+				return errors.New("Cube native resume rejected")
+			}
+			var result struct {
+				Ret struct {
+					Code    *int   `json:"ret_code"`
+					Message string `json:"ret_msg"`
+				} `json:"ret"`
+			}
+			if json.Unmarshal(raw, &result) != nil || result.Ret.Code == nil {
+				return errors.New("Cube native resume unconfirmed")
+			}
+			if *result.Ret.Code == 200 {
+				return nil
+			}
+			// Cubelet's workflow Engine.run returns ConcurrentFailed before executing
+			// any create/resume step (Limiter.TryAcquire). Retain one admission lease
+			// while waiting; no other error, including a timeout, is safe to replay.
+			if *result.Ret.Code != 130513 || result.Ret.Message != "flow [create] exceed limited" {
+				return errors.New("Cube native resume unconfirmed")
+			}
+			limit := 250 * (attempt + 1)
+			if limit > 1500 {
+				limit = 1500
+			}
+			timer := time.NewTimer(time.Duration(limit+rand.Intn(250)) * time.Millisecond)
+			select {
+			case <-bounded.Done():
+				timer.Stop()
+				return errNativeResumeBusy
+			case <-timer.C:
+			}
 		}
-		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("X-Caller", masterControlCaller)
-		response, err := c.http.Do(req)
-		if err != nil {
-			return errors.New("Cube native resume unavailable")
-		}
-		defer response.Body.Close()
-		raw, err := io.ReadAll(io.LimitReader(response.Body, maxResponseBytes+1))
-		if err != nil || len(raw) > maxResponseBytes || response.StatusCode != 200 {
-			return errors.New("Cube native resume rejected")
-		}
-		var result struct {
-			Ret struct {
-				Code *int `json:"ret_code"`
-			} `json:"ret"`
-		}
-		if json.Unmarshal(raw, &result) != nil || result.Ret.Code == nil || *result.Ret.Code != 200 {
-			return errors.New("Cube native resume unconfirmed")
-		}
-		return nil
 	}
 }

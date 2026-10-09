@@ -223,3 +223,132 @@ func TestObservedPausedRuntimeUsesSingleNativeResumeWithBothChecks(t *testing.T)
 		t.Fatalf("resume failed/repeated: %v reads=%d writes=%d", e, gets.Load(), updates.Load())
 	}
 }
+
+func TestNativeResumeRetriesOnlyExplicitPreMutationConcurrencyRejections(t *testing.T) {
+	for _, kind := range []string{"busy-then-success", "unknown-code", "wrong-flow", "bad-json", "http-error", "dropped-response", "cancelled-busy"} {
+		t.Run(kind, func(t *testing.T) {
+			var requests atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				n := requests.Add(1)
+				if kind == "dropped-response" {
+					conn, _, err := w.(http.Hijacker).Hijack()
+					if err != nil {
+						t.Error(err)
+						return
+					}
+					conn.Close()
+					return
+				}
+				if kind == "http-error" {
+					w.WriteHeader(503)
+					return
+				}
+				if kind == "bad-json" {
+					w.Write([]byte("broken"))
+					return
+				}
+				code := 130513
+				msg := "flow [create] exceed limited"
+				if kind == "busy-then-success" && n == 2 {
+					code = 200
+				}
+				if kind == "unknown-code" {
+					code = 130597
+				}
+				if kind == "wrong-flow" {
+					msg = "different operation"
+				}
+				json.NewEncoder(w).Encode(map[string]any{"ret": map[string]any{"ret_code": code, "ret_msg": msg}})
+			}))
+			defer server.Close()
+			client, err := New(Config{APIURL: server.URL, APIKey: "synthetic"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = client.ConfigurePlacement(server.URL, "cubebox"); err != nil {
+				t.Fatal(err)
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			if kind == "cancelled-busy" {
+				cancel()
+				ctx, cancel = context.WithTimeout(context.Background(), 40*time.Millisecond)
+			}
+			defer cancel()
+			err = client.resumeObserved(ctx, "vm-one", ConnectRequest{TimeoutSeconds: 3600})
+			if kind == "busy-then-success" {
+				if err != nil || requests.Load() != 2 {
+					t.Fatalf("resume: %v requests=%d", err, requests.Load())
+				}
+				return
+			}
+			if err == nil || requests.Load() != 1 {
+				t.Fatalf("unsafe retry: %v requests=%d", err, requests.Load())
+			}
+			if (kind == "cancelled-busy") != errors.Is(err, errNativeResumeBusy) {
+				t.Fatalf("ambiguous result labeled safe to release: %v", err)
+			}
+		})
+	}
+}
+
+type rejectedResumeLedger struct {
+	AdmissionStore
+	begins   int
+	finishes []string
+}
+
+func (l *rejectedResumeLedger) AdmissionLookup(context.Context, string) (AdmissionRecord, error) {
+	return AdmissionRecord{Key: "app:one", RuntimeID: "vm-one", TemplateID: "tpl-one", State: "released"}, nil
+}
+func (l *rejectedResumeLedger) AdmissionBegin(context.Context, string, string, string, string, string) (AdmissionRecord, error) {
+	l.begins++
+	return AdmissionRecord{Key: "app:one", RuntimeID: "vm-one", TemplateID: "tpl-one", State: "pending", Token: "single-lease", Charged: 1}, nil
+}
+func (l *rejectedResumeLedger) AdmissionFinish(_ context.Context, a AdmissionRecord, _ string, state string) error {
+	if a.Token != "single-lease" {
+		return errors.New("wrong lease")
+	}
+	l.finishes = append(l.finishes, state)
+	return nil
+}
+func TestExhaustedRejectedResumeReleasesOnlyAuthoritativelyPausedLease(t *testing.T) {
+	for _, mode := range []string{"paused", "running", "unknown", "ambiguous"} {
+		t.Run(mode, func(t *testing.T) {
+			client, err := New(Config{APIURL: "http://127.0.0.1:1", APIKey: "synthetic"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			ledger := &rejectedResumeLedger{}
+			client.admission = &admissionGuard{store: ledger, config: AdmissionConfig{NodeID: "node-one", Templates: map[string]AdmissionResources{"tpl-one": {CPUCount: 1, MemoryMB: 768}}}}
+			reads := 0
+			client.observation = func(context.Context, string) (*Sandbox, error) {
+				reads++
+				if reads > 1 && mode == "unknown" {
+					return nil, errors.New("offline")
+				}
+				state := "paused"
+				if reads > 1 && mode == "running" {
+					state = "running"
+				}
+				return &Sandbox{SandboxID: "vm-one", TemplateID: "tpl-one", ClientID: "node-one", CPUCount: 1, MemoryMB: 768, State: state}, nil
+			}
+			client.resumeObserved = func(context.Context, string, ConnectRequest) error {
+				if mode == "ambiguous" {
+					return errors.New("lost response")
+				}
+				return errNativeResumeBusy
+			}
+			_, err = client.admittedConnect(context.Background(), "vm-one", ConnectRequest{}, nil)
+			if ledger.begins != 1 {
+				t.Fatal("more than one reservation")
+			}
+			if mode == "paused" {
+				if !errors.Is(err, ErrCreationBusy) || len(ledger.finishes) != 1 || ledger.finishes[0] != "released" {
+					t.Fatalf("safe release: %v %+v", err, ledger)
+				}
+			} else if !errors.Is(err, ErrAdmissionPending) || len(ledger.finishes) != 0 {
+				t.Fatalf("uncertain outcome released: %v %+v", err, ledger)
+			}
+		})
+	}
+}

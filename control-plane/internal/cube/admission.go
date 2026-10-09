@@ -318,6 +318,19 @@ func (c *Client) admittedConnect(ctx context.Context, id string, in ConnectReque
 		out, err = c.connectRaw(ctx, id, in)
 	}
 	if err != nil {
+		if native && errors.Is(err, errNativeResumeBusy) {
+			// All attempts were explicitly rejected before mutation. Still
+			// require a fresh paused observation and exact lease CAS before
+			// releasing capacity; ambiguous outcomes remain charged.
+			cleanup, done := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+			defer done()
+			actual, observed := c.getPlaced(cleanup, id)
+			if observed == nil && g.validRemote(actual) == nil && actual.State == "paused" && actual.TemplateID == remote.TemplateID {
+				if finish := g.store.AdmissionFinish(cleanup, lease, id, "released"); finish == nil {
+					return nil, ErrCreationBusy
+				}
+			}
+		}
 		return nil, fmt.Errorf("%w: connect outcome requires review", ErrAdmissionPending)
 	}
 	mark("native_connect")
