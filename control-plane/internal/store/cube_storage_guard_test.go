@@ -485,3 +485,96 @@ func TestStorageLostObserverSequenceCannotResetEnrolledEpoch(t *testing.T) {
 		t.Fatal("failed observation reset debit")
 	}
 }
+
+func TestStorageDeletedGrantRecoversOnlyFromCurrentDeletedObservation(t *testing.T) {
+	for _, how := range []string{"get", "offline"} {
+		t.Run(how, func(t *testing.T) {
+			s := openTestStore(t)
+			_, now := storageSetup(t, s)
+			ctx := context.Background()
+			a := storageCreate(t, s, "deleted-clock-failure")
+			lease, err := s.AdmissionBegin(ctx, a.Key, a.RuntimeID, a.TemplateID, "delete", "delete-ack")
+			if err != nil {
+				t.Fatal(err)
+			}
+			// A valid provider acknowledgement can outlive a failed clock read. The
+			// runtime becomes deleted, while its grant must conservatively stay open.
+			clock := s.storageNow
+			s.storageNow = func() (cube.StorageClock, error) { return cube.StorageClock{}, errors.New("clock unavailable") }
+			if err = s.AdmissionFinish(ctx, lease, a.RuntimeID, "deleted"); err != nil {
+				t.Fatal(err)
+			}
+			s.storageNow = clock
+			*now = now.Add(time.Second)
+			current, err := s.AdmissionLookup(ctx, a.RuntimeID)
+			if err != nil {
+				t.Fatal(err)
+			}
+			open := func() int {
+				var n int
+				if e := s.db.QueryRow(`SELECT COUNT(*) FROM cube_storage_grant WHERE released_ns IS NULL`).Scan(&n); e != nil {
+					t.Fatal(e)
+				}
+				return n
+			}
+			if open() != 1 {
+				t.Fatal("uncertain release discarded disk reservation")
+			}
+			// A paused observation must never turn an already-deleted row into released.
+			if err = s.AdmissionObserveReleased(ctx, current, false); err != nil {
+				t.Fatal(err)
+			}
+			stale := current
+			stale.Token = "stale-token"
+			if err = s.AdmissionObserveReleased(ctx, stale, true); err != nil {
+				t.Fatal(err)
+			}
+			if open() != 1 {
+				t.Fatal("stale or nondeleted observation released the grant")
+			}
+			row, _ := s.AdmissionLookup(ctx, a.RuntimeID)
+			if row.State != "deleted" {
+				t.Fatal("deleted state changed")
+			}
+			var gets atomic.Int32
+			provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method != http.MethodGet {
+					t.Errorf("unexpected provider mutation %s", r.Method)
+				}
+				gets.Add(1)
+				w.WriteHeader(http.StatusNotFound)
+			}))
+			defer provider.Close()
+			client, err := cube.New(cube.Config{APIURL: provider.URL, APIKey: "fixture"})
+			if err != nil {
+				t.Fatal(err)
+			}
+			cfg := admissionConfig(4)
+			guard := storageConfig()
+			cfg.StorageGuard = &guard
+			cfg.WritableDiskMB = 10240
+			if err = client.ConfigureAdmission(ctx, s, cfg); err != nil {
+				t.Fatal(err)
+			}
+			if how == "get" {
+				if _, err = client.Get(ctx, a.RuntimeID); err == nil {
+					t.Fatal("deleted runtime unexpectedly exists")
+				}
+			} else {
+				if err = client.ReconcileAdmission(ctx, current.Key, false); err == nil {
+					t.Fatal("missing offline fence accepted")
+				}
+				if err = client.ReconcileAdmission(ctx, current.Key, true); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if open() != 0 || gets.Load() != 1 {
+				t.Fatal("fresh deleted observation did not reconcile disk grant")
+			}
+			row, _ = s.AdmissionLookup(ctx, a.RuntimeID)
+			if row.State != "deleted" || row.Charged != 0 {
+				t.Fatal("reconciliation changed runtime state")
+			}
+		})
+	}
+}

@@ -202,7 +202,7 @@ func (s *Store) AdmissionObserveReleased(ctx context.Context, a cube.AdmissionRe
 		if _, err = tx.ExecContext(ctx, `UPDATE cube_admission_policy SET max_active=max_active WHERE singleton=1 AND worker_id=?`, s.admissionWorkerID()); err != nil {
 			return err
 		}
-		result, err := tx.ExecContext(ctx, `UPDATE cube_admission SET state=?,charged=0 WHERE admission_key=? AND token=? AND worker_id=? AND state IN ('active','released')`, state, a.Key, a.Token, s.admissionWorkerID())
+		result, err := tx.ExecContext(ctx, `UPDATE cube_admission SET state=?,charged=0 WHERE admission_key=? AND token=? AND worker_id=? AND (state IN ('active','released') OR (state='deleted' AND ?='deleted'))`, state, a.Key, a.Token, s.admissionWorkerID(), state)
 		if err != nil {
 			return err
 		}

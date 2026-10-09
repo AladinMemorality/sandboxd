@@ -459,3 +459,16 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
 - Retained failed batch08 journal and closed it with15 canonical target proofs.
 - Density plan:49 stopped768MiB apps plus existing2GiB app,46080MiB reserved
   including128MiB VM overhead each,5400m CPU. Actual load test now running.
+
+2026-10-09 12:12Z storage constraint from real density test:
+-41 test previews plus original existing app ran with successful module checks.
+ The next start was refused by admission; no memory guard or OOM fired.
+ Cleanup completed with all bindings preserved and original active app retained.
+-Storage ledger includes an old12GiB grant on an already-deleted VPS runtime.
+ Fresh native API404 confirms its absence. Added CAS-protected reconciliation
+ for acknowledged deleted generations; stale, pending, and paused observations
+ cannot release that reservation. Store/cube/API race suites pass.
+-Cold transfer archives total approximately67GiB on outer NVMe. Moving them
+ to HDD with checksum+metadata verification and preserved original paths;
+ no container mounts, open descriptors, mapped files or loop devices reference
+ the selected archive trees. Original VM disks and source data remain retained.

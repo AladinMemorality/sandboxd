@@ -488,7 +488,8 @@ func releaseState(operation string) string {
 	return "released"
 }
 
-// ReconcileAdmission repairs a pending known-runtime mutation only during
+// ReconcileAdmission repairs pending known-runtime mutations or retained grants
+// for acknowledged deletions only during
 // offline maintenance AFTER the operator has drained provider requests. A GET
 // alone cannot rule out a timed-out remote Connect completing later.
 func (c *Client) ReconcileAdmission(ctx context.Context, key string, providerRequestsDrained bool) error {
@@ -509,6 +510,14 @@ func (c *Client) ReconcileAdmission(ctx context.Context, key string, providerReq
 	a, err := c.admission.store.AdmissionLookupKey(ctx, key)
 	if err != nil {
 		return ErrAdmissionUnknown
+	}
+	if a.State == "deleted" && a.Charged == 0 && a.RuntimeID != "" {
+		_, observed := c.getRaw(ctx, a.RuntimeID)
+		var missing *APIError
+		if !errors.As(observed, &missing) || missing.StatusCode != 404 {
+			return ErrAdmissionPending
+		}
+		return c.admission.store.AdmissionObserveReleased(ctx, a, true)
 	}
 	if a.State != "pending" || a.RuntimeID == "" || a.Operation == "create" {
 		return ErrAdmissionPending

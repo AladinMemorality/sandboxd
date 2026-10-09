@@ -1,5 +1,5 @@
 """Read-only canonical placement and policy audit; never contacts B200."""
-import json,pathlib,sqlite3,subprocess,time,urllib.request
+import collections,json,pathlib,sqlite3,subprocess,time,urllib.request
 root=pathlib.Path('/opt/baarcha/operations/vps-50-profiles-20261008')
 with sqlite3.connect('file:/var/lib/sandboxd/state/sandboxd.db?mode=ro',uri=True) as db:
  db.row_factory=sqlite3.Row
@@ -16,5 +16,7 @@ assert placement==[{'worker_id':'vps','count':134}] and pending==fenced==active_
 assert int(env.get('SANDBOXD_CUBE_TASK_CONCURRENCY','0'))==0
 assert all(w['draining'] for w in fleet['workers'] if w['id']!='vps')
 with urllib.request.urlopen('http://127.0.0.1:9090/readyz',timeout=5) as r:assert r.read().strip()==b'ready'
-result={'passed':True,'placement':placement,'states':states,'profiles':[{'memory_mb':policy['templates'][r['template_id']]['memory_mb'],'count':r['count']} for r in templates],'pending_admissions':pending,'fenced_relocations':fenced,'active_tasks':active_tasks,'coding_queue_enabled':False,'other_workers_drained':True,'memory_budget_mb':policy['resource_budget']['memory_mb'],'cpu_budget_millis':policy['resource_budget']['cpu_millis'],'b200_contacted':False,'at':time.time()}
+counts=collections.Counter()
+for row in templates:counts[policy['templates'][row['template_id']]['memory_mb']]+=row['count']
+result={'passed':True,'placement':placement,'states':states,'profiles':[{'memory_mb':memory,'count':count} for memory,count in sorted(counts.items())],'pending_admissions':pending,'fenced_relocations':fenced,'active_tasks':active_tasks,'coding_queue_enabled':False,'other_workers_drained':True,'memory_budget_mb':policy['resource_budget']['memory_mb'],'cpu_budget_millis':policy['resource_budget']['cpu_millis'],'b200_contacted':False,'at':time.time()}
 print(json.dumps(result,indent=2))

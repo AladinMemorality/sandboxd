@@ -218,6 +218,14 @@ func (c *Client) Get(ctx context.Context, id string) (*Sandbox, error) {
 	if lookup == nil && old.State != "deleted" && errors.As(err, &upstream) && upstream.StatusCode == 404 {
 		return nil, ErrRuntimeUnavailable
 	}
+	// A prior acknowledged deletion may have retained its disk grant when the
+	// release clock was unavailable. A fresh 404 plus the unchanged deleted
+	// generation can close that grant without issuing another provider mutation.
+	if lookup == nil && old.State == "deleted" && errors.As(err, &upstream) && upstream.StatusCode == 404 {
+		if releaseErr := c.admission.store.AdmissionObserveReleased(ctx, old, true); releaseErr != nil {
+			return nil, releaseErr
+		}
+	}
 	if lookup == nil && old.State == "active" && err == nil && out.State == "paused" {
 		if releaseErr := c.admission.store.AdmissionObserveReleased(ctx, old, false); releaseErr != nil {
 			return nil, releaseErr
