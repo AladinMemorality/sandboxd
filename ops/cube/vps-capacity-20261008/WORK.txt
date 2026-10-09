@@ -963,3 +963,13 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
 - Sourcecode,opsautomation,regressions and sanitized receipts committedtoMain.
   Platform CI37972549291fullygreen. Final nativeCI now includes realPTY and
   source-backup exclusion tests; finalcommitCI completion remains tocheck.
+
+2026-10-09 final CI infrastructure follow-through:
+- Native01b02c4 passed Go tests (including newPTY/backup tests), x64/ARM e2e
+  and both installer smoke checks. Console typecheck,unit tests and SPA build
+  passed, but Docker base metadata requests returned429 twice: firstNode20,
+  thennginx. Failed workflow37989470861retains the registry diagnostics.
+- ConsoleCI now configures Google's documented mirror.gcr.io DockerHub cache
+  on its disposable runner, preserving prior daemon settings and validating
+  configuration before restart. Cache misses fall back toDockerHub. No
+  Dockerfile, appcode, VPSdaemon or B200 configuration changes.
