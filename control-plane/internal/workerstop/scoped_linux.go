@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/cube"
+	"github.com/tastyeffectco/sandboxd/control-plane/internal/store"
 )
 
 type nodeProvider struct {
@@ -59,12 +60,19 @@ func scopeProvider(client *cube.Client, c Config) (Provider, error) {
 		return nil, err
 	}
 	retained := map[string]bool{}
-	if len(c.RetainedInactive) > 0 {
+	{
 		db, err := readDB(c)
 		if err != nil {
 			return nil, err
 		}
 		defer db.Close()
+		completed, err := store.RetainedRelocationSources(context.Background(), db, c.WorkerID)
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range completed {
+			retained[id] = true
+		}
 		for _, id := range c.RetainedInactive {
 			var n int
 			if err = db.QueryRow(`SELECT COUNT(*) FROM runtime_binding WHERE runtime_id=?`, id).Scan(&n); err != nil {

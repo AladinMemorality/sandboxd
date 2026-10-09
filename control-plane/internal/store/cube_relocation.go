@@ -32,6 +32,65 @@ func (j CubeRelocation) DestinationTemplate() string {
 	return j.TemplateID
 }
 
+// RetainedRelocationSources recognizes only completed operator relocations.
+// The exact released source reservation and quarantine must still be present;
+// native lifecycle observation independently requires each retained VM paused.
+func RetainedRelocationSources(ctx context.Context, db *sql.DB, worker string) ([]string, error) {
+	tx, err := db.BeginTx(ctx, &sql.TxOptions{ReadOnly: true})
+	if err != nil {
+		return nil, err
+	}
+	defer tx.Rollback()
+	rows, err := tx.QueryContext(ctx, `SELECT baseline_json FROM cube_relocation WHERE phase='complete' ORDER BY id`)
+	if err != nil {
+		return nil, err
+	}
+	var journals []CubeRelocation
+	for rows.Next() {
+		var raw string
+		var j CubeRelocation
+		if err = rows.Scan(&raw); err == nil {
+			err = json.Unmarshal([]byte(raw), &j)
+		}
+		if err != nil {
+			rows.Close()
+			return nil, err
+		}
+		if j.SourceAdmission.WorkerID == worker {
+			journals = append(journals, j)
+		}
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return nil, err
+	}
+	var ids []string
+	for _, j := range journals {
+		expected := j.SourceAdmission
+		expected.Key = "relocation-retired:" + j.ID
+		if expected.RuntimeID != j.SourceRuntimeID || expected.Charged != 0 || expected.State != "released" {
+			return nil, ErrConflict
+		}
+		actual, err := scanAdmission(tx.QueryRowContext(ctx, `SELECT admission_key,runtime_id,template_id,operation,token,state,charged,worker_id FROM cube_admission WHERE admission_key=?`, expected.Key))
+		if err != nil {
+			return nil, err
+		}
+		if actual != expected {
+			return nil, ErrConflict
+		}
+		var bound, fenced int
+		if err = tx.QueryRowContext(ctx, `SELECT (SELECT count(*) FROM runtime_binding WHERE runtime_id=?),(SELECT count(*) FROM cube_runtime_quarantine WHERE runtime_id=? AND recovery_id=? AND sandbox_id=?)`, j.SourceRuntimeID, j.SourceRuntimeID, "relocation:"+j.ID, j.SandboxID).Scan(&bound, &fenced); err != nil {
+			return nil, err
+		}
+		if bound != 0 || fenced != 1 {
+			return nil, ErrConflict
+		}
+		ids = append(ids, j.SourceRuntimeID)
+	}
+	return ids, nil
+}
+
 func relocationBinding(ctx context.Context, tx *sql.Tx, sid string) (*RuntimeBinding, string, string, string, error) {
 	b := &RuntimeBinding{SandboxID: sid, Provider: "cube"}
 	var app, owner, status string

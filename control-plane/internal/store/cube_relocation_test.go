@@ -302,3 +302,49 @@ func TestCubeRelocationSameWorkerReprofileCommitAndAbort(t *testing.T) {
 		})
 	}
 }
+
+func TestRetainedRelocationSourcesRequiresCompletedUnchangedFencedSource(t *testing.T) {
+	for _, change := range []string{"none", "charged", "token", "quarantine", "bound"} {
+		t.Run(change, func(t *testing.T) {
+			s, w := relocationFixture(t)
+			ctx := context.Background()
+			j, err := s.BeginCubeRelocation(ctx, "retain-1", "stable-0", "old-0", "b200-01")
+			if err != nil {
+				t.Fatal(err)
+			}
+			ids, err := RetainedRelocationSources(ctx, s.db, "vps")
+			if err != nil || len(ids) != 0 {
+				t.Fatalf("unfinished relocation retained: %v %v", ids, err)
+			}
+			b := targetRelocation(t, w, j)
+			if err = s.CommitCubeRelocation(ctx, j.ID, "new-token", recoveryHash("content proof"), b); err != nil {
+				t.Fatal(err)
+			}
+			ids, err = RetainedRelocationSources(ctx, s.db, "b200-01")
+			if err != nil || len(ids) != 0 {
+				t.Fatalf("other worker source retained: %v %v", ids, err)
+			}
+			switch change {
+			case "charged":
+				_, err = s.db.Exec(`UPDATE cube_admission SET charged=1 WHERE runtime_id='old-0'`)
+			case "token":
+				_, err = s.db.Exec(`UPDATE cube_admission SET token='different' WHERE runtime_id='old-0'`)
+			case "quarantine":
+				_, err = s.db.Exec(`DELETE FROM cube_runtime_quarantine WHERE runtime_id='old-0'`)
+			case "bound":
+				_, err = s.db.Exec(`UPDATE runtime_binding SET runtime_id='old-0' WHERE sandbox_id='stable-0'`)
+			}
+			if err != nil {
+				t.Fatal(err)
+			}
+			ids, err = RetainedRelocationSources(ctx, s.db, "vps")
+			if change == "none" {
+				if err != nil || len(ids) != 1 || ids[0] != "old-0" {
+					t.Fatalf("verified source not retained: %v %v", ids, err)
+				}
+			} else if err == nil {
+				t.Fatalf("changed retained source accepted: %s", change)
+			}
+		})
+	}
+}
