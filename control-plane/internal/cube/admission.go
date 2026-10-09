@@ -390,12 +390,15 @@ func (c *Client) admittedRelease(ctx context.Context, id, operation string) erro
 	if err = g.validRemote(remote); err != nil {
 		return err
 	}
-	if operation == "pause" && remote.State == "paused" {
-		return nil
-	}
 	old, err := g.store.AdmissionLookup(ctx, id)
 	if err != nil {
 		return ErrAdmissionUnknown
+	}
+	if operation == "pause" && remote.State == "paused" {
+		if old.State != "released" || old.Charged != 0 {
+			return ErrAdmissionPending
+		}
+		return nil
 	}
 	token, err := admissionToken()
 	if err != nil {

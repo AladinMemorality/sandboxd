@@ -340,9 +340,28 @@ func (s *Server) cubeLifecycle(w http.ResponseWriter, r *http.Request, action st
 	var readyStatus *runtime.Status
 	switch action {
 	case "pause":
+		needsPause := sb.Status != "stopped"
+		if !needsPause {
+			// A failed start can leave the local row stopped after the VM has
+			// become active. Verify native state and its admission before claiming
+			// an idempotent stop; never turn an unsettled operation into success.
+			remote, e := s.Cube.Get(r.Context(), b.RuntimeID)
+			if e != nil {
+				err = e
+				break
+			}
+			switch remote.State {
+			case "paused":
+				err = s.Cube.Pause(r.Context(), b.RuntimeID)
+			case "running":
+				needsPause = true
+			default:
+				err = cube.ErrRuntimeUnavailable
+			}
+		}
 		// Fail closed when task state cannot be read: pausing an unknown active
 		// write/task could interrupt application state or coding work.
-		if sb.Status != "stopped" {
+		if needsPause {
 			active, e := s.Store.SandboxHasRunningTask(r.Context(), id)
 			if e != nil || active {
 				writeV1Err(w, 409, "task_in_progress", "a task may still be running; wait for its result before stopping")
