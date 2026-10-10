@@ -10,7 +10,9 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net"
 	"sync"
+	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 )
@@ -74,19 +76,7 @@ func Ensure(ctx context.Context, client *runtime.Client) error {
 		go func() {
 			defer wg.Done()
 			for f := range jobs {
-				path := dir + "/" + f.Path
-				got, err := client.ReadFile(ctx, path)
-				var response *runtime.ResponseError
-				if err == nil && bytes.Equal(got, f.Content) {
-					continue
-				}
-				if err == nil || (errors.As(err, &response) && response.StatusCode == 404) {
-					var out *runtime.FileWrite
-					out, err = client.PutFile(ctx, path, bytes.NewReader(f.Content))
-					if err == nil && (out.Path != path || out.Size != int64(len(f.Content))) {
-						err = errors.New("invalid skill write acknowledgement")
-					}
-				}
+				err := ensureFile(ctx, client, dir+"/"+f.Path, f.Content)
 				if err != nil {
 					once.Do(func() { failure = fmt.Errorf("design skill %s: %w", f.Path, err); cancel() })
 				}
@@ -107,4 +97,53 @@ send:
 		return failure
 	}
 	return ctx.Err()
+}
+
+// Only immutable, versioned pack files are retried here. Re-read after an
+// uncertain write: a lost acknowledgement may still mean the file was saved.
+// Never unquiesce a workspace or bypass guest path/permission checks.
+func ensureFile(ctx context.Context, client *runtime.Client, path string, content []byte) error {
+	delays := []time.Duration{100 * time.Millisecond, 250 * time.Millisecond, 500 * time.Millisecond, time.Second}
+	for attempt := 0; ; attempt++ {
+		operation := "read"
+		got, err := client.ReadFile(ctx, path)
+		var response *runtime.ResponseError
+		if err == nil && bytes.Equal(got, content) {
+			return nil
+		}
+		if err == nil || (errors.As(err, &response) && response.StatusCode == 404) {
+			operation = "write"
+			var out *runtime.FileWrite
+			out, err = client.PutFile(ctx, path, bytes.NewReader(content))
+			if err == nil && (out == nil || out.Path != path || out.Size != int64(len(content))) {
+				err = errors.New("invalid skill write acknowledgement")
+			}
+		}
+		if err == nil {
+			return nil
+		}
+		if attempt == len(delays) || !transientDeliveryError(err) {
+			return fmt.Errorf("%s after %d attempt(s): %w", operation, attempt+1, err)
+		}
+		timer := time.NewTimer(delays[attempt])
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
+func transientDeliveryError(err error) bool {
+	var response *runtime.ResponseError
+	if errors.As(err, &response) {
+		switch response.StatusCode {
+		case 408, 409, 429, 500, 502, 503, 504:
+			return true
+		}
+		return false
+	}
+	var network net.Error
+	return errors.As(err, &network)
 }

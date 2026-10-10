@@ -43,12 +43,35 @@ type ProcessLog struct {
 	Lines   []string `json:"lines"`
 }
 
-// ResponseError carries only a status code; guest response bodies may contain
-// secrets and are deliberately never reflected in control-plane error messages.
-type ResponseError struct{ StatusCode int }
+// Only fixed, recognized reasons may accompany a status. Arbitrary guest
+// response text can contain secrets and must never reach controller logs.
+type ResponseError struct {
+	StatusCode int
+	Reason     string
+}
 
 func (e *ResponseError) Error() string {
+	if e.Reason != "" {
+		return fmt.Sprintf("guest operation returned HTTP %d (%s)", e.StatusCode, e.Reason)
+	}
 	return fmt.Sprintf("guest operation returned HTTP %d", e.StatusCode)
+}
+
+func safeFileFailureReason(status int, body []byte) string {
+	if status != http.StatusConflict {
+		return ""
+	}
+	switch strings.TrimSpace(string(body)) {
+	case "workspace is quiesced for migration":
+		return "workspace_quiesced"
+	case "supervisor restarting":
+		return "supervisor_restarting"
+	case "supervisor busy":
+		return "supervisor_busy"
+	case "task is running":
+		return "task_running"
+	}
+	return ""
 }
 
 func (c *Client) bounded(ctx context.Context, method, path string, body []byte, cap int64) ([]byte, error) {
@@ -98,7 +121,14 @@ func (c *Client) bounded(ctx context.Context, method, path string, body []byte, 
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, &ResponseError{StatusCode: resp.StatusCode}
+		var reason string
+		if strings.HasPrefix(path, "/files?") || strings.HasPrefix(path, "/files/content?") {
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, 257))
+			if len(body) <= 256 {
+				reason = safeFileFailureReason(resp.StatusCode, body)
+			}
+		}
+		return nil, &ResponseError{StatusCode: resp.StatusCode, Reason: reason}
 	}
 	data, err := io.ReadAll(io.LimitReader(resp.Body, cap+1))
 	if err != nil {

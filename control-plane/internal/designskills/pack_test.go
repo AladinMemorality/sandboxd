@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 )
@@ -109,5 +110,81 @@ func TestDeliveryFailsOnRejectedPathsTransportErrorsAndBadAcknowledgements(t *te
 				t.Fatal("unavailable pack accepted")
 			}
 		})
+	}
+}
+
+func TestTransientFileConflictRecoversAndLostWriteAcknowledgementIsReadBack(t *testing.T) {
+	for _, lostWrite := range []bool{false, true} {
+		t.Run(fmtBool(lostWrite), func(t *testing.T) {
+			content := []byte("verified design guidance")
+			reads, writes := 0, 0
+			var saved []byte
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Method == "GET" {
+					reads++
+					if reads == 1 && !lostWrite {
+						w.WriteHeader(409)
+						return
+					}
+					if saved == nil {
+						w.WriteHeader(404)
+						return
+					}
+					w.Write(saved)
+					return
+				}
+				writes++
+				saved, _ = io.ReadAll(r.Body)
+				if lostWrite {
+					w.WriteHeader(502)
+					return
+				}
+				json.NewEncoder(w).Encode(runtime.FileWrite{Path: "GUIDE.md", Size: int64(len(saved))})
+			}))
+			defer server.Close()
+			client, _ := runtime.NewRemoteClient(runtime.RemoteConfig{BaseURL: server.URL, Token: strings.Repeat("a", 64)})
+			if err := ensureFile(context.Background(), client, "GUIDE.md", content); err != nil {
+				t.Fatal(err)
+			}
+			if reads != 2 || writes != 1 || !bytes.Equal(saved, content) {
+				t.Fatalf("reads=%d writes=%d", reads, writes)
+			}
+		})
+	}
+}
+
+func fmtBool(v bool) string {
+	if v {
+		return "lost-write-ack"
+	}
+	return "read-conflict"
+}
+
+func TestPersistentFileConflictIsBoundedAndCancellationStopsRetries(t *testing.T) {
+	for _, cancelEarly := range []bool{false, true} {
+		attempts := 0
+		ctx, cancel := context.WithCancel(context.Background())
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			attempts++
+			if cancelEarly {
+				cancel()
+			}
+			w.WriteHeader(409)
+		}))
+		client, _ := runtime.NewRemoteClient(runtime.RemoteConfig{BaseURL: server.URL, Token: strings.Repeat("a", 64)})
+		started := time.Now()
+		err := ensureFile(ctx, client, "GUIDE.md", []byte("guide"))
+		cancel()
+		server.Close()
+		if err == nil {
+			t.Fatal("persistent conflict accepted")
+		}
+		if cancelEarly {
+			if attempts != 1 || time.Since(started) > time.Second {
+				t.Fatal("cancellation did not stop retries")
+			}
+		} else if attempts != 5 || !strings.Contains(err.Error(), "read after 5 attempt(s)") {
+			t.Fatalf("attempts=%d: %v", attempts, err)
+		}
 	}
 }
