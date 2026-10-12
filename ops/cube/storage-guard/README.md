@@ -1,5 +1,52 @@
 # Cube storage admission guard
 
+## VPS scheduler capacity correction — 2026-10-13
+
+The VPS observer is now installed with a scheduler-aware data-space budget.
+Its `inner_free_bytes` field is a conservative **admissible** free-space count:
+the smaller of physical free space and bytes remaining below CubeMaster's
+`disk_usage_max_percent`. The fixed probe reads that root-owned configuration
+on every observation. Missing, ambiguous or untrusted configuration fails
+closed; it never defaults to physical free space. The OS filesystem separately
+requires five percentage points of margin below the same ceiling.
+
+The controller's existing 96GiB baseline, 48GiB reserve, outstanding grants,
+generation fencing and boot/filesystem identity checks still apply to this
+smaller budget. Consequently disk exhaustion returns `runtime_capacity` before
+provider allocation. The platform releases its account reservation and keeps
+the same project/brief retryable. It does not convert unknown provider failures
+into permission to retry a potentially completed create.
+
+The incident was a create at `2026-10-12T22:57:18Z`: the VPS was at 65.037% disk
+usage against a 65% scheduler ceiling. CubeMaster returned `130597: no more
+resource` before selecting a worker. CubeAPI converted it to HTTP 500, leaving
+both the controller admission and platform allowance reservation unresolved.
+The provider log and a complete inventory confirmed no runtime for this exact
+operation. Only that reservation and its storage grant were reconciled.
+
+The VPS scheduler ceiling was changed to 80% (the upstream default), retaining
+over 156GiB outside the allocatable region on its 784GiB data filesystem. At
+installation there were 274GiB physically free and 117GiB below the ceiling,
+before the unchanged controller reserves/grants. The config hot-reloaded;
+its lifecycle checksum pin was updated. No guest or controller restart occurred.
+No customer files or retained backups were deleted. The B200 observer is
+unchanged; that worker is currently drained from new allocations.
+
+Production receipts and private backups:
+`/opt/baarcha/operations/scheduler-budget-20261013/`. The one-time deployment
+and exact-project reconciliation scripts in this directory are incident-specific,
+not general recovery commands. They refuse changed baselines. Worker config and
+lifecycle-pin backups are under
+`/root/cube-production/scheduler-budget-20261013/` on the nested worker.
+
+Validation: 21 Python storage observer/enrollment tests, 15 platform creation
+tests, and the Go storage guard tests including
+`TestSchedulerDiskBudgetRejectsBeforeReservationAndCanRetry` passed. The original
+Car Wash Tunis project resumed as sandbox `01M4S5Y668QC444D98QJNMJCJH`, task
+`01M4S5YHF2K0EQTQ4MRC3GJR70`; its original chat card and supervision were restored.
+
+## Original guard design
+
 This is a prepared implementation, not an installed observer or completed live
 acceptance. Production Cube remains subject to the operator's rollout gates.
 The daemon and `cube-migrate` mutation commands require the guard; isolated
