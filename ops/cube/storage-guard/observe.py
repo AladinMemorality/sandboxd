@@ -48,17 +48,52 @@ def observer_ssh(host, port):
             '-oServerAliveCountMax=1', '-oStrictHostKeyChecking=yes',
             '-oUserKnownHostsFile=/etc/baarcha-cube/fleet-observer/known_hosts',
             '-p', port, host]
+# Shared with the fixed remote probe below; tests execute this same pure code.
+SCHEDULER_BUDGET = r'''
+from decimal import Decimal
+import re
+
+def scheduler_limit(config):
+    values = re.findall(r'^\s+disk_usage_max_percent:\s*([0-9]+(?:\.[0-9]+)?)\s*(?:#.*)?$', config, re.M)
+    if len(values) != 1:
+        raise ValueError('missing or ambiguous scheduler disk limit')
+    limit = Decimal(values[0])
+    if not 5 < limit <= 100:
+        raise ValueError('invalid scheduler disk limit')
+    return limit
+
+def scheduler_headroom(stats, limit):
+    if not 0 <= stats.f_bavail <= stats.f_blocks or stats.f_blocks <= 0 or stats.f_frsize <= 0:
+        raise ValueError('invalid filesystem counters')
+    # Available blocks are conservative relative to the provider's free blocks.
+    # Report usable capacity BELOW its ceiling, not all physical free space.
+    total = stats.f_blocks * stats.f_frsize
+    free = stats.f_bavail * stats.f_frsize
+    return max(0, min(free, int(Decimal(total) * limit / 100) - (total - free)))
+'''
+
 # Fixed command, no interpolated paths or config. The clock belongs to the outer
 # host shared with the controller; nested wall-clock offset cannot skew epochs.
-PROBE = r'''
+PROBE = SCHEDULER_BUDGET + r'''
 import json, os, subprocess
 from pathlib import Path
 boot=Path('/proc/sys/kernel/random/boot_id').read_text().strip()
 source,kind,uuid=subprocess.check_output(['findmnt','-n','-o','SOURCE,FSTYPE,UUID','--target','/data'],text=True).split()
 if source!='/dev/vdb' or kind!='xfs': raise SystemExit('unexpected storage mount')
 s=os.statvfs('/data')
+config_path=Path('/usr/local/services/cubetoolbox/CubeMaster/conf.yaml')
+config_stat=config_path.lstat()
+if not config_path.is_file() or config_path.is_symlink() or config_stat.st_uid != 0 or config_stat.st_mode & 0o022:
+    raise SystemExit('untrusted scheduler configuration')
+limit=scheduler_limit(config_path.read_text())
+free=scheduler_headroom(s,limit)
+# The small OS disk does not fund guest storage; fence it separately with five
+# percentage points of headroom. The data budget retains the controller's
+# existing 96GiB baseline, 48GiB reserve and outstanding allocation grants.
+if scheduler_headroom(os.statvfs('/'),limit-5) == 0:
+    free=0
 if boot!=Path('/proc/sys/kernel/random/boot_id').read_text().strip(): raise SystemExit('boot changed')
-print(json.dumps({'worker_machine_id':Path('/etc/machine-id').read_text().strip(),'worker_boot_id':boot,'inner_fs_uuid':uuid,'inner_free_bytes':s.f_bavail*s.f_frsize}))
+print(json.dumps({'worker_machine_id':Path('/etc/machine-id').read_text().strip(),'worker_boot_id':boot,'inner_fs_uuid':uuid,'inner_free_bytes':free}))
 '''
 
 class Invalid(Exception):

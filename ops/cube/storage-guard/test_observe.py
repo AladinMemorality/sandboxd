@@ -1,6 +1,7 @@
 import importlib.util
 from pathlib import Path
 import unittest
+from types import SimpleNamespace
 s=importlib.util.spec_from_file_location('observe',Path(__file__).with_name('observe.py'));m=importlib.util.module_from_spec(s);s.loader.exec_module(m)
 class ObserverTest(unittest.TestCase):
  def setUp(self):
@@ -39,4 +40,27 @@ class ObserverTest(unittest.TestCase):
  def test_reviewed_boot_reset_preserves_generation(self):
   old={'observer_id':self.c['observer_id'],'generation':82,'started_ns':999_000_000_000,'outer_boot_id':'77777777-7777-7777-7777-777777777777'}
   o=self.run_probe(old);self.assertEqual(o['generation'],83);self.assertEqual(o['outer_boot_id'],self.c['outer_boot_id'])
+class SchedulerBudgetTest(unittest.TestCase):
+ def setUp(self):
+  self.helpers={};exec(m.SCHEDULER_BUDGET,self.helpers)
+ def budget(self,total,free,limit):
+  return self.helpers['scheduler_headroom'](SimpleNamespace(f_blocks=total,f_bavail=free,f_frsize=1<<30),limit)
+ def test_original_incident_is_rejected_before_allocation(self):
+  self.assertEqual(self.budget(800,279,65),0)
+ def test_ceiling_retains_physical_reserve_and_controller_baseline(self):
+  self.assertEqual(self.budget(800,280,80),120<<30)
+  self.assertLess(self.budget(800,240,80),96<<30)
+ def test_at_or_over_ceiling_is_zero(self):
+  for free in (160,150,0):self.assertEqual(self.budget(800,free,80),0)
+ def test_os_disk_margin(self):
+  self.assertGreater(self.budget(120,84,75),0)
+  self.assertEqual(self.budget(120,30,75),0)
+ def test_config_changes_are_used_without_defaulting(self):
+  limit=self.helpers['scheduler_limit']
+  self.assertEqual(limit('scheduler:\n  disk_usage_max_percent: 80.0 # reviewed\n'),80)
+  for bad in ('','  disk_usage_max_percent: nope','  disk_usage_max_percent: 101','  disk_usage_max_percent: 5','  disk_usage_max_percent: 65\n  disk_usage_max_percent: 80'):
+   with self.assertRaises(ValueError):limit(bad)
+ def test_invalid_counters_fail_closed(self):
+  for total,free in ((0,0),(10,11),(10,-1)):
+   with self.assertRaises(ValueError):self.budget(total,free,80)
 if __name__=='__main__':unittest.main()
