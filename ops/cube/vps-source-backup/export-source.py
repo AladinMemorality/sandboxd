@@ -56,7 +56,11 @@ def export(row):
   exclusions=['*/node_modules','node_modules','*/__pycache__','__pycache__',
       './.npm/_cacache','./.local/share/pnpm/store','./.pnpm-store','./.cache/pnpm','./.cache/pip','./.cache/yarn','./.cache/node-gyp','./.cache/ms-playwright',
       '*/.next/cache','*/.vite','*/.turbo','*/.parcel-cache','./.runtimed/sock',
-      './.baarcha-postgres/run/.s.PGSQL.*','./.myhometroc/socket/.s.PGSQL.*']
+      './.baarcha-postgres/run/.s.PGSQL.*','./.myhometroc/socket/.s.PGSQL.*',
+      # PostgreSQL resets these cumulative counters after crash recovery.
+      # Preserve relations, WAL, configuration and all unrelated user paths.
+      './.baarcha-postgres/data/pg_stat/pgstat.stat',
+      './.baarcha-postgres/data/pg_stat/pgstat.tmp']
   for name in ['.venv','venv']:
    if g.is_file('/home/sandbox/workspace/app/'+name+'/pyvenv.cfg'):exclusions.append('./workspace/app/'+name)
   project='/home/sandbox/workspace/app'

@@ -14,22 +14,27 @@ def acquire_update_lock(lock, timeout=180):
             if time.monotonic()>=deadline:return False
             time.sleep(min(.25,max(0,deadline-time.monotonic())))
 
-def execute(cid,guest,config,binary):
-    master,slave=pty.openpty()
+def execute(cid,guest,config,binary,timeout=240):
+    master,slave=pty.openpty();os.set_blocking(master,False)
     args=['ctr','--address','/data/cubelet/cubelet.sock','--namespace','default','tasks','exec','--tty','--exec-id','published-'+uuid.uuid4().hex,'--user','0',cid,'/usr/bin/python3','-c',guest,config]
     proc=subprocess.Popen(args,stdin=slave,stdout=slave,stderr=slave);os.close(slave)
-    output=b'';sent=0;ready=False;deadline=time.monotonic()+240
+    output=b'';sent=0;ready=False;deadline=time.monotonic()+timeout
     try:
         while time.monotonic()<deadline:
             readers,writers,_=select.select([master],[master] if ready and sent<len(binary) else [],[],.2)
             if readers:
                 try:data=os.read(master,65536)
+                except BlockingIOError:data=None
                 except OSError:break
-                if not data:break
+                if data==b'':break
+                if data is None:continue
                 output+=data
                 if len(output)>65536:raise RuntimeError('guest output limit')
                 ready=b'RUNTIME_READY' in output
-            if writers:sent+=os.write(master,binary[sent:sent+16384])
+            if writers:
+                try:sent+=os.write(master,binary[sent:sent+16384])
+                except BlockingIOError:pass
+                except OSError:break
             if proc.poll() is not None and not readers:break
         receipts=[line.split('RUNTIME_RECEIPT=',1)[1] for line in output.decode(errors='replace').splitlines() if line.startswith('RUNTIME_RECEIPT=')]
         if len(receipts)!=1:raise RuntimeError('missing guest receipt')
@@ -38,7 +43,9 @@ def execute(cid,guest,config,binary):
     finally:
         os.close(master)
         if proc.poll() is None:proc.terminate()
-        proc.wait(timeout=5)
+        try:proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            proc.kill();proc.wait(timeout=5)
 
 def main():
     parser=argparse.ArgumentParser();parser.add_argument('--probe',action='store_true');parser.add_argument('--container');args=parser.parse_args()
@@ -52,7 +59,7 @@ def main():
             assert hashlib.sha256(binary).hexdigest()==cfg['sha256'] and len(binary)==cfg['bytes']
             require_static_supervisor(binary)
             config=json.dumps(cfg)
-        ids=[args.container] if args.container else subprocess.check_output(['ctr','--address','/data/cubelet/cubelet.sock','--namespace','default','tasks','list','-q'],stderr=subprocess.DEVNULL,text=True).split()
+        ids=[args.container] if args.container else subprocess.check_output(['ctr','--address','/data/cubelet/cubelet.sock','--namespace','default','tasks','list','-q'],stderr=subprocess.DEVNULL,text=True,timeout=30).split()
         for cid in ids:
             if not re.fullmatch('[a-f0-9]{32}',cid):continue
             try:print(json.dumps(execute(cid,guest,config,binary)),flush=True)

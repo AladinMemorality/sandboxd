@@ -24,14 +24,15 @@ def proof(name):return json.loads((root/name).read_text())
 assert proof('finish-vps-recovery-20/complete.json')['complete']
 assert proof('resume-retry-release-d5b07bb/deployed.json')['deleted_storage_grant_reconciled']
 deployed=proof('stop-state-release-eda67d2/deployed.json')
-source_release=root/'source-data-release-3b1a6f0/deployed.json'
+source_release=root/'source-data-release-867d7de/deployed.json'
 source_export=None
 if source_release.exists():
  deployed=json.loads(source_release.read_text())
- canary=proof('source-data-supervisor-canary-54/complete.json');maintenance=proof('source-data-maintenance-55/complete.json')
+ canary=proof('source-data-supervisor-canary-68/complete.json');maintenance=proof('source-data-maintenance-69/complete.json')
  assert canary['passed'] and len(canary['results'])==2 and maintenance['enabled'] and canary['sha256']==maintenance['sha256']
  assert all(v['passed'] and v['config_preserved'] and v['exported_source_module_sha256']=='d450e45fd957b2d4c4ee91b70340c82ebf4e58af6e3c459d1021d232bddc713b' for v in canary['results'])
- source_export={'revision':'3b1a6f0','canary':canary,'maintenance':maintenance,'rollout':'awake guests; stopped guests upgrade on later activity'}
+ legacy=proof('legacy-source-remix-67/complete.json');assert legacy['passed'] and proof('legacy-source-remix-67/cleanup.json')['complete']
+ source_export={'legacy_template_live_check':legacy,'revision':'867d7de','canary':canary,'maintenance':maintenance,'rollout':'awake guests; stopped guests upgrade on later activity','legacy_template_compatibility':'controller verifies missing published source modules before remix/restore success'}
 assert deployed['deployed'] and deployed['image']==container['Image'] and deployed['stop_state_verified']
 native=proof('full-pause-release-20261009/deployed.json');assert native['deployed'] and native['full_pause_snapshot_policy']
 assert proof('full-pause-canary-01/complete.json')['passed']
@@ -74,6 +75,11 @@ for timer in ['baarcha-vps-pause-compaction.timer','baarcha-vps-source-backup.ti
  assert subprocess.check_output(['systemctl','is-active',timer],text=True).strip()=='active'
 import hashlib
 assert hashlib.sha256(pathlib.Path('/usr/local/libexec/baarcha-vps-pause-compaction.py').read_bytes()).hexdigest()==maintenance['files']['compact-vps-pause-memory.py']
+backup_stats=proof('source-backup-stats-76/complete.json');assert backup_stats['passed'] and backup_stats['excluded_only_postgres_counters']
+database=proof('captured-postgres-check-81/complete.json');assert database['passed'] and database['original_state_restored'] and database['database']['database_query_passed']
+result['backup_counter_file_repair']={'export_verified':True,'live_database_query_passed':True,'failed_capture_retained':True}
+pty=proof('bounded-pty-worker-82/complete.json');assert pty['installed'] and pty['nonblocking_pty'] and pty['tests']==8
+result['bounded_pty_updater']=pty
 result['source_export_fix']=source_export
 result['platform_revision']=platform_revision
 result['public_return']=public

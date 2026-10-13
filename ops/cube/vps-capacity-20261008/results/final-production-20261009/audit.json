@@ -1,0 +1,240 @@
+{
+  "passed": true,
+  "placement": [
+    {
+      "worker_id": "vps",
+      "count": 136
+    }
+  ],
+  "states": [
+    {
+      "status": "running",
+      "count": 1
+    },
+    {
+      "status": "stopped",
+      "count": 135
+    }
+  ],
+  "profiles": [
+    {
+      "memory_mb": 768,
+      "count": 110
+    },
+    {
+      "memory_mb": 1024,
+      "count": 11
+    },
+    {
+      "memory_mb": 2048,
+      "count": 15
+    }
+  ],
+  "pending_admissions": 0,
+  "fenced_relocations": 0,
+  "active_tasks": 0,
+  "coding_queue_enabled": false,
+  "other_workers_drained": true,
+  "memory_budget_mb": 46080,
+  "cpu_budget_millis": 9000,
+  "b200_contacted": false,
+  "controller_revision": "867d7de",
+  "backup": {
+    "b200_contacted": false,
+    "bytes": 4425411506,
+    "completed_at": 1791578161.4597497,
+    "generated_pnpm_caches_excluded": true,
+    "generation": "20261009T200641Z",
+    "other_worker_bindings": 0,
+    "sandboxes": 136,
+    "scope": "Merged /home/sandbox excluding recorded reproducible dependencies/caches; controller SQLite and decryption key. Filesystem copies are crash-consistent, not logical database dumps.",
+    "verified": true,
+    "worker": "vps"
+  },
+  "supervisor_revision": "2c7e700",
+  "density": {
+    "concurrent_running": 50,
+    "http_checks": 600,
+    "module_http_checks": 1702,
+    "http_p95_seconds": 0.011359077878296375,
+    "http_max_seconds": 1.0642651431262493,
+    "total_pss_bytes": 9719002112,
+    "median_pss_bytes": 186634240.0,
+    "max_pss_bytes": 504964096,
+    "application_scope": "HTML and local Vite module graph serving; no browser JS execution, model requests or coding tasks",
+    "guest_limits": [
+      {
+        "memory_mb": 768,
+        "count": 49
+      },
+      {
+        "memory_mb": 2048,
+        "count": 1
+      }
+    ],
+    "reserved_memory_mb": 46080
+  },
+  "host_headroom_if_data_disk_full_bytes": 149584367616,
+  "cold_archive_nvme_bytes_reclaimed": 68679839744,
+  "at": 1791578879.8159015,
+  "backup_counter_file_repair": {
+    "export_verified": true,
+    "live_database_query_passed": true,
+    "failed_capture_retained": true
+  },
+  "bounded_pty_updater": {
+    "at": 1791578713.7272997,
+    "b200_contacted": false,
+    "guest_execution_timeout_seconds": 240,
+    "installed": true,
+    "live_probe_count": 1,
+    "model_calls": false,
+    "nonblocking_pty": true,
+    "task_listing_timeout_seconds": 30,
+    "tests": 8,
+    "wakes_guests": false,
+    "worker_sha256": "6d7014f8a381414dff77c970020b9fd1042b2b6f36608c4e1623ab0b15e696c2"
+  },
+  "source_export_fix": {
+    "legacy_template_live_check": {
+      "at": 1791578275.3427212,
+      "b200_contacted": false,
+      "controller_export_preserved_module": true,
+      "controller_import_restored_module": true,
+      "destination_supervisor_legacy_filter": true,
+      "model_calls": false,
+      "module_bytes": 4207136,
+      "module_checks": 49,
+      "passed": true,
+      "private_fixture_app": "01M4H64QX3HCJBR7B4WD0ENRN0",
+      "source_supervisor_legacy_filter": true
+    },
+    "revision": "867d7de",
+    "canary": {
+      "at": 1791578337.4434502,
+      "b200_contacted": false,
+      "model_calls": false,
+      "passed": true,
+      "results": [
+        {
+          "config_preserved": true,
+          "exported_files": 112,
+          "exported_source_module_sha256": "d450e45fd957b2d4c4ee91b70340c82ebf4e58af6e3c459d1021d232bddc713b",
+          "module_checks": [
+            49,
+            49
+          ],
+          "passed": true,
+          "runtime_id": "ea80b89c36894fe2a3b2dd388a25414d",
+          "sandbox_id": "01M1HH5DT8FVCP5TNRESEDJBH6",
+          "sha256": "95d010caa469c0a42fae02b89ab07c55d6eaba460a9874788c508afa9cf042a2",
+          "wake_seconds": 1.2988178301602602
+        },
+        {
+          "config_preserved": true,
+          "exported_files": 112,
+          "exported_source_module_sha256": "d450e45fd957b2d4c4ee91b70340c82ebf4e58af6e3c459d1021d232bddc713b",
+          "module_checks": [
+            49,
+            49
+          ],
+          "passed": true,
+          "runtime_id": "ce648b2c8a804ad2a0e989d61f0d351b",
+          "sandbox_id": "01M4DWDR4TQ4JRBTTTJMG5SB78",
+          "sha256": "95d010caa469c0a42fae02b89ab07c55d6eaba460a9874788c508afa9cf042a2",
+          "wake_seconds": 1.2352724261581898
+        }
+      ],
+      "revision": "867d7de",
+      "sha256": "95d010caa469c0a42fae02b89ab07c55d6eaba460a9874788c508afa9cf042a2"
+    },
+    "maintenance": {
+      "at": 1791578616.0991483,
+      "awake_guests_updated": 1,
+      "b200_contacted": false,
+      "enabled": true,
+      "model_calls": false,
+      "sha256": "95d010caa469c0a42fae02b89ab07c55d6eaba460a9874788c508afa9cf042a2",
+      "wakes_guests": false
+    },
+    "rollout": "awake guests; stopped guests upgrade on later activity",
+    "legacy_template_compatibility": "controller verifies missing published source modules before remix/restore success"
+  },
+  "platform_revision": "69936b503843b597c9f0a938e6c78e25a5fa51b6",
+  "public_return": {
+    "nos": {
+      "passed": true,
+      "case": "nos",
+      "first": {
+        "frame": "https://p-01m415vt76m0m88gdy2nwwe942-3000.baarcha.tn/",
+        "textCharacters": 2841,
+        "liveFrameVisible": true
+      },
+      "returned": {
+        "frame": "https://p-01m415vt76m0m88gdy2nwwe942-3000.baarcha.tn/",
+        "textCharacters": 2841,
+        "liveFrameVisible": true
+      },
+      "explicitly_asleep_while_away": true,
+      "existing_running_preserved": false,
+      "pageErrors": [],
+      "seconds": 6.001
+    },
+    "derja": {
+      "passed": true,
+      "case": "derja",
+      "first": {
+        "frame": "https://s-01m46nandw8yvg3z2f2exzcy1f-3000.baarcha.tn/",
+        "textCharacters": 725,
+        "liveFrameVisible": true
+      },
+      "returned": {
+        "frame": "https://s-01m46nandw8yvg3z2f2exzcy1f-3000.baarcha.tn/",
+        "textCharacters": 713,
+        "liveFrameVisible": true
+      },
+      "explicitly_asleep_while_away": true,
+      "existing_running_preserved": false,
+      "pageErrors": [],
+      "seconds": 37.718
+    }
+  },
+  "snapshot_maintenance": {
+    "at": 1791576400.7594419,
+    "b200_contacted": false,
+    "busy_operator_skips": true,
+    "failed_compaction_requires_review": true,
+    "files": {
+      "baarcha-vps-pause-compaction.service": "be47b80e689f2a39968a5b8cfde167a3ea60dd28a98eb21dfdec8e2298cbcb37",
+      "baarcha-vps-pause-compaction.timer": "269bdc67d09bb2a5838656734afb5b7f976821b73a9a1b55ff9623bb05e942e5",
+      "compact-vps-pause-memory.py": "0a185c44dbe36648eeabe7f208971d32f57793110d108998e0aa59c000f2cd94"
+    },
+    "installed": true,
+    "interval_minutes": 10,
+    "model_calls": false,
+    "scheduled_max_files": 32,
+    "worker": {
+      "at": 1791576400.747902,
+      "minimum_extent_bytes": 1048576,
+      "trim_schedule": "hourly",
+      "worker": "vps"
+    }
+  },
+  "nvme_free_bytes": 426847354880,
+  "data_disk_allocated_bytes": 564550602752,
+  "transfer_readiness": {
+    "passed": true,
+    "checks": 60,
+    "failed_checks": 0,
+    "max_seconds": 0.31336849369108677,
+    "max_dirty_bytes": 354353152,
+    "max_writeback_bytes": 45674496,
+    "duration_seconds": 311.0251638889313,
+    "model_calls": false,
+    "b200_contacted": false
+  },
+  "fleet_wake_validation": {
+    "count": 136,
+    "native_sha256": "43d8c020a949569aa546f2eebea5d632c17ba1231b7c330fd4c31d7a4f72337f"
+  }
+}

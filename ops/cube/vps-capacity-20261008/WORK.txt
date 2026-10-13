@@ -861,3 +861,121 @@ Progress 19:31Z (user explicitly reiterated assume B200 unavailable):
   bounded private response bodies and HTTP status instead of an empty assert.
 - Native main d2ae564 CI37975776729passed all6jobs. Website69936b5 is healthy
   in production; CI's deployment rerun still needs a clear operator-lock window.
+
+2026-10-09 20:15Z fleet and repeated density accepted; final release pending:
+- All136 canonical VPS apps passed wake/module verification. Wedding remix
+  lacked src/data/wedding.ts; all76 source/package files matched the platform
+  starter, so the exact original module was restored and TypeScript/module/
+  full-wake checks passed. Source archives and original failure retained.
+- Shared publishing filter now preserves policy-approved source data modules.
+  Controller867d7de also repairs legacy template export/import omissions, with
+  bounded inventories and content verification. Full CI37984139439passed;
+  focused runtime+API compatibility tests passed on VPS. No model calls.
+- Repeated density07 passed50 previews,600pages,1702modules,9.05GiB totalPSS,
+  178MiB medianPSS,11.4ms internalHTTPp95,no newOOM. Cleanup passed.
+-22OS-image pairs/44files verified identical. Full-memory incremental
+  compaction passed; bounded1MiBtrim restored~411GiB physicalNVMe free.
+  Scheduled compaction and hourly discard are enabled; guards unchanged.
+- Fresh136-source capture200641Z retained onVPS; export in progress. One
+  captured app export reported daemon cancellation and needs review before
+  this generation can verify. Previous verified generation remains intact.
+- Packaging56 failed on a mistyped Docker base digest before deployment.
+  Corrected against actual installed image028b... (full64hex digest); build64
+  reused verified binaries/tests and produced38bcaf828f29..., stage66passed.
+  Failure journal retained. Deploy65 waits for verified backup/acceptance50;
+  private legacy-remix67,supervisor canary68,activation69 follow in order.
+  No production source-release activation is claimed yet.
+
+2026-10-09 backup gate follow-through:
+- Captured immutable export for01M3D1Q0E1KM1FEM244XVHEC65 reports
+  file receive cancelled by daemon. Its partial tar parses to1365entries,
+  but is not accepted as a backup. Original captured disks and failed partial
+  remain retained. Other exports proceed; no additional failures so far.
+- Diagnostic70 waits for the original export pass to finish, then permits
+  only that exact failure/sandbox and logs verbose guestfs privately.
+  Acceptance71 resumes the same immutable generation only if diagnosis
+  succeeds, independently verifies all archives and runs the final audit.
+- Waiting deploy65 was stopped before mutation. Successor gates are deploy72,
+  legacy-remix73,canary74,maintenance75. Existing output journal names for
+  legacy67,canary68,maintenance69 remain unchanged and not yet created.
+  Production remains old controllereda67d2 until these gates complete.
+
+2026-10-09 20:30Z source backup export repaired and live database verified:
+-135of136 exports succeeded. Verbose libguestfs on the single retained failed
+  capture identified only .baarcha-postgres/data/pg_stat/pgstat.stat: deleted
+  inode referenced / Structure needs cleaning. No archive was accepted while
+  tar reported failure. Both failed archives and cloned input disks are kept
+  separately at /data/baarcha-source-diagnostics/20261009-pgstat onVPS.
+-Exporter now omits exactly pgstat.stat/pgstat.tmp under the managed PostgreSQL
+  directory. PostgreSQL resets cumulative counters during crash recovery.
+  GNUtar regression proved relations,WAL,control/configuration and similarly
+  named user files remain included. Test passed onVPS and macOS with
+  COPYFILE_DISABLE=1 (default macOS tar added AppleDouble metadata initially).
+-Stats76 export passed12,850,411B. Backup71 resumed captured generation200641Z
+  and now transfers and verifies all136 archives. No live source filesystem
+  was repaired or edited. Daily exporter updated toad60e4c4... .
+-Affected sandbox is retained Cube recovery acceptance fixture6ff432593177fb12.
+  Probe77 assumed the wrong socket;78/79 assumed system psql binaries.
+  Probe80 identified the real embedded PostgreSQL18 server and client module.
+  Check81 passed a read-onlySQL transaction through the platform client,
+  flushed guest buffers, and restored original stopped state/history. Live
+  statistics file is absent (ENOENT), not a damaged runtime inode. Initial81
+  lock contention occurred before mutation; bounded lock wait was then used.
+  Proofs in results/backup-stats-20261009; no model or B200 calls.
+-Units71..75 restarted only after confirming they stopped at dependency guards
+  and had created no output journals. Original failed logs are retained.
+
+2026-10-09 20:46Z deployed source compatibility and bounded supervisor sender:
+- Backup200641Z verified all136 archives,4,425,411,506B. Acceptance71 passed
+  before the controller switch. Stale daily-backup unit failure reset only
+  after manual verification succeeded; earlier failure journals retained.
+- Controller867d7de/image38bcaf828f29... deployed preserving136bindings,
+  admission policies, routes and prior timers. Legacy-remix73 proved source
+  export and import compatibility on two old supervisors,49module checks.
+  Its temporary private app and snapshot were deleted; source stopped again.
+- Canary74 passed bothstarter+wedding source export and fullwake tests:
+  49modules each,before/after,wakes1.299/1.235s,configpreserved. Maintenance75
+  switched to95d010ca... supervisor and updated the one alreadyawakeguest.
+- Old automatic updater overlapped fixture deletion. Its actual parent3655323
+  blocked in n_tty_write with a zombie ctr child3655439, bypassing its240s
+  intended deadline. Exact identity,stack,FD and child evidence was verified
+  before SIGTERM of only that managed updater main process. No guest runtime
+  was killed and its guest helper requires the complete hash-verified payload
+  before any binary replacement or quiescence. Original evidence retained.
+- Sharedworker now uses nonblockingPTYI/O,30s native-list timeout and bounded
+  own-child cleanup. Eight tests passed locally and onVPS, including realPTY
+  blocked/departed peers and complete4MiBtransfer. Installer82 passed live
+  read-only probe; newworkerSHA6d7014f8... installed onVPS only, timerenabled.
+  CI now includes updater and backup exclusion regressions. B200 untouched.
+- Platform CI37972549291 retry passed deployment:69936b5 was already active,
+  so the deployer preserved live artifacts. NOS Chrome cold/away/back passed
+  in6.001s; Derja and current final audit are next.
+
+2026-10-09 20:48Z final production acceptance:
+- NOS passed real Chrome cold/forced-sleep/away/back in6.001s; Derja37.718s.
+  Both visibleHTTPSframes,expectedcontent,no explicit-start error,pageErrors[].
+  Screenshots inspected. Test wakes returned to stopped states.
+- Current final audit passed:136VPSbindings,1running/135stopped,zero pending
+  admissions/fencedrelocations/tasks; queueoff,B200drained. Controller867d7de,
+  platform69936b5, backup200641Zverified. New supervisor and boundedPTY worker
+  receipts required. PhysicalNVMe free426,847,354,880B; worst full-data-disk
+  headroom149,584,367,616B. Hourly discard and bounded compaction enabled.
+- Sourcecode,opsautomation,regressions and sanitized receipts committedtoMain.
+  Platform CI37972549291fullygreen. Final nativeCI now includes realPTY and
+  source-backup exclusion tests; finalcommitCI completion remains tocheck.
+
+2026-10-09 final CI infrastructure follow-through:
+- Native01b02c4 passed Go tests (including newPTY/backup tests), x64/ARM e2e
+  and both installer smoke checks. Console typecheck,unit tests and SPA build
+  passed, but Docker base metadata requests returned429 twice: firstNode20,
+  thennginx. Failed workflow37989470861retains the registry diagnostics.
+- ConsoleCI now configures Google's documented mirror.gcr.io DockerHub cache
+  on its disposable runner, preserving prior daemon settings and validating
+  configuration before restart. Cache misses fall back toDockerHub. No
+  Dockerfile, appcode, VPSdaemon or B200 configuration changes.
+
+- Workflow37990087323 proved the console Docker build passes with the cache.
+  Both uncached E2E jobs then hitDockerHub429 fetchinggolang:1.22-bookworm.
+  The same validated cache setup now serves both architecture runners through
+  scripts/ci-docker-cache.sh, guarded toLinuxGitHubActions. Production
+  Dockerfiles and hosts remain unchanged. Final workflow is rerunning.
