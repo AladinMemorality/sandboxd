@@ -222,3 +222,35 @@ func TestCubeStorageRefusalDoesNotEvictOrRetry(t *testing.T) {
 		t.Fatal("storage refusal triggered capacity eviction/retry", e)
 	}
 }
+
+func TestCubeStorageReservationsCanReleaseAnEligibleIdleGuest(t *testing.T) {
+	for _, mode := range []string{"", "recent", "task", "ambiguous"} {
+		t.Run(mode, func(t *testing.T) {
+			s, pauses, _ := capacityFixture(t, mode)
+			attempts := 0
+			err := s.withCubeCapacityRetry(context.Background(), "new-owned", func() error {
+				attempts++
+				if attempts == 1 {
+					return cube.ErrStorageReservationsBusy
+				}
+				return nil
+			})
+			if mode == "" {
+				if err != nil || pauses.Load() != 1 || attempts != 2 {
+					t.Fatalf("idle capacity not released: %v %d %d", err, pauses.Load(), attempts)
+				}
+			} else {
+				if !errors.Is(err, cube.ErrStorageReservationsBusy) || attempts != 1 {
+					t.Fatal("protected or uncertain pause retried")
+				}
+				want := int32(0)
+				if mode == "ambiguous" {
+					want = 1
+				}
+				if pauses.Load() != want {
+					t.Fatal("active user work was paused")
+				}
+			}
+		})
+	}
+}

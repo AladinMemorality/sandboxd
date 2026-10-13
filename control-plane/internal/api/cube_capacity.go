@@ -16,7 +16,8 @@ var cubeCapacityReclaim sync.Mutex
 
 func (s *Server) withCubeCapacityRetry(ctx context.Context, requested string, operation func() error) error {
 	err := operation()
-	if !errors.Is(err, cube.ErrCapacityUnavailable) || errors.Is(err, cube.ErrCreationBusy) || errors.Is(err, cube.ErrStorageUnavailable) || ctx.Err() != nil {
+	unsafeStorage := errors.Is(err, cube.ErrStorageUnavailable) && !errors.Is(err, cube.ErrStorageReservationsBusy)
+	if !errors.Is(err, cube.ErrCapacityUnavailable) || errors.Is(err, cube.ErrCreationBusy) || unsafeStorage || ctx.Err() != nil {
 		return err
 	}
 	if !cubeCapacityReclaim.TryLock() {

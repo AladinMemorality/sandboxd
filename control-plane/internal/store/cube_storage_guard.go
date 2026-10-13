@@ -153,8 +153,11 @@ func (s *Store) storageAdmit(ctx context.Context, tx *sql.Tx, key, token string,
 			return e
 		}
 	}
-	if free < cube.StorageBaseline || spent > free-cube.StorageReserve || debit > free-cube.StorageReserve-spent {
+	if free < cube.StorageBaseline || debit > free-cube.StorageReserve {
 		return cube.ErrStorageUnavailable
+	}
+	if spent > free-cube.StorageReserve || debit > free-cube.StorageReserve-spent {
+		return cube.ErrStorageReservationsBusy
 	}
 	if _, e = tx.ExecContext(ctx, `INSERT INTO cube_storage_grant(token,admission_key,granted_ns,grant_boot_id,bytes,worker_id) VALUES(?,?,?,?,?,?)`, token, key, now.NS, now.BootID, debit, s.admissionWorkerID()); e != nil {
 		return e

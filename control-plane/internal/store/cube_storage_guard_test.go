@@ -78,7 +78,7 @@ func TestStorageEpochCannotRecyclePausedCapacity(t *testing.T) {
 	for i := 0; i < 4; i++ {
 		storagePause(t, s, storageCreate(t, s, fmt.Sprint(i)))
 	}
-	if _, e := s.AdmissionBegin(context.Background(), "fifth", "", "tpl", "create", "fifth"); !errors.Is(e, cube.ErrStorageUnavailable) {
+	if _, e := s.AdmissionBegin(context.Background(), "fifth", "", "tpl", "create", "fifth"); !errors.Is(e, cube.ErrStorageReservationsBusy) {
 		t.Fatalf("CPU empty must not reset disk epoch: %v", e)
 	}
 	if storageSpent(t, s) != 4*cube.StorageGrant {

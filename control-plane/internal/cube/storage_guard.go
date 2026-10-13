@@ -23,6 +23,11 @@ const (
 
 var ErrStorageUnavailable = fmt.Errorf("%w: Cube storage observation or reserve unavailable", ErrCapacityUnavailable)
 
+// A fresh, healthy disk has room for the requested grant, but outstanding
+// reservations consume its budget. An eligible idle guest may release one;
+// stale observations and physical-space failures must never trigger eviction.
+var ErrStorageReservationsBusy = fmt.Errorf("%w: outstanding storage reservations", ErrStorageUnavailable)
+
 // StorageGuardConfig contains operator-pinned identities, never guest input.
 // Both daemon and migration CLI must use the same read-only observation path.
 // ExpectedBootID changes only through reviewed operator configuration after reboot.
