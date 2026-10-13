@@ -92,3 +92,25 @@ cannot bypass its 240-second deadline. Native task enumeration is bounded at
 30 seconds; subprocess cleanup escalates only the updater's own child.
 `test_pty_deadline.py` exercises real PTY backpressure, a departed peer, and
 a complete 4 MiB payload. All eight updater tests passed on macOS and the VPS.
+
+## Serialize maintenance with native lifecycle operations
+
+Install `lifecycle_lock.py` alongside `worker.py`. Before enabling the timer,
+provision a root-only `lifecycle-lock.json` from the local CubeMaster Redis
+configuration: `host`, `port`, `database`, `password`, and `master_url` (the
+worker-local Master HTTP origin). It must target the same Redis database as
+CubeMaster. Never commit this private file. Stop the timer and drain its service
+before replacing the scripts.
+
+Maintenance acquires CubeMaster's existing per-runtime lifecycle lock and
+rechecks that the app is running before executing anything. It waits for the
+guest command to exit before releasing the lock by its ownership token. An
+uncertain execution retains the fence without a TTL; elapsed time does not prove
+that an in-guest command exited. Each timer run observes these locks and logs
+`maintenance_recovery_required` after five minutes, with a private
+`lifecycle-health.json` report. Investigate failed executions promptly. Only
+release a retained fence after confirming that its exact guest exec has exited
+and its ownership token still matches; do not delete native lifecycle locks.
+
+This fixes the October 13 pause failure: native snapshots reject a guest with
+an active exec, which previously raced the supervisor maintenance timer.

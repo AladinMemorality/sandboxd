@@ -2,6 +2,7 @@
 """Apply the reviewed supervisor to managed idle guests as they become active."""
 import argparse, fcntl, hashlib, json, os, pathlib, pty, re, select, subprocess, time, uuid
 from guest import require_static_supervisor
+from lifecycle_lock import Redis, guarded_execute, master_running, observe_retained_locks
 P=pathlib.Path;ROOT=P('/opt/baarcha-published-runtime')
 
 def acquire_update_lock(lock, timeout=180):
@@ -39,6 +40,7 @@ def execute(cid,guest,config,binary,timeout=240):
         receipts=[line.split('RUNTIME_RECEIPT=',1)[1] for line in output.decode(errors='replace').splitlines() if line.startswith('RUNTIME_RECEIPT=')]
         if len(receipts)!=1:raise RuntimeError('missing guest receipt')
         receipt=json.loads(receipts[0]);receipt['runtime_id']=cid
+        if proc.wait(timeout=5) != 0:raise RuntimeError('guest command completion failed')
         return receipt
     finally:
         os.close(master)
@@ -60,9 +62,14 @@ def main():
             require_static_supervisor(binary)
             config=json.dumps(cfg)
         ids=[args.container] if args.container else subprocess.check_output(['ctr','--address','/data/cubelet/cubelet.sock','--namespace','default','tasks','list','-q'],stderr=subprocess.DEVNULL,text=True,timeout=30).split()
+        lifecycle=json.loads((ROOT/'lifecycle-lock.json').read_text())
+        redis=Redis(lifecycle)
+        observe_retained_locks(redis, ROOT/'lifecycle-health.json')
         for cid in ids:
             if not re.fullmatch('[a-f0-9]{32}',cid):continue
-            try:print(json.dumps(execute(cid,guest,config,binary)),flush=True)
+            try:
+                result=guarded_execute(cid,lambda:execute(cid,guest,config,binary),redis,lambda cid:master_running(cid,lifecycle['master_url']))
+                print(json.dumps(result),flush=True)
             except Exception as e:print(json.dumps({'runtime_id':cid,'status':'failed','error_type':type(e).__name__}),flush=True)
 
 if __name__=='__main__':main()
