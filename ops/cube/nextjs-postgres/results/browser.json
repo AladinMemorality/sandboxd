@@ -1,0 +1,7 @@
+{
+  "passed": true,
+  "form_saved_to_postgresql": true,
+  "persisted_after_reload": true,
+  "mobile_no_overflow": true,
+  "browser_errors": []
+}

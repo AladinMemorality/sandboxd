@@ -1,0 +1,12 @@
+version: 1
+web:
+  command: "pnpm dev"
+  port: 3000
+  health_path: "/api/health"
+  restart_after_task: true
+workers:
+  - name: postgres
+    command: "node /opt/services/postgres/worker.mjs"
+    restart_after_task: false
+build:
+  command: "pnpm build"

@@ -1,0 +1,18 @@
+{
+  "candidate_only": true,
+  "production_defaults_changed": false,
+  "pi_installed": false,
+  "agent_model_call_tested": false,
+  "platform_create_publish_remix_tested": false,
+  "temporary_preview_url": "http://localhost:3196",
+  "first_probe": {
+    "sandbox_id": "9759a13f7e7544289c7670f64f5bf9ee",
+    "result": "API health passed but first page assertion failed; this probe was retired.",
+    "deleted": true
+  },
+  "preview_helper_fixes": [
+    "Preserve localhost Origin for Next.js development WebSocket traffic",
+    "Reconnect the authenticated offline channel if the guest supervisor restarts"
+  ],
+  "timing_scope": "One successful fresh Cube instance after template registration; not a latency distribution or cold-host benchmark."
+}

@@ -1,0 +1,15 @@
+@import "tailwindcss";
+:root { color-scheme: dark; font-family: Arial, sans-serif; background: #090909; color: #eee; }
+* { box-sizing: border-box; }
+body { margin: 0; }
+main { width: min(760px, 100%); margin: 14vh auto; padding: 32px; }
+.eyebrow { color: #9a9a9a; font-size: 12px; letter-spacing: .16em; }
+h1 { font-size: clamp(36px, 6vw, 56px); letter-spacing: -.045em; line-height: 1.1; margin: 24px 0; }
+.intro { color: #aaa; font-size: 18px; line-height: 1.7; max-width: 590px; }
+section { margin-top: 48px; } label { display: block; margin-bottom: 12px; }
+.input-row { display: flex; gap: 12px; } input { flex: 1; min-width: 0; padding: 15px 18px; border: 1px solid #333; border-radius: 12px; background: #171717; color: inherit; font: inherit; }
+button { padding: 14px 22px; border: 0; border-radius: 12px; background: #eee; color: #111; font: inherit; cursor: pointer; } button:disabled { opacity: .5; cursor: default; }
+input:focus-visible, button:focus-visible { outline: 2px solid #a4c5ff; outline-offset: 4px; }
+[role=status], footer { color: #999; font-size: 13px; line-height: 1.6; margin-top: 16px; } footer { margin-top: 64px; }
+li { list-style: none; border-bottom: 1px solid #222; padding: 16px 0; overflow-wrap: anywhere; }
+@media(max-width: 480px) { main { margin-top: 7vh; padding: 24px; } .input-row { flex-direction: column; } }
