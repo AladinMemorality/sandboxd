@@ -1,0 +1,8 @@
+{
+  "name": "baarcha-pi-runtime",
+  "private": true,
+  "version": "0.1.0",
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "1.3.0"
+  }
+}

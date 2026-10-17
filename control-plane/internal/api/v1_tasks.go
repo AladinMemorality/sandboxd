@@ -157,12 +157,23 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 		agent = "opencode"
 	}
 	// Only providers runtimed can actually run as a task agent are accepted.
-	// An explicit agent is honored regardless of the default; the provider's
-	// creds are mounted at sandbox create if connected. See docs/agent-auth.md.
+	// An explicit agent is honored subject to the controller/template capability
+	// gates below. Cube model credentials remain behind the scoped relay.
 	if !agentauth.Runnable(agent) {
 		writeV1Err(w, http.StatusBadRequest, "invalid_request",
-			"unsupported agent (supported: opencode, claude-code)")
+			"unsupported task agent")
 		return
+	}
+	if agent == "pi" {
+		if !remote || len(s.CubePiTemplates) == 0 {
+			writeV1Err(w, 400, "agent_disabled", "Pi is not enabled for this controller")
+			return
+		}
+		binding, bindingErr := s.Store.GetRuntimeBinding(r.Context(), id)
+		if bindingErr != nil || !s.CubePiTemplates[binding.TemplateID] {
+			writeV1Err(w, 409, "agent_unavailable", "This sandbox template does not support Pi")
+			return
+		}
 	}
 	if req.TimeoutS < 0 {
 		writeV1Err(w, http.StatusBadRequest, "invalid_request",
@@ -221,8 +232,13 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 		req.Model = opencodeFreeModel()
 	}
 
-	if remote && agent == "claude-code" && s.CubeAgentRelayOrigin == "" {
-		writeV1Err(w, 503, "model_relay_disabled", "Cube Claude tasks require the operator-configured scoped model relay; it is currently disabled")
+	if agent == "pi" && strings.TrimSpace(req.Model) == "" {
+		writeV1Err(w, 400, "invalid_request", "Pi requires an explicit model ID or configured default")
+		return
+	}
+
+	if remote && (agent == "claude-code" || agent == "pi") && s.CubeAgentRelayOrigin == "" {
+		writeV1Err(w, 503, "model_relay_disabled", "Cube coding tasks require the operator-configured scoped model relay; it is currently disabled")
 		return
 	}
 	if remote && s.CubeAgentRelayOrigin != "" {
@@ -230,8 +246,8 @@ func (s *Server) v1SubmitTask(w http.ResponseWriter, r *http.Request) {
 			writeV1Err(w, 503, "runtime_unavailable", "Cube model credential proxy is unavailable")
 			return
 		}
-		if agent != "claude-code" {
-			writeV1Err(w, 400, "unsupported_agent", "Cube model relay currently supports claude-code only")
+		if agent != "claude-code" && agent != "pi" {
+			writeV1Err(w, 400, "unsupported_agent", "Cube model relay supports claude-code and enabled Pi templates")
 			return
 		}
 		if !validCubeBridgeToken(req.Env["BRIDGE_TOKEN"]) {

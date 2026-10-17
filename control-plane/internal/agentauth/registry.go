@@ -20,6 +20,7 @@ type Provider struct {
 var registry = []Provider{
 	{ID: "opencode", Label: "OpenCode", Binary: "opencode"},
 	{ID: "claude-code", Label: "Claude Code", Binary: "claude"},
+	{ID: "pi", Label: "Pi", Binary: "pi"},
 	{ID: "codex", Label: "Codex", Binary: "codex"},
 	// MiniMax is a credential-only provider: the owner connects a MiniMax API
 	// key here, and the auth proxy injects it for the minimax upstreams. It has
@@ -46,12 +47,13 @@ func Get(id string) (Provider, bool) {
 }
 
 // runnable is the set of providers runtimed can actually run as a task agent.
-// MUST be kept in sync with runtimed's selectAgent. All three have adapters;
+// MUST be kept in sync with runtimed's selectAgent. These have adapters;
 // codex is runnable here but parked in the UI (its ChatGPT-subscription auth
 // isn't proxyable yet), so the console hides it from the run picker.
 var runnable = map[string]bool{
 	"opencode":    true,
 	"claude-code": true,
+	"pi":          true,
 	"codex":       true,
 }
 

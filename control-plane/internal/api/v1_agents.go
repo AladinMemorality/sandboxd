@@ -36,6 +36,9 @@ func (s *Server) v1ListAgents(w http.ResponseWriter, _ *http.Request) {
 	installed := s.installedAgents()
 	out := make([]v1Agent, 0, len(agentauth.Providers()))
 	for _, p := range agentauth.Providers() {
+		if p.ID == "pi" && len(s.CubePiTemplates) == 0 {
+			continue
+		}
 		state := "unknown"
 		if installed != nil {
 			if v, ok := installed[p.Binary]; ok {
@@ -45,6 +48,9 @@ func (s *Server) v1ListAgents(w http.ResponseWriter, _ *http.Request) {
 		status, method := "needs_login", ""
 		if s.AgentAuth != nil && s.AgentAuth.Connected(p.ID) {
 			status, method = "connected", s.AgentAuth.Method(p.ID)
+		}
+		if p.ID == "pi" && s.AgentAuth != nil && s.AgentAuth.Connected("claude-code") {
+			status, method = "connected", "relay"
 		}
 		_, oauthOK := agentauth.CredentialFile(p.ID)
 		_, keyOK := agentauth.APIKeyEnv(p.ID)
@@ -85,7 +91,7 @@ func probeInstalledAgents(image string) map[string]string {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	const script = `for b in opencode claude codex; do if command -v "$b" >/dev/null 2>&1; then echo "$b=1"; else echo "$b=0"; fi; done`
+	const script = `for b in opencode claude codex pi; do if command -v "$b" >/dev/null 2>&1; then echo "$b=1"; else echo "$b=0"; fi; done`
 	out, err := exec.CommandContext(ctx, "docker", "run", "--rm", "--entrypoint", "sh", image, "-lc", script).Output()
 	if err != nil {
 		return nil

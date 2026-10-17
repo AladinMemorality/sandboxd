@@ -10,8 +10,6 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 )
 
-var errAgentInputClosed = errors.New("the agent has finished accepting messages")
-
 // claudeInput feeds the CLI's native streaming input. The CLI folds messages
 // received mid-turn into the next tool result, preserving its own transcript.
 // Its replay acknowledgement distinguishes accepted input from consumed input.

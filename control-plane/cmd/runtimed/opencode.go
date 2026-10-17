@@ -18,35 +18,6 @@ import (
 	"github.com/tastyeffectco/sandboxd/control-plane/internal/runtime"
 )
 
-// agentSpec is the input to an agent adapter run.
-type agentSpec struct {
-	input   *claudeInput // native live input, when the selected adapter supports it
-	workDir string
-	prompt  string
-	model   string // per-task model (agent CLI --model); empty = agent default
-	env     map[string]string
-	rawLog  io.Writer // the agent's own diagnostics (stderr)
-	// streamLog receives the agent CLI's raw stdout verbatim as it is read
-	// (a stampWriter turns it into the timestamped stream.jsonl transcript).
-	// nil = discard.
-	streamLog io.Writer
-	// systemPrompt is the rendered platform briefing (agentprompt.Render). Each
-	// adapter delivers it in its own supported way (claude: --append-system-prompt;
-	// opencode/codex: a preamble on the user prompt). Empty = inject nothing.
-	systemPrompt string
-	// cont continues the sandbox's most recent agent session instead of starting
-	// fresh (claude --continue, opencode --continue, codex `exec resume --last`).
-	// Each sandbox is one workspace, so "most recent" is naturally per-sandbox.
-	cont bool
-}
-
-// agent is the coding-agent adapter boundary. This slice implements
-// opencode only; claude_code / codex slot in here later.
-type agent interface {
-	name() string
-	run(ctx context.Context, spec agentSpec, emit eventSink) (finalMessage string, usage runtime.TokenUsage, err error)
-}
-
 // opencodeAgent drives `opencode run --format json`.
 type opencodeAgent struct{ log *slog.Logger }
 

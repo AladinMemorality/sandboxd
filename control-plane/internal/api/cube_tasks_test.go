@@ -92,6 +92,12 @@ func cubeRequest(s *Server, method, path, body, owner string) *httptest.Response
 }
 
 func TestCubeTaskWorkflowUsesRemoteGuestAndPersistsResults(t *testing.T) {
+	for _, agent := range []string{"opencode", "pi"} {
+		t.Run(agent, func(t *testing.T) { cubeTaskWorkflow(t, agent) })
+	}
+}
+
+func cubeTaskWorkflow(t *testing.T, agent string) {
 	var mu sync.Mutex
 	taskID := ""
 	done := false
@@ -115,6 +121,12 @@ func TestCubeTaskWorkflowUsesRemoteGuestAndPersistsResults(t *testing.T) {
 		case r.Method == "POST" && r.URL.Path == "/tasks":
 			var request runtime.StartTaskRequest
 			_ = json.NewDecoder(r.Body).Decode(&request)
+			if request.Agent != agent {
+				t.Errorf("agent changed: %q", request.Agent)
+			}
+			if agent == "pi" && (request.Env["RUNTIMED_CUBE_AGENT_TOKEN"] == "" || request.Env["RUNTIMED_CUBE_AGENT_BASE_URL"] == "" || request.Env["BRIDGE_TOKEN"] != relayTestBridge) {
+				t.Error("Pi did not receive its task-scoped relay and billing identity")
+			}
 			if request.Prompt != designskills.Prompt()+"build app" {
 				t.Error("shared design guidance missing from dispatched task")
 			}
@@ -161,7 +173,13 @@ func TestCubeTaskWorkflowUsesRemoteGuestAndPersistsResults(t *testing.T) {
 	})
 	defer once.Do(func() { close(terminal) })
 	base := "/v1/sandboxes/" + id
-	w := cubeRequest(s, "POST", base+"/tasks", `{"prompt":"build app","agent":"opencode"}`, cfgTenant)
+	if agent == "pi" {
+		s.CubePiTemplates = map[string]bool{"tpl-tasks": true}
+		s.CubeAgentRelayOrigin = "https://relay.example"
+		s.AgentProxyURL = "http://credential-proxy.example"
+	}
+	body, _ := json.Marshal(v1TaskSubmitReq{Prompt: "build app", Agent: agent, Model: "fixture-model", Env: map[string]string{"BRIDGE_TOKEN": relayTestBridge}})
+	w := cubeRequest(s, "POST", base+"/tasks", string(body), cfgTenant)
 	if w.Code != 202 {
 		t.Fatalf("submit: %d %s", w.Code, w.Body.String())
 	}

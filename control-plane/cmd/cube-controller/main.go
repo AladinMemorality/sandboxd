@@ -183,7 +183,21 @@ func run() (runErr error) {
 	if taskConcurrency > 1000 {
 		return errors.New("coding concurrency exceeds 1000")
 	}
+	piTemplates := map[string]bool{}
+	for _, id := range strings.Split(os.Getenv("SANDBOXD_CUBE_PI_TEMPLATES"), ",") {
+		if id = strings.TrimSpace(id); id != "" {
+			piTemplates[id] = true
+		}
+	}
+	agents := []string{"claude-code"}
+	if len(piTemplates) > 0 {
+		agents = append(agents, "pi")
+	}
+	if env("SANDBOXD_DEFAULT_AGENT", "claude-code") == "pi" && len(piTemplates) == 0 {
+		return errors.New("Pi default requires SANDBOXD_CUBE_PI_TEMPLATES")
+	}
 	server := &api.Server{
+		CubePiTemplates:     piTemplates,
 		CubeTaskConcurrency: taskConcurrency,
 		Store:               st, Secrets: cipher, Log: log.With("component", "api"),
 		Cube: cfg.Client, CubeAllApps: true, CubeTemplates: cfg.Templates, CubeProxyURL: cfg.ProxyURL,
@@ -217,7 +231,7 @@ func run() (runErr error) {
 		RetainedHistoryRoot: env("CUBE_RETAINED_HISTORY_ROOT", filepath.Join(dataDir, "workspaces")),
 		LogDir:              env("SANDBOXD_LOG_DIR", "/var/log/sandboxd"),
 		Instance: api.InstanceInfo{Version: buildVersion, GitCommit: buildCommit, AuthEnabled: true,
-			StorageMode: "cube", EgressMode: "reverse-proxy", AgentProviders: []string{"claude-code"},
+			StorageMode: "cube", EgressMode: "reverse-proxy", AgentProviders: agents,
 			IdleReapEnabled: true, IdleThresholdSeconds: idleSeconds},
 	}
 	if err := server.ConfigureCubeEgress(ctx, *cfg.ReverseEgress); err != nil {

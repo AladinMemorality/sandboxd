@@ -1,0 +1,5 @@
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/runtimed	16.276s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/api	16.819s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/agentauth	0.007s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/internal/authproxy	0.010s
+ok  	github.com/tastyeffectco/sandboxd/control-plane/cmd/cube-controller	0.828s

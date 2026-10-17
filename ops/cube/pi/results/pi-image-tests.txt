@@ -1,0 +1,37 @@
+=== RUN   TestPiCLIIntegrationWriteFollowupAndContinue
+--- PASS: TestPiCLIIntegrationWriteFollowupAndContinue (1.03s)
+=== RUN   TestPiCLIIntegrationCancellation
+--- PASS: TestPiCLIIntegrationCancellation (0.39s)
+=== RUN   TestPiCLIIntegrationSupervisedTask
+--- PASS: TestPiCLIIntegrationSupervisedTask (0.71s)
+=== RUN   TestPiCLIIntegrationBash
+--- PASS: TestPiCLIIntegrationBash (0.43s)
+=== RUN   TestPiStreamRetryToolsAndUsage
+--- PASS: TestPiStreamRetryToolsAndUsage (0.00s)
+=== RUN   TestPiRejectsIncompleteAndFailedStreams
+=== RUN   TestPiRejectsIncompleteAndFailedStreams/RPC_rejection
+=== RUN   TestPiRejectsIncompleteAndFailedStreams/handled_without_run
+=== RUN   TestPiRejectsIncompleteAndFailedStreams/malformed
+=== RUN   TestPiRejectsIncompleteAndFailedStreams/another_run_started
+=== RUN   TestPiRejectsIncompleteAndFailedStreams/agent_end_is_not_settled
+=== RUN   TestPiRejectsIncompleteAndFailedStreams/aborted
+=== RUN   TestPiRejectsIncompleteAndFailedStreams/output_limit
+=== RUN   TestPiRejectsIncompleteAndFailedStreams/model_failure
+--- PASS: TestPiRejectsIncompleteAndFailedStreams (0.00s)
+    --- PASS: TestPiRejectsIncompleteAndFailedStreams/RPC_rejection (0.00s)
+    --- PASS: TestPiRejectsIncompleteAndFailedStreams/handled_without_run (0.00s)
+    --- PASS: TestPiRejectsIncompleteAndFailedStreams/malformed (0.00s)
+    --- PASS: TestPiRejectsIncompleteAndFailedStreams/another_run_started (0.00s)
+    --- PASS: TestPiRejectsIncompleteAndFailedStreams/agent_end_is_not_settled (0.00s)
+    --- PASS: TestPiRejectsIncompleteAndFailedStreams/aborted (0.00s)
+    --- PASS: TestPiRejectsIncompleteAndFailedStreams/output_limit (0.00s)
+    --- PASS: TestPiRejectsIncompleteAndFailedStreams/model_failure (0.00s)
+=== RUN   TestPiFollowupMustBeConsumedBeforeCompletion
+--- PASS: TestPiFollowupMustBeConsumedBeforeCompletion (0.00s)
+=== RUN   TestPiEOFWithUnconsumedFollowupFails
+--- PASS: TestPiEOFWithUnconsumedFollowupFails (0.00s)
+=== RUN   TestPiFollowupCompletionRace
+--- PASS: TestPiFollowupCompletionRace (0.00s)
+=== RUN   TestPiRelayConfigAndCredentialIsolation
+--- PASS: TestPiRelayConfigAndCredentialIsolation (0.00s)
+PASS

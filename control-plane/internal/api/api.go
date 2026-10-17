@@ -193,6 +193,9 @@ type Server struct {
 	// control credential mounting (every connected provider is mounted); an
 	// explicit agent:"claude-code" task works regardless of this. Empty → opencode.
 	DefaultAgent string
+	// CubePiTemplates is an operator allowlist of images containing the Pi adapter and CLI.
+	// Empty disables Pi; existing templates and defaults are unaffected.
+	CubePiTemplates map[string]bool
 
 	// AgentOAuth drives the guided claude-code subscription login (authorize link
 	// → paste code → tokens) and token refresh. nil disables the OAuth endpoints.

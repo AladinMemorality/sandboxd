@@ -29,10 +29,10 @@ func agentEnv(agentName string, specEnv map[string]string) []string {
 	// HOME is left at the container default (writable, credential-free) so session
 	// state (e.g. --continue) persists without any secret on disk.
 	if proxy := os.Getenv("RUNTIMED_ANTHROPIC_PROXY"); proxy != "" {
-		base := strings.TrimRight(proxy, "/") + "/" + agentName
 		switch agentName {
-		case "claude-code":
-			overlay["ANTHROPIC_BASE_URL"] = base + "/anthropic"
+		case "claude-code", "pi":
+			// Pi shares the existing Anthropic credential slot; no Pi auth file.
+			overlay["ANTHROPIC_BASE_URL"] = strings.TrimRight(proxy, "/") + "/claude-code/anthropic"
 			overlay["ANTHROPIC_API_KEY"] = dummyKey
 		case "opencode":
 			// opencode is multi-provider; its per-provider base URLs are written to
@@ -51,7 +51,7 @@ func agentEnv(agentName string, specEnv map[string]string) []string {
 	// Cube's authenticated task relay is supplied only by the trusted task
 	// submit handler. It wins over global Docker routing and caller provider
 	// overrides. The scoped relay token is not an upstream provider credential.
-	if agentName == "claude-code" && (specEnv["RUNTIMED_CUBE_AGENT_BASE_URL"] != "" || specEnv["RUNTIMED_CUBE_AGENT_TOKEN"] != "") {
+	if (agentName == "claude-code" || agentName == "pi") && (specEnv["RUNTIMED_CUBE_AGENT_BASE_URL"] != "" || specEnv["RUNTIMED_CUBE_AGENT_TOKEN"] != "") {
 		overlay["ANTHROPIC_BASE_URL"] = specEnv["RUNTIMED_CUBE_AGENT_BASE_URL"]
 		overlay["ANTHROPIC_API_KEY"] = specEnv["RUNTIMED_CUBE_AGENT_TOKEN"]
 		for _, key := range []string{"ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY", "ANTHROPIC_CUSTOM_HEADERS"} {

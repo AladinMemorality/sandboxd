@@ -30,7 +30,7 @@ type eventSink func(evType string, data any)
 
 // task is one coding-agent run. One at a time per sandbox.
 type task struct {
-	input     *claudeInput
+	input     agentInput
 	id        string
 	prompt    string
 	agentName string
@@ -76,9 +76,11 @@ func newTask(req runtime.StartTaskRequest, tasksRoot string) (*task, error) {
 	if req.TimeoutS > 0 {
 		timeout = time.Duration(req.TimeoutS) * time.Second
 	}
-	var input *claudeInput
+	var input agentInput
 	if req.Agent == "claude-code" {
 		input = newClaudeInput()
+	} else if req.Agent == "pi" {
+		input = newPiInput()
 	}
 	return &task{
 		input: input,
@@ -191,10 +193,12 @@ func selectAgent(name string, log *slog.Logger) (agent, error) {
 		return &opencodeAgent{log: log}, nil
 	case "claude-code":
 		return &claudeCodeAgent{log: log}, nil
+	case "pi":
+		return &piAgent{log: log}, nil
 	case "codex":
 		return &codexAgent{log: log}, nil
 	}
-	return nil, fmt.Errorf("unsupported agent %q (supported: opencode, claude-code, codex)", name)
+	return nil, fmt.Errorf("unsupported agent %q (supported: opencode, claude-code, pi, codex)", name)
 }
 
 // startTask enforces one active task per sandbox and launches the run.
@@ -288,7 +292,7 @@ func (a *app) runTask(t *task) {
 	finalMsg, usage, agentErr := ag.run(ctx, agentSpec{
 		input:   t.input,
 		workDir: a.appDir, prompt: t.prompt, model: t.model, env: t.env, rawLog: rl,
-		streamLog: sl, systemPrompt: sysPrompt, cont: t.cont,
+		streamLog: sl, systemPrompt: sysPrompt, sessionDir: filepath.Join(a.runtimeDir, "pi-sessions"), cont: t.cont,
 	}, t.emit)
 	// An agent that ends its turn on a sentence about what it is about to do
 	// ("Now the Offer cards:") has not finished; it has stopped. Some models
@@ -306,7 +310,7 @@ func (a *app) runTask(t *task) {
 		finalMsg, more, agentErr = ag.run(ctx, agentSpec{
 			input:   t.input,
 			workDir: a.appDir, prompt: continuePrompt, model: t.model, env: t.env, rawLog: rl,
-			streamLog: sl, systemPrompt: sysPrompt, cont: true,
+			streamLog: sl, systemPrompt: sysPrompt, sessionDir: filepath.Join(a.runtimeDir, "pi-sessions"), cont: true,
 		}, t.emit)
 		usage = addUsage(usage, more)
 	}

@@ -282,10 +282,11 @@ func parseClaudeStreamInput(r io.Reader, emit eventSink, input *claudeInput) cla
 
 func (c *claudeCodeAgent) run(ctx context.Context, spec agentSpec, emit eventSink) (string, runtime.TokenUsage, error) {
 	var usage runtime.TokenUsage
+	input, _ := spec.input.(*claudeInput)
 	args := []string{"-p", "--output-format", "stream-json", "--verbose", "--include-partial-messages", "--dangerously-skip-permissions"}
-	if spec.input != nil {
+	if input != nil {
 		args = append(args, "--input-format", "stream-json", "--replay-user-messages")
-		defer spec.input.close()
+		defer input.close()
 	}
 	// Per-task model (claude accepts an alias like "sonnet"/"opus" or a full id).
 	if spec.model != "" {
@@ -300,7 +301,7 @@ func (c *claudeCodeAgent) run(ctx context.Context, spec agentSpec, emit eventSin
 	if spec.systemPrompt != "" {
 		args = append(args, "--append-system-prompt", spec.systemPrompt)
 	}
-	if spec.input == nil {
+	if input == nil {
 		args = append(args, spec.prompt)
 	}
 	cmd := exec.Command("claude", args...)
@@ -311,7 +312,7 @@ func (c *claudeCodeAgent) run(ctx context.Context, spec agentSpec, emit eventSin
 	cmd.Env = agentEnv(c.name(), spec.env)
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	var stdin io.WriteCloser
-	if spec.input != nil {
+	if input != nil {
 		var err error
 		stdin, err = cmd.StdinPipe()
 		if err != nil {
@@ -351,8 +352,8 @@ func (c *claudeCodeAgent) run(ctx context.Context, spec agentSpec, emit eventSin
 		}
 	}()
 	defer close(finished)
-	if spec.input != nil {
-		if err := spec.input.attach(stdin, spec.prompt); err != nil {
+	if input != nil {
+		if err := input.attach(stdin, spec.prompt); err != nil {
 			_ = syscall.Kill(-pgid, syscall.SIGTERM)
 			_ = cmd.Wait()
 			return "", usage, fmt.Errorf("start live input: %w", err)
@@ -365,7 +366,7 @@ func (c *claudeCodeAgent) run(ctx context.Context, spec agentSpec, emit eventSin
 		close(stderrDone)
 	}()
 
-	pr := parseClaudeStreamInput(teeStream(stdout, spec.streamLog), emit, spec.input)
+	pr := parseClaudeStreamInput(teeStream(stdout, spec.streamLog), emit, input)
 	waitErr := cmd.Wait()
 	<-stderrDone
 
