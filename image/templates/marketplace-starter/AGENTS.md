@@ -199,7 +199,7 @@ sits between you and the user and can act for you. Call it like:
 ## Keys and secrets
 
 An API key or any secret the app needs is declared, never written. Declare
-it in `sandbox.yaml` under `env:` and read it from the environment on the
+it in `sandbox.env.yaml` under `env:` and read it from the environment on the
 server side only:
 
     env:
@@ -241,3 +241,12 @@ context in files so a later task can continue:
 - This file carries stable facts about the stack and workflow. If you change
   them (add a router, swap the styling approach, add a test runner), update
   this file so the next session starts right instead of rediscovering it.
+
+## Shared React capabilities
+
+The image build supplies the React Pro media, Motion, scroll and Three.js helpers
+under src/components/media, src/components/motion and src/modules. See the
+Installed helpers section of REACT-HELPERS.md. Its composition/page map describes
+React Pro only; keep this marketplace’s existing pages, entry and workflows.
+The helper styles are imported from src/styles/media.css. Dependencies are
+already installed. Use only capabilities needed for the requested change.

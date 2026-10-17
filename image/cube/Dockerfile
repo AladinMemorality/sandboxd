@@ -11,6 +11,21 @@ RUN CGO_ENABLED=0 go build -trimpath -o /runtimed ./cmd/runtimed \
  && CGO_ENABLED=0 go build -trimpath -o /cube-template ./cmd/cube-template
 FROM ${BASE_IMAGE}
 USER root
+# Refresh prepared React sources AND dependencies, even when the reviewed base
+# image predates this release. Never inherit a stale node_modules tree.
+RUN rm -rf /opt/templates/react-pro /opt/templates/marketplace-starter
+COPY --chown=1000:1000 image/templates/react-pro/ /opt/templates/react-pro/
+COPY --chown=1000:1000 image/templates/marketplace-starter/ /opt/templates/marketplace-starter/
+COPY image/scripts/share-react-helpers.mjs /opt/share-react-helpers.mjs
+RUN node /opt/share-react-helpers.mjs /opt/templates \
+ && cd /opt/templates/react-pro \
+ && pnpm install --frozen-lockfile --config.package-import-method=copy \
+ && pnpm check:prepared && pnpm build \
+ && rm -rf dist *.tsbuildinfo \
+ && cd /opt/templates/marketplace-starter \
+ && pnpm install --frozen-lockfile --config.package-import-method=copy \
+ && pnpm build && rm -rf dist *.tsbuildinfo \
+ && chown -R 1000:1000 /opt/templates/react-pro /opt/templates/marketplace-starter
 # Include the reviewed tools even when BASE_IMAGE predates this tool pack.
 COPY image/agent-tools/package.json image/agent-tools/package-lock.json /opt/agent-tools/
 RUN cd /opt/agent-tools && npm ci --omit=dev --no-audit --no-fund

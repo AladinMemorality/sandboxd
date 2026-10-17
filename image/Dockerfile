@@ -148,6 +148,8 @@ RUN chmod 700 /opt/sandbox-skel
 # default react-standard) into an empty workspace/app on first boot.
 # Add a template = drop a new dir here; the registry is additive.
 COPY --chown=1000:1000 image/templates/ /opt/templates/
+COPY image/scripts/share-react-helpers.mjs /opt/share-react-helpers.mjs
+RUN node /opt/share-react-helpers.mjs /opt/templates
 
 # Optional per-project PostgreSQL uses a shared pinned worker and client. Nothing
 # starts until the project's existing sandbox.yaml workers list opts into it.
@@ -181,9 +183,11 @@ RUN for t in /opt/templates/*; do [ -d "$t" ] || continue; \
 RUN cd /opt/templates/react-standard \
  && pnpm install --config.package-import-method=copy \
  && cd /opt/templates/react-pro \
- && pnpm install --config.package-import-method=copy \
+ && pnpm install --frozen-lockfile --config.package-import-method=copy \
+ && pnpm check:prepared && pnpm build && rm -rf dist *.tsbuildinfo \
  && cd /opt/templates/marketplace-starter \
- && pnpm install --config.package-import-method=copy \
+ && pnpm install --frozen-lockfile --config.package-import-method=copy \
+ && pnpm build && rm -rf dist *.tsbuildinfo \
  && cd /opt/templates/nextjs-standard \
  && pnpm install --config.package-import-method=copy \
  && cd /opt/templates/node-express-standard \

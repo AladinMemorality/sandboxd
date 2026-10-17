@@ -1,0 +1,114 @@
+{
+  "released_on": "2026-10-10",
+  "platform_commit": "8f06795a31e1c139dd22c3e120be628bbcfaab67",
+  "activation": {
+    "deployed": true,
+    "controller_image_unchanged": true,
+    "bindings_preserved": 136,
+    "durable_budget_extended_without_resize": true,
+    "defaults": {
+      "node-postgres": "tpl-ce1ee426e686460bbc8c3bfc",
+      "react-pro": "tpl-5e1755986fe94c2fbb2c765e",
+      "marketplace": "tpl-ba37a467f3a6405fbb5d3922",
+      "react-vite": "tpl-3c4e83ebf6c641f293c0e816",
+      "nextjs": "tpl-1e84e515952f4ef996dcb546",
+      "node-express": "tpl-54737fedc9074c0f887c6ac5",
+      "fastapi": "tpl-d1d9d24fe26641f7812e1287",
+      "worker": "tpl-47a3d334cd8d4003859d7813"
+    },
+    "replacements": {
+      "react-pro": {
+        "previous_template": "tpl-98b45d63cfcc48c5b6ba9104",
+        "template_id": "tpl-5e1755986fe94c2fbb2c765e",
+        "ready_nodes": [
+          "10.0.2.15"
+        ],
+        "canary_passed": true,
+        "cpu_count": 2,
+        "memory_mb": 2048,
+        "writable_disk_mb": 10240
+      },
+      "marketplace": {
+        "previous_template": "tpl-af77de3e32d742d6946d729c",
+        "template_id": "tpl-ba37a467f3a6405fbb5d3922",
+        "ready_nodes": [
+          "10.0.2.15"
+        ],
+        "canary_passed": true,
+        "cpu_count": 2,
+        "memory_mb": 2048,
+        "writable_disk_mb": 10240
+      }
+    }
+  },
+  "native_canaries": [
+    {
+      "template_id": "tpl-5e1755986fe94c2fbb2c765e",
+      "preset": "react-pro",
+      "canary_passed": true,
+      "deleted": true,
+      "no_model_calls": true,
+      "offline": true,
+      "authenticated_broker": true
+    },
+    {
+      "template_id": "tpl-ba37a467f3a6405fbb5d3922",
+      "preset": "marketplace",
+      "canary_passed": true,
+      "deleted": true,
+      "no_model_calls": true,
+      "offline": true,
+      "authenticated_broker": true
+    }
+  ],
+  "platform_canary": {
+    "passed": true,
+    "template_revision": "2.0.0",
+    "composition": "app",
+    "normal_controller_creation": true,
+    "actual_platform_preparation": true,
+    "no_model_calls": true,
+    "deleted": true
+  },
+  "browser_cases": [
+    {
+      "composition": "marketing",
+      "width": 390,
+      "passed": true
+    },
+    {
+      "composition": "marketing",
+      "width": 1440,
+      "passed": true
+    },
+    {
+      "composition": "portfolio",
+      "width": 390,
+      "passed": true
+    },
+    {
+      "composition": "portfolio",
+      "width": 1440,
+      "passed": true
+    },
+    {
+      "composition": "app",
+      "width": 390,
+      "passed": true
+    },
+    {
+      "composition": "app",
+      "width": 1440,
+      "passed": true
+    },
+    {
+      "mediaAndEffects": "no-preference",
+      "passed": true
+    },
+    {
+      "mediaAndEffects": "reduce",
+      "passed": true
+    }
+  ],
+  "scope": "Prepared base and creation path verified; no paid coding task or corpus-wide acceptance."
+}

@@ -83,6 +83,7 @@ func (s *Server) CubeHandler(ctx context.Context) (http.Handler, error) {
 	mux.HandleFunc("GET /v1/apps/{id}", s.observe("GET /v1/apps/{id}", s.v1GetApp))
 	mux.HandleFunc("GET /v1/apps/{id}/deployment", s.observe("GET /v1/apps/{id}/deployment", s.v1ProjectDeployment))
 	mux.HandleFunc("POST /v1/apps/{id}/published-preview", s.observe("POST /v1/apps/{id}/published-preview", s.v1PublishedPreview))
+	mux.HandleFunc("GET /v1/apps/{id}/production", s.observe("GET /v1/apps/{id}/production", s.v1ProductionHosting))
 	mux.HandleFunc("POST /v1/apps/{id}/published-build", s.observe("POST /v1/apps/{id}/published-build", s.v1PublishedBuild))
 	mux.HandleFunc("PATCH /v1/apps/{id}", s.observe("PATCH /v1/apps/{id}", s.v1PatchApp))
 	mux.HandleFunc("DELETE /v1/apps/{id}", s.observe("DELETE /v1/apps/{id}", s.v1DeleteApp))

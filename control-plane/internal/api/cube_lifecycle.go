@@ -75,7 +75,7 @@ func (s *Server) guardCubeRoute(w http.ResponseWriter, r *http.Request, endpoint
 	case "POST /sandbox/{id}/keepalive":
 		// Ownership was checked above; this only stores a bounded deadline.
 		return false
-	case "POST /v1/apps/{id}/published-preview", "POST /v1/apps/{id}/published-build":
+	case "GET /v1/apps/{id}/production", "POST /v1/apps/{id}/published-preview", "POST /v1/apps/{id}/published-build":
 		// Authenticated frontend artifacts use the dedicated NVMe store and
 		// remote guest file API, never legacy host workspaces or Docker.
 		return false

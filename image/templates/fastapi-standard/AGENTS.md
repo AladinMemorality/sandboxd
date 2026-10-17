@@ -82,7 +82,7 @@ up.
 ## Keys and secrets
 
 An API key or any secret the app needs is declared, never written. Declare
-it in `sandbox.yaml` under `env:` and read it from the environment on the
+it in `sandbox.env.yaml` under `env:` and read it from the environment on the
 server side only:
 
     env:

@@ -1,0 +1,32 @@
+# Release a prepared frontend base without rebuilding the supervisor/controller.
+# BASE_IMAGE must be a pinned, credential-free reviewed Cube template image.
+# Never use a tenant snapshot. Build context is the sandboxd repository root.
+ARG BASE_IMAGE
+FROM ${BASE_IMAGE}
+USER root
+ARG RUNTIME_PRESET=react-pro
+RUN test "$RUNTIME_PRESET" = react-pro -o "$RUNTIME_PRESET" = marketplace \
+ && rm -rf /opt/templates/react-pro /opt/templates/marketplace-starter
+COPY image/templates/react-pro/ /opt/templates/react-pro/
+COPY image/templates/marketplace-starter/ /opt/templates/marketplace-starter/
+COPY image/scripts/share-react-helpers.mjs /opt/share-react-helpers.mjs
+COPY control-plane/internal/designskills/pack/ /opt/agent-skills/
+RUN node /opt/share-react-helpers.mjs /opt/templates \
+ && cd /opt/templates/react-pro \
+ && pnpm install --frozen-lockfile --config.package-import-method=copy \
+ && pnpm check:prepared && pnpm build && rm -rf dist *.tsbuildinfo \
+ && cd /opt/templates/marketplace-starter \
+ && pnpm install --frozen-lockfile --config.package-import-method=copy \
+ && pnpm build && rm -rf dist *.tsbuildinfo \
+ && for t in react-pro marketplace-starter; do \
+      mkdir -p "/opt/templates/$t/.claude/skills"; \
+      cp -R /opt/agent-skills/. "/opt/templates/$t/.claude/skills/"; \
+    done \
+ && rm -rf /home/sandbox/workspace/app \
+ && mkdir -p /home/sandbox/workspace/app \
+ && chown -R 1000:1000 /opt/templates/react-pro /opt/templates/marketplace-starter /home/sandbox/workspace/app
+USER sandbox
+ENV RUNTIMED_RUNTIME_PRESET=${RUNTIME_PRESET}
+RUN /usr/local/bin/cube-template "${RUNTIME_PRESET}"
+WORKDIR /home/sandbox/workspace
+# Inherit the reviewed Cube bootstrap, networking and runtime binaries unchanged.

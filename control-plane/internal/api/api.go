@@ -64,6 +64,8 @@ type Server struct {
 	PreviewPublicDomain string
 	PreviewGatewayKeys  map[string]string
 	PublishedRoot       string // optional NVMe-backed production frontend store
+	ProductionURL       string // private production deployment service
+	ProductionToken     string
 	Image               string
 
 	// OSS docker-native knobs (see cmd/sandboxd/main.go for env wiring):

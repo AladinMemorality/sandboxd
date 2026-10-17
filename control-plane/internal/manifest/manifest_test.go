@@ -233,3 +233,11 @@ func TestValidateWorkerRules(t *testing.T) {
 		t.Errorf("valid worker should pass: %+v", ok)
 	}
 }
+
+func TestPlatformEnvDeclarationsDoNotRejectManagedPostgres(t *testing.T) {
+	raw := []byte("version: 1\nweb:\n  command: node server.mjs\n  port: 3000\nworkers:\n  - name: postgres\n    command: node /opt/services/postgres/worker.mjs\nenv:\n  - name: GOOGLE_CLIENT_ID\n    required: false\n    hint: Google OAuth client ID\n")
+	result := Validate(raw)
+	if !result.Valid || result.Effective == nil || len(result.Effective.Workers) != 1 || result.Effective.Workers[0].Name != "postgres" {
+		t.Fatalf("platform declaration prevented worker activation: %+v", result)
+	}
+}

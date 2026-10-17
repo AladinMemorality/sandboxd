@@ -2,7 +2,7 @@
 
 React 18 + Vite 5 + TypeScript + Tailwind CSS v4, with a pre-installed
 component kit (shadcn-style, in `src/components/ui/`) and a semantic design
-token contract in `src/index.css`. Build what the task asks for inside
+token contract in `src/index.css` and `src/styles/theme.css`. Build what the task asks for inside
 `src/` by COMPOSING the kit — you should almost never write a UI primitive
 from scratch.
 
@@ -25,36 +25,19 @@ BRAIN.md. A follow-up answer should resolve its question in the same project.
 
 ## Starter map
 
-This describes the shipped template. Inspect the relevant current files before
-editing; an existing or remixed workspace may already differ:
+Read STARTER.md for the installed capabilities, selected pages and extension
+points. React Pro 2.0.0 ships complete marketing, portfolio and app compositions;
+`src/content/starter.json` selects one before coding. Adapt the relevant pages,
+`src/content/site.ts`, assets and theme to the brief. Preserve entry points,
+React Router and installed dependencies unless the actual request requires a
+change. Do not replace the entire application with a new scaffold. Existing
+projects may differ: inspect current files first. Other page sets are examples,
+not additional requested scope. Replace all example business content relevant to
+this build. A running example alone does not fulfill the user's request.
 
-- `index.html` — Vite entry, mounts `#root`, title placeholder to rename.
-- `src/main.tsx` — mounts `<App />` + the toast `<Toaster />`; leave it alone.
-- `src/App.tsx` — a "waiting" placeholder screen; replace it entirely.
-- `src/index.css` — Tailwind v4 + the design token contract (below).
-- `src/components/ui/` — the PRE-BUILT component kit: button, card, input,
-  label, textarea, select, dialog, dropdown-menu, tabs, badge, checkbox,
-  switch, slider, table, tooltip, separator, skeleton, sonner (toasts).
-  Import with `@/components/ui/<name>`; compose these before changing kit
-  files without a task-specific reason; prefer shared variants and design tokens.
-- Also preinstalled: `lucide-react` (icons), `recharts` (charts), `zod`
-  (validation), `sonner` (`import { toast } from "sonner"`), `cn()` from
-  `@/lib/utils`. Do not add another UI/icon/chart library.
-- `src/components/` (app components), `src/lib/`, `src/hooks/`,
-  `src/assets/` exist — write into them directly, no mkdir needed.
-- No router or state library. For multi-view apps, hold a view value in
-  App state and switch on it. Add a real router only if the task demands
-  deep-linkable URLs (and record it here).
-
-After understanding the scope, show a coherent shell early. Batch independent
-operations and use focused edits to existing files.
-
-The runtime supplies a current workspace inventory and component export map.
-Use it to choose relevant files for one batched inspection; do not read every
-primitive. `src/components/ui/README.md` contains the common APIs and layout
-recipe. Read implementation only for props/behavior you actually need to change.
-For React interaction checks, use `/opt/agent-tools/README.md` when the runtime
-inventory advertises it; dependencies are already installed outside this app.
+Use `src/components/ui/README.md` for the component API and STARTER.md for media,
+Motion, scroll and 3D helpers. For React interaction checks read
+`/opt/agent-tools/README.md` when the runtime inventory advertises it.
 
 ## How it runs (platform-managed, do not fight it)
 
@@ -97,7 +80,7 @@ does not justify skipping discovery or guessing unresolved decisions.
 
 ## Design foundation (use it, do not rebuild it)
 
-`src/index.css` defines the semantic token contract every kit component
+`src/index.css` maps the semantic tokens defined in `src/styles/theme.css`. This is the contract every kit component
 consumes: background/foreground, card, popover, primary, secondary, muted,
 accent, destructive, border/input/ring, radius, fonts — each with a light
 value in `:root` and a dark value in `.dark`. Retheme only the relevant semantic
@@ -189,7 +172,7 @@ sits between you and the user and can act for you. Call it like:
 ## Keys and secrets
 
 An API key or any secret the app needs is declared, never written. Declare
-it in `sandbox.yaml` under `env:` and read it from the environment on the
+it in `sandbox.env.yaml` under `env:` and read it from the environment on the
 server side only:
 
     env:

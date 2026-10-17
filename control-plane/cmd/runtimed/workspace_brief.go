@@ -16,7 +16,7 @@ import (
 func workspaceBrief(root, toolsDir string) string {
 	facts := map[string]any{}
 	paths := []string{}
-	for _, p := range []string{"AGENTS.md", "CLAUDE.md", "BRIEF.md", "BRAIN.md", "package.json", "sandbox.yaml", "src/App.tsx", "src/App.jsx", "src/main.tsx", "src/index.css", "src/components/ui/README.md", "app/page.tsx", "src/app/page.tsx", "public/media/manifest.json", ".runtime-errors.log"} {
+	for _, p := range []string{"AGENTS.md", "CLAUDE.md", "STARTER.md", "src/content/starter.json", "src/content/site.ts", "src/styles/theme.css", "BRIEF.md", "BRAIN.md", "package.json", "sandbox.yaml", "src/App.tsx", "src/App.jsx", "src/main.tsx", "src/index.css", "src/components/ui/README.md", "app/page.tsx", "src/app/page.tsx", "public/media/manifest.json", ".runtime-errors.log"} {
 		if _, ok := boundedWorkspaceFile(root, p); ok {
 			paths = append(paths, p)
 		}
@@ -29,7 +29,7 @@ func workspaceBrief(root, toolsDir string) string {
 	}
 	if content, ok := boundedWorkspaceFile(root, "package.json"); ok && json.Unmarshal(content, &pkg) == nil {
 		installed := map[string]string{}
-		for _, name := range []string{"react", "react-dom", "vite", "next", "typescript", "tailwindcss", "@tailwindcss/vite", "radix-ui", "lucide-react", "recharts", "sonner", "zod"} {
+		for _, name := range []string{"react", "react-dom", "vite", "next", "typescript", "tailwindcss", "@tailwindcss/vite", "radix-ui", "lucide-react", "recharts", "sonner", "zod", "motion", "hls.js", "gsap", "lenis", "three", "react-router-dom"} {
 			version := pkg.Dependencies[name]
 			if version == "" {
 				version = pkg.DevDependencies[name]

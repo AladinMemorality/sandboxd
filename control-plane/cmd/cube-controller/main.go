@@ -205,6 +205,8 @@ func run() (runErr error) {
 		PreviewDomain: env("PREVIEW_DOMAIN", "localhost"), PreviewURLScheme: scheme,
 		PreviewPublicDomain: os.Getenv("SANDBOXD_PREVIEW_PUBLIC_DOMAIN"),
 		PublishedRoot:       os.Getenv("SANDBOXD_PUBLISHED_ROOT"),
+		ProductionURL:       os.Getenv("HOSTING_URL"),
+		ProductionToken:     os.Getenv("HOSTING_TOKEN"),
 		PreviewGatewayKeys:  api.ParsePreviewGatewayKeys(os.Getenv("SANDBOXD_PREVIEW_GATEWAY_KEYS")),
 		PublicHTTPPort:      env("SANDBOXD_PUBLIC_HTTP_PORT", "443"), PreviewTLS: scheme == "https",
 		Inflight: activity.NewInflightExec(), Locks: idlock.New(), Live: live,

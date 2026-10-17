@@ -29,8 +29,8 @@ var nextStepLine = regexp.MustCompile(`(?i)^(now|next|then|let me|let's|i'll|i w
 // announcesNextStep reports whether an agent's final message reads as a
 // stop rather than an end: its last non-empty line either ends with a colon
 // (a heading for output that never came) or opens with a next-step phrase.
-// Short lines only; a long closing paragraph that happens to start with
-// "Now" is a report, not an announcement.
+// Inspect the last sentence too: a long paragraph can end by promising
+// another tool call. Keep the broad "Now" heuristic limited to short lines.
 func announcesNextStep(final string) bool {
 	lines := strings.Split(strings.TrimSpace(final), "\n")
 	last := ""
@@ -40,14 +40,21 @@ func announcesNextStep(final string) bool {
 			break
 		}
 	}
-	if last == "" || len(last) > 200 {
+	if last == "" {
 		return false
 	}
 	last = strings.Trim(last, "*_` ")
 	if strings.HasSuffix(last, ":") {
 		return true
 	}
-	return nextStepLine.MatchString(last)
+	if len(last) <= 200 {
+		return nextStepLine.MatchString(last)
+	}
+	// Narrow future-intent phrases at the final sentence boundary avoid
+	// classifying long reports beginning with "Now" as incomplete.
+	sentences := regexp.MustCompile(`[.!?]\s+`).Split(last, -1)
+	sentence := strings.TrimSpace(sentences[len(sentences)-1])
+	return regexp.MustCompile(`(?i)^(?:(?:actually|next|now)[, ]+)?(?:let me|i'll|i will|i'm going to|i am going to)\b`).MatchString(sentence)
 }
 
 func tail(s string, n int) string {

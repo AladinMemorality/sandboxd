@@ -9,6 +9,8 @@
     "skipLibCheck": true,
     "noEmit": true,
     "isolatedModules": true,
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
     "baseUrl": ".",
     "paths": { "@/*": ["./src/*"] }
   },

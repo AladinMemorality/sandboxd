@@ -1,10 +1,22 @@
 {
   "schema": 1,
   "slug": "react-pro",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "skills": true,
-  "name": "React Pro",
+  "name": "React Pro Base",
   "stack": "react-pro",
   "kind": "starter",
-  "description": "React + Vite + Tailwind v4 with a pre-installed shadcn-style component kit, icons and charts."
+  "description": "Prepared marketing, portfolio and app pages with shared UI, media, Motion, optional scroll and Three.js helpers.",
+  "compositions": [
+    "marketing",
+    "portfolio",
+    "app"
+  ],
+  "default_composition": "marketing",
+  "modules": [
+    "media",
+    "motion",
+    "scroll",
+    "three"
+  ]
 }

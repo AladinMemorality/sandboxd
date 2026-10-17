@@ -132,8 +132,10 @@ func (s *Server) TryServeCubePreview(w http.ResponseWriter, r *http.Request) boo
 	}
 	// The p- origin is exclusively for visitor builds. Editor s- origins always
 	// continue to the live guest. Both pass exactly the same authorization above.
-	if strings.HasPrefix(strings.ToLower(r.Host), "p-") && publication.Serve(w, r, s.PublishedRoot, id) {
-		return true
+	if strings.HasPrefix(strings.ToLower(r.Host), "p-") {
+		if s.tryProductionPreview(w, r, sb) || publication.Serve(w, r, s.PublishedRoot, id) {
+			return true
+		}
 	}
 	if s.Cube == nil || s.Secrets == nil {
 		writeErr(w, 503, "preview runtime unavailable")

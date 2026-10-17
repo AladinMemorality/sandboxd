@@ -65,7 +65,7 @@ func (s *Server) publishedSandbox(w http.ResponseWriter, r *http.Request) *store
 	w.Header().Set("Cache-Control", "private, no-store")
 	w.Header().Set("Referrer-Policy", "no-referrer")
 	id := r.PathValue("id")
-	if s.PublishedRoot == "" {
+	if s.PublishedRoot == "" && s.ProductionURL == "" {
 		writeV1Err(w, 404, "not_found", "no published build")
 		return nil
 	}
@@ -87,7 +87,12 @@ func (s *Server) v1PublishedPreview(w http.ResponseWriter, r *http.Request) {
 	if sb == nil {
 		return
 	}
-	if _, err := publication.Current(s.PublishedRoot, sb.ID); err != nil {
+	production, productionErr := s.productionActive(r.Context(), sb.AppID.String)
+	if productionErr != nil {
+		writeV1Err(w, 503, "production_unavailable", "production hosting unavailable")
+		return
+	}
+	if _, err := publication.Current(s.PublishedRoot, sb.ID); err != nil && !production {
 		writeV1Err(w, 404, "not_found", "no published build")
 		return
 	}
@@ -97,6 +102,7 @@ func (s *Server) v1PublishedPreview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	target.Host = "p-" + strings.TrimPrefix(target.Host, "s-")
+	if production { w.Header().Set("X-Baarcha-Production", "1") }
 	if sb.Visibility == "public" {
 		// Public preview requests already require no cookie. Do not make every
 		// visitor pay for a redundant capability handoff and redirect.

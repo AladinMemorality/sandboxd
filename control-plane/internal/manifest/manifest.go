@@ -108,12 +108,14 @@ var (
 	reWorkerName = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 )
 
+// env is platform key-declaration metadata, never runtime environment values.
+// Actual values arrive only through the authenticated app-config channel.
 // knownTopLevel are the keys the v1 contract understands. The set is CLOSED for
 // version 1: an unrecognized top-level key is an ERROR (forward-compat lives in the
 // version field — a new key requires a version bump). This catches the common,
 // dangerous mistakes (processes:/services:/top-level command) that otherwise parse
 // to an empty runtime and silently run the default template.
-var knownTopLevel = map[string]bool{"version": true, "web": true, "workers": true, "build": true}
+var knownTopLevel = map[string]bool{"version": true, "web": true, "workers": true, "build": true, "env": true}
 
 // Validate is the authoritative manifest validation. It never executes anything
 // and is framework-agnostic. Errors make a manifest invalid; warnings are advice.
@@ -172,7 +174,7 @@ func Validate(raw []byte) Result {
 			topLevelMistake = true
 		default:
 			if !knownTopLevel[k] {
-				res.Errors = append(res.Errors, fmt.Sprintf("unknown top-level key %q — sandbox.yaml (v1) allows: version, web, workers, build", k))
+				res.Errors = append(res.Errors, fmt.Sprintf("unknown top-level key %q — sandbox.yaml (v1) allows: version, web, workers, build, env", k))
 				topLevelMistake = true
 			}
 		}

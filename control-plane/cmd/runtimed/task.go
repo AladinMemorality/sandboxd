@@ -322,6 +322,8 @@ func (a *app) runTask(t *task) {
 		status, reason = runtime.TaskCancelled, "cancelled"
 	case agentErr != nil:
 		status, reason, errMsg = runtime.TaskFailed, "agent_error", agentErr.Error()
+	case announcesNextStep(finalMsg):
+		status, reason, errMsg = runtime.TaskFailed, "incomplete_implementation", "agent stopped with unfinished work after bounded continuations"
 	}
 
 	// 4. files changed — captured even on failure / cancel.

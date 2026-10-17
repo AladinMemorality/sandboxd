@@ -181,7 +181,7 @@ func unknownTopLevelKeys(raw []byte) []string {
 	var out []string
 	for k := range top {
 		switch k {
-		case "version", "web", "workers", "build":
+		case "version", "web", "workers", "build", "env":
 		default:
 			out = append(out, k)
 		}
